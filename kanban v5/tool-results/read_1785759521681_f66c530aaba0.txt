@@ -1,0 +1,578 @@
+     1→# WebKanban Worklog
+     2→
+     3→---
+     4→Task ID: 2
+     5→Agent: main
+     6→Task: Make track-wizard.tsx use dynamic board color instead of hardcoded cyan/purple/pink/amber
+     7→
+     8→Work Log:
+     9→- Added `boards` to store destructuring and computed `boardColor` from selected board (fallback `#00d9ff`)
+    10→- Imported `boardColorStyles` from `@/lib/utils` and computed `const bc = boardColorStyles(boardColor)`
+    11→- Header: replaced `from-purple-500 to-pink-500` gradient icon bg with `bc.gradient` inline style
+    12→- Header step indicator: replaced `bg-cyan-500/15 text-cyan-400` with `bc.bg15` / `bc.text` inline style
+    13→- Header step number border: replaced hardcoded `#00d9ff` with `bc.text`
+    14→- Header connector line: replaced hardcoded `#00d9ff30` with `bc.bg30`
+    15→- Step 0 (Name): replaced `focus:border-purple-500/50` with `onFocus`/`onBlur` using `bc.bg80`
+    16→- Step 0 hint: replaced `text-purple-400` Sparkles and label with `bc.text` inline style
+    17→- Step 1 (Instruments): replaced selected chip `bg-cyan-500/15 border-cyan-500/40 text-cyan-300 shadow-sm shadow-cyan-500/10` with `bc.bg15`/`bc.bg40`/`bc.text`/`bc.bg20` inline styles
+    18→- Step 1 custom button hover: replaced `hover:text-purple-400` with `onMouseEnter`/`onMouseLeave` using `bc.text`
+    19→- Step 1 hint: replaced `text-amber-400` with `bc.text` inline style
+    20→- Step 1 input focus: replaced `focus:border-purple-500/50` with `onFocus`/`onBlur` using `bc.bg80`
+    21→- Step 2 template chip added: replaced `bg-cyan-500/15 border-cyan-500/30 text-cyan-300` with `bc.bg15`/`bc.bg30`/`bc.text` inline styles
+    22→- Step 2 template instrument count badge: replaced `text-purple-400/60 bg-purple-500/10` with `bc.bg60`/`bc.bg15` inline styles
+    23→- Step 2 "Добавить все" link: replaced `text-cyan-500/70 hover:text-cyan-400` with `bc.bg50`/`bc.text` via inline style + mouse events
+    24→- Step 2 "Свой этап" button: replaced `text-purple-400/70 hover:text-purple-300` with `bc.bg50`/`bc.text` via inline style + mouse events
+    25→- Step 2 new stage form: replaced `border-purple-500/30` with `bc.bg30`, `from-purple-500/5 to-pink-500/5` with `bc.bgRgba(0.03)`
+    26→- Step 2 new stage form Sparkles/label: replaced `text-purple-400` with `bc.text` inline style
+    27→- Step 2 new stage form input focus: replaced `focus:border-purple-500/50` with `onFocus`/`onBlur` using `bc.bg80`
+    28→- Step 2 "Добавить этап" button: replaced `bg-purple-600 hover:bg-purple-700` with `bc.bg` + brightness filter on hover
+    29→- Step 2 expanded stage border: replaced `border-purple-500/30 shadow-lg shadow-purple-500/5` with `bc.bg30`/`bc.shadow`
+    30→- Step 2 expanded stage header: replaced `from-purple-500/10 to-pink-500/5` with `bc.bgRgba(0.08)`
+    31→- Step 2 expanded stage emoji: replaced `text-purple-300` with `bc.text` inline style
+    32→- Step 2 stage index badge: replaced `text-purple-400/60 bg-purple-500/10` with `bc.bg60`/`bc.bg15`
+    33→- Step 2 stage name label: replaced `text-purple-400/70` with `bc.bg50` inline style
+    34→- Step 2 stage name input focus: replaced `focus:border-purple-500/50` with `onFocus`/`onBlur` using `bc.bg80`
+    35→- Step 2 stage description dot: replaced `bg-purple-400/60` with `bc.bg` inline style
+    36→- Step 2 stage description label: replaced `text-purple-400/70` with `bc.bg50` inline style
+    37→- Step 2 stage description textarea: replaced `border-purple-500/15 focus:border-purple-500/40 focus:ring-purple-500/10` with `bc.bg15`/`bc.bg40`/`bc.bg15` inline styles
+    38→- Step 2 subtask section dot: replaced `bg-cyan-400/60` with `bc.bg` inline style
+    39→- Step 2 subtask section label: replaced `text-cyan-400/70` with `bc.bg50` inline style
+    40→- Step 2 "Добавить" subtask button: replaced `text-cyan-500/70 hover:text-cyan-400` with `bc.bg50`/`bc.text` via mouse events
+    41→- Step 2 subtask dot: replaced `bg-cyan-500/40` with `bc.bg60` inline style
+    42→- Step 2 subtask title focus: replaced `focus:border-cyan-500/50` with `onFocus`/`onBlur` using `bc.bg80`
+    43→- Step 2 subtask desc focus: replaced `focus:border-cyan-500/50 focus:ring-cyan-500/10` with `bc.bg80`/`bc.bg15`
+    44→- Step 2 add subtask form: replaced `border-cyan-500/30 from-cyan-500/5 to-purple-500/5` with `bc.bg30`/`bc.bgRgba(0.03)`
+    45→- Step 2 add subtask input focus: replaced `focus:border-cyan-500/50` with `onFocus`/`onBlur` using `bc.bg80`
+    46→- Step 2 "Добавить" subtask button: replaced `bg-cyan-600 hover:bg-cyan-700` with `bc.bg` + brightness filter
+    47→- Footer "Далее" button: replaced `bg-cyan-600 hover:bg-cyan-700` with `bc.bg` + brightness filter
+    48→- Footer "Создать" button: replaced `from-purple-600 to-pink-600` gradient with `bc.gradientFull`, added `bc.shadowGlow`
+    49→
+    50→Stage Summary:
+    51→- All hardcoded cyan/purple/pink/amber color references in track-wizard.tsx replaced with dynamic board color via `boardColorStyles()`
+    52→- Uses inline `style={{}}` for all dynamic colors since Tailwind cannot handle runtime values
+    53→- Hover states on buttons use `onMouseEnter`/`onMouseLeave` with brightness filter for dynamic hover effect
+    54→- Focus states on inputs/textareas use `onFocus`/`onBlur` to set borderColor dynamically
+    55→- Lint passes with zero errors
+    56→
+    57→---
+    58→Task ID: 14
+    59→Agent: main
+    60→Task: Add multi-step guide sub-steps to onboarding (track wizard + task form guidance)
+    61→
+    62→Work Log:
+    63→- Replaced flat `OnboardingHint` with `GuideStep` interface (title, description, actionText?, actionType?)
+    64→- Replaced `BOARD_HINTS` with `BOARD_ONBOARDING: Record<string, BoardOnboardingConfig>` containing guideSteps arrays
+    65→- Tracks boards (Треки/Трек): 4 guide sub-steps (overview → name → instruments → stages)
+    66→- Non-tracks boards: 2 guide sub-steps (overview → task form details)
+    67→- Extended OnboardingState: removed `activatedBoardId`, added `guideSubSteps`, `guideSubIndex`, `guideBoardType`
+    68→- Added `trackWizardStep: number` to store for wizard step synchronization
+    69→- Added `setTrackWizardStep(step)` action, resets on navigation/board change
+    70→- Created `DEFAULT_ONBOARDING` constant and `moveToNextBoard()` helper for clean state transitions
+    71→- Replaced `advanceOnboardingGuide` with `advanceGuideSubStep` that navigates within sub-steps
+    72→- Updated track-wizard.tsx: `useEffect` syncs local `step` state to `trackWizardStep` in store, resets to -1 on unmount
+    73→- Rewrote OnboardingHintPanel:
+    74→  - Sub-step progress bar (pill-style, current step is wider with board color glow)
+    75→  - Board name badge shown only on first sub-step
+    76→  - Auto-detect wizard step changes: useEffect watches `trackWizardStep`, advances guide when wizard moves ahead
+    77→  - Auto-detect wizard/form close: useEffect watches `isTrackWizardOpen`/`isCreating`, skips remaining sub-steps
+    78→  - Moved all hooks before early return to satisfy React rules-of-hooks
+    79→- Updated radial-board.tsx: guide highlight derives from `ghostBoardIds[currentIndex]` (no separate activatedBoardId)
+    80→- Verified full end-to-end flow via agent-browser:
+    81→  1. Album created → 7 ghost boards → onboarding starts
+    82→  2. 'Треки' create phase → click 'Создать' → guide phase sub-step 1/4
+    83→  3. Sub-step 1: 'Создайте первый трек' + 'Открыть конструктор трека' → click → wizard opens, auto-advances
+    84→  4. Sub-step 2: 'Название трека' → type name → click wizard 'Далее' → auto-advances to sub-step 3
+    85→  5. Sub-step 3: 'Выберите инструменты' → select instrument → click wizard 'Далее' → auto-advances to sub-step 4
+    86→  6. Sub-step 4: 'Этапы производства' → click 'Далее' → moves to next board (Дизайн)
+    87→  7. Дизайн create → guide sub-step 1/2: 'Запланируйте визуальный стиль' + 'Добавить задачу'
+    88→  8. Click 'Добавить задачу' → task form opens → auto-advances to sub-step 2/2
+    89→  9. Sub-step 2: 'Детали задачи' → click 'Далее' → moves to Дистрибуция create phase
+    90→
+    91→Stage Summary:
+    92→- Onboarding now has multi-step guide flow within each board's guide phase
+    93→- Tracks boards: 4 sub-steps that follow the track wizard (name → instruments → stages)
+    94→- Non-tracks boards: 2 sub-steps (overview + task form)
+    95→- Sub-step progress bar with pill-style indicator
+    96→- Auto-detection: hint advances when wizard step changes or wizard/form closes
+    97→- All transitions (create→guide, sub-step→sub-step, guide→next create) work smoothly
+    98→
+    99→---
+   100→Task ID: 13
+   101→Agent: main
+   102→Task: Add two-phase onboarding (create + guide) with post-creation instructions
+   103→
+   104→Work Log:
+   105→- Extended OnboardingState with `phase: 'create' | 'guide'` and `activatedBoardId: string | null`
+   106→- Updated BOARD_HINTS to include `guideTitle`, `guideDescription`, and `guideAction` for all 11 board types
+   107→- Added `advanceOnboardingGuide()` action to Zustand store
+   108→- Updated `createOnboardingBoard()` to transition to 'guide' phase instead of moving to next board
+   109→- Guide phase auto-selects the newly activated board
+   110→- Rewrote OnboardingHintPanel with two distinct phases:
+   111→  - Create phase: step counter with dots, board description, Create/Skip/Close buttons
+   112→  - Guide phase: 'Подсказка' label with pulsing dot, board badge with '✓ создана', guide title (color-pulsing), guide description, action button (glow breathing), 'Далее' button
+   113→- Guide action button: 'Открыть конструктор трека' for tracks boards, 'Добавить задачу' for others
+   114→- Added inline CSS animations for guide phase: icon pulse, text pulse, button glow, bottom glow pulse, accent pulse
+   115→- Updated RadialBoard to support guide-highlighted state:
+   116→  - `guideHighlightId` computed from onboarding state
+   117→- Added `isGuideHighlighted` to layout items
+   118→- Guide-highlighted board: pulsing glow rings (outer + inner), bright border, glow background, '✓' indicator
+   119→- Added SVG CSS classes: `.guide-highlighted`, `.guide-pulse-outer`, `.guide-pulse-inner`
+   120→- Fixed JSX comment missing closing `}` on line 148 of onboarding-hint-panel.tsx
+   121→- Verified full flow via agent-browser:
+   122→  1. Album project created → ghost boards appear dimmed
+   123→  2. First board 'Треки' highlighted with pulsing glow + hint panel 'Создать/Пропустить'
+   124→  3. Click 'Создать' → board activates, hint transitions to guide phase: 'Создайте первый трек' with 'Открыть конструктор трека' + 'Далее'
+   125→  4. Board shows ✓ checkmark, pulsing guide highlight rings
+   126→  5. Click 'Далее' → moves to next ghost board 'Дизайн' with create phase
+   127→  6. Click 'Создать' → guide phase for Дизайн: 'Запланируйте визуальный стиль' with 'Добавить задачу'
+   128→  7. Click ✕ → all hints dismissed, remaining ghost boards stay with '?'
+   129→
+   130→Stage Summary:
+   131→- Onboarding is now a two-phase flow: create board → guide (instructions on using the board)
+   132→- Each board type has contextual guide text (track constructor for tracks, task creation for others)
+   133→- Visual feedback: guide phase has distinct pulsing glow, breathing button, color-matched animations
+   134→- Board in guide phase shows ✓ indicator and enhanced glow rings in radial diagram
+   135→- All actions (Create, Skip, Guide Action, Next, Close) work correctly
+   136→
+   137→---
+   138→Task ID: 12
+   139→Agent: main
+   140→Task: Merge steps 3 and 4 of track wizard into single step with template suggestions
+   141→
+   142→Work Log:
+   143→- Removed step 2 (stage selection checkboxes) and step 3 (configuration) as separate steps
+   144→- Created merged step 2 'Этапы' with two areas:
+   145→  1. Collapsible 'Шаблоны этапов' section at top with 6 template chips (click to add/remove)
+   146→  2. 'Ваши этапы' editable list below with full editing capabilities
+   147→  3. 'Свой этап' button for manual custom stage creation
+   148→- Template chips show checkmark when added, clicking again removes the stage
+   149→- 'Добавить все' / 'Снять все' toggle for bulk template management
+   150→- Template counter 'X/6' shows how many templates are added
+   151→- Removed `selectedStages` state, `toggleStage`, `selectAllStages`, `buildEditableStages`, `goToStep3`
+   152→- Added `sourceKey` field to EditableStage to track template origin
+   153→- Added `toggleTemplate(key)`, `addAllTemplates()`, `isTemplateAdded(key)` helpers
+   154→- STEPS reduced from 4 to 3: ['Название', 'Инструменты', 'Этапы']
+   155→- Instrument-based subtasks (Запись stage) auto-sync when entering step 2
+   156→- Empty state hint when no stages added: 'Добавьте этапы из шаблонов выше или создайте свой'
+   157→- Verified via agent-browser:
+   158→  - 3-step progress indicator confirmed ✅
+   159→  - Template chips toggle on/off correctly ✅
+   160→  - Added templates appear in editable list with subtasks ✅
+   161→  - Custom stage creation works ✅
+   162→  - Track creation with mixed template + custom stages works ✅
+   163→  - All stages visible in detail panel after creation ✅
+   164→
+   165→Stage Summary:
+   166→- Track wizard reduced from 4 steps to 3 steps
+   167→- Step 3 'Этапы' combines template selection with full inline editing
+   168→- Users can add from templates, edit everything, add custom stages — all in one view
+   169→---
+   170→Task ID: 11
+   171→Agent: main
+   172→Task: Add editable step 4 (Настройка) to track wizard — edit stages, add new, edit descriptions, add subtasks with descriptions
+   173→
+   174→Work Log:
+   175→- Replaced step 3 'Обзор' (read-only preview) with step 3 'Настройка' (full editor)
+   176→- Added `EditableSubtask` and `EditableStage` interfaces with id, title, description fields
+   177→- Added state: `editableStages`, `expandedStageId`, `addingSubtaskForStage`, `newSubtaskTitle`, `newSubtaskDesc`, `newStageLabel`, `newStageDesc`, `showNewStageForm`
+   178→- Created `buildEditableStages()` which initializes editable state from selected stages + instruments when entering step 3
+   179→- Step 3 UI features:
+   180→  - Track name + instruments summary at top
+   181→  - Collapsible stage cards (click to expand/collapse)
+   182→  - Each expanded stage: editable emoji input, editable name input, editable description textarea
+   183→  - Subtask list per stage: each subtask has editable title input + editable description textarea + delete button
+   184→  - 'Добавить' button per stage to add new subtask with title + description form
+   185→  - 'Добавить этап' dashed button at bottom to create new custom stage with emoji + name + description
+   186→  - Delete stage button (trash icon) on each stage header
+   187→- Updated `handleCreate` to send `customStages` array (with emoji, label, description, subtasks with titles and descriptions) to the API
+   188→- Updated POST /api/tracks/wizard to accept `customStages` data:
+   189→  - When `customStages` provided, uses custom data instead of template lookup
+   190→  - Saves stage descriptions and subtask descriptions to the database
+   191→  - Falls back to legacy template-based creation if `customStages` not provided
+   192→- Verified end-to-end via agent-browser:
+   193→  - Step 3 shows all 6 stages as expandable cards ✅
+   194→  - Stage name editable (renamed Сонграйтинг → Мой Сонграйтинг) ✅
+   195→  - Stage description editable and persists to DB ✅
+   196→  - Subtask added with title 'Структура песни' + description ✅
+   197→  - New custom stage '💡 Препродакшн' added with description 'Подготовка перед записью' ✅
+   198→  - Track created successfully with all 7 stages and descriptions saved ✅
+   199→  - DB verification: description 'Подготовка перед записью' confirmed for custom stage ✅
+   200→
+   201→Stage Summary:
+   202→- Track wizard step 3 renamed from 'Обзор' to 'Настройка' with full editing capabilities
+   203→- Users can rename stages, edit descriptions, add/remove subtasks with descriptions
+   204→- Users can add entirely new custom stages with emoji, name, and description
+   205→- All custom data is persisted via updated API endpoint
+   206→---
+   207→Task ID: 10
+   208→Agent: main
+   209→Task: Add bottom description editor panel for subtasks/sub-projects
+   210→
+   211→Work Log:
+   212→- Added `DescriptionEditorItem` interface and `descriptionEditorItem` state to Zustand store
+   213→- Added `setDescriptionEditorItem` action, auto-clear on navigation/task/board changes
+   214→- Created `description-bottom-panel.tsx` component:
+   215→  - Header with item title, parent context, character counter
+   216→  - Textarea (2000 char limit) with auto-focus
+   217→  - Save button (appears when dirty), auto-saves on close
+   218→  - Ctrl+Enter shortcut for save, Escape to close (when not dirty)
+   219→  - Reads current description and writes changes via PUT /api/tasks
+   220→  - Reloads boardTasks after save to keep store in sync
+   221→- Updated `TaskDetailView` subtask rows: added onClick handler to open bottom panel
+   222→- Updated `TrackDetailView` grandchild rows: added onClick handler to open bottom panel
+   223→- Updated `TrackDetailView` stage title: added onDoubleClick to open bottom panel
+   224→- Restructured page.tsx layout: left column is now flex-col with RadialBoard + DescriptionBottomPanel
+   225→- Bottom panel only spans left/center area (verified: panel right edge = right panel left edge, no overlap)
+   226→- Verified end-to-end via agent-browser:
+   227→  - Click subtask → bottom panel appears with description loaded
+   228→  - Click different subtask → panel content switches
+   229→  - Edit text → save → persisted to DB
+   230→  - Close button → panel disappears
+   231→
+   232→Stage Summary:
+   233→- Bottom description editor panel at the bottom of the left/center area
+   234→- Click any subtask (TaskDetailView) or grandchild (TrackDetailView) to open
+   235→- Double-click stage title (TrackDetailView) to open
+   236→- Panel shows item title, parent context, editable textarea, save/close controls
+   237→- No overlap with right panel — layout verified at 920px panel width = right panel start
+   238→---
+   239→Task ID: 9
+   240→Agent: main
+   241→Task: Restore pulsing hint animations for user guidance (auto-boards, empty states)
+   242→
+   243→Work Log:
+   244→- Searched codebase for any remnants of previous pulsing hints feature — none found in git or code
+   245→- Identified all empty states needing pulsing hints:
+   246→  1. ProjectList empty state (0 projects)
+   247→  2. Auto-board hint boxes in project creation form (album/single)
+   248→  3. RadialBoard empty state (0 boards in project)
+   249→  4. TaskStrip empty state (no board selected)
+   250→  5. 'Новый проект' button when 0 projects
+   251→- Updated page.tsx ProjectList:
+   252→  - 'Новый проект' button: added `animate-pulse` when `projects.length === 0`
+   253→  - Empty state: replaced simple text with pulsing main block + 3 staggered hint cards:
+   254→    - Альбом card (purple, delayed 0.5s): lists 7 auto-boards
+   255→    - Сингл card (amber, delayed 1s): lists 4 auto-boards
+   256→    - Общий card (cyan, delayed 1.5s): 'доски вручную'
+   257→  - Album/single hint boxes in creation form: added `animate-pulse` + stronger border opacity
+   258→- Updated radial-board.tsx:
+   259→  - Center '+' button: added `center-pulse` class when `boards.length === 0` with custom `pulseGlow` CSS keyframe (cyan glow)
+   260→  - Empty state hint: replaced plain text with pulsing bordered box containing:
+   261→    - 'Нажмите + чтобы добавить доску задач'
+   262→    - 'Или выберите тип «Альбом» / «Сингл» при создании проекта для авто-досок'
+   263→  - Added `cn` import for conditional class
+   264→- Updated task-strip.tsx:
+   265→  - 'Выберите доску задач на диаграмме ниже': added `animate-pulse`
+   266→- Verified via agent-browser:
+   267→  - 0 projects: 5 pulsing elements confirmed (button, main text, album card, single card, general card)
+   268→  - Project form: album/single hint boxes pulse with stronger borders
+   269→  - Empty radial board: center '+' pulses with cyan glow, hint box shows auto-board suggestion
+   270→  - Task strip: 'Выберите доску' text pulses
+   271→  - All lint checks pass, zero errors
+   272→
+   273→Stage Summary:
+   274→- Pulsing hint animations added to all empty states across the app
+   275→- Users are guided toward auto-board creation (Альбом/Сингл) via prominent staggered pulse cards
+   276→- RadialBoard center '+' glows cyan when no boards exist, hint suggests auto-boards alternative
+   277→- 'Новый проект' button pulses when no projects exist to draw attention
+   278→---
+   279→Task ID: 8
+   280→Agent: main
+   281→Task: Restore lost features from July 31 session (code was reset to git commit)
+   282→
+   283→Work Log:
+   284→- Investigated user report: "исчезли версии за 31 июля"
+   285→- Found all files had identical timestamps (Aug 2 18:17:09.700) matching last git commit
+   286→- Git showed 20 commits all from July 30 — later session changes were never committed
+   287→- Confirmed lost features: descriptions on stages/subtasks, grandchild add/delete, custom stage creation (Cat icon), empty stage fix, 'Добавить трек' rename with pulse
+   288→- Updated kanban-store.ts: added `description: string | null` to TaskChild and TaskGrandchild interfaces
+   289→- Updated api/tasks/route.ts: added `description: true` to all 3 select queries (deep children, shallow children, PUT response)
+   290→- Rewrote TrackDetailView in task-detail-panel.tsx with all features:
+   291→  - EMOJI_RE regex for custom vs template stage detection
+   292→  - Cat icon for custom stages
+   293→  - MessageSquare icon for descriptions (visible if exists, hover-reveal if not)
+   294→ - Description expand/collapse/edit for both stages and subtasks (DESC_LIMIT=300)
+   295→  - Grandchild add/delete within stages
+   296→  - Stage delete button (hover reveal)
+   297→  - Empty stage shows 'Добавить' button
+   298→  - Custom stage creation with Cat icon and dashed border
+   299→  - Full-panel click to expand/collapse stages
+   300→- Updated page.tsx: renamed 'Конструктор трека' → 'Добавить трек'
+   301→- Added animate-pulse to 'Добавить трек' button when tracks board is empty
+   302→- Verified via agent-browser: all features working
+   303→
+   304→Stage Summary:
+   305→- All lost features from July 31 session fully restored
+   306→- Description CRUD works for stages and subtasks
+   307→- Grandchild add/delete within stages functional
+   308→- Custom stage creation with Cat icon working
+   309→- Button renamed and pulse animation active on empty boards
+   310→---
+   311→Task ID: 1
+   312→Agent: Main
+   313→Task: Build music band kanban with 3D honeycomb visualization
+   314→
+   315→Work Log:
+   316→- Analyzed reference image (neon wireframe honeycomb on black background)
+   317→- Designed hierarchical task model: projects (large hexagons) containing sub-tasks (smaller hexagons)
+   318→- Updated Prisma schema with parentId, isProject, hexQ, hexR fields
+   319→- Created spiral hex coordinate layout algorithm for auto-positioning
+   320→- Built API routes: GET (with parentId filter), POST (auto-assigns hex coords), PUT, DELETE
+   321→- Created Zustand store with navigation stack, zoom animations
+   322→- Built 3D honeycomb scene: hexagonal wireframe cells, connection lines, background grid, floating particles, camera zoom animation
+   323→- Built task form with project toggle, status/priority/category/assignee fields
+   324→- Built task list with hierarchy navigation
+   325→- Built main page with breadcrumb navigation, back button, status counters
+   326→- Seeded 5 projects + 8 sub-tasks as demo data
+   327→- All lint checks pass
+   328→
+   329→Stage Summary:
+   330→- Hierarchical honeycomb kanban fully functional
+   331→- Click project hex → zoom animation → shows sub-tasks as honeycomb
+   332→- Back button returns to parent level
+   333→- Neon cyan wireframe aesthetic matching reference image
+   334→- Status colors: cyan(todo), orange(in-progress), rose(review), green(done)
+   335→---
+   336→Task ID: 1
+   337→Agent: main
+   338→Task: Fix honeycomb visualization - clean outlines, zoom, pan
+   339→
+   340→Work Log:
+   341→- Read existing web-scene.tsx and identified the issue: cylinderGeometry with wireframe=true was showing triangulation lines inside hexagons
+   342→- Replaced wireframe cylinderGeometry with Line component from @react-three/drei for clean hex outlines
+   343→- Removed HexFill (shapeGeometry) and inner hex for projects to keep pure honeycomb look
+   344→- Added MapControls from drei for zoom (mouse wheel) and pan (left-click drag)
+   345→- Removed CamCtrl that was fighting with user camera control
+   346→- Removed test box and test hex that were leftover from debugging
+   347→- Created 5 sample projects and 3 sub-tasks in the database for testing
+   348→- Verified with agent-browser and VLM: clean hex outlines confirmed, no internal lines
+   349→- Verified zoom in/out works with mouse wheel
+   350→- Verified pan works with left-click drag
+   351→- Verified project click navigates into sub-tasks
+   352→- Verified back button returns to root projects
+   353→- Zero JS console errors
+   354→- Lint passes clean
+   355→
+   356→Stage Summary:
+   357→- web-scene.tsx completely rewritten with Line-based hex outlines (no wireframe/triangulation artifacts)
+   358→- MapControls provides zoom (scroll wheel, min 3 to max 40 distance) and pan (left-click drag, right-click drag)
+   359→- Clean honeycomb visual confirmed by VLM analysis of screenshots
+   360→---
+   361→Task ID: 2
+   362→Agent: main
+   363→Task: Redesign kanban board with radial layout based on reference image
+   364→
+   365→Work Log:
+   366→- Analyzed reference image: radial layout with center circle, 6 colored boards radiating outward, horizontal task strip below
+   367→- Updated Prisma schema: added Board model (id, title, color, sortOrder, projectId) + boardId on Task
+   368→- Created /api/boards route.ts with GET (by projectId), POST (create board), PUT (rename), DELETE
+   369→- Updated /api/tasks to support boardId filtering and assignment
+   370→- Rewrote Zustand store with board-centric state (projects, boards, boardTasks, selectedBoardId)
+   371→- Built RadialBoard component (SVG): center circle with project name, colored board panels at angles, dashed connection lines, progress bars, task counts, add board button
+   372→- Built TaskStrip component: horizontal scrollable task cards with status icons, cycle status on click, edit/delete buttons
+   373→- Updated TaskForm to work with boards (assigns tasks to selected board)
+   374→- Redesigned page.tsx: ProjectList (root) → ProjectView (radial + strip + right panel)
+   375→- Fixed SVG pointer events (lines blocking board clicks)
+   376→- Fixed layout to ensure task strip is always visible (flex-shrink-0, overflow-hidden)
+   377→- Created sample data: 5 projects, 4 boards (Треки/Маркетинг/Запись/Дизайн), 6 tasks
+   378→- Verified with agent browser: radial diagram renders, boards clickable, task strip shows tasks, back navigation works
+   379→
+   380→Stage Summary:
+   381→- Complete architectural redesign from honeycomb to radial board layout
+   382→- Center circle = project, radiating colored panels = task boards, bottom strip = tasks in selected board
+   383→- Right panel preserved for task editing
+   384→- Dark theme maintained throughout
+   385→---
+   386→Task ID: 3
+   387→Agent: main
+   388→Task: Dynamic board spacing - increase radius to prevent overlap as boards grow
+   389→
+   390→Work Log:
+   391→- Analyzed the fixed-radius (120px) issue: with 8+ boards, panels overlap each other
+   392→- Implemented dynamic radius formula: minRadius = (PANEL_W + PADDING) / (2 * sin(π/N)) with MIN_RADIUS=120 floor
+   393→- Made SVG viewBox dynamic (square, auto-sized to fit all boards with margin)
+   394→- Updated connection line endpoints to start from center circle edge (CENTER_R+4) and end near panel edge
+   395→- Updated add-board button to use dynamic radius for its position
+   396→- Added double-click to rename boards (inline editing via foreignObject input)
+   397→- Tested with 11 boards: viewBox expanded to 769x769, all boards rendered without overlap
+   398→- Verified with agent-browser + VLM: no overlapping panels at 4, 8, and 11 board counts
+   399→- Verified task strip still appears when clicking a board (3 tasks for Треки)
+   400→- Verified back navigation returns to project list
+   401→- Verified right panel (360px) renders correctly
+   402→- Lint passes clean, zero console errors
+   403→
+   404→Stage Summary:
+   405→- radial-board.tsx rewritten with auto-scaling orbit radius
+   406→- As boards increase, connection lines grow longer, spacing stays clean
+   407→- Tested up to 11 boards with no overlap, formula scales to any count
+   408→---
+   409→Task ID: 4
+   410→Agent: Main
+   411→Task: Move task strip to top, add task detail panel with subtasks/deadlines/progress
+   412→
+   413→Work Log:
+   414→- Moved TaskStrip from bottom to top of ProjectView (below header)
+   415→- Changed strip border from border-t to border-b
+   416→- Updated placeholder text from 'выше' to 'ниже'
+   417→- Added 'deadline' DateTime? field to Prisma Task model + db:push
+   418→- Updated Task API (GET/POST/PUT) to handle deadline field
+   419→- Updated children include to select deadline + orderBy createdAt
+   420→- Fixed board tasks API to filter parentId:null (subtasks no longer pollute board task list)
+   421→- Fixed boards API task count to exclude subtasks (where: {parentId: null})
+   422→- Updated Zustand store: Task and TaskChild interfaces include deadline: string | null
+   423→- Removed '+ Задача' button from TaskStrip header
+   424→- Moved 'Новая задача' button to top-right corner of task strip area (absolute positioned)
+   425→- Created TaskDetailPanel component replacing TaskForm in right panel:
+   426→  - Empty state: pencil icon + 'Выберите задачу' placeholder
+   427→  - Task detail view: title, description, status badge, priority dot+label, edit/delete buttons
+   428→  - Deadline date picker with overdue detection (red highlight + 'Просрочен' label)
+   429→  - Progress bar: colored bar (slate→amber→cyan→emerald) + percentage + 'X из Y подзадач'
+   430→  - Subtasks section: collapsible header with count, list items with status cycle icons
+   431→  - Each subtask: click icon to cycle status, deadline display, hover delete button
+   432→  - Add subtask inline form: title input + deadline date picker + Add/Cancel buttons
+   433→  - TaskForm (edit/create mode): all fields including deadline date picker
+   434→- Fixed radial-board.tsx lint error: replaced ref-based cursor with state-based cursorStyle
+   435→- Fixed historical data: cleared parentId from board tasks that incorrectly had project as parent
+   436→- All verified via agent-browser + VLM:
+   437→  - 'Новая задача' button confirmed in top-right corner
+   438→  - Task detail panel shows title, badges, priority, deadline, progress bar (33%), 3 subtasks with status icons and deadline
+   439→  - Subtask with deadline '15.08' shows date next to it
+   440→  - Task strip cards show mini progress bars with percentages
+   441→
+   442→Stage Summary:
+   443→- Task strip relocated to top of page, 'Новая задача' in top-right
+   444→- Right panel is now a full task detail viewer with subtasks, deadlines, progress bar
+   445→- Subtasks, deadlines, and visual progress percentage all working end-to-end
+   446→---
+   447→Task ID: 5
+   448→Agent: main
+   449→Task: Make deadline setting more interactive (calendar popover + presets + urgency badges)
+   450→
+   451→Work Log:
+   452→- Created DeadlinePicker component (src/components/kanban/deadline-picker.tsx):
+   453→  - Popover-based calendar using shadcn Calendar + Popover
+   454→  - 6 quick preset buttons: Сегодня, Завтра, Через 3 дня, Через неделю, Через 2 недели, Конец месяца
+   455→  - Custom DayButton with cyan selection highlight, today ring, disabled past dates
+   456→  - Russian month/weekday labels (янв, фев, Пн, Вт...)
+   457→  - Urgency color system: overdue(red/pulse), urgent(amber/flame), soon(cyan), ok(default)
+   458→  - DeadlineDisplay: date + urgency badge with icon (AlertTriangle, Flame, Clock)
+   459→  - DeadlinePlaceholder: grey calendar icon + 'Дедлайн' text, hover highlights
+   460→  - DeadlineTimeInfo: footer text (Осталось X дн., Просрочен на X дн., Завершено)
+   461→  - InlineDeadlineButton: compact button for subtask rows (+дедлайн or date badge)
+   462→  - Clear deadline (Сбросить) button in footer
+   463→- Updated TaskDetailView in task-detail-panel.tsx:
+   464→  - Main task deadline: replaced <Input type="date"> with DeadlinePicker
+   465→  - Subtask add form: replaced date input with DeadlinePicker
+   466→  - Subtask inline deadline: each subtask row has clickable deadline picker for inline editing
+   467→- Updated TaskForm (create/edit mode): replaced date input with DeadlinePicker
+   468→- Removed unused CalendarDays import from task-detail-panel.tsx
+   469→- Fixed lint error (multiline string literal in DayButton className)
+   470→- Verified end-to-end via agent-browser + VLM:
+   471→  - Popover opens with 6 preset buttons + calendar grid
+   472→  - Clicking 'Через неделю' sets deadline to '06 авг' with cyan '7д' badge
+   473→  - Subtask deadline set to 'Завтра' shows '31 июл' with amber urgency badge (1d left)
+   474→  - Task strip shows '📅 06.08' confirming DB persistence
+   475→  - All 3 deadline contexts (task detail, subtask add, task form) use interactive picker
+   476→
+   477→Stage Summary:
+   478→- Replaced all plain date inputs with interactive DeadlinePicker component
+   479→- Features: calendar popover, 6 quick presets, urgency badges, time-remaining display, clear button
+   480→- Inline deadline editing for subtasks, deadline persists to database
+   481→- Visual urgency: overdue(red pulse), urgent(amber flame), soon(cyan), done(green check)
+   482→---
+   483→Task ID: 6
+   484→Agent: main
+   485→Task: Add album boards constructor + track wizard with 3-level task hierarchy
+   486→
+   487→Work Log:
+   488→- Read uploaded document 'album and track constructor.docx' for requirements
+   489→- Updated Prisma schema: added `boardType` (default 'general') to Board, `projectType` (default 'general') and `trackConfig` (JSON) to Task
+   490→- Created POST /api/tracks/wizard API: 6 stage templates (Сонграйтинг, Аранжировка, Запись, Редактура, Сведение, Мастеринг), instrument-based subtask generation for Запись stage, 11 default instruments
+   491→- Extended GET /api/tasks with `?deep=true` for 2-level nested children (track→stage→subtask)
+   492→- Updated POST /api/boards to support `createAlbumDefaults` flag that auto-creates 7 boards (Треки, Дизайн, Дистрибуция, Маркетинг, Сведение, Мастеринг, Референсы) with `boardType: 'tracks'` for Треки board
+   493→- Created TrackWizard component: 4-step wizard (Название→Инструменты→Этапы→Обзор) with progress indicator, instrument multi-select chips (11 presets + custom), stage checkboxes with task count hints, preview of generated structure, purple-pink gradient create button
+   494→- Updated Zustand store: added `isTrackWizardOpen`, `getSelectedBoard()`, `TaskGrandchild` type, `boardType` on Board, `projectType`/`trackConfig` on Task
+   495→- Updated ProjectList: type selector (Общий/Альбом), album hint text explaining auto-boards
+   496→- Updated page.tsx: 'Конструктор трека' button (purple gradient) for tracks boards, regular 'Новая задача' for other boards
+   497→- Updated task-strip: deep loading (`?deep=true`) for tracks boards, purple progress bars for tracks
+   498→- Created TrackDetailView: 3-level hierarchy display (track→stages→subtasks), per-stage mini progress bars, instrument chips, overall progress
+   499→- Verified end-to-end: album creation → 7 default boards → track wizard → 3-level task generation → detail view with collapsible stages
+   500→
+   501→Stage Summary:
+   502→- Album projects auto-create 7 boards including special 'Треки' board with track constructor
+   503→- Track wizard generates dynamic 3-level task hierarchy based on instrument and stage selection
+   504→- Запись stage creates instrument-specific subtasks, other stages use predefined defaults
+   505→- Each stage in detail view has own mini progress bar and collapsible grandchildren
+   506→- Visual distinction: purple gradient for track-related UI, cyan for regular tasks
+   507→---
+   508→Task ID: 7
+   509→Agent: main
+   510→Task: Add auto-board for single (сингл) project type
+   511→
+   512→Work Log:
+   513→- Added SINGLE_DEFAULT_BOARDS constant to /api/boards/route.ts: Трек (tracks), Обложка, Публикация, Продвижение (4 boards)
+   514→- Extended POST /api/boards to handle createSingleDefaults flag, creating all 4 default boards
+   515→- Updated ProjectList in page.tsx: added 'Сингл' type selector button with AudioLines icon and amber color scheme
+   516→- Added amber-tinted hint box explaining auto-created boards for single type
+   517→- Updated handleCreate to call createSingleDefaults when projectType === 'single'
+   518→- Updated project card display: amber gradient icon, AudioLines icon, 'Сингл' badge
+   519→- Fixed SVG board title truncation from 10→13 chars to prevent 'Продвижение' being cut off
+   520→- Lint passes clean, no errors
+   521→
+   522→Stage Summary:
+   523→- Single projects now auto-create 4 boards (Трек, Обложка, Публикация, Продвижение)
+   524→- Трек board has boardType 'tracks' enabling the track constructor wizard
+   525→- Visual theme: amber/orange for single type, purple for album type
+   526→- All 3 project types (Общий, Альбом, Сингл) working with distinct icons and colors
+   527→---
+   528→Task ID: 1
+   529→Agent: main
+   530→Task: Implement onboarding/tutorial system for album and single projects with auto-boards
+   531→
+   532→Work Log:
+   533→- Added `isGhost` boolean field to Board model in Prisma schema
+   534→- Ran `prisma db push` to migrate database and regenerate Prisma client
+   535→- Updated boards API (POST) to create album/single default boards as ghosts (isGhost: true)
+   536→- Added PUT handler with `activateGhost` flag to set isGhost: false
+   537→- Added `OnboardingHint`, `BOARD_HINTS` types and constants to kanban-store.ts
+   538→- Added `OnboardingState` interface and onboarding actions: `startOnboarding`, `createOnboardingBoard`, `skipOnboardingBoard`, `dismissOnboarding`
+   539→- Added onboarding state reset in `selectProject` and `navigateBack`
+   540→- Added guard in `startOnboarding` to prevent duplicate initialization
+   541→- Created `OnboardingHintPanel` component with animated hint panel (step counter, dots, board description, Create/Skip/Close buttons)
+   542→- Updated `RadialBoard` component to render ghost boards with dim opacity, highlighted ghost boards with pulsing glow animation, and "Призрак" labels
+   543→- Added `handleGhostClick` to activate ghost boards by clicking them outside of onboarding
+   544→- Updated `page.tsx` ProjectView to initialize onboarding when ghost boards are detected (with useRef guard to prevent re-initialization)
+   545→- Added OnboardingHintPanel overlay in the radial board area
+   546→- Fixed race condition where multiple `loadBoards` calls were re-triggering onboarding (used useRef to track initialization per project)
+   547→
+   548→Stage Summary:
+   549→- Full onboarding flow implemented for album (7 boards) and single (4 boards) projects
+   550→- Ghost boards appear dimmed around the radial circle, current onboarding target pulses with glow
+   551→- Hint panel shows step counter, board name, description, Create/Skip/Close buttons
+   552→- "Создать" activates the current ghost board and advances to next
+   553→- "Пропустить" skips the current board (stays ghost) and advances
+   554→- X (close) dismisses onboarding entirely, ghost boards remain clickable to activate later
+   555→- Verified end-to-end with agent browser for both album and single project types
+   556→
+   557→
+   558→---
+   559→Task ID: 14
+   560→Agent: main
+   561→Task: Theme task form and top button by board color; add color picker to board creation
+   562→
+   563→Work Log:
+   564→- Added BOARD_COLORS constant (8 colors) to page.tsx
+   565→- Added color picker (colored circles) to manual board creation form with selected state glow
+   566→- Top-right "Новая задача" button now uses selected board's color via inline style
+   567→- Modified TaskForm in task-detail-panel.tsx (the actual rendered form) to accept boardColor prop
+   568→- Themed form heading, save button, and input focus borders to use board color
+   569→- Fixed issue where task-form.tsx was a dead component (unused); the real form is inline in task-detail-panel.tsx
+   570→- Fixed color prop passing: parent TaskDetailPanel computes boardColor from store and passes to TaskForm
+   571→
+   572→Stage Summary:
+   573→- Board creation form shows 8 color swatches with glow on selected
+   574→- Created boards save with chosen color
+   575→- Task form header, save button, and input focus borders all match selected board color
+   576→- Top-right action button (Новая задача / Новый трек) matches board color
+   577→- Verified: Test Board (#ff3366) correctly themes all elements
+   578→

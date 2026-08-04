@@ -1,0 +1,637 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from 'react';
+     4→     4→import { useKanbanStore, Task, TaskStatus, TaskPriority, TaskCategory, TaskChild } from '@/store/kanban-store';
+     5→     5→import { Button } from '@/components/ui/button';
+     6→     6→import { Input } from '@/components/ui/input';
+     7→     7→import { Textarea } from '@/components/ui/textarea';
+     8→     8→import { Label } from '@/components/ui/label';
+     9→     9→import {
+    10→    10→  Select,
+    11→    11→  SelectContent,
+    12→    12→  SelectItem,
+    13→    13→  SelectTrigger,
+    14→    14→  SelectValue,
+    15→    15→} from '@/components/ui/select';
+    16→    16→import {
+    17→    17→  Check, Circle, Clock, Eye, Plus, Trash2, Pencil,
+    18→    18→  CalendarDays, ChevronDown, ChevronUp, X, Save,
+    19→    19→} from 'lucide-react';
+    20→    20→
+    21→    21→const STATUSES: { value: TaskStatus; label: string; color: string }[] = [
+    22→    22→  { value: 'todo', label: 'К выполнению', color: 'text-cyan-400' },
+    23→    23→  { value: 'in-progress', label: 'В работе', color: 'text-orange-400' },
+    24→    24→  { value: 'review', label: 'На проверке', color: 'text-rose-400' },
+    25→    25→  { value: 'done', label: 'Готово', color: 'text-emerald-400' },
+    26→    26→];
+    27→    27→
+    28→    28→const PRIORITIES: { value: TaskPriority; label: string; dot: string }[] = [
+    29→    29→  { value: 'low', label: 'Низкий', dot: 'bg-slate-500' },
+    30→    30→  { value: 'medium', label: 'Средний', dot: 'bg-amber-500' },
+    31→    31→  { value: 'high', label: 'Высокий', dot: 'bg-rose-500' },
+    32→    32→];
+    33→    33→
+    34→    34→const CATEGORIES: { value: TaskCategory; label: string }[] = [
+    35→    35→  { value: 'rehearsal', label: '🎤 Репетиция' },
+    36→    36→  { value: 'recording', label: '🎵 Запись' },
+    37→    37→  { value: 'performance', label: '🎪 Выступление' },
+    38→    38→  { value: 'marketing', label: '📢 Маркетинг' },
+    39→    39→  { value: 'social', label: '📱 Соцсети' },
+    40→    40→  { value: 'general', label: '📋 Общее' },
+    41→    41→];
+    42→    42→
+    43→    43→const SUBTASK_STATUS_ICON: Record<string, typeof Circle> = {
+    44→    44→  'todo': Circle,
+    45→    45→  'in-progress': Clock,
+    46→    46→  'review': Eye,
+    47→    47→  'done': Check,
+    48→    48→};
+    49→    49→
+    50→    50→const SUBTASK_STATUS_COLOR: Record<string, string> = {
+    51→    51→  'todo': 'text-slate-500',
+    52→    52→  'in-progress': 'text-orange-400',
+    53→    53→  'review': 'text-rose-400',
+    54→    54→  'done': 'text-emerald-400',
+    55→    55→};
+    56→    56→
+    57→    57→export default function TaskDetailPanel() {
+    58→    58→  const {
+    59→    59→    boardTasks, selectedTaskId, setBoardTasks,
+    60→    60→    selectedBoardId, boards, selectedProjectId,
+    61→    61→    editingTask, isCreating, setEditingTask, setIsCreating,
+    62→    62→    setSelectedTaskId,
+    63→    63→  } = useKanbanStore();
+    64→    64→
+    65→    65→  const selectedTask = boardTasks.find(t => t.id === selectedTaskId);
+    66→    66→  const selectedBoard = boards.find(b => b.id === selectedBoardId);
+    67→    67→
+    68→    68→  // If creating new task
+    69→    69→  if (isCreating) {
+    70→    70→    return <TaskForm mode="create" />;
+    71→    71→  }
+    72→    72→
+    73→    73→  // If editing existing task
+    74→    74→  if (editingTask) {
+    75→    75→    return <TaskForm mode="edit" task={editingTask} />;
+    76→    76→  }
+    77→    77→
+    78→    78→  // No task selected
+    79→    79→  if (!selectedTask) {
+    80→    80→    return (
+    81→    81→      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+    82→    82→        <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800/50 flex items-center justify-center mb-3">
+    83→    83→          <Pencil className="w-5 h-5 text-slate-700" />
+    84→    84→        </div>
+    85→    85→        <p className="text-xs text-slate-600 leading-relaxed">
+    86→    86→          Выберите задачу в панели<br />сверху для просмотра и редактирования
+    87→    87→        </p>
+    88→    88→      </div>
+    89→    89→    );
+    90→    90→  }
+    91→    91→
+    92→    92→  // Task selected — show detail
+    93→    93→  return <TaskDetailView task={selectedTask} board={selectedBoard} />;
+    94→    94→}
+    95→    95→
+    96→    96→function TaskDetailView({ task, board }: { task: Task; board?: { title: string; color: string } }) {
+    97→    97→  const { setBoardTasks, selectedBoardId, selectedProjectId, setEditingTask, setSelectedTaskId } = useKanbanStore();
+    98→    98→  const [subtasks, setSubtasks] = useState<TaskChild[]>(task.children || []);
+    99→    99→  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+   100→   100→  const [newSubtaskDeadline, setNewSubtaskDeadline] = useState('');
+   101→   101→  const [addingSubtask, setAddingSubtask] = useState(false);
+   102→   102→  const [expandedSubtasks, setExpandedSubtasks] = useState(true);
+   103→   103→
+   104→   104→  const progress = getProgress(subtasks);
+   105→   105→  const progressColor = progress === 100 ? 'bg-emerald-500' : progress > 50 ? 'bg-cyan-500' : progress > 0 ? 'bg-amber-500' : 'bg-slate-700';
+   106→   106→
+   107→   107→  const reloadTasks = useCallback(async () => {
+   108→   108→    if (!selectedBoardId) return;
+   109→   109→    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   110→   110→    const data = await res.json();
+   111→   111→    setBoardTasks(data.tasks);
+   112→   112→    // Also update local subtasks from reloaded data
+   113→   113→    const updated = data.tasks.find((t: Task) => t.id === task.id);
+   114→   114→    if (updated) setSubtasks(updated.children || []);
+   115→   115→  }, [selectedBoardId, setBoardTasks, task.id]);
+   116→   116→
+   117→   117→  const cycleSubtaskStatus = async (e: React.MouseEvent, subtaskId: string) => {
+   118→   118→    e.stopPropagation();
+   119→   119→    const order: TaskStatus[] = ['todo', 'in-progress', 'review', 'done'];
+   120→   120→    const sub = subtasks.find(s => s.id === subtaskId);
+   121→   121→    if (!sub) return;
+   122→   122→    const idx = order.indexOf(sub.status as TaskStatus);
+   123→   123→    const next = order[(idx + 1) % order.length];
+   124→   124→    await fetch('/api/tasks', {
+   125→   125→      method: 'PUT',
+   126→   126→      headers: { 'Content-Type': 'application/json' },
+   127→   127→      body: JSON.stringify({ id: subtaskId, status: next }),
+   128→   128→    });
+   129→   129→    await reloadTasks();
+   130→   130→  };
+   131→   131→
+   132→   132→  const deleteSubtask = async (e: React.MouseEvent, subtaskId: string) => {
+   133→   133→    e.stopPropagation();
+   134→   134→    await fetch(`/api/tasks?id=${subtaskId}`, { method: 'DELETE' });
+   135→   135→    await reloadTasks();
+   136→   136→  };
+   137→   137→
+   138→   138→  const addSubtask = async () => {
+   139→   139→    if (!newSubtaskTitle.trim()) return;
+   140→   140→    await fetch('/api/tasks', {
+   141→   141→      method: 'POST',
+   142→   142→      headers: { 'Content-Type': 'application/json' },
+   143→   143→      body: JSON.stringify({
+   144→   144→        title: newSubtaskTitle.trim(),
+   145→   145→        parentId: task.id,
+   146→   146→        status: 'todo',
+   147→   147→        ...(newSubtaskDeadline ? { deadline: newSubtaskDeadline } : {}),
+   148→   148→      }),
+   149→   149→    });
+   150→   150→    setNewSubtaskTitle('');
+   151→   151→    setNewSubtaskDeadline('');
+   152→   152→    setAddingSubtask(false);
+   153→   153→    await reloadTasks();
+   154→   154→  };
+   155→   155→
+   156→   156→  const updateTaskDeadline = async (deadline: string) => {
+   157→   157→    await fetch('/api/tasks', {
+   158→   158→      method: 'PUT',
+   159→   159→      headers: { 'Content-Type': 'application/json' },
+   160→   160→      body: JSON.stringify({ id: task.id, deadline: deadline || null }),
+   161→   161→    });
+   162→   162→    await reloadTasks();
+   163→   163→  };
+   164→   164→
+   165→   165→  const handleDeleteTask = async () => {
+   166→   166→    await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   167→   167→    setSelectedTaskId(null);
+   168→   168→    if (selectedBoardId) {
+   169→   169→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   170→   170→      const data = await res.json();
+   171→   171→      setBoardTasks(data.tasks);
+   172→   172→    }
+   173→   173→  };
+   174→   174→
+   175→   175→  return (
+   176→   176→    <div className="flex-1 overflow-y-auto">
+   177→   177→      {/* Header with board badge + status + actions */}
+   178→   178→      <div className="border-b border-slate-800/50 p-4">
+   179→   179→        <div className="flex items-center gap-1.5 mb-2.5">
+   180→   180→          {board && (
+   181→   181→            <span
+   182→   182→              className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium"
+   183→   183→              style={{ color: board.color, backgroundColor: board.color + '15' }}
+   184→   184→            >
+   185→   185→              {board.title}
+   186→   186→            </span>
+   187→   187→          )}
+   188→   188→          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+   189→   189→            task.status === 'todo' ? 'text-cyan-400 bg-cyan-500/10' :
+   190→   190→            task.status === 'in-progress' ? 'text-orange-400 bg-orange-500/10' :
+   191→   191→            task.status === 'review' ? 'text-rose-400 bg-rose-500/10' :
+   192→   192→            'text-emerald-400 bg-emerald-500/10'
+   193→   193→          }`}>
+   194→   194→            {STATUSES.find(s => s.value === task.status)?.label || task.status}
+   195→   195→          </span>
+   196→   196→          <div className="flex-1" />
+   197→   197→          <button
+   198→   198→            onClick={() => setEditingTask(task)}
+   199→   199→            className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+   200→   200→          >
+   201→   201→            <Pencil className="w-3.5 h-3.5" />
+   202→   202→          </button>
+   203→   203→          <button
+   204→   204→            onClick={handleDeleteTask}
+   205→   205→            className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors"
+   206→   206→          >
+   207→   207→            <Trash2 className="w-3.5 h-3.5" />
+   208→   208→          </button>
+   209→   209→        </div>
+   210→   210→
+   211→   211→        <h3 className={`text-sm font-semibold leading-tight mb-1 ${task.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-100'}`}>
+   212→   212→          {task.title}
+   213→   213→        </h3>
+   214→   214→
+   215→   215→        {task.description && (
+   216→   216→          <p className="text-[11px] text-slate-400 leading-relaxed mb-2">{task.description}</p>
+   217→   217→        )}
+   218→   218→
+   219→   219→        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+   220→   220→          {task.assignee && <span>👤 {task.assignee}</span>}
+   221→   221→          <span className={`flex items-center gap-1 ${
+   222→   222→            task.priority === 'high' ? 'text-rose-400' :
+   223→   223→            task.priority === 'medium' ? 'text-amber-400' : 'text-slate-500'
+   224→   224→          }`}>
+   225→   225→            {task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '⚪'}
+   226→   226→            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
+   227→   227→          </span>
+   228→   228→        </div>
+   229→   229→      </div>
+   230→   230→
+   231→   231→      {/* Deadline */}
+   232→   232→      <div className="border-b border-slate-800/30 px-4 py-3">
+   233→   233→        <div className="flex items-center gap-2">
+   234→   234→          <CalendarDays className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+   235→   235→          <span className="text-[11px] text-slate-500 flex-shrink-0">Дедлайн:</span>
+   236→   236→          <Input
+   237→   237→            type="date"
+   238→   238→            value={task.deadline ? toLocalDateStr(task.deadline) : ''}
+   239→   239→            onChange={(e) => updateTaskDeadline(e.target.value)}
+   240→   240→            className={`h-6 text-[11px] bg-transparent border-slate-700/50 focus:border-cyan-500/50 text-slate-300 px-1.5 ${
+   241→   241→              task.deadline && isOverdue(task.deadline) && task.status !== 'done' ? 'border-rose-500/50 text-rose-400' : ''
+   242→   242→            }`}
+   243→   243→          />
+   244→   244→          {task.deadline && isOverdue(task.deadline) && task.status !== 'done' && (
+   245→   245→            <span className="text-[9px] text-rose-400 font-medium">Просрочен</span>
+   246→   246→          )}
+   247→   247→        </div>
+   248→   248→      </div>
+   249→   249→
+   250→   250→      {/* Progress bar */}
+   251→   251→      {subtasks.length > 0 && (
+   252→   252→        <div className="border-b border-slate-800/30 px-4 py-3">
+   253→   253→          <div className="flex items-center justify-between mb-1.5">
+   254→   254→            <span className="text-[11px] text-slate-400 font-medium">Прогресс</span>
+   255→   255→            <span className={`text-[11px] font-bold ${progressColor === 'bg-emerald-500' ? 'text-emerald-400' : progressColor === 'bg-cyan-500' ? 'text-cyan-400' : progressColor === 'bg-amber-500' ? 'text-amber-400' : 'text-slate-600'}`}>
+   256→   256→              {progress}%
+   257→   257→            </span>
+   258→   258→          </div>
+   259→   259→          <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+   260→   260→            <div
+   261→   261→              className={`h-full rounded-full transition-all duration-700 ease-out ${progressColor}`}
+   262→   262→              style={{ width: `${progress}%` }}
+   263→   263→            />
+   264→   264→            {progress > 0 && progress < 100 && (
+   265→   265→              <div
+   266→   266→                className="absolute inset-0 rounded-full animate-pulse opacity-20"
+   267→   267→                style={{
+   268→   268→                  background: `linear-gradient(90deg, transparent, ${progressColor === 'bg-cyan-500' ? '#00d9ff' : progressColor === 'bg-amber-500' ? '#f59e0b' : '#10b981'}, transparent)`,
+   269→   269→                }}
+   270→   270→              />
+   271→   271→            )}
+   272→   272→          </div>
+   273→   273→          <div className="flex items-center justify-between mt-1">
+   274→   274→            <span className="text-[9px] text-slate-600">{subtasks.filter(s => s.status === 'done').length} из {subtasks.length} подзадач</span>
+   275→   275→            {progress === 100 && (
+   276→   276→              <span className="text-[9px] text-emerald-400 font-medium">✓ Завершено</span>
+   277→   277→            )}
+   278→   278→          </div>
+   279→   279→        </div>
+   280→   280→      )}
+   281→   281→
+   282→   282→      {/* Subtasks section */}
+   283→   283→      <div className="px-4 py-3">
+   284→   284→        <button
+   285→   285→          onClick={() => setExpandedSubtasks(!expandedSubtasks)}
+   286→   286→          className="flex items-center gap-1.5 mb-2 group w-full text-left"
+   287→   287→        >
+   288→   288→          {expandedSubtasks ? (
+   289→   289→            <ChevronUp className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+   290→   290→          ) : (
+   291→   291→            <ChevronDown className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+   292→   292→          )}
+   293→   293→          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+   294→   294→            Подзадачи
+   295→   295→          </span>
+   296→   296→          {subtasks.length > 0 && (
+   297→   297→            <span className="text-[9px] text-slate-600 bg-slate-800/50 px-1.5 py-0.5 rounded ml-1">{subtasks.length}</span>
+   298→   298→          )}
+   299→   299→        </button>
+   300→   300→
+   301→   301→        {expandedSubtasks && (
+   302→   302→          <div className="space-y-1.5">
+   303→   303→            {subtasks.length === 0 && !addingSubtask && (
+   304→   304→              <p className="text-[10px] text-slate-600 py-2 text-center">Нет подзадач</p>
+   305→   305→            )}
+   306→   306→
+   307→   307→            {subtasks.map((sub) => {
+   308→   308→              const Icon = SUBTASK_STATUS_ICON[sub.status] || Circle;
+   309→   309→              return (
+   310→   310→                <div
+   311→   311→                  key={sub.id}
+   312→   312→                  className="group/sub flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-900/80 transition-colors"
+   313→   313→                >
+   314→   314→                  <button
+   315→   315→                    onClick={(e) => cycleSubtaskStatus(e, sub.id)}
+   316→   316→                    className={`flex-shrink-0 transition-opacity hover:opacity-70 ${SUBTASK_STATUS_COLOR[sub.status] || 'text-slate-500'}`}
+   317→   317→                  >
+   318→   318→                    <Icon className="w-3.5 h-3.5" />
+   319→   319→                  </button>
+   320→   320→                  <span className={`flex-1 text-[11px] leading-tight min-w-0 ${
+   321→   321→                    sub.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-300'
+   322→   322→                  }`}>
+   323→   323→                    {sub.title}
+   324→   324→                  </span>
+   325→   325→                  {sub.deadline && (
+   326→   326→                    <span className={`text-[9px] flex-shrink-0 ${
+   327→   327→                      isOverdue(sub.deadline) && sub.status !== 'done' ? 'text-rose-400' : 'text-slate-600'
+   328→   328→                    }`}>
+   329→   329→                      {formatDate(sub.deadline)}
+   330→   330→                    </span>
+   331→   331→                  )}
+   332→   332→                  <button
+   333→   333→                    onClick={(e) => deleteSubtask(e, sub.id)}
+   334→   334→                    className="p-0.5 rounded opacity-0 group-hover/sub:opacity-100 hover:bg-slate-800 text-slate-600 hover:text-rose-400 transition-all flex-shrink-0"
+   335→   335→                  >
+   336→   336→                    <X className="w-3 h-3" />
+   337→   337→                  </button>
+   338→   338→                </div>
+   339→   339→              );
+   340→   340→            })}
+   341→   341→
+   342→   342→            {/* Add subtask */}
+   343→   343→            {addingSubtask ? (
+   344→   344→              <div className="space-y-1.5 bg-slate-900/60 border border-slate-800/50 rounded-lg p-2 mt-1">
+   345→   345→                <Input
+   346→   346→                  value={newSubtaskTitle}
+   347→   347→                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
+   348→   348→                  onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
+   349→   349→                  placeholder="Название подзадачи..."
+   350→   350→                  autoFocus
+   351→   351→                  className="bg-slate-800/80 border-slate-700/50 text-[11px] text-slate-200 placeholder:text-slate-600 h-7 focus:border-cyan-500/50"
+   352→   352→                />
+   353→   353→                <div className="flex items-center gap-2">
+   354→   354→                  <CalendarDays className="w-3 h-3 text-slate-600 flex-shrink-0" />
+   355→   355→                  <Input
+   356→   356→                    type="date"
+   357→   357→                    value={newSubtaskDeadline}
+   358→   358→                    onChange={(e) => setNewSubtaskDeadline(e.target.value)}
+   359→   359→                    className="h-6 text-[10px] bg-transparent border-slate-700/50 focus:border-cyan-500/50 text-slate-400 px-1.5"
+   360→   360→                    placeholder="Дедлайн"
+   361→   361→                  />
+   362→   362→                </div>
+   363→   363→                <div className="flex gap-1.5 pt-0.5">
+   364→   364→                  <button
+   365→   365→                    onClick={addSubtask}
+   366→   366→                    disabled={!newSubtaskTitle.trim()}
+   367→   367→                    className="flex-1 text-[10px] bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 disabled:hover:bg-cyan-600 text-white rounded px-2 py-1 transition-colors"
+   368→   368→                  >
+   369→   369→                    Добавить
+   370→   370→                  </button>
+   371→   371→                  <button
+   372→   372→                    onClick={() => { setAddingSubtask(false); setNewSubtaskTitle(''); setNewSubtaskDeadline(''); }}
+   373→   373→                    className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 transition-colors"
+   374→   374→                  >
+   375→   375→                    Отмена
+   376→   376→                  </button>
+   377→   377→                </div>
+   378→   378→              </div>
+   379→   379→            ) : (
+   380→   380→              <button
+   381→   381→                onClick={() => setAddingSubtask(true)}
+   382→   382→                className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-slate-600 hover:text-cyan-400 transition-colors rounded-lg hover:bg-slate-900/50 w-full"
+   383→   383→              >
+   384→   384→                <Plus className="w-3 h-3" />
+   385→   385→                Добавить подзадачу
+   386→   386→              </button>
+   387→   387→            )}
+   388→   388→          </div>
+   389→   389→        )}
+   390→   390→      </div>
+   391→   391→    </div>
+   392→   392→  );
+   393→   393→}
+   394→   394→
+   395→   395→function TaskForm({ mode, task }: { mode: 'create' | 'edit'; task?: Task }) {
+   396→   396→  const { selectedBoardId, setBoardTasks, selectedProjectId, setEditingTask, setIsCreating, setSelectedTaskId } = useKanbanStore();
+   397→   397→
+   398→   398→  const [title, setTitle] = useState('');
+   399→   399→  const [description, setDescription] = useState('');
+   400→   400→  const [status, setStatus] = useState<TaskStatus>('todo');
+   401→   401→  const [priority, setPriority] = useState<TaskPriority>('medium');
+   402→   402→  const [assignee, setAssignee] = useState('');
+   403→   403→  const [category, setCategory] = useState<TaskCategory>('general');
+   404→   404→  const [deadline, setDeadline] = useState('');
+   405→   405→  const [saving, setSaving] = useState(false);
+   406→   406→
+   407→   407→  useEffect(() => {
+   408→   408→    if (mode === 'edit' && task) {
+   409→   409→      setTitle(task.title);
+   410→   410→      setDescription(task.description || '');
+   411→   411→      setStatus(task.status);
+   412→   412→      setPriority(task.priority);
+   413→   413→      setAssignee(task.assignee || '');
+   414→   414→      setCategory(task.category);
+   415→   415→      setDeadline(task.deadline ? toLocalDateStr(task.deadline) : '');
+   416→   416→    }
+   417→   417→  }, [mode, task]);
+   418→   418→
+   419→   419→  const reloadTasks = useCallback(async () => {
+   420→   420→    if (selectedBoardId) {
+   421→   421→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   422→   422→      const data = await res.json();
+   423→   423→      setBoardTasks(data.tasks);
+   424→   424→    }
+   425→   425→    if (selectedProjectId) {
+   426→   426→      const bRes = await fetch(`/api/boards?projectId=${selectedProjectId}`);
+   427→   427→      const bData = await bRes.json();
+   428→   428→      useKanbanStore.getState().setBoards(bData.boards);
+   429→   429→    }
+   430→   430→  }, [selectedBoardId, selectedProjectId, setBoardTasks]);
+   431→   431→
+   432→   432→  const handleSave = async () => {
+   433→   433→    if (!title.trim()) return;
+   434→   434→    setSaving(true);
+   435→   435→    try {
+   436→   436→      if (mode === 'edit' && task) {
+   437→   437→        await fetch('/api/tasks', {
+   438→   438→          method: 'PUT',
+   439→   439→          headers: { 'Content-Type': 'application/json' },
+   440→   440→          body: JSON.stringify({
+   441→   441→            id: task.id, title, description: description || null,
+   442→   442→            status, priority, assignee: assignee || null, category,
+   443→   443→            boardId: selectedBoardId,
+   444→   444→            deadline: deadline || null,
+   445→   445→          }),
+   446→   446→        });
+   447→   447→      } else {
+   448→   448→        await fetch('/api/tasks', {
+   449→   449→          method: 'POST',
+   450→   450→          headers: { 'Content-Type': 'application/json' },
+   451→   451→          body: JSON.stringify({
+   452→   452→            title, description: description || null, status, priority,
+   453→   453→            assignee: assignee || null, category,
+   454→   454→            parentId: selectedProjectId, boardId: selectedBoardId,
+   455→   455→            deadline: deadline || null,
+   456→   456→          }),
+   457→   457→        });
+   458→   458→      }
+   459→   459→      await reloadTasks();
+   460→   460→      setEditingTask(null);
+   461→   461→      setIsCreating(false);
+   462→   462→      if (mode === 'edit' && task) setSelectedTaskId(task.id);
+   463→   463→    } finally {
+   464→   464→      setSaving(false);
+   465→   465→    }
+   466→   466→  };
+   467→   467→
+   468→   468→  const handleDelete = async () => {
+   469→   469→    if (!task) return;
+   470→   470→    setSaving(true);
+   471→   471→    try {
+   472→   472→      await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   473→   473→      await reloadTasks();
+   474→   474→      setEditingTask(null);
+   475→   475→      setSelectedTaskId(null);
+   476→   476→    } finally {
+   477→   477→      setSaving(false);
+   478→   478→    }
+   479→   479→  };
+   480→   480→
+   481→   481→  return (
+   482→   482→    <div className="flex-1 overflow-y-auto">
+   483→   483→      <div className="p-4 space-y-3">
+   484→   484→        <div className="flex items-center justify-between">
+   485→   485→          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+   486→   486→            {mode === 'edit' ? 'Редактировать' : 'Новая задача'}
+   487→   487→          </h3>
+   488→   488→          <button
+   489→   489→            onClick={() => { setEditingTask(null); setIsCreating(false); }}
+   490→   490→            className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300"
+   491→   491→          >
+   492→   492→            <X className="h-3.5 w-3.5" />
+   493→   493→          </button>
+   494→   494→        </div>
+   495→   495→
+   496→   496→        <div className="space-y-2.5">
+   497→   497→          <div className="space-y-1">
+   498→   498→            <Label className="text-[11px] text-slate-500">Название</Label>
+   499→   499→            <Input
+   500→   500→              value={title}
+   501→   501→              onChange={(e) => setTitle(e.target.value)}
+   502→   502→              placeholder="Задача..."
+   503→   503→              className="bg-slate-900/80 border-slate-700/50 text-sm text-slate-200 placeholder:text-slate-600 h-8 focus:border-cyan-500/50"
+   504→   504→            />
+   505→   505→          </div>
+   506→   506→
+   507→   507→          <div className="space-y-1">
+   508→   508→            <Label className="text-[11px] text-slate-500">Описание</Label>
+   509→   509→            <Textarea
+   510→   510→              value={description}
+   511→   511→              onChange={(e) => setDescription(e.target.value)}
+   512→   512→              placeholder="Описание..."
+   513→   513→              className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none focus:border-cyan-500/50"
+   514→   514→            />
+   515→   515→          </div>
+   516→   516→
+   517→   517→          <div className="grid grid-cols-2 gap-2">
+   518→   518→            <div className="space-y-1">
+   519→   519→              <Label className="text-[11px] text-slate-500">Статус</Label>
+   520→   520→              <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+   521→   521→                <SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8">
+   522→   522→                  <SelectValue />
+   523→   523→                </SelectTrigger>
+   524→   524→                <SelectContent className="bg-slate-900 border-slate-700">
+   525→   525→                  {STATUSES.map((s) => (
+   526→   526→                    <SelectItem key={s.value} value={s.value}>
+   527→   527→                      <span className={s.color}>{s.label}</span>
+   528→   528→                    </SelectItem>
+   529→   529→                  ))}
+   530→   530→                </SelectContent>
+   531→   531→              </Select>
+   532→   532→            </div>
+   533→   533→            <div className="space-y-1">
+   534→   534→              <Label className="text-[11px] text-slate-500">Приоритет</Label>
+   535→   535→              <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+   536→   536→                <SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8">
+   537→   537→                  <SelectValue />
+   538→   538→                </SelectTrigger>
+   539→   539→                <SelectContent className="bg-slate-900 border-slate-700">
+   540→   540→                  {PRIORITIES.map((p) => (
+   541→   541→                    <SelectItem key={p.value} value={p.value}>
+   542→   542→                      <div className="flex items-center gap-1.5">
+   543→   543→                        <div className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
+   544→   544→                        {p.label}
+   545→   545→                      </div>
+   546→   546→                    </SelectItem>
+   547→   547→                  ))}
+   548→   548→                </SelectContent>
+   549→   549→              </Select>
+   550→   550→            </div>
+   551→   551→          </div>
+   552→   552→
+   553→   553→          <div className="grid grid-cols-2 gap-2">
+   554→   554→            <div className="space-y-1">
+   555→   555→              <Label className="text-[11px] text-slate-500">Категория</Label>
+   556→   556→              <Select value={category} onValueChange={(v) => setCategory(v as TaskCategory)}>
+   557→   557→                <SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8">
+   558→   558→                  <SelectValue />
+   559→   559→                </SelectTrigger>
+   560→   560→                <SelectContent className="bg-slate-900 border-slate-700">
+   561→   561→                  {CATEGORIES.map((c) => (
+   562→   562→                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+   563→   563→                  ))}
+   564→   564→                </SelectContent>
+   565→   565→              </Select>
+   566→   566→            </div>
+   567→   567→            <div className="space-y-1">
+   568→   568→              <Label className="text-[11px] text-slate-500">Ответственный</Label>
+   569→   569→              <Input
+   570→   570→                value={assignee}
+   571→   571→                onChange={(e) => setAssignee(e.target.value)}
+   572→   572→                placeholder="Имя..."
+   573→   573→                className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 placeholder:text-slate-600 h-8 focus:border-cyan-500/50"
+   574→   574→              />
+   575→   575→            </div>
+   576→   576→          </div>
+   577→   577→
+   578→   578→          <div className="space-y-1">
+   579→   579→            <Label className="text-[11px] text-slate-500">Дедлайн</Label>
+   580→   580→            <Input
+   581→   581→              type="date"
+   582→   582→              value={deadline}
+   583→   583→              onChange={(e) => setDeadline(e.target.value)}
+   584→   584→              className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-300 h-8 focus:border-cyan-500/50"
+   585→   585→            />
+   586→   586→          </div>
+   587→   587→        </div>
+   588→   588→
+   589→   589→        <div className="flex gap-2 pt-1">
+   590→   590→          <Button
+   591→   591→            onClick={handleSave}
+   592→   592→            disabled={!title.trim() || saving}
+   593→   593→            className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white h-8 text-xs"
+   594→   594→          >
+   595→   595→            <Save className="w-3 h-3 mr-1" />
+   596→   596→            {saving ? '...' : mode === 'edit' ? 'Сохранить' : 'Создать'}
+   597→   597→          </Button>
+   598→   598→          {mode === 'edit' && (
+   599→   599→            <Button onClick={handleDelete} variant="destructive" disabled={saving} className="h-8 text-xs">
+   600→   600→              Удалить
+   601→   601→            </Button>
+   602→   602→          )}
+   603→   603→        </div>
+   604→   604→      </div>
+   605→   605→    </div>
+   606→   606→  );
+   607→   607→}
+   608→   608→
+   609→   609→function getProgress(children: { status: string }[]): number {
+   610→   610→  if (children.length === 0) return 0;
+   611→   611→  const done = children.filter(c => c.status === 'done').length;
+   612→   612→  return Math.round((done / children.length) * 100);
+   613→   613→}
+   614→   614→
+   615→   615→function isOverdue(deadline: string): boolean {
+   616→   616→  const d = new Date(deadline);
+   617→   617→  const today = new Date();
+   618→   618→  today.setHours(0, 0, 0, 0);
+   619→   619→  d.setHours(0, 0, 0, 0);
+   620→   620→  return d < today;
+   621→   621→}
+   622→   622→
+   623→   623→function formatDate(deadline: string): string {
+   624→   624→  const d = new Date(deadline);
+   625→   625→  const day = String(d.getDate()).padStart(2, '0');
+   626→   626→  const month = String(d.getMonth() + 1).padStart(2, '0');
+   627→   627→  return `${day}.${month}`;
+   628→   628→}
+   629→   629→
+   630→   630→function toLocalDateStr(isoStr: string): string {
+   631→   631→  const d = new Date(isoStr);
+   632→   632→  const year = d.getFullYear();
+   633→   633→  const month = String(d.getMonth() + 1).padStart(2, '0');
+   634→   634→  const day = String(d.getDate()).padStart(2, '0');
+   635→   635→  return `${year}-${month}-${day}`;
+   636→   636→}
+   637→   637→

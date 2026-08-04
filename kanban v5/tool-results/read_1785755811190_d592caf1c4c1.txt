@@ -1,0 +1,761 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { useKanbanStore } from '@/store/kanban-store';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Input } from '@/components/ui/input';
+     7→import { Textarea } from '@/components/ui/textarea';
+     8→import {
+     9→  ChevronRight, ChevronLeft, Check, Music, Guitar, Mic2,
+    10→  Sparkles, X, Loader2, Plus, Trash2, FileText,
+    11→} from 'lucide-react';
+    12→import { cn } from '@/lib/utils';
+    13→
+    14→interface WizardData {
+    15→  instruments: string[];
+    16→  stages: { key: string; label: string; emoji: string; hasInstrumentBased: boolean; defaultSubtaskCount: number }[];
+    17→}
+    18→
+    19→interface EditableSubtask {
+    20→  id: string;
+    21→  title: string;
+    22→  description: string;
+    23→}
+    24→
+    25→interface EditableStage {
+    26→  id: string;
+    27→  emoji: string;
+    28→  label: string;
+    29→  description: string;
+    30→  subtasks: EditableSubtask[];
+    31→  sourceKey?: string; // template key if added from template, undefined if custom
+    32→}
+    33→
+    34→const CUSTOM_ICONS: Record<string, typeof Music> = {
+    35→  'Вокал (основной)': Mic2,
+    36→  'Бэк-вокал': Mic2,
+    37→  'Гитара (акустическая)': Guitar,
+    38→  'Гитара (электро)': Guitar,
+    39→};
+    40→
+    41→const DEFAULT_STAGE_EMOJIS = ['📁', '🎯', '⚙️', '🔧', '🎨', '📊', '💡', '📋', '🧩', '🚀'];
+    42→
+    43→const STAGE_SUBTASKS: Record<string, string[]> = {
+    44→  'Сонграйтинг': ['Написание текста', 'Демо'],
+    45→  'Аранжировка': ['Гармоническая структура', 'Тембровая расстановка'],
+    46→  'Редактура': ['Компинг', 'Тюнинг вокала', 'Тайминг'],
+    47→  'Сведение': ['Баланс и эквализация', 'Пространственная обработка', 'Эффекты и автоматизация'],
+    48→  'Мастеринг': ['Финальная громкость и лимитирование', 'Стерео-обработка'],
+    49→};
+    50→
+    51→let _uid = 0;
+    52→const uid = () => `es_${++_uid}_${Date.now()}`;
+    53→
+    54→export default function TrackWizard() {
+    55→  const { selectedBoardId, setBoardTasks, setIsTrackWizardOpen, setSelectedTaskId, setTrackWizardStep } = useKanbanStore();
+    56→  const [step, setStep] = useState(0); // 0=name, 1=instruments, 2=stages+configure
+    57→
+    58→  // Sync wizard step to store for onboarding
+    59→  useEffect(() => { setTrackWizardStep(step); return () => setTrackWizardStep(-1); }, [step, setTrackWizardStep]);
+    60→
+    61→  const [trackName, setTrackName] = useState('');
+    62→  const [selectedInstruments, setSelectedInstruments] = useState<string[]>([]);
+    63→  const [customInstrument, setCustomInstrument] = useState('');
+    64→  const [wizardData, setWizardData] = useState<WizardData | null>(null);
+    65→  const [loading, setLoading] = useState(false);
+    66→  const [allInstruments, setAllInstruments] = useState<string[]>([]);
+    67→
+    68→  // Editable stages (shared state for merged step 2)
+    69→  const [editableStages, setEditableStages] = useState<EditableStage[]>([]);
+    70→  const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
+    71→  const [addingSubtaskForStage, setAddingSubtaskForStage] = useState<string | null>(null);
+    72→  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+    73→  const [newSubtaskDesc, setNewSubtaskDesc] = useState('');
+    74→  const [newStageLabel, setNewStageLabel] = useState('');
+    75→  const [newStageDesc, setNewStageDesc] = useState('');
+    76→  const [showNewStageForm, setShowNewStageForm] = useState(false);
+    77→  const [showTemplates, setShowTemplates] = useState(true);
+    78→
+    79→  useEffect(() => {
+    80→    fetch('/api/tracks/wizard')
+    81→      .then(r => r.json())
+    82→      .then(data => {
+    83→        setWizardData(data);
+    84→        setAllInstruments([...data.instruments]);
+    85→      });
+    86→  }, []);
+    87→
+    88→  // --- Template helpers ---
+    89→  const isTemplateAdded = (key: string) => editableStages.some(s => s.sourceKey === key);
+    90→
+    91→  const toggleTemplate = (key: string) => {
+    92→    if (isTemplateAdded(key)) {
+    93→      // Remove template stage
+    94→      setEditableStages(prev => prev.filter(s => s.sourceKey !== key));
+    95→    } else {
+    96→      // Add template stage with default subtasks
+    97→      const tpl = wizardData?.stages.find(s => s.key === key);
+    98→      if (!tpl) return;
+    99→      const subtaskTitles = tpl.hasInstrumentBased && selectedInstruments.length > 0
+   100→        ? selectedInstruments.map(i => `Запись: ${i}`)
+   101→        : STAGE_SUBTASKS[key] || [];
+   102→      const newStage: EditableStage = {
+   103→        id: uid(),
+   104→        emoji: tpl.emoji,
+   105→        label: tpl.label,
+   106→        description: '',
+   107→        subtasks: subtaskTitles.map(t => ({ id: uid(), title: t, description: '' })),
+   108→        sourceKey: key,
+   109→      };
+   110→      setEditableStages(prev => [...prev, newStage]);
+   111→      setExpandedStageId(newStage.id);
+   112→    }
+   113→  };
+   114→
+   115→  const addAllTemplates = () => {
+   116→    if (!wizardData) return;
+   117→    const allAdded = wizardData.stages.every(s => isTemplateAdded(s.key));
+   118→    if (allAdded) {
+   119→      // Remove all template stages
+   120→      setEditableStages(prev => prev.filter(s => !s.sourceKey));
+   121→    } else {
+   122→      // Add all missing templates
+   123→      const newStages: EditableStage[] = [];
+   124→      for (const tpl of wizardData.stages) {
+   125→        if (!isTemplateAdded(tpl.key)) {
+   126→          const subtaskTitles = tpl.hasInstrumentBased && selectedInstruments.length > 0
+   127→            ? selectedInstruments.map(i => `Запись: ${i}`)
+   128→            : STAGE_SUBTASKS[tpl.key] || [];
+   129→          newStages.push({
+   130→            id: uid(),
+   131→            emoji: tpl.emoji,
+   132→            label: tpl.label,
+   133→            description: '',
+   134→            subtasks: subtaskTitles.map(t => ({ id: uid(), title: t, description: '' })),
+   135→            sourceKey: tpl.key,
+   136→          });
+   137→        }
+   138→      }
+   139→      setEditableStages(prev => [...prev, ...newStages]);
+   140→    }
+   141→  };
+   142→
+   143→  // Re-generate instrument-based subtasks when instruments change
+   144→  const updateInstrumentSubtasks = useCallback(() => {
+   145→    if (!wizardData) return;
+   146→    const recordStage = wizardData.stages.find(s => s.key === 'Запись');
+   147→    if (!recordStage || !isTemplateAdded('Запись')) return;
+   148→    const instSubtasks = selectedInstruments.map(i => `Запись: ${i}`);
+   149→    setEditableStages(prev => prev.map(s => {
+   150→      if (s.sourceKey !== 'Запись') return s;
+   151→      // Keep existing subtasks that still match an instrument, add new ones
+   152→      const existing = s.subtasks.filter(st => instSubtasks.includes(st.title));
+   153→      const finalSubs: EditableSubtask[] = instSubtasks.map(title => {
+   154→        const ex = existing.find(e => e.title === title);
+   155→        return ex || { id: uid(), title, description: '' };
+   156→      });
+   157→      return { ...s, subtasks: finalSubs };
+   158→    }));
+   159→  }, [wizardData, selectedInstruments]);
+   160→
+   161→  // When entering step 2, ensure instrument subtasks are synced
+   162→  const goToStep2 = () => {
+   163→    updateInstrumentSubtasks();
+   164→    setStep(2);
+   165→  };
+   166→
+   167→  // --- Instrument helpers ---
+   168→  const toggleInstrument = (inst: string) => {
+   169→    setSelectedInstruments(prev =>
+   170→      prev.includes(inst) ? prev.filter(i => i !== inst) : [...prev, inst]
+   171→    );
+   172→  };
+   173→
+   174→  const addCustomInstrument = () => {
+   175→    const trimmed = customInstrument.trim();
+   176→    if (!trimmed || allInstruments.includes(trimmed)) return;
+   177→    setAllInstruments(prev => [...prev, trimmed]);
+   178→    setSelectedInstruments(prev => [...prev, trimmed]);
+   179→    setCustomInstrument('');
+   180→  };
+   181→
+   182→  // --- Stage editing helpers ---
+   183→  const updateStage = (stageId: string, updates: Partial<Pick<EditableStage, 'label' | 'description' | 'emoji'>>) => {
+   184→    setEditableStages(prev => prev.map(s => s.id === stageId ? { ...s, ...updates } : s));
+   185→  };
+   186→
+   187→  const removeStage = (stageId: string) => {
+   188→    setEditableStages(prev => prev.filter(s => s.id !== stageId));
+   189→  };
+   190→
+   191→  const addNewStage = () => {
+   192→    if (!newStageLabel.trim()) return;
+   193→    const newStage: EditableStage = {
+   194→      id: uid(),
+   195→      emoji: DEFAULT_STAGE_EMOJIS[editableStages.length % DEFAULT_STAGE_EMOJIS.length],
+   196→      label: newStageLabel.trim(),
+   197→      description: newStageDesc.trim(),
+   198→      subtasks: [],
+   199→    };
+   200→    setEditableStages(prev => [...prev, newStage]);
+   201→    setNewStageLabel('');
+   202→    setNewStageDesc('');
+   203→    setShowNewStageForm(false);
+   204→    setExpandedStageId(newStage.id);
+   205→  };
+   206→
+   207→  const updateSubtask = (stageId: string, subtaskId: string, updates: Partial<Pick<EditableSubtask, 'title' | 'description'>>) => {
+   208→    setEditableStages(prev => prev.map(s => {
+   209→      if (s.id !== stageId) return s;
+   210→      return { ...s, subtasks: s.subtasks.map(st => st.id === subtaskId ? { ...st, ...updates } : st) };
+   211→    }));
+   212→  };
+   213→
+   214→  const removeSubtask = (stageId: string, subtaskId: string) => {
+   215→    setEditableStages(prev => prev.map(s => {
+   216→      if (s.id !== stageId) return s;
+   217→      return { ...s, subtasks: s.subtasks.filter(st => st.id !== subtaskId) };
+   218→    }));
+   219→  };
+   220→
+   221→  const addSubtask = (stageId: string) => {
+   222→    if (!newSubtaskTitle.trim()) return;
+   223→    setEditableStages(prev => prev.map(s => {
+   224→      if (s.id !== stageId) return s;
+   225→      return { ...s, subtasks: [...s.subtasks, { id: uid(), title: newSubtaskTitle.trim(), description: newSubtaskDesc.trim() }] };
+   226→    }));
+   227→    setNewSubtaskTitle('');
+   228→    setNewSubtaskDesc('');
+   229→    setAddingSubtaskForStage(null);
+   230→  };
+   231→
+   232→  // --- Create ---
+   233→  const handleCreate = useCallback(async () => {
+   234→    if (!trackName.trim() || !selectedBoardId) return;
+   235→    setLoading(true);
+   236→    try {
+   237→      const res = await fetch('/api/tracks/wizard', {
+   238→        method: 'POST',
+   239→        headers: { 'Content-Type': 'application/json' },
+   240→        body: JSON.stringify({
+   241→          title: trackName.trim(),
+   242→          instruments: selectedInstruments,
+   243→          boardId: selectedBoardId,
+   244→          customStages: editableStages.map(s => ({
+   245→            emoji: s.emoji,
+   246→            label: s.label,
+   247→            description: s.description,
+   248→            subtasks: s.subtasks.map(st => ({ title: st.title, description: st.description })),
+   249→          })),
+   250→        }),
+   251→      });
+   252→      const data = await res.json();
+   253→      const taskRes = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+   254→      const taskData = await taskRes.json();
+   255→      setBoardTasks(taskData.tasks);
+   256→      if (data.trackId) setSelectedTaskId(data.trackId);
+   257→      setIsTrackWizardOpen(false);
+   258→    } finally {
+   259→      setLoading(false);
+   260→    }
+   261→  }, [trackName, selectedInstruments, selectedBoardId, editableStages, setBoardTasks, setSelectedTaskId, setIsTrackWizardOpen]);
+   262→
+   263→  const canProceed = () => {
+   264→    if (step === 0) return trackName.trim().length > 0;
+   265→    if (step === 1) return selectedInstruments.length > 0;
+   266→    if (step === 2) return editableStages.length > 0;
+   267→    return true;
+   268→  };
+   269→
+   270→  const handleClose = () => setIsTrackWizardOpen(false);
+   271→
+   272→  const STEPS = ['Название', 'Инструменты', 'Этапы'];
+   273→
+   274→  return (
+   275→    <div className="flex flex-col h-full">
+   276→      {/* Header */}
+   277→      <div className="border-b border-slate-800/50 p-4 shrink-0">
+   278→        <div className="flex items-center justify-between mb-3">
+   279→          <div className="flex items-center gap-2">
+   280→            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+   281→              <Music className="w-4 h-4 text-white" />
+   282→            </div>
+   283→            <div>
+   284→              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Конструктор трека</h3>
+   285→              <p className="text-[10px] text-slate-500">Мастер создания пайплайна</p>
+   286→            </div>
+   287→          </div>
+   288→          <button onClick={handleClose} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors">
+   289→            <X className="w-4 h-4" />
+   290→          </button>
+   291→        </div>
+   292→
+   293→        {/* Progress steps */}
+   294→        <div className="flex items-center gap-1">
+   295→          {STEPS.map((s, i) => (
+   296→            <div key={s} className="flex items-center flex-1">
+   297→              <button
+   298→                onClick={() => i < step && setStep(i)}
+   299→                className={cn(
+   300→                  'flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-md transition-all duration-200',
+   301→                  i === step && 'bg-cyan-500/15 text-cyan-400',
+   302→                  i < step && 'text-slate-400 hover:bg-slate-800/60 cursor-pointer',
+   303→                  i > step && 'text-slate-600',
+   304→                )}
+   305→              >
+   306→                {i < step ? <Check className="w-3 h-3" /> : <span className="w-4 h-4 rounded-full border text-center text-[9px] flex items-center justify-center" style={{
+   307→                  borderColor: i === step ? '#00d9ff' : i < step ? '#00d9ff' : '#334155',
+   308→                }}>{i + 1}</span>}
+   309→                <span className="hidden lg:inline">{s}</span>
+   310→              </button>
+   311→              {i < STEPS.length - 1 && (
+   312→                <div className="flex-1 h-px mx-1" style={{ backgroundColor: i < step ? '#00d9ff30' : '#1e293b' }} />
+   313→              )}
+   314→            </div>
+   315→          ))}
+   316→        </div>
+   317→      </div>
+   318→
+   319→      {/* Content */}
+   320→      <div className="flex-1 overflow-y-auto p-4">
+   321→        {/* Step 0: Name */}
+   322→        {step === 0 && (
+   323→          <div className="space-y-3">
+   324→            <div className="space-y-1.5">
+   325→              <label className="text-[11px] text-slate-400 font-medium">Название трека</label>
+   326→              <Input
+   327→                value={trackName}
+   328→                onChange={(e) => setTrackName(e.target.value)}
+   329→                onKeyDown={(e) => e.key === 'Enter' && canProceed() && setStep(1)}
+   330→                placeholder="Лирика, Эксперимент..."
+   331→                autoFocus
+   332→                className="bg-slate-900/80 border-slate-700/50 text-sm text-slate-200 placeholder:text-slate-600 h-10 focus:border-purple-500/50"
+   333→              />
+   334→            </div>
+   335→            <div className="rounded-lg bg-slate-900/40 border border-slate-800/30 p-3">
+   336→              <div className="flex items-center gap-2 mb-2">
+   337→                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+   338→                <span className="text-[11px] text-purple-400 font-medium">Подсказка</span>
+   339→              </div>
+   340→              <p className="text-[10px] text-slate-500 leading-relaxed">
+   341→                После ввода названия вы выберете инструменты и этапы производства.
+   342→                Система автоматически создаст структуру задач для вашего трека.
+   343→              </p>
+   344→            </div>
+   345→          </div>
+   346→        )}
+   347→
+   348→        {/* Step 1: Instruments */}
+   349→        {step === 1 && (
+   350→          <div className="space-y-3">
+   351→            <div className="flex items-center justify-between">
+   352→              <span className="text-[11px] text-slate-400 font-medium">
+   353→                Инструменты <span className="text-slate-600">({selectedInstruments.length} выбрано)</span>
+   354→              </span>
+   355→            </div>
+   356→            <div className="flex flex-wrap gap-1.5">
+   357→              {allInstruments.map((inst) => {
+   358→                const IconComp = CUSTOM_ICONS[inst];
+   359→                const isSelected = selectedInstruments.includes(inst);
+   360→                return (
+   361→                  <button
+   362→                    key={inst}
+   363→                    onClick={() => toggleInstrument(inst)}
+   364→                    className={cn(
+   365→                      'flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border transition-all duration-150',
+   366→                      isSelected
+   367→                        ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300 shadow-sm shadow-cyan-500/10'
+   368→                        : 'bg-slate-900/60 border-slate-800/50 text-slate-400 hover:border-slate-700 hover:text-slate-300',
+   369→                    )}
+   370→                  >
+   371→                    {IconComp ? <IconComp className="w-3 h-3" /> : <Music className="w-3 h-3" />}
+   372→                    {inst}
+   373→                    {isSelected && <Check className="w-3 h-3 ml-0.5" />}
+   374→                  </button>
+   375→                );
+   376→              })}
+   377→            </div>
+   378→            <div className="flex gap-2 pt-1">
+   379→              <Input
+   380→                value={customInstrument}
+   381→                onChange={(e) => setCustomInstrument(e.target.value)}
+   382→                onKeyDown={(e) => e.key === 'Enter' && addCustomInstrument()}
+   383→                placeholder="Свой инструмент..."
+   384→                className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-200 placeholder:text-slate-600 h-7 focus:border-purple-500/50"
+   385→              />
+   386→              <Button size="sm" onClick={addCustomInstrument} disabled={!customInstrument.trim()} variant="ghost" className="h-7 text-[10px] text-slate-400 hover:text-purple-400 gap-1">
+   387→                <Plus className="w-3 h-3" />
+   388→              </Button>
+   389→            </div>
+   390→            <div className="rounded-lg bg-slate-900/40 border border-slate-800/30 p-3">
+   391→              <div className="flex items-center gap-2 mb-1">
+   392→                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+   393→                <span className="text-[11px] text-amber-400 font-medium">Подсказка</span>
+   394→              </div>
+   395→              <p className="text-[10px] text-slate-500 leading-relaxed">
+   396→                Выбранные инструменты определят подзадачи на этапе &laquo;Запись&raquo;.
+   397→                Для каждого инструмента создастся отдельная задача.
+   398→              </p>
+   399→            </div>
+   400→          </div>
+   401→        )}
+   402→
+   403→        {/* Step 2: Stages + Configure (merged) */}
+   404→        {step === 2 && (
+   405→          <div className="space-y-3">
+   406→            {/* Templates section */}
+   407→            <div className="rounded-lg border border-slate-800/40 bg-slate-900/30 overflow-hidden">
+   408→              <button
+   409→                onClick={() => setShowTemplates(v => !v)}
+   410→                className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-800/30 transition-colors"
+   411→              >
+   412→                <div className="flex items-center gap-2">
+   413→                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+   414→                  <span className="text-[11px] text-slate-300 font-medium">Шаблоны этапов</span>
+   415→                  <span className="text-[9px] text-slate-600">
+   416→                    {wizardData?.stages.filter(s => isTemplateAdded(s.key)).length || 0}/{wizardData?.stages.length || 0}
+   417→                  </span>
+   418→                </div>
+   419→                <ChevronRight className={cn('w-3.5 h-3.5 text-slate-500 transition-transform', showTemplates && 'rotate-90')} />
+   420→              </button>
+   421→
+   422→              {showTemplates && (
+   423→                <div className="px-3 pb-3 space-y-2.5">
+   424→                  <div className="flex flex-wrap gap-1.5">
+   425→                    {wizardData?.stages.map(tpl => {
+   426→                      const added = isTemplateAdded(tpl.key);
+   427→                      return (
+   428→                        <button
+   429→                          key={tpl.key}
+   430→                          onClick={() => toggleTemplate(tpl.key)}
+   431→                          className={cn(
+   432→                            'flex items-center gap-1.5 text-[10px] px-2 py-1.5 rounded-lg border transition-all duration-150',
+   433→                            added
+   434→                              ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300'
+   435→                              : 'bg-slate-900/60 border-slate-800/50 text-slate-500 hover:border-slate-700 hover:text-slate-300',
+   436→                          )}
+   437→                        >
+   438→                          <span className="text-sm">{tpl.emoji}</span>
+   439→                          {tpl.label}
+   440→                          {tpl.hasInstrumentBased && selectedInstruments.length > 0 && (
+   441→                            <span className="text-[8px] text-purple-400/60 bg-purple-500/10 px-1 py-0.5 rounded">{selectedInstruments.length}</span>
+   442→                          )}
+   443→                          {added && <Check className="w-3 h-3" />}
+   444→                        </button>
+   445→                      );
+   446→                    })}
+   447→                  </div>
+   448→                  <div className="flex items-center gap-2 pt-1">
+   449→                    <button
+   450→                      onClick={addAllTemplates}
+   451→                      className="text-[9px] text-cyan-500/70 hover:text-cyan-400 transition-colors"
+   452→                    >
+   453→                      {wizardData?.stages.every(s => isTemplateAdded(s.key)) ? 'Снять все' : 'Добавить все'}
+   454→                    </button>
+   455→                    <span className="text-slate-800">·</span>
+   456→                    {!showNewStageForm ? (
+   457→                      <button
+   458→                        onClick={() => setShowNewStageForm(true)}
+   459→                        className="flex items-center gap-1 text-[9px] text-purple-400/70 hover:text-purple-300 transition-colors"
+   460→                      >
+   461→                        <Plus className="w-2.5 h-2.5" />
+   462→                        Свой этап
+   463→                      </button>
+   464→                    ) : null}
+   465→                  </div>
+   466→                  {/* New stage form inside templates */}
+   467→                  {showNewStageForm && (
+   468→                    <div className="rounded-lg border border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-pink-500/5 p-3 space-y-2">
+   469→                      <div className="flex items-center gap-1.5">
+   470→                        <Sparkles className="w-3 h-3 text-purple-400" />
+   471→                        <span className="text-[10px] text-purple-400 font-medium">Новый этап</span>
+   472→                      </div>
+   473→                      <div className="flex gap-2">
+   474→                        <Input
+   475→                          value={DEFAULT_STAGE_EMOJIS[editableStages.length % DEFAULT_STAGE_EMOJIS.length]}
+   476→                          onChange={(e) => {}}
+   477→                          className="w-12 bg-slate-900/80 border-slate-700/50 text-sm text-center p-1 h-8 focus:border-purple-500/50"
+   478→                          maxLength={4}
+   479→                          readOnly
+   480→                        />
+   481→                        <Input
+   482→                          value={newStageLabel}
+   483→                          onChange={(e) => setNewStageLabel(e.target.value)}
+   484→                          onKeyDown={(e) => {
+   485→                            if (e.key === 'Enter' && newStageLabel.trim()) addNewStage();
+   486→                            if (e.key === 'Escape') { setShowNewStageForm(false); setNewStageLabel(''); setNewStageDesc(''); }
+   487→                          }}
+   488→                          placeholder="Название нового этапа"
+   489→                          autoFocus
+   490→                          className="flex-1 bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8 focus:border-purple-500/50"
+   491→                        />
+   492→                      </div>
+   493→                      <Textarea
+   494→                        value={newStageDesc}
+   495→                        onChange={(e) => setNewStageDesc(e.target.value)}
+   496→                        onKeyDown={(e) => {
+   497→                          if (e.key === 'Enter' && !e.shiftKey && newStageLabel.trim()) addNewStage();
+   498→                          if (e.key === 'Escape') { setShowNewStageForm(false); setNewStageLabel(''); setNewStageDesc(''); }
+   499→                        }}
+   500→                        placeholder="Описание этапа (необязательно)"
+   501→                        className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none focus:border-purple-500/50"
+   502→                        rows={2}
+   503→                      />
+   504→                      <div className="flex gap-2 justify-end">
+   505→                        <button
+   506→                          onClick={() => { setShowNewStageForm(false); setNewStageLabel(''); setNewStageDesc(''); }}
+   507→                          className="text-[9px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded hover:bg-slate-800/60 transition-colors"
+   508→                        >
+   509→                          Отмена
+   510→                        </button>
+   511→                        <Button
+   512→                          size="sm"
+   513→                          onClick={addNewStage}
+   514→                          disabled={!newStageLabel.trim()}
+   515→                          className="h-7 text-[10px] bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white gap-1"
+   516→                        >
+   517→                          <Plus className="w-3 h-3" />
+   518→                          Добавить этап
+   519→                        </Button>
+   520→                      </div>
+   521→                    </div>
+   522→                  )}
+   523→                </div>
+   524→              )}
+   525→            </div>
+   526→
+   527→            {/* Editable stages list */}
+   528→            <div className="space-y-2">
+   529→              <div className="flex items-center justify-between">
+   530→                <span className="text-[11px] text-slate-400 font-medium">
+   531→                  Этапы <span className="text-slate-600">({editableStages.length})</span>
+   532→                </span>
+   533→              </div>
+   534→
+   535→              {editableStages.length === 0 && (
+   536→                <div className="rounded-lg border border-dashed border-slate-700/40 p-4 text-center">
+   537→                  <p className="text-[10px] text-slate-600">
+   538→                    Добавьте этапы из шаблонов выше или создайте свой
+   539→                  </p>
+   540→                </div>
+   541→              )}
+   542→
+   543→              {editableStages.map((stage, idx) => {
+   544→                const isExpanded = expandedStageId === stage.id;
+   545→                return (
+   546→                  <div
+   547→                    key={stage.id}
+   548→                    className={cn(
+   549→                      'rounded-lg overflow-hidden transition-all duration-200',
+   550→                      isExpanded
+   551→                        ? 'border border-purple-500/30 shadow-lg shadow-purple-500/5'
+   552→                        : 'border border-slate-800/40 bg-slate-900/30',
+   553→                    )}
+   554→                  >
+   555→                    {/* Stage header */}
+   556→                    <div
+   557→                      className={cn(
+   558→                        'flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors',
+   559→                        isExpanded
+   560→                          ? 'bg-gradient-to-r from-purple-500/10 to-pink-500/5'
+   561→                          : 'bg-slate-800/30 hover:bg-slate-800/50',
+   562→                      )}
+   563→                      onClick={() => setExpandedStageId(isExpanded ? null : stage.id)}
+   564→                    >
+   565→                      <span className={cn('text-base transition-colors', isExpanded ? 'text-purple-300' : 'text-slate-400')}>{stage.emoji}</span>
+   566→                      <div className="flex-1 min-w-0">
+   567→                        <span className={cn('text-[11px] font-medium', isExpanded ? 'text-white' : 'text-slate-200')}>{stage.label}</span>
+   568→                        <p className="text-[9px] text-slate-600">
+   569→                          {stage.subtasks.length} подзадач{stage.subtasks.length !== 1 ? '' : 'а'}
+   570→                          {stage.description ? ' · с описанием' : ''}
+   571→                        </p>
+   572→                      </div>
+   573→                      {isExpanded && <span className="text-[9px] text-purple-400/60 bg-purple-500/10 px-1.5 py-0.5 rounded">#{idx + 1}</span>}
+   574→                      {!isExpanded && <span className="text-[9px] text-slate-600 bg-slate-800/60 px-1.5 py-0.5 rounded">#{idx + 1}</span>}
+   575→                      <button
+   576→                        onClick={(e) => { e.stopPropagation(); removeStage(stage.id); }}
+   577→                        className="p-1 rounded hover:bg-red-500/20 text-slate-600 hover:text-red-400 transition-colors"
+   578→                      >
+   579→                        <Trash2 className="w-3 h-3" />
+   580→                      </button>
+   581→                    </div>
+   582→
+   583→                    {/* Expanded: editable content with visual flair */}
+   584→                    {isExpanded && (
+   585→                      <div className="px-3 py-3 space-y-3 bg-gradient-to-b from-purple-500/[0.03] to-transparent">
+   586→                        {/* Stage name */}
+   587→                        <div className="space-y-1">
+   588→                          <label className="text-[10px] text-purple-400/70 font-medium">Название этапа</label>
+   589→                          <div className="flex gap-2">
+   590→                            <Input
+   591→                              value={stage.emoji}
+   592→                              onChange={(e) => updateStage(stage.id, { emoji: e.target.value })}
+   593→                              className="w-12 bg-slate-900/80 border-slate-700/50 text-sm text-center p-1 h-8 focus:border-purple-500/50"
+   594→                              maxLength={4}
+   595→                            />
+   596→                            <Input
+   597→                              value={stage.label}
+   598→                              onChange={(e) => updateStage(stage.id, { label: e.target.value })}
+   599→                              className="flex-1 bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8 focus:border-purple-500/50"
+   600→                              placeholder="Название этапа"
+   601→                            />
+   602→                          </div>
+   603→                        </div>
+   604→
+   605→                        {/* Stage description */}
+   606→                        <div className="space-y-1">
+   607→                          <div className="flex items-center gap-1.5">
+   608→                            <div className="w-1 h-1 rounded-full bg-purple-400/60" />
+   609→                            <label className="text-[10px] text-purple-400/70 font-medium">Описание этапа</label>
+   610→                          </div>
+   611→                          <Textarea
+   612→                            value={stage.description}
+   613→                            onChange={(e) => updateStage(stage.id, { description: e.target.value })}
+   614→                            placeholder="Опишите, что делается на этом этапе..."
+   615→                            className="bg-slate-900/60 border-purple-500/15 text-[11px] text-slate-300 placeholder:text-slate-600/80 min-h-[60px] resize-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/10"
+   616→                            rows={2}
+   617→                          />
+   618→                        </div>
+   619→
+   620→                        {/* Subtasks */}
+   621→                        <div className="space-y-1.5">
+   622→                          <div className="flex items-center justify-between">
+   623→                            <div className="flex items-center gap-1.5">
+   624→                              <div className="w-1 h-1 rounded-full bg-cyan-400/60" />
+   625→                              <span className="text-[10px] text-cyan-400/70 font-medium">
+   626→                                Подзадачи ({stage.subtasks.length})
+   627→                              </span>
+   628→                            </div>
+   629→                            <button
+   630→                              onClick={() => {
+   631→                                setAddingSubtaskForStage(stage.id);
+   632→                                setNewSubtaskTitle('');
+   633→                                setNewSubtaskDesc('');
+   634→                              }}
+   635→                              className="flex items-center gap-1 text-[9px] text-cyan-500/70 hover:text-cyan-400 transition-colors"
+   636→                            >
+   637→                              <Plus className="w-2.5 h-2.5" />
+   638→                              Добавить
+   639→                            </button>
+   640→                          </div>
+   641→
+   642→                          <div className="space-y-1.5">
+   643→                            {stage.subtasks.map((sub) => (
+   644→                              <div
+   645→                                key={sub.id}
+   646→                                className="rounded-md border border-slate-800/40 bg-slate-900/50 p-2 space-y-1.5 hover:border-slate-700/50 transition-colors"
+   647→                              >
+   648→                                <div className="flex items-center gap-2">
+   649→                                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/40 shrink-0" />
+   650→                                  <Input
+   651→                                    value={sub.title}
+   652→                                    onChange={(e) => updateSubtask(stage.id, sub.id, { title: e.target.value })}
+   653→                                    className="flex-1 bg-transparent border-transparent hover:border-slate-700/50 focus:border-cyan-500/50 text-[11px] text-slate-300 h-6 px-1"
+   654→                                    placeholder="Название подзадачи"
+   655→                                  />
+   656→                                  <button
+   657→                                    onClick={() => removeSubtask(stage.id, sub.id)}
+   658→                                    className="p-0.5 rounded hover:bg-red-500/20 text-slate-600 hover:text-red-400 transition-colors shrink-0"
+   659→                                  >
+   660→                                    <X className="w-3 h-3" />
+   661→                                  </button>
+   662→                                </div>
+   663→                                <Textarea
+   664→                                  value={sub.description}
+   665→                                  onChange={(e) => updateSubtask(stage.id, sub.id, { description: e.target.value })}
+   666→                                  placeholder="Описание подзадачи..."
+   667→                                  className="bg-transparent border-transparent hover:border-slate-700/50 focus:border-cyan-500/50 text-[10px] text-slate-500 placeholder:text-slate-700 min-h-[32px] resize-none pl-4 focus:ring-1 focus:ring-cyan-500/10"
+   668→                                  rows={1}
+   669→                                />
+   670→                              </div>
+   671→                            ))}
+   672→                          </div>
+   673→
+   674→                          {/* Add subtask form */}
+   675→                          {addingSubtaskForStage === stage.id && (
+   676→                            <div className="rounded-md border border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 p-2.5 space-y-1.5">
+   677→                              <Input
+   678→                                value={newSubtaskTitle}
+   679→                                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+   680→                                onKeyDown={(e) => {
+   681→                                  if (e.key === 'Enter' && newSubtaskTitle.trim()) addSubtask(stage.id);
+   682→                                  if (e.key === 'Escape') setAddingSubtaskForStage(null);
+   683→                                }}
+   684→                                placeholder="Название подзадачи"
+   685→                                autoFocus
+   686→                                className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-200 placeholder:text-slate-600 h-7 focus:border-cyan-500/50"
+   687→                              />
+   688→                              <Textarea
+   689→                                value={newSubtaskDesc}
+   690→                                onChange={(e) => setNewSubtaskDesc(e.target.value)}
+   691→                                onKeyDown={(e) => {
+   692→                                  if (e.key === 'Enter' && !e.shiftKey && newSubtaskTitle.trim()) addSubtask(stage.id);
+   693→                                  if (e.key === 'Escape') setAddingSubtaskForStage(null);
+   694→                                }}
+   695→                                placeholder="Описание (необязательно)"
+   696→                                className="bg-slate-900/80 border-slate-700/50 text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[40px] resize-none focus:border-cyan-500/50"
+   697→                                rows={2}
+   698→                              />
+   699→                              <div className="flex gap-2 justify-end">
+   700→                                <button
+   701→                                  onClick={() => setAddingSubtaskForStage(null)}
+   702→                                  className="text-[9px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded hover:bg-slate-800/60 transition-colors"
+   703→                                >
+   704→                                  Отмена
+   705→                                </button>
+   706→                                <Button
+   707→                                  size="sm"
+   708→                                  onClick={() => addSubtask(stage.id)}
+   709→                                  disabled={!newSubtaskTitle.trim()}
+   710→                                  className="h-6 text-[9px] bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 text-white px-2"
+   711→                                >
+   712→                                  Добавить
+   713→                                </Button>
+   714→                              </div>
+   715→                            </div>
+   716→                          )}
+   717→                        </div>
+   718→                      </div>
+   719→                    )}
+   720→                  </div>
+   721→                );
+   722→              })}
+   723→            </div>
+   724→          </div>
+   725→        )}
+   726→      </div>
+   727→
+   728→      {/* Footer navigation */}
+   729→      <div className="border-t border-slate-800/50 px-4 py-3 flex items-center justify-between shrink-0">
+   730→        <button
+   731→          onClick={() => step > 0 ? setStep(step - 1) : handleClose()}
+   732→          className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+   733→        >
+   734→          <ChevronLeft className="w-3.5 h-3.5" />
+   735→          {step === 0 ? 'Отмена' : 'Назад'}
+   736→        </button>
+   737→
+   738→        {step < 2 ? (
+   739→          <Button
+   740→            onClick={() => step === 1 ? goToStep2() : setStep(step + 1)}
+   741→            disabled={!canProceed()}
+   742→            className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 disabled:hover:bg-cyan-600 text-white h-8 text-xs gap-1"
+   743→          >
+   744→            Далее
+   745→            <ChevronRight className="w-3.5 h-3.5" />
+   746→          </Button>
+   747→        ) : (
+   748→          <Button
+   749→            onClick={handleCreate}
+   750→            disabled={loading || editableStages.length === 0}
+   751→            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-40 text-white h-8 text-xs gap-1.5"
+   752→          >
+   753→            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+   754→            Создать трек
+   755→          </Button>
+   756→        )}
+   757→      </div>
+   758→    </div>
+   759→  );
+   760→}
+   761→

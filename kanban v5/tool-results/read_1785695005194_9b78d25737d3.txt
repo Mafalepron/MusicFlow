@@ -1,0 +1,474 @@
+    43→];
+    44→
+    45→const SUBTASK_STATUS_ICON: Record<string, typeof Circle> = {
+    46→  'todo': Circle,
+    47→  'in-progress': Clock,
+    48→  'review': Eye,
+    49→  'done': Check,
+    50→};
+    51→
+    52→const SUBTASK_STATUS_COLOR: Record<string, string> = {
+    53→  'todo': 'text-slate-500',
+    54→  'in-progress': 'text-orange-400',
+    55→  'review': 'text-rose-400',
+    56→  'done': 'text-emerald-400',
+    57→};
+    58→
+    59→export default function TaskDetailPanel() {
+    60→  const {
+    61→    boardTasks, selectedTaskId, setBoardTasks,
+    62→    selectedBoardId, boards,
+    63→    editingTask, isCreating, setEditingTask, setIsCreating,
+    64→  } = useKanbanStore();
+    65→
+    66→  const selectedTask = boardTasks.find(t => t.id === selectedTaskId);
+    67→  const selectedBoard = boards.find(b => b.id === selectedBoardId);
+    68→
+    69→  if (isCreating) return <TaskForm mode="create" />;
+    70→  if (editingTask) return <TaskForm mode="edit" task={editingTask} />;
+    71→
+    72→  if (!selectedTask) {
+    73→    return (
+    74→      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+    75→        <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800/50 flex items-center justify-center mb-3">
+    76→          <Pencil className="w-5 h-5 text-slate-700" />
+    77→        </div>
+    78→        <p className="text-xs text-slate-600 leading-relaxed">
+    79→          Выберите задачу в панели<br />сверху для просмотра и редактирования
+    80→        </p>
+    81→      </div>
+    82→    );
+    83→  }
+    84→
+    85→  // Track detail view for tracks with 3-level hierarchy
+    86→  if (selectedTask.trackConfig) {
+    87→    return <TrackDetailView task={selectedTask} board={selectedBoard} />;
+    88→  }
+    89→
+    90→  return <TaskDetailView task={selectedTask} board={selectedBoard} />;
+    91→}
+    92→
+    93→/* ── Track Detail View (3-level hierarchy) ──────────── */
+    94→
+    95→function TrackDetailView({ task, board }: { task: Task; board?: { title: string; color: string } }) {
+    96→  const { setBoardTasks, selectedBoardId, setEditingTask, setSelectedTaskId } = useKanbanStore();
+    97→  const [stages, setStages] = useState<TaskChild[]>(task.children || []);
+    98→  const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>(
+    99→    Object.fromEntries((task.children || []).map(c => [c.id, true]))
+   100→  );
+   101→
+   102→  const config = task.trackConfig ? JSON.parse(task.trackConfig) : null;
+   103→  const allSubtasks = stages.flatMap(s => s.children || []);
+   104→  const progress = getProgress(allSubtasks);
+   105→  const progressColor = progress === 100 ? 'bg-emerald-500' : progress > 50 ? 'bg-cyan-500' : progress > 0 ? 'bg-amber-500' : 'bg-slate-700';
+   106→
+   107→  const reloadTasks = useCallback(async () => {
+   108→    if (!selectedBoardId) return;
+   109→    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+   110→    const data = await res.json();
+   111→    setBoardTasks(data.tasks);
+   112→    const updated = data.tasks.find((t: Task) => t.id === task.id);
+   113→    if (updated) setStages(updated.children || []);
+   114→  }, [selectedBoardId, setBoardTasks, task.id]);
+   115→
+   116→  const toggleGrandchildStatus = async (e: React.MouseEvent, id: string) => {
+   117→    e.stopPropagation();
+   118→    const order: TaskStatus[] = ['todo', 'in-progress', 'review', 'done'];
+   119→    const all = stages.flatMap(s => s.children || []);
+   120→    const gc = all.find(c => c.id === id);
+   121→    if (!gc) return;
+   122→    const idx = order.indexOf(gc.status as TaskStatus);
+   123→    const next = order[(idx + 1) % order.length];
+   124→    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status: next }) });
+   125→    await reloadTasks();
+   126→  };
+   127→
+   128→  const toggleStageExpanded = (stageId: string) => {
+   129→    setExpandedStages(prev => ({ ...prev, [stageId]: !prev[stageId] }));
+   130→  };
+   131→
+   132→  const handleDelete = async () => {
+   133→    await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   134→    setSelectedTaskId(null);
+   135→    if (selectedBoardId) {
+   136→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+   137→      const data = await res.json();
+   138→      setBoardTasks(data.tasks);
+   139→    }
+   140→  };
+   141→
+   142→  return (
+   143→    <div className="flex-1 overflow-y-auto">
+   144→      {/* Header */}
+   145→      <div className="border-b border-slate-800/50 p-4">
+   146→        <div className="flex items-center gap-1.5 mb-2">
+   147→          <span className="text-[9px] text-purple-400 bg-purple-500/15 px-1.5 py-0.5 rounded font-medium uppercase tracking-wider">
+   148→            Трек
+   149→          </span>
+   150→          <div className="flex-1" />
+   151→          <button onClick={() => setEditingTask(task)} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors">
+   152→            <Pencil className="w-3.5 h-3.5" />
+   153→          </button>
+   154→          <button onClick={handleDelete} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors">
+   155→            <Trash2 className="w-3.5 h-3.5" />
+   156→          </button>
+   157→        </div>
+   158→        <h3 className="text-sm font-semibold text-white leading-tight mb-1.5">{task.title}</h3>
+   159→        {config && (
+   160→          <div className="flex flex-wrap gap-1">
+   161→            {config.instruments?.map((inst: string) => (
+   162→              <span key={inst} className="text-[9px] bg-slate-800/80 text-slate-400 px-1.5 py-0.5 rounded">{inst}</span>
+   163→            ))}
+   164→          </div>
+   165→        )}
+   166→      </div>
+   167→
+   168→      {/* Progress */}
+   169→      <div className="border-b border-slate-800/30 px-4 py-3">
+   170→        <div className="flex items-center justify-between mb-1.5">
+   171→          <span className="text-[11px] text-slate-400 font-medium">Общий прогресс</span>
+   172→          <span className={cn('text-[11px] font-bold',
+   173→            progressColor === 'bg-emerald-500' ? 'text-emerald-400' : progressColor === 'bg-cyan-500' ? 'text-cyan-400' : progressColor === 'bg-amber-500' ? 'text-amber-400' : 'text-slate-600'
+   174→          )}>{progress}%</span>
+   175→        </div>
+   176→        <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+   177→          <div className={cn('h-full rounded-full transition-all duration-700 ease-out', progressColor)} style={{ width: `${progress}%` }} />
+   178→        </div>
+   179→        <div className="flex items-center justify-between mt-1">
+   180→          <span className="text-[9px] text-slate-600">{allSubtasks.filter(s => s.status === 'done').length} из {allSubtasks.length} задач</span>
+   181→          {progress === 100 && <span className="text-[9px] text-emerald-400 font-medium">✓ Завершено</span>}
+   182→        </div>
+   183→      </div>
+   184→
+   185→      {/* Stages as collapsible groups */}
+   186→      <div className="px-3 py-2 space-y-1">
+   187→        {stages.map((stage) => {
+   188→          const grandchildren = stage.children || [];
+   189→          const stageProgress = getProgress(grandchildren);
+   190→          const stageDone = stage.status === 'done';
+   191→          const isExpanded = expandedStages[stage.id] !== false;
+   192→          const StatusIcon = SUBTASK_STATUS_ICON[stage.status] || Circle;
+   193→
+   194→          return (
+   195→            <div key={stage.id} className="rounded-lg border border-slate-800/30 overflow-hidden">
+   196→              {/* Stage header */}
+   197→              <button
+   198→                onClick={() => toggleStageExpanded(stage.id)}
+   199→                className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-slate-900/60 transition-colors text-left group/stage"
+   200→              >
+   201→                <StatusIcon className={cn('w-3.5 h-3.5 flex-shrink-0', SUBTASK_STATUS_COLOR[stage.status])} />
+   202→                <span className={cn('flex-1 text-[11px] font-medium min-w-0',
+   203→                  stageDone ? 'text-slate-500 line-through' : 'text-slate-300'
+   204→                )}>
+   205→                  {stage.title}
+   206→                </span>
+   207→                {grandchildren.length > 0 && (
+   208→                  <span className="text-[9px] text-slate-600 mr-1">{stageDone ? '✓' : `${stageProgress}%`}</span>
+   209→                )}
+   210→                {isExpanded
+   211→                  ? <ChevronUp className="w-3 h-3 text-slate-600 group-hover/stage:text-slate-400" />
+   212→                  : <ChevronDown className="w-3 h-3 text-slate-600 group-hover/stage:text-slate-400" />
+   213→                }
+   214→              </button>
+   215→
+   216→              {/* Stage mini progress + grandchildren */}
+   217→              {isExpanded && grandchildren.length > 0 && (
+   218→                <div>
+   219→                  <div className="px-2.5 pb-1.5">
+   220→                    <div className="h-1 bg-slate-800/60 rounded-full overflow-hidden">
+   221→                      <div
+   222→                        className={cn('h-full rounded-full transition-all duration-500',
+   223→                          stageProgress === 100 ? 'bg-emerald-500' : stageProgress > 50 ? 'bg-cyan-500' : stageProgress > 0 ? 'bg-amber-500' : 'bg-slate-700'
+   224→                        )}
+   225→                        style={{ width: `${stageProgress}%` }}
+   226→                      />
+   227→                    </div>
+   228→                  </div>
+   229→                  <div className="space-y-0.5 px-2 pb-2">
+   230→                    {grandchildren.map((gc) => {
+   231→                      const GcIcon = SUBTASK_STATUS_ICON[gc.status] || Circle;
+   232→                      return (
+   233→                        <div key={gc.id} className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-slate-800/40 transition-colors group/gc">
+   234→                          <button
+   235→                            onClick={(e) => toggleGrandchildStatus(e, gc.id)}
+   236→                            className={cn('flex-shrink-0 hover:opacity-70 transition-opacity', SUBTASK_STATUS_COLOR[gc.status] || 'text-slate-500')}
+   237→                          >
+   238→                            <GcIcon className="w-3 h-3" />
+   239→                          </button>
+   240→                          <span className={cn('flex-1 text-[10px] min-w-0',
+   241→                            gc.status === 'done' ? 'text-slate-600 line-through' : 'text-slate-400'
+   242→                          )}>
+   243→                            {gc.title}
+   244→                          </span>
+   245→                        </div>
+   246→                      );
+   247→                    })}
+   248→                  </div>
+   249→                </div>
+   250→              )}
+   251→            </div>
+   252→          );
+   253→        })}
+   254→      </div>
+   255→    </div>
+   256→  );
+   257→}
+   258→
+   259→/* ── Regular Task Detail View ──────────── */
+   260→
+   261→function TaskDetailView({ task, board }: { task: Task; board?: { title: string; color: string } }) {
+   262→  const { setBoardTasks, selectedBoardId, setEditingTask, setSelectedTaskId } = useKanbanStore();
+   263→  const [subtasks, setSubtasks] = useState<TaskChild[]>(task.children || []);
+   264→  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+   265→  const [newSubtaskDeadline, setNewSubtaskDeadline] = useState<string | null>(null);
+   266→  const [addingSubtask, setAddingSubtask] = useState(false);
+   267→  const [expandedSubtasks, setExpandedSubtasks] = useState(true);
+   268→
+   269→  const progress = getProgress(subtasks);
+   270→  const progressColor = progress === 100 ? 'bg-emerald-500' : progress > 50 ? 'bg-cyan-500' : progress > 0 ? 'bg-amber-500' : 'bg-slate-700';
+   271→
+   272→  const reloadTasks = useCallback(async () => {
+   273→    if (!selectedBoardId) return;
+   274→    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   275→    const data = await res.json();
+   276→    setBoardTasks(data.tasks);
+   277→    const updated = data.tasks.find((t: Task) => t.id === task.id);
+   278→    if (updated) setSubtasks(updated.children || []);
+   279→  }, [selectedBoardId, setBoardTasks, task.id]);
+   280→
+   281→  const cycleSubtaskStatus = async (e: React.MouseEvent, subtaskId: string) => {
+   282→    e.stopPropagation();
+   283→    const order: TaskStatus[] = ['todo', 'in-progress', 'review', 'done'];
+   284→    const sub = subtasks.find(s => s.id === subtaskId);
+   285→    if (!sub) return;
+   286→    const idx = order.indexOf(sub.status as TaskStatus);
+   287→    const next = order[(idx + 1) % order.length];
+   288→    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: subtaskId, status: next }) });
+   289→    await reloadTasks();
+   290→  };
+   291→
+   292→  const deleteSubtask = async (e: React.MouseEvent, subtaskId: string) => {
+   293→    e.stopPropagation();
+   294→    await fetch(`/api/tasks?id=${subtaskId}`, { method: 'DELETE' });
+   295→    await reloadTasks();
+   296→  };
+   297→
+   298→  const addSubtask = async () => {
+   299→    if (!newSubtaskTitle.trim()) return;
+   300→    await fetch('/api/tasks', {
+   301→      method: 'POST', headers: { 'Content-Type': 'application/json' },
+   302→      body: JSON.stringify({ title: newSubtaskTitle.trim(), parentId: task.id, status: 'todo', ...(newSubtaskDeadline ? { deadline: newSubtaskDeadline } : {}) }),
+   303→    });
+   304→    setNewSubtaskTitle(''); setNewSubtaskDeadline(null); setAddingSubtask(false);
+   305→    await reloadTasks();
+   306→  };
+   307→
+   308→  const updateTaskDeadline = async (deadline: string | null) => {
+   309→    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, deadline }) });
+   310→    await reloadTasks();
+   311→  };
+   312→
+   313→  const updateSubtaskDeadline = async (subtaskId: string, deadline: string | null) => {
+   314→    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: subtaskId, deadline }) });
+   315→    await reloadTasks();
+   316→  };
+   317→
+   318→  const handleDeleteTask = async () => {
+   319→    await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   320→    setSelectedTaskId(null);
+   321→    if (selectedBoardId) {
+   322→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   323→      const data = await res.json();
+   324→      setBoardTasks(data.tasks);
+   325→    }
+   326→  };
+   327→
+   328→  return (
+   329→    <div className="flex-1 overflow-y-auto">
+   330→      <div className="border-b border-slate-800/50 p-4">
+   331→        <div className="flex items-center gap-1.5 mb-2.5">
+   332→          {board && (
+   333→            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium"
+   334→              style={{ color: board.color, backgroundColor: board.color + '15' }}>{board.title}</span>
+   335→          )}
+   336→          <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded',
+   337→            task.status === 'todo' ? 'text-cyan-400 bg-cyan-500/10' :
+   338→            task.status === 'in-progress' ? 'text-orange-400 bg-orange-500/10' :
+   339→            task.status === 'review' ? 'text-rose-400 bg-rose-500/10' :
+   340→            'text-emerald-400 bg-emerald-500/10'
+   341→          )}>
+   342→            {STATUSES.find(s => s.value === task.status)?.label || task.status}
+   343→          </span>
+   344→          <div className="flex-1" />
+   345→          <button onClick={() => setEditingTask(task)} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+   346→          <button onClick={handleDeleteTask} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+   347→        </div>
+   348→        <h3 className={cn('text-sm font-semibold leading-tight mb-1', task.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-100')}>{task.title}</h3>
+   349→        {task.description && <p className="text-[11px] text-slate-400 leading-relaxed mb-2">{task.description}</p>}
+   350→        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+   351→          {task.assignee && <span>👤 {task.assignee}</span>}
+   352→          <span className={cn('flex items-center gap-1',
+   353→            task.priority === 'high' ? 'text-rose-400' : task.priority === 'medium' ? 'text-amber-400' : 'text-slate-500'
+   354→          )}>
+   355→            {task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '⚪'}
+   356→            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
+   357→          </span>
+   358→        </div>
+   359→      </div>
+   360→      <div className="border-b border-slate-800/30 px-4 py-3">
+   361→        <DeadlinePicker value={task.deadline || null} onChange={updateTaskDeadline} isDone={task.status === 'done'} size="md" />
+   362→      </div>
+   363→      {subtasks.length > 0 && (
+   364→        <div className="border-b border-slate-800/30 px-4 py-3">
+   365→          <div className="flex items-center justify-between mb-1.5">
+   366→            <span className="text-[11px] text-slate-400 font-medium">Прогресс</span>
+   367→            <span className={cn('text-[11px] font-bold',
+   368→              progressColor === 'bg-emerald-500' ? 'text-emerald-400' : progressColor === 'bg-cyan-500' ? 'text-cyan-400' : progressColor === 'bg-amber-500' ? 'text-amber-400' : 'text-slate-600'
+   369→            )}>{progress}%</span>
+   370→          </div>
+   371→          <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+   372→            <div className={cn('h-full rounded-full transition-all duration-700 ease-out', progressColor)} style={{ width: `${progress}%` }} />
+   373→          </div>
+   374→          <div className="flex items-center justify-between mt-1">
+   375→            <span className="text-[9px] text-slate-600">{subtasks.filter(s => s.status === 'done').length} из {subtasks.length} подзадач</span>
+   376→            {progress === 100 && <span className="text-[9px] text-emerald-400 font-medium">✓ Завершено</span>}
+   377→          </div>
+   378→        </div>
+   379→      )}
+   380→      <div className="px-4 py-3">
+   381→        <button onClick={() => setExpandedSubtasks(!expandedSubtasks)} className="flex items-center gap-1.5 mb-2 group w-full text-left">
+   382→          {expandedSubtasks
+   383→            ? <ChevronUp className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+   384→            : <ChevronDown className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />}
+   385→          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Подзадачи</span>
+   386→          {subtasks.length > 0 && <span className="text-[9px] text-slate-600 bg-slate-800/50 px-1.5 py-0.5 rounded ml-1">{subtasks.length}</span>}
+   387→        </button>
+   388→        {expandedSubtasks && (
+   389→          <div className="space-y-1.5">
+   390→            {subtasks.length === 0 && !addingSubtask && <p className="text-[10px] text-slate-600 py-2 text-center">Нет подзадач</p>}
+   391→            {subtasks.map((sub) => {
+   392→              const Icon = SUBTASK_STATUS_ICON[sub.status] || Circle;
+   393→              return (
+   394→                <div key={sub.id} className="group/sub flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-900/80 transition-colors">
+   395→                  <button onClick={(e) => cycleSubtaskStatus(e, sub.id)} className={cn('flex-shrink-0 transition-opacity hover:opacity-70', SUBTASK_STATUS_COLOR[sub.status] || 'text-slate-500')}><Icon className="w-3.5 h-3.5" /></button>
+   396→                  <span className={cn('flex-1 text-[11px] leading-tight min-w-0', sub.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-300')}>{sub.title}</span>
+   397→                  <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+   398→                    <DeadlinePicker value={sub.deadline || null} onChange={(d) => updateSubtaskDeadline(sub.id, d)} isDone={sub.status === 'done'} size="sm" inline />
+   399→                  </div>
+   400→                  <button onClick={(e) => deleteSubtask(e, sub.id)} className="p-0.5 rounded opacity-0 group-hover/sub:opacity-100 hover:bg-slate-800 text-slate-600 hover:text-rose-400 transition-all flex-shrink-0"><X className="w-3 h-3" /></button>
+   401→                </div>
+   402→              );
+   403→            })}
+   404→            {addingSubtask ? (
+   405→              <div className="space-y-2 bg-slate-900/60 border border-slate-800/50 rounded-lg p-2.5 mt-1">
+   406→                <Input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addSubtask()} placeholder="Название подзадачи..." autoFocus className="bg-slate-800/80 border-slate-700/50 text-[11px] text-slate-200 placeholder:text-slate-600 h-7 focus:border-cyan-500/50" />
+   407→                <div className="flex items-center gap-2">
+   408→                  <span className="text-[10px] text-slate-600 flex-shrink-0">Дедлайн:</span>
+   409→                  <DeadlinePicker value={newSubtaskDeadline} onChange={setNewSubtaskDeadline} size="sm" />
+   410→                </div>
+   411→                <div className="flex gap-1.5 pt-0.5">
+   412→                  <button onClick={addSubtask} disabled={!newSubtaskTitle.trim()} className="flex-1 text-[10px] bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 disabled:hover:bg-cyan-600 text-white rounded px-2 py-1.5 transition-colors font-medium">Добавить</button>
+   413→                  <button onClick={() => { setAddingSubtask(false); setNewSubtaskTitle(''); setNewSubtaskDeadline(null); }} className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1.5 transition-colors">Отмена</button>
+   414→                </div>
+   415→              </div>
+   416→            ) : (
+   417→              <button onClick={() => setAddingSubtask(true)} className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-slate-600 hover:text-cyan-400 transition-colors rounded-lg hover:bg-slate-900/50 w-full"><Plus className="w-3 h-3" /> Добавить подзадачу</button>
+   418→            )}
+   419→          </div>
+   420→        )}
+   421→      </div>
+   422→    </div>
+   423→  );
+   424→}
+   425→
+   426→/* ── Task Form (create / edit) ──────────── */
+   427→
+   428→function TaskForm({ mode, task }: { mode: 'create' | 'edit'; task?: Task }) {
+   429→  const { selectedBoardId, setBoardTasks, selectedProjectId, setEditingTask, setIsCreating, setSelectedTaskId } = useKanbanStore();
+   430→  const [title, setTitle] = useState('');
+   431→  const [description, setDescription] = useState('');
+   432→  const [status, setStatus] = useState<TaskStatus>('todo');
+   433→  const [priority, setPriority] = useState<TaskPriority>('medium');
+   434→  const [assignee, setAssignee] = useState('');
+   435→  const [category, setCategory] = useState<TaskCategory>('general');
+   436→  const [deadline, setDeadline] = useState<string | null>(null);
+   437→  const [saving, setSaving] = useState(false);
+   438→
+   439→  useEffect(() => {
+   440→    if (mode === 'edit' && task) {
+   441→      setTitle(task.title); setDescription(task.description || ''); setStatus(task.status);
+   442→      setPriority(task.priority); setAssignee(task.assignee || ''); setCategory(task.category);
+   443→      setDeadline(task.deadline || null);
+   444→    }
+   445→  }, [mode, task]);
+   446→
+   447→  const reloadTasks = useCallback(async () => {
+   448→    if (selectedBoardId) {
+   449→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   450→      const data = await res.json();
+   451→      setBoardTasks(data.tasks);
+   452→    }
+   453→    if (selectedProjectId) {
+   454→      const bRes = await fetch(`/api/boards?projectId=${selectedProjectId}`);
+   455→      const bData = await bRes.json();
+   456→      useKanbanStore.getState().setBoards(bData.boards);
+   457→    }
+   458→  }, [selectedBoardId, selectedProjectId, setBoardTasks]);
+   459→
+   460→  const handleSave = async () => {
+   461→    if (!title.trim()) return;
+   462→    setSaving(true);
+   463→    try {
+   464→      if (mode === 'edit' && task) {
+   465→        await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, title, description: description || null, status, priority, assignee: assignee || null, category, boardId: selectedBoardId, deadline }) });
+   466→      } else {
+   467→        await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description: description || null, status, priority, assignee: assignee || null, category, parentId: null, boardId: selectedBoardId, deadline }) });
+   468→      }
+   469→      await reloadTasks(); setEditingTask(null); setIsCreating(false);
+   470→      if (mode === 'edit' && task) setSelectedTaskId(task.id);
+   471→    } finally { setSaving(false); }
+   472→  };
+   473→
+   474→  const handleDelete = async () => {
+   475→    if (!task) return;
+   476→    setSaving(true);
+   477→    try {
+   478→      await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   479→      await reloadTasks(); setEditingTask(null); setSelectedTaskId(null);
+   480→    } finally { setSaving(false); }
+   481→  };
+   482→
+   483→  return (
+   484→    <div className="flex-1 overflow-y-auto">
+   485→      <div className="p-4 space-y-3">
+   486→        <div className="flex items-center justify-between">
+   487→          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{mode === 'edit' ? 'Редактировать' : 'Новая задача'}</h3>
+   488→          <button onClick={() => { setEditingTask(null); setIsCreating(false); }} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300"><X className="h-3.5 w-3.5" /></button>
+   489→        </div>
+   490→        <div className="space-y-2.5">
+   491→          <div className="space-y-1"><Label className="text-[11px] text-slate-500">Название</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Задача..." className="bg-slate-900/80 border-slate-700/50 text-sm text-slate-200 placeholder:text-slate-600 h-8 focus:border-cyan-500/50" /></div>
+   492→          <div className="space-y-1"><Label className="text-[11px] text-slate-500">Описание</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание..." className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none focus:border-cyan-500/50" /></div>
+   493→          <div className="grid grid-cols-2 gap-2">
+   494→            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Статус</Label><Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}><SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-slate-700">{STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}><span className={s.color}>{s.label}</span></SelectItem>))}</SelectContent></Select></div>
+   495→            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Приоритет</Label><Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}><SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-slate-700">{PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value}><div className="flex items-center gap-1.5"><div className={cn('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}</div></SelectItem>))}</SelectContent></Select></div>
+   496→          </div>
+   497→          <div className="grid grid-cols-2 gap-2">
+   498→            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Категория</Label><Select value={category} onValueChange={(v) => setCategory(v as TaskCategory)}><SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-slate-700">{CATEGORIES.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}</SelectContent></Select></div>
+   499→            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Ответственный</Label><Input value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="Имя..." className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 placeholder:text-slate-600 h-8 focus:border-cyan-500/50" /></div>
+   500→          </div>
+   501→          <div className="space-y-1"><Label className="text-[11px] text-slate-500">Дедлайн</Label><DeadlinePicker value={deadline} onChange={setDeadline} size="md" /></div>
+   502→        </div>
+   503→        <div className="flex gap-2 pt-1">
+   504→          <Button onClick={handleSave} disabled={!title.trim() || saving} className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white h-8 text-xs"><Save className="w-3 h-3 mr-1" />{saving ? '...' : mode === 'edit' ? 'Сохранить' : 'Создать'}</Button>
+   505→          {mode === 'edit' && <Button onClick={handleDelete} variant="destructive" disabled={saving} className="h-8 text-xs">Удалить</Button>}
+   506→        </div>
+   507→      </div>
+   508→    </div>
+   509→  );
+   510→}
+   511→
+   512→function getProgress(children: { status: string }[]): number {
+   513→  if (children.length === 0) return 0;
+   514→  return Math.round((children.filter(c => c.status === 'done').length / children.length) * 100);
+   515→}
+   516→

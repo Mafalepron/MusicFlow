@@ -1,0 +1,534 @@
+   248→            progressColor === 'bg-emerald-500' ? 'text-emerald-400' : progressColor === 'bg-cyan-500' ? 'text-cyan-400' : progressColor === 'bg-amber-500' ? 'text-amber-400' : 'text-slate-600'
+   249→          )}>{progress}%</span>
+   250→        </div>
+   251→        <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+   252→          <div className={cn('h-full rounded-full transition-all duration-700 ease-out', progressColor)} style={{ width: `${progress}%` }} />
+   253→        </div>
+   254→        <div className="flex items-center justify-between mt-1">
+   255→          <span className="text-[9px] text-slate-600">{allSubtasks.filter(s => s.status === 'done').length} из {allSubtasks.length} задач</span>
+   256→          {progress === 100 && <span className="text-[9px] text-emerald-400 font-medium">✓ Завершено</span>}
+   257→        </div>
+   258→      </div>
+   259→
+   260→      {/* Stages as collapsible groups */}
+   261→      <div className="px-3 py-2 space-y-1">
+   262→        {stages.map((stage) => {
+   263→          const grandchildren = stage.children || [];
+   264→          const stageProgress = getProgress(grandchildren);
+   265→          const stageDone = stage.status === 'done';
+   266→          const isExpanded = expandedStages[stage.id] !== false;
+   267→          const isCustom = !EMOJI_RE.test(stage.title);
+   268→          const StatusIcon = SUBTASK_STATUS_ICON[stage.status] || Circle;
+   269→          const hasDesc = !!stage.description;
+   270→          const descExpanded = expandedDescIds[stage.id] === true;
+   271→          const isEditingDesc = editingDescId === stage.id;
+   272→
+   273→          return (
+   274→            <div key={stage.id} className="rounded-lg border border-slate-800/30 overflow-hidden">
+   275→              {/* Stage header — full panel click to expand */}
+   276→              <button
+   277→                onClick={() => toggleStageExpanded(stage.id)}
+   278→                className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-slate-900/60 transition-colors text-left group/stage"
+   279→              >
+   280→                <StatusIcon className={cn('w-3.5 h-3.5 flex-shrink-0', SUBTASK_STATUS_COLOR[stage.status])} />
+   281→                {isCustom && <Cat className="w-3 h-3 flex-shrink-0 text-amber-400/60" />}
+   282→                <span className={cn('flex-1 text-[11px] font-medium min-w-0',
+   283→                  stageDone ? 'text-slate-500 line-through' : 'text-slate-300'
+   284→                )}>
+   285→                  {stage.title}
+   286→                </span>
+   287→                {/* Description icon */}
+   288→                <button
+   289→                  onClick={(e) => { e.stopPropagation(); if (hasDesc) toggleDescExpanded(stage.id); else startEditDesc(stage.id, stage.description || ''); }}
+   290→                  className={cn('flex-shrink-0 transition-opacity',
+   291→                    hasDesc ? 'text-slate-500 hover:text-cyan-400' : 'text-slate-700 opacity-0 group-hover/stage:opacity-100 hover:text-cyan-400'
+   292→                  )}
+   293→                >
+   294→                  <MessageSquare className="w-3 h-3" />
+   295→                </button>
+   296→                {grandchildren.length > 0 && (
+   297→                  <span className="text-[9px] text-slate-600 mr-1">{stageDone ? '✓' : `${stageProgress}%`}</span>
+   298→                )}
+   299→                <button
+   300→                  onClick={(e) => { e.stopPropagation(); deleteStage(e, stage.id); }}
+   301→                  className="flex-shrink-0 p-0.5 rounded opacity-0 group-hover/stage:opacity-100 hover:bg-rose-500/10 text-slate-600 hover:text-rose-400 transition-all"
+   302→                >
+   303→                  <Trash2 className="w-3 h-3" />
+   304→                </button>
+   305→                {isExpanded
+   306→                  ? <ChevronUp className="w-3 h-3 text-slate-600 group-hover/stage:text-slate-400" />
+   307→                  : <ChevronDown className="w-3 h-3 text-slate-600 group-hover/stage:text-slate-400" />
+   308→                }
+   309→              </button>
+   310→
+   311→              {/* Expanded content */}
+   312→              {isExpanded && (
+   313→                <div>
+   314→                  {/* Description card */}
+   315→                  {hasDesc && !isEditingDesc && (
+   316→                    <div className="mx-2.5 mb-1.5">
+   317→                      <div className="bg-slate-900/60 border border-slate-800/40 rounded-md p-2">
+   318→                        {descExpanded ? (
+   319→                          <>
+   320→                            <p className="text-[10px] text-slate-400 whitespace-pre-wrap leading-relaxed">
+   321→                              {stage.description && stage.description.length > DESC_LIMIT
+   322→                                ? stage.description.slice(0, DESC_LIMIT) + '...'
+   323→                                : stage.description}
+   324→                            </p>
+   325→                            <div className="flex items-center gap-2 mt-1.5">
+   326→                              <button
+   327→                                onClick={() => startEditDesc(stage.id, stage.description || '')}
+   328→                                className="text-[9px] text-cyan-500/70 hover:text-cyan-400 transition-colors"
+   329→                              >Редактировать</button>
+   330→                              <button
+   331→                                onClick={() => toggleDescExpanded(stage.id)}
+   332→                                className="text-[9px] text-slate-600 hover:text-slate-400 transition-colors"
+   333→                              >Свернуть</button>
+   334→                            </div>
+   335→                          </>
+   336→                        ) : (
+   337→                          <p className="text-[10px] text-slate-500 line-clamp-2">
+   338→                            {stage.description}
+   339→                          </p>
+   340→                        )}
+   341→                      </div>
+   342→                    </div>
+   343→                  )}
+   344→                  {/* Editing description */}
+   345→                  {isEditingDesc && (
+   346→                    <div className="mx-2.5 mb-1.5">
+   347→                      <div className="bg-slate-900/60 border border-cyan-500/30 rounded-md p-2 space-y-1.5">
+   348→                        <Textarea
+   349→                          value={descDraft}
+   350→                          onChange={(e) => setDescDraft(e.target.value)}
+   351→                          placeholder="Описание этапа..."
+   352→                          maxLength={DESC_LIMIT}
+   353→                          className="bg-slate-800/80 border-slate-700/50 text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none"
+   354→                          autoFocus
+   355→                        />
+   356→                        <div className="flex items-center justify-between">
+   357→                          <span className="text-[8px] text-slate-600">{descDraft.length}/{DESC_LIMIT}</span>
+   358→                          <div className="flex items-center gap-1">
+   359→                            <button onClick={cancelEditDesc} className="text-[9px] text-slate-500 hover:text-slate-300 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors">Отмена</button>
+   360→                            <button
+   361→                              onClick={() => saveDesc(stage.id)}
+   362→                              className="text-[9px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded hover:bg-cyan-500/20 transition-colors"
+   363→                            >Сохранить</button>
+   364→                          </div>
+   365→                        </div>
+   366→                      </div>
+   367→                    </div>
+   368→                  )}
+   369→
+   370→                  {/* Progress bar */}
+   371→                  {grandchildren.length > 0 && (
+   372→                    <div className="px-2.5 pb-1.5">
+   373→                      <div className="h-1 bg-slate-800/60 rounded-full overflow-hidden">
+   374→                        <div
+   375→                          className={cn('h-full rounded-full transition-all duration-500',
+   376→                            stageProgress === 100 ? 'bg-emerald-500' : stageProgress > 50 ? 'bg-cyan-500' : stageProgress > 0 ? 'bg-amber-500' : 'bg-slate-700'
+   377→                          )}
+   378→                          style={{ width: `${stageProgress}%` }}
+   379→                        />
+   380→                      </div>
+   381→                    </div>
+   382→                  )}
+   383→
+   384→                  {/* Grandchildren list */}
+   385→                  <div className="space-y-0.5 px-2 pb-2">
+   386→                    {grandchildren.map((gc) => {
+   387→                      const GcIcon = SUBTASK_STATUS_ICON[gc.status] || Circle;
+   388→                      const gcHasDesc = !!gc.description;
+   389→                      const gcDescExpanded = expandedDescIds[gc.id] === true;
+   390→                      const gcIsEditingDesc = editingDescId === gc.id;
+   391→                      return (
+   392→                        <div key={gc.id} className="rounded-md border border-transparent hover:border-slate-800/30 overflow-hidden">
+   393→                          <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-slate-800/40 transition-colors group/gc">
+   394→                            <button
+   395→                              onClick={(e) => toggleGrandchildStatus(e, gc.id)}
+   396→                              className={cn('flex-shrink-0 hover:opacity-70 transition-opacity', SUBTASK_STATUS_COLOR[gc.status] || 'text-slate-500')}
+   397→                            >
+   398→                              <GcIcon className="w-3 h-3" />
+   399→                            </button>
+   400→                            <span className={cn('flex-1 text-[10px] min-w-0',
+   401→                              gc.status === 'done' ? 'text-slate-600 line-through' : 'text-slate-400'
+   402→                            )}>
+   403→                              {gc.title}
+   404→                            </span>
+   405→                            {/* GC description icon */}
+   406→                            <button
+   407→                              onClick={(e) => { e.stopPropagation(); if (gcHasDesc) toggleDescExpanded(gc.id); else startEditDesc(gc.id, gc.description || ''); }}
+   408→                              className={cn('flex-shrink-0 transition-opacity',
+   409→                                gcHasDesc ? 'text-slate-600 hover:text-cyan-400' : 'text-slate-700 opacity-0 group-hover/gc:opacity-100 hover:text-cyan-400'
+   410→                              )}
+   411→                            >
+   412→                              <MessageSquare className="w-2.5 h-2.5" />
+   413→                            </button>
+   414→                            <button
+   415→                              onClick={(e) => deleteGrandchild(e, gc.id)}
+   416→                              className="flex-shrink-0 p-0.5 rounded opacity-0 group-hover/gc:opacity-100 hover:bg-rose-500/10 text-slate-700 hover:text-rose-400 transition-all"
+   417→                            >
+   418→                              <Trash2 className="w-2.5 h-2.5" />
+   419→                            </button>
+   420→                          </div>
+   421→                          {/* GC expanded description */}
+   422→                          {gcHasDesc && !gcIsEditingDesc && gcDescExpanded && (
+   423→                            <div className="px-2 pb-1.5 pt-0.5">
+   424→                              <div className="bg-slate-900/40 border border-slate-800/30 rounded p-1.5">
+   425→                                <p className="text-[9px] text-slate-500 whitespace-pre-wrap leading-relaxed">
+   426→                                  {gc.description && gc.description.length > DESC_LIMIT
+   427→                                    ? gc.description.slice(0, DESC_LIMIT) + '...'
+   428→                                    : gc.description}
+   429→                                </p>
+   430→                                <div className="flex items-center gap-2 mt-1">
+   431→                                  <button onClick={() => startEditDesc(gc.id, gc.description || '')} className="text-[8px] text-cyan-500/70 hover:text-cyan-400">Изменить</button>
+   432→                                  <button onClick={() => toggleDescExpanded(gc.id)} className="text-[8px] text-slate-600 hover:text-slate-400">Свернуть</button>
+   433→                                </div>
+   434→                              </div>
+   435→                            </div>
+   436→                          )}
+   437→                          {/* GC editing description */}
+   438→                          {gcIsEditingDesc && (
+   439→                            <div className="px-2 pb-1.5 pt-0.5">
+   440→                              <div className="bg-slate-900/40 border border-cyan-500/20 rounded p-1.5 space-y-1">
+   441→                                <Textarea
+   442→                                  value={descDraft}
+   443→                                  onChange={(e) => setDescDraft(e.target.value)}
+   444→                                  placeholder="Описание..."
+   445→                                  maxLength={DESC_LIMIT}
+   446→                                  className="bg-slate-800/80 border-slate-700/50 text-[9px] text-slate-300 placeholder:text-slate-600 min-h-[40px] resize-none"
+   447→                                  autoFocus
+   448→                                />
+   449→                                <div className="flex items-center justify-between">
+   450→                                  <span className="text-[7px] text-slate-600">{descDraft.length}/{DESC_LIMIT}</span>
+   451→                                  <div className="flex items-center gap-1">
+   452→                                    <button onClick={cancelEditDesc} className="text-[8px] text-slate-500 hover:text-slate-300">Отмена</button>
+   453→                                    <button onClick={() => saveDesc(gc.id)} className="text-[8px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">Сохранить</button>
+   454→                                  </div>
+   455→                                </div>
+   456→                              </div>
+   457→                            </div>
+   458→                          )}
+   459→                        </div>
+   460→                      );
+   461→                    })}
+   462→
+   463→                    {/* Add grandchild button */}
+   464→                    {addingGrandchild === stage.id ? (
+   465→                      <div className="flex items-center gap-1.5 px-2 py-1">
+   466→                        <Input
+   467→                          value={newGcTitle}
+   468→                          onChange={(e) => setNewGcTitle(e.target.value)}
+   469→                          onKeyDown={(e) => { if (e.key === 'Enter') addGrandchild(stage.id); if (e.key === 'Escape') { setAddingGrandchild(null); setNewGcTitle(''); } }}
+   470→                          placeholder="Название подзадачи..."
+   471→                          className="h-6 text-[10px] bg-slate-800/60 border-slate-700/40 text-slate-300 placeholder:text-slate-600"
+   472→                          autoFocus
+   473→                        />
+   474→                        <button onClick={() => addGrandchild(stage.id)} className="text-[9px] text-cyan-400 bg-cyan-500/10 px-1.5 py-1 rounded hover:bg-cyan-500/20">+</button>
+   475→                        <button onClick={() => { setAddingGrandchild(null); setNewGcTitle(''); }} className="text-[9px] text-slate-600 hover:text-slate-400 px-1 py-1">×</button>
+   476→                      </div>
+   477→                    ) : (
+   478→                      <button
+   479→                        onClick={() => { setAddingGrandchild(stage.id); setNewGcTitle(''); }}
+   480→                        className="flex items-center gap-1 px-2 py-1 text-[9px] text-slate-600 hover:text-cyan-400 transition-colors"
+   481→                      >
+   482→                        <Plus className="w-2.5 h-2.5" /> Добавить
+   483→                      </button>
+   484→                    )}
+   485→                  </div>
+   486→                </div>
+   487→              )}
+   488→            </div>
+   489→          );
+   490→        })}
+   491→
+   492→        {/* Add custom stage */}
+   493→        {addingStage ? (
+   494→          <div className="rounded-lg border border-dashed border-slate-700/50 p-2 space-y-1.5">
+   495→            <div className="flex items-center gap-2">
+   496→              <Cat className="w-3 h-3 text-amber-400/60 flex-shrink-0" />
+   497→              <Input
+   498→                value={newStageTitle}
+   499→                onChange={(e) => setNewStageTitle(e.target.value)}
+   500→                onKeyDown={(e) => { if (e.key === 'Enter') addStage(); if (e.key === 'Escape') { setAddingStage(false); setNewStageTitle(''); } }}
+   501→                placeholder="Название этапа..."
+   502→                className="h-6 text-[10px] bg-slate-800/60 border-slate-700/40 text-slate-300 placeholder:text-slate-600"
+   503→                autoFocus
+   504→              />
+   505→            </div>
+   506→            <div className="flex items-center gap-1 pl-5">
+   507→              <button onClick={addStage} className="text-[9px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded hover:bg-cyan-500/20">Добавить</button>
+   508→              <button onClick={() => { setAddingStage(false); setNewStageTitle(''); }} className="text-[9px] text-slate-600 hover:text-slate-400">Отмена</button>
+   509→            </div>
+   510→          </div>
+   511→        ) : (
+   512→          <button
+   513→            onClick={() => { setAddingStage(true); setNewStageTitle(''); }}
+   514→            className="w-full flex items-center justify-center gap-1.5 py-2 text-[10px] text-slate-600 hover:text-cyan-400 border border-dashed border-slate-800/50 hover:border-cyan-500/30 rounded-lg transition-all"
+   515→          >
+   516→            <Plus className="w-3 h-3" /> Добавить этап
+   517→          </button>
+   518→        )}
+   519→      </div>
+   520→    </div>
+   521→  );
+   522→}
+   523→
+   524→/* ── Regular Task Detail View ──────────── */
+   525→
+   526→function TaskDetailView({ task, board }: { task: Task; board?: { title: string; color: string } }) {
+   527→  const { setBoardTasks, selectedBoardId, setEditingTask, setSelectedTaskId } = useKanbanStore();
+   528→  const [subtasks, setSubtasks] = useState<TaskChild[]>(task.children || []);
+   529→  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+   530→  const [newSubtaskDeadline, setNewSubtaskDeadline] = useState<string | null>(null);
+   531→  const [addingSubtask, setAddingSubtask] = useState(false);
+   532→  const [expandedSubtasks, setExpandedSubtasks] = useState(true);
+   533→
+   534→  const progress = getProgress(subtasks);
+   535→  const progressColor = progress === 100 ? 'bg-emerald-500' : progress > 50 ? 'bg-cyan-500' : progress > 0 ? 'bg-amber-500' : 'bg-slate-700';
+   536→
+   537→  const reloadTasks = useCallback(async () => {
+   538→    if (!selectedBoardId) return;
+   539→    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   540→    const data = await res.json();
+   541→    setBoardTasks(data.tasks);
+   542→    const updated = data.tasks.find((t: Task) => t.id === task.id);
+   543→    if (updated) setSubtasks(updated.children || []);
+   544→  }, [selectedBoardId, setBoardTasks, task.id]);
+   545→
+   546→  const cycleSubtaskStatus = async (e: React.MouseEvent, subtaskId: string) => {
+   547→    e.stopPropagation();
+   548→    const order: TaskStatus[] = ['todo', 'in-progress', 'review', 'done'];
+   549→    const sub = subtasks.find(s => s.id === subtaskId);
+   550→    if (!sub) return;
+   551→    const idx = order.indexOf(sub.status as TaskStatus);
+   552→    const next = order[(idx + 1) % order.length];
+   553→    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: subtaskId, status: next }) });
+   554→    await reloadTasks();
+   555→  };
+   556→
+   557→  const deleteSubtask = async (e: React.MouseEvent, subtaskId: string) => {
+   558→    e.stopPropagation();
+   559→    await fetch(`/api/tasks?id=${subtaskId}`, { method: 'DELETE' });
+   560→    await reloadTasks();
+   561→  };
+   562→
+   563→  const addSubtask = async () => {
+   564→    if (!newSubtaskTitle.trim()) return;
+   565→    await fetch('/api/tasks', {
+   566→      method: 'POST', headers: { 'Content-Type': 'application/json' },
+   567→      body: JSON.stringify({ title: newSubtaskTitle.trim(), parentId: task.id, status: 'todo', ...(newSubtaskDeadline ? { deadline: newSubtaskDeadline } : {}) }),
+   568→    });
+   569→    setNewSubtaskTitle(''); setNewSubtaskDeadline(null); setAddingSubtask(false);
+   570→    await reloadTasks();
+   571→  };
+   572→
+   573→  const updateTaskDeadline = async (deadline: string | null) => {
+   574→    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, deadline }) });
+   575→    await reloadTasks();
+   576→  };
+   577→
+   578→  const updateSubtaskDeadline = async (subtaskId: string, deadline: string | null) => {
+   579→    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: subtaskId, deadline }) });
+   580→    await reloadTasks();
+   581→  };
+   582→
+   583→  const handleDeleteTask = async () => {
+   584→    await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   585→    setSelectedTaskId(null);
+   586→    if (selectedBoardId) {
+   587→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   588→      const data = await res.json();
+   589→      setBoardTasks(data.tasks);
+   590→    }
+   591→  };
+   592→
+   593→  return (
+   594→    <div className="flex-1 overflow-y-auto">
+   595→      <div className="border-b border-slate-800/50 p-4">
+   596→        <div className="flex items-center gap-1.5 mb-2.5">
+   597→          {board && (
+   598→            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium"
+   599→              style={{ color: board.color, backgroundColor: board.color + '15' }}>{board.title}</span>
+   600→          )}
+   601→          <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded',
+   602→            task.status === 'todo' ? 'text-cyan-400 bg-cyan-500/10' :
+   603→            task.status === 'in-progress' ? 'text-orange-400 bg-orange-500/10' :
+   604→            task.status === 'review' ? 'text-rose-400 bg-rose-500/10' :
+   605→            'text-emerald-400 bg-emerald-500/10'
+   606→          )}>
+   607→            {STATUSES.find(s => s.value === task.status)?.label || task.status}
+   608→          </span>
+   609→          <div className="flex-1" />
+   610→          <button onClick={() => setEditingTask(task)} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+   611→          <button onClick={handleDeleteTask} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+   612→        </div>
+   613→        <h3 className={cn('text-sm font-semibold leading-tight mb-1', task.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-100')}>{task.title}</h3>
+   614→        {task.description && <p className="text-[11px] text-slate-400 leading-relaxed mb-2">{task.description}</p>}
+   615→        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+   616→          {task.assignee && <span>👤 {task.assignee}</span>}
+   617→          <span className={cn('flex items-center gap-1',
+   618→            task.priority === 'high' ? 'text-rose-400' : task.priority === 'medium' ? 'text-amber-400' : 'text-slate-500'
+   619→          )}>
+   620→            {task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '⚪'}
+   621→            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
+   622→          </span>
+   623→        </div>
+   624→      </div>
+   625→      <div className="border-b border-slate-800/30 px-4 py-3">
+   626→        <DeadlinePicker value={task.deadline || null} onChange={updateTaskDeadline} isDone={task.status === 'done'} size="md" />
+   627→      </div>
+   628→      {subtasks.length > 0 && (
+   629→        <div className="border-b border-slate-800/30 px-4 py-3">
+   630→          <div className="flex items-center justify-between mb-1.5">
+   631→            <span className="text-[11px] text-slate-400 font-medium">Прогресс</span>
+   632→            <span className={cn('text-[11px] font-bold',
+   633→              progressColor === 'bg-emerald-500' ? 'text-emerald-400' : progressColor === 'bg-cyan-500' ? 'text-cyan-400' : progressColor === 'bg-amber-500' ? 'text-amber-400' : 'text-slate-600'
+   634→            )}>{progress}%</span>
+   635→          </div>
+   636→          <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+   637→            <div className={cn('h-full rounded-full transition-all duration-700 ease-out', progressColor)} style={{ width: `${progress}%` }} />
+   638→          </div>
+   639→          <div className="flex items-center justify-between mt-1">
+   640→            <span className="text-[9px] text-slate-600">{subtasks.filter(s => s.status === 'done').length} из {subtasks.length} подзадач</span>
+   641→            {progress === 100 && <span className="text-[9px] text-emerald-400 font-medium">✓ Завершено</span>}
+   642→          </div>
+   643→        </div>
+   644→      )}
+   645→      <div className="px-4 py-3">
+   646→        <button onClick={() => setExpandedSubtasks(!expandedSubtasks)} className="flex items-center gap-1.5 mb-2 group w-full text-left">
+   647→          {expandedSubtasks
+   648→            ? <ChevronUp className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+   649→            : <ChevronDown className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />}
+   650→          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Подзадачи</span>
+   651→          {subtasks.length > 0 && <span className="text-[9px] text-slate-600 bg-slate-800/50 px-1.5 py-0.5 rounded ml-1">{subtasks.length}</span>}
+   652→        </button>
+   653→        {expandedSubtasks && (
+   654→          <div className="space-y-1.5">
+   655→            {subtasks.length === 0 && !addingSubtask && <p className="text-[10px] text-slate-600 py-2 text-center">Нет подзадач</p>}
+   656→            {subtasks.map((sub) => {
+   657→              const Icon = SUBTASK_STATUS_ICON[sub.status] || Circle;
+   658→              return (
+   659→                <div key={sub.id} className="group/sub flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-900/80 transition-colors">
+   660→                  <button onClick={(e) => cycleSubtaskStatus(e, sub.id)} className={cn('flex-shrink-0 transition-opacity hover:opacity-70', SUBTASK_STATUS_COLOR[sub.status] || 'text-slate-500')}><Icon className="w-3.5 h-3.5" /></button>
+   661→                  <span className={cn('flex-1 text-[11px] leading-tight min-w-0', sub.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-300')}>{sub.title}</span>
+   662→                  <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+   663→                    <DeadlinePicker value={sub.deadline || null} onChange={(d) => updateSubtaskDeadline(sub.id, d)} isDone={sub.status === 'done'} size="sm" inline />
+   664→                  </div>
+   665→                  <button onClick={(e) => deleteSubtask(e, sub.id)} className="p-0.5 rounded opacity-0 group-hover/sub:opacity-100 hover:bg-slate-800 text-slate-600 hover:text-rose-400 transition-all flex-shrink-0"><X className="w-3 h-3" /></button>
+   666→                </div>
+   667→              );
+   668→            })}
+   669→            {addingSubtask ? (
+   670→              <div className="space-y-2 bg-slate-900/60 border border-slate-800/50 rounded-lg p-2.5 mt-1">
+   671→                <Input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addSubtask()} placeholder="Название подзадачи..." autoFocus className="bg-slate-800/80 border-slate-700/50 text-[11px] text-slate-200 placeholder:text-slate-600 h-7 focus:border-cyan-500/50" />
+   672→                <div className="flex items-center gap-2">
+   673→                  <span className="text-[10px] text-slate-600 flex-shrink-0">Дедлайн:</span>
+   674→                  <DeadlinePicker value={newSubtaskDeadline} onChange={setNewSubtaskDeadline} size="sm" />
+   675→                </div>
+   676→                <div className="flex gap-1.5 pt-0.5">
+   677→                  <button onClick={addSubtask} disabled={!newSubtaskTitle.trim()} className="flex-1 text-[10px] bg-cyan-600 hover:bg-cyan-700 disabled:opacity-40 disabled:hover:bg-cyan-600 text-white rounded px-2 py-1.5 transition-colors font-medium">Добавить</button>
+   678→                  <button onClick={() => { setAddingSubtask(false); setNewSubtaskTitle(''); setNewSubtaskDeadline(null); }} className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1.5 transition-colors">Отмена</button>
+   679→                </div>
+   680→              </div>
+   681→            ) : (
+   682→              <button onClick={() => setAddingSubtask(true)} className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-slate-600 hover:text-cyan-400 transition-colors rounded-lg hover:bg-slate-900/50 w-full"><Plus className="w-3 h-3" /> Добавить подзадачу</button>
+   683→            )}
+   684→          </div>
+   685→        )}
+   686→      </div>
+   687→    </div>
+   688→  );
+   689→}
+   690→
+   691→/* ── Task Form (create / edit) ──────────── */
+   692→
+   693→function TaskForm({ mode, task }: { mode: 'create' | 'edit'; task?: Task }) {
+   694→  const { selectedBoardId, setBoardTasks, selectedProjectId, setEditingTask, setIsCreating, setSelectedTaskId } = useKanbanStore();
+   695→  const [title, setTitle] = useState('');
+   696→  const [description, setDescription] = useState('');
+   697→  const [status, setStatus] = useState<TaskStatus>('todo');
+   698→  const [priority, setPriority] = useState<TaskPriority>('medium');
+   699→  const [assignee, setAssignee] = useState('');
+   700→  const [category, setCategory] = useState<TaskCategory>('general');
+   701→  const [deadline, setDeadline] = useState<string | null>(null);
+   702→  const [saving, setSaving] = useState(false);
+   703→
+   704→  useEffect(() => {
+   705→    if (mode === 'edit' && task) {
+   706→      setTitle(task.title); setDescription(task.description || ''); setStatus(task.status);
+   707→      setPriority(task.priority); setAssignee(task.assignee || ''); setCategory(task.category);
+   708→      setDeadline(task.deadline || null);
+   709→    }
+   710→  }, [mode, task]);
+   711→
+   712→  const reloadTasks = useCallback(async () => {
+   713→    if (selectedBoardId) {
+   714→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   715→      const data = await res.json();
+   716→      setBoardTasks(data.tasks);
+   717→    }
+   718→    if (selectedProjectId) {
+   719→      const bRes = await fetch(`/api/boards?projectId=${selectedProjectId}`);
+   720→      const bData = await bRes.json();
+   721→      useKanbanStore.getState().setBoards(bData.boards);
+   722→    }
+   723→  }, [selectedBoardId, selectedProjectId, setBoardTasks]);
+   724→
+   725→  const handleSave = async () => {
+   726→    if (!title.trim()) return;
+   727→    setSaving(true);
+   728→    try {
+   729→      if (mode === 'edit' && task) {
+   730→        await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, title, description: description || null, status, priority, assignee: assignee || null, category, boardId: selectedBoardId, deadline }) });
+   731→      } else {
+   732→        await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description: description || null, status, priority, assignee: assignee || null, category, parentId: null, boardId: selectedBoardId, deadline }) });
+   733→      }
+   734→      await reloadTasks(); setEditingTask(null); setIsCreating(false);
+   735→      if (mode === 'edit' && task) setSelectedTaskId(task.id);
+   736→    } finally { setSaving(false); }
+   737→  };
+   738→
+   739→  const handleDelete = async () => {
+   740→    if (!task) return;
+   741→    setSaving(true);
+   742→    try {
+   743→      await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   744→      await reloadTasks(); setEditingTask(null); setSelectedTaskId(null);
+   745→    } finally { setSaving(false); }
+   746→  };
+   747→
+   748→  return (
+   749→    <div className="flex-1 overflow-y-auto">
+   750→      <div className="p-4 space-y-3">
+   751→        <div className="flex items-center justify-between">
+   752→          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{mode === 'edit' ? 'Редактировать' : 'Новая задача'}</h3>
+   753→          <button onClick={() => { setEditingTask(null); setIsCreating(false); }} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300"><X className="h-3.5 w-3.5" /></button>
+   754→        </div>
+   755→        <div className="space-y-2.5">
+   756→          <div className="space-y-1"><Label className="text-[11px] text-slate-500">Название</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Задача..." className="bg-slate-900/80 border-slate-700/50 text-sm text-slate-200 placeholder:text-slate-600 h-8 focus:border-cyan-500/50" /></div>
+   757→          <div className="space-y-1"><Label className="text-[11px] text-slate-500">Описание</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание..." className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none focus:border-cyan-500/50" /></div>
+   758→          <div className="grid grid-cols-2 gap-2">
+   759→            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Статус</Label><Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}><SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-slate-700">{STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}><span className={s.color}>{s.label}</span></SelectItem>))}</SelectContent></Select></div>
+   760→            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Приоритет</Label><Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}><SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-slate-700">{PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value}><div className="flex items-center gap-1.5"><div className={cn('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}</div></SelectItem>))}</SelectContent></Select></div>
+   761→          </div>
+   762→          <div className="grid grid-cols-2 gap-2">
+   763→            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Категория</Label><Select value={category} onValueChange={(v) => setCategory(v as TaskCategory)}><SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-slate-700">{CATEGORIES.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}</SelectContent></Select></div>
+   764→            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Ответственный</Label><Input value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="Имя..." className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 placeholder:text-slate-600 h-8 focus:border-cyan-500/50" /></div>
+   765→          </div>
+   766→          <div className="space-y-1"><Label className="text-[11px] text-slate-500">Дедлайн</Label><DeadlinePicker value={deadline} onChange={setDeadline} size="md" /></div>
+   767→        </div>
+   768→        <div className="flex gap-2 pt-1">
+   769→          <Button onClick={handleSave} disabled={!title.trim() || saving} className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white h-8 text-xs"><Save className="w-3 h-3 mr-1" />{saving ? '...' : mode === 'edit' ? 'Сохранить' : 'Создать'}</Button>
+   770→          {mode === 'edit' && <Button onClick={handleDelete} variant="destructive" disabled={saving} className="h-8 text-xs">Удалить</Button>}
+   771→        </div>
+   772→      </div>
+   773→    </div>
+   774→  );
+   775→}
+   776→
+   777→function getProgress(children: { status: string }[]): number {
+   778→  if (children.length === 0) return 0;
+   779→  return Math.round((children.filter(c => c.status === 'done').length / children.length) * 100);
+   780→}
+   781→

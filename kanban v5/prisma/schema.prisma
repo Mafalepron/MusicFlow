@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  title     String
+  color     String   @default("#00d9ff")
+  sortOrder Int      @default(0)
+  boardType String   @default("general")
+  isGhost   Boolean  @default(false)
+  projectId String
+  project   Task     @relation("ProjectBoards", fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("todo")
+  priority    String   @default("medium")
+  assignee    String?
+  category    String   @default("general")
+  isProject   Boolean  @default(false)
+  projectType String   @default("general")
+  trackConfig String?   // JSON: { instruments: string[], stages: string[] }
+  parentId    String?
+  boardId     String?
+  hexQ       Int      @default(0)
+  hexR       Int      @default(0)
+  deadline   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent      Task?            @relation("TaskTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Task[]           @relation("TaskTree")
+  board       Board?           @relation(fields: [boardId], references: [id], onDelete: SetNull)
+  boards      Board[]          @relation("ProjectBoards")
+  connectionsFrom TaskConnection[] @relation("TaskFrom")
+  connectionsTo   TaskConnection[] @relation("TaskTo")
+  chatMessages    ChatMessage[]     @relation("ChatTaskRef")
+}
+
+model TaskConnection {
+  id        String @id @default(cuid())
+  fromId    String
+  toId      String
+  from      Task  @relation("TaskFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to        Task  @relation("TaskTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMessage {
+  id               String   @id @default(cuid())
+  projectId        String?
+  author           String   @default("Пользователь")
+  content          String
+  referencedTaskId String?
+  referencedTask   Task?    @relation("ChatTaskRef", fields: [referencedTaskId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+}
