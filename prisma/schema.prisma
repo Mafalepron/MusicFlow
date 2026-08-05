@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,19 +8,249 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  displayName  String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedGroups     Group[]        @relation("GroupOwner")
+  groupMemberships GroupMember[]
+  ideas           Idea[]
+  tracks          Track[]
+  comments        Comment[]
+  trackVersions   TrackVersion[]
+  messages        Message[]
+  notifications   Notification[]
 }
 
-model Post {
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  avatarUrl   String?
+  genre       String?
+  inviteCode  String   @unique
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner     User         @relation("GroupOwner", fields: [ownerId], references: [id])
+  members   GroupMember[]
+  projects  Project[]
+  ideas     Idea[]
+}
+
+model GroupMember {
+  groupId   String
+  userId    String
+  role      String   @default("member")
+  instrument String?
+  joinedAt  DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+}
+
+model Project {
   id        String   @id @default(cuid())
+  groupId   String
   title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  type      String   @default("single")
+  coverUrl  String?
+  status    String   @default("draft")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  group  Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  tracks Track[]
+  ideas  Idea[]   @relation("IdeaProject")
+  notifications Notification[]
+
+  @@index([groupId])
+}
+
+model Idea {
+  id          String   @id @default(cuid())
+  groupId     String
+  createdBy   String
+  title       String
+  description String?
+  audioUrl    String?
+  waveformUrl String?
+  durationMs  Int?
+  tags        String?
+  projectId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  group   Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator User     @relation(fields: [createdBy], references: [id])
+  project      Project? @relation("IdeaProject", fields: [projectId], references: [id], onDelete: SetNull)
+  derivedTracks Track[]  @relation("TrackIdea")
+
+  @@index([groupId])
+  @@index([projectId])
+}
+
+model Track {
+  id           String   @id @default(cuid())
+  projectId    String
+  sourceIdeaId String?
+  title        String
+  trackNumber  Int?
+  audioUrl     String
+  waveformUrl  String?
+  durationMs   Int?
+  status       String   @default("recording")
+  version      Int      @default(1)
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceIdea Idea?      @relation("TrackIdea", fields: [sourceIdeaId], references: [id])
+  creator    User       @relation(fields: [createdBy], references: [id])
+  versions   TrackVersion[]
+  comments   Comment[]
+
+  @@index([projectId])
+}
+
+model TrackVersion {
+  id        String   @id @default(cuid())
+  trackId   String
+  version   Int
+  label     String   @default("")
+  audioUrl  String
+  durationMs Int?
+  createdBy String
+  createdAt DateTime @default(now())
+
+  track    Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  creator  User     @relation(fields: [createdBy], references: [id])
+  comments Comment[]
+
+  @@unique([trackId, version])
+  @@index([trackId])
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  trackId     String
+  versionId   String?
+  parentId    String?
+  userId      String
+  timestampMs Int
+  rangeEndMs  Int?
+  text        String
+  isResolved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  track   Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  version TrackVersion? @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id])
+  parent  Comment?     @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[]   @relation("CommentReplies")
+
+  @@index([trackId])
+  @@index([versionId])
+  @@index([parentId])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  userId     String
+  text       String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  entityId  String
+  projectId String
+  title     String
+  body      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
+model Board {
+  id        String   @id @default(cuid())
+  title     String
+  color     String   @default("#00d9ff")
+  sortOrder Int      @default(0)
+  boardType String   @default("general")
+  isGhost   Boolean  @default(false)
+  projectId String
+  project   Task     @relation("ProjectBoards", fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("todo")
+  priority    String   @default("medium")
+  assignee    String?
+  category    String   @default("general")
+  isProject   Boolean  @default(false)
+  projectType String   @default("general")
+  trackConfig String?
+  parentId    String?
+  boardId     String?
+  hexQ       Int      @default(0)
+  hexR       Int      @default(0)
+  deadline   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  parent      Task?            @relation("TaskTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Task[]           @relation("TaskTree")
+  board       Board?           @relation(fields: [boardId], references: [id], onDelete: SetNull)
+  boards      Board[]          @relation("ProjectBoards")
+  connectionsFrom TaskConnection[] @relation("TaskFrom")
+  connectionsTo   TaskConnection[] @relation("TaskTo")
+  chatMessages    ChatMessage[]     @relation("ChatTaskRef")
+}
+
+model TaskConnection {
+  id        String @id @default(cuid())
+  fromId    String
+  toId      String
+  from      Task  @relation("TaskFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to        Task  @relation("TaskTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId])
+}
+
+model ChatMessage {
+  id               String   @id @default(cuid())
+  projectId        String?
+  author           String   @default("Пользователь")
+  content          String
+  referencedTaskId String?
+  referencedTask   Task?    @relation("ChatTaskRef", fields: [referencedTaskId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
 }
