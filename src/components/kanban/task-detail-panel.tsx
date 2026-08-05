@@ -262,10 +262,34 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       {task.soundflowTrackId && (
         <div className="px-4 py-3 border-b border-slate-800/30">
           <button
-            onClick={() => {
+            onClick={async () => {
               const kanbanState = useKanbanStore.getState();
-              const kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
-              const sfProjectId = kanbanProject?.soundflowProjectId;
+              let kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
+              let sfProjectId = kanbanProject?.soundflowProjectId;
+
+              // If the project isn't in the store (e.g. navigated directly),
+              // fetch it to get the soundflowProjectId.
+              if (!sfProjectId && kanbanState.selectedProjectId) {
+                try {
+                  const res = await fetch(`/api/tasks?parentId=${kanbanState.selectedProjectId}`);
+                  const data = await res.json();
+                  if (data.tasks && data.tasks.length > 0) {
+                    sfProjectId = data.tasks[0].soundflowProjectId;
+                  }
+                } catch { /* ignore */ }
+              }
+
+              // Fallback: fetch the SoundFlow track directly to get its projectId.
+              if (!sfProjectId && task.soundflowTrackId) {
+                try {
+                  const res = await fetch(`/api/tracks/${task.soundflowTrackId}`);
+                  if (res.ok) {
+                    const track = await res.json();
+                    sfProjectId = track.projectId || track.project?.id;
+                  }
+                } catch { /* ignore */ }
+              }
+
               if (sfProjectId && task.soundflowTrackId) {
                 useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId);
               }

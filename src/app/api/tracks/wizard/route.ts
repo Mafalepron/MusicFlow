@@ -56,7 +56,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { title, description, instruments, stages, boardId, customStages } = body;
+  const { title, description, instruments, stages, boardId, customStages, userId } = body;
 
   if (!title?.trim() || !boardId) {
     return NextResponse.json({ error: 'title and boardId required' }, { status: 400 });
@@ -106,7 +106,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'At least one stage required' }, { status: 400 });
   }
 
-  // Create track task
+  // --- Bridge: find the linked SoundFlow Project via board → kanban project ---
+  // boardId → Board.projectId (kanban Task with isProject=true) → soundflowProjectId (Project)
+  const board = await db.board.findUnique({
+    where: { id: boardId },
+    select: { projectId: true },
+  });
+  if (!board) {
+    return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+  }
+
+  const kanbanProject = await db.task.findUnique({
+    where: { id: board.projectId },
+    select: { soundflowProjectId: true },
+  });
+
+  // Create a SoundFlow Track if the kanban project is linked to a real Project
+  let soundflowTrackId: string | null = null;
+  if (kanbanProject?.soundflowProjectId && userId) {
+    const sfProjectId = kanbanProject.soundflowProjectId;
+    const existingTrackCount = await db.track.count({ where: { projectId: sfProjectId } });
+    const sfTrack = await db.track.create({
+      data: {
+        title: title.trim(),
+        projectId: sfProjectId,
+        createdBy: userId,
+        audioUrl: '',
+        durationMs: null,
+        trackNumber: existingTrackCount + 1,
+      },
+    });
+    soundflowTrackId = sfTrack.id;
+  }
+
+  // Create track task (kanban), linked to the SoundFlow Track if it exists
   const track = await db.task.create({
     data: {
       title: title.trim(),
@@ -118,6 +151,7 @@ export async function POST(req: NextRequest) {
       trackConfig: JSON.stringify({ instruments: safeInstruments, stages: stageData.map(s => s.label) }),
       hexQ: 0,
       hexR: 0,
+      ...(soundflowTrackId ? { soundflowTrackId } : {}),
     },
   });
 
@@ -156,5 +190,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ trackId: track.id }, { status: 201 });
+  return NextResponse.json({ trackId: track.id, soundflowTrackId }, { status: 201 });
 }

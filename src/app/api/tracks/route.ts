@@ -110,6 +110,9 @@ export async function POST(request: NextRequest) {
         creator: {
           select: { id: true, displayName: true, avatarUrl: true },
         },
+        kanbanTask: {
+          select: { id: true },
+        },
       },
     })
 
@@ -132,7 +135,7 @@ export async function POST(request: NextRequest) {
           where: { boardId: tracksBoard.id, parentId: null },
         })
 
-        await db.task.create({
+        const kanbanTask = await db.task.create({
           data: {
             title,
             boardId: tracksBoard.id,
@@ -145,12 +148,16 @@ export async function POST(request: NextRequest) {
             hexR: siblingCount,
           },
         })
+        // Attach the kanban task id to the response
+        ;(track as Record<string, unknown>).kanbanTaskId = kanbanTask.id
       }
     }
 
     return NextResponse.json(
       {
         ...track,
+        kanbanTaskId: (track as Record<string, unknown>).kanbanTaskId || null,
+        kanbanTask: undefined,
         createdAt: track.createdAt.toISOString(),
         updatedAt: track.updatedAt.toISOString(),
       },

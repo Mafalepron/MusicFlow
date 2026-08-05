@@ -129,6 +129,41 @@ export function ProjectDetailView() {
     }
   };
 
+  // Focus a specific track in the Kanban workspace.
+  // Navigates to kanban, selects the project, then focuses the track task.
+  const focusTrackInKanban = async (trackKanbanTaskId: string, projectKanbanTaskId?: string | null) => {
+    if (!projectKanbanTaskId) return;
+
+    // Pre-load the kanban projects list so the store has soundflowProjectId
+    // available for the TaskDetailPanel's "Open in Audio Editor" button.
+    try {
+      const projectsRes = await fetch('/api/tasks?parentId=null');
+      const projectsData = await projectsRes.json();
+      if (projectsData.tasks) {
+        useKanbanStore.getState().setProjects(projectsData.tasks);
+      }
+    } catch { /* ignore — will still work without preloaded projects */ }
+
+    // Navigate to kanban and select the project.
+    // KanbanWorkspace.loadBoards will fetch boards asynchronously.
+    navigate('kanban');
+    useKanbanStore.getState().selectProject(projectKanbanTaskId);
+
+    // After boards load (~600ms), dismiss any onboarding and select the tracks board.
+    setTimeout(() => {
+      const store = useKanbanStore.getState();
+      store.dismissOnboarding();
+      const tracksBoard = store.boards.find((b) => b.boardType === 'tracks');
+      if (tracksBoard) {
+        store.setSelectedBoardId(tracksBoard.id);
+        // After tasks load (~400ms more), select the specific track task.
+        setTimeout(() => {
+          useKanbanStore.getState().setSelectedTaskId(trackKanbanTaskId);
+        }, 400);
+      }
+    }, 600);
+  };
+
   const handleAddTrack = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackTitle.trim() || !selectedProjectId || !user) return;
@@ -363,6 +398,21 @@ export function ProjectDetailView() {
                     <span className="hidden text-xs text-[#A0A0B0] lg:block">
                       v{track.version}
                     </span>
+
+                    {/* Focus on Kanban button */}
+                    {track.kanbanTaskId && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void focusTrackInKanban(track.kanbanTaskId!, project?.kanbanTaskId);
+                        }}
+                        className="hidden sm:flex items-center gap-1 rounded-md border border-[#00E5FF]/30 px-2 py-1 text-[10px] font-medium text-[#00E5FF] transition-all hover:bg-[#00E5FF]/10 hover:border-[#00E5FF]/50"
+                        title="Focus this track in Kanban"
+                      >
+                        <LayoutDashboard className="h-3 w-3" />
+                        Kanban
+                      </button>
+                    )}
 
                     {/* Chevron indicator */}
                     <ChevronRight className="h-4 w-4 shrink-0 text-[#A0A0B0]/60" />

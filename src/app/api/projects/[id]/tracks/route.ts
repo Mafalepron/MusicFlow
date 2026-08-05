@@ -18,6 +18,9 @@ export async function GET(
             avatarUrl: true,
           },
         },
+        kanbanTask: {
+          select: { id: true },
+        },
       },
       orderBy: { trackNumber: 'asc' },
     })
@@ -35,6 +38,7 @@ export async function GET(
       version: t.version,
       createdBy: t.createdBy,
       creator: t.creator,
+      kanbanTaskId: t.kanbanTask?.id || null,
       createdAt: t.createdAt.toISOString(),
       updatedAt: t.updatedAt.toISOString(),
     }))

@@ -20,6 +20,9 @@ export async function GET(
         sourceIdea: {
           select: { id: true, title: true },
         },
+        kanbanTask: {
+          select: { id: true },
+        },
         _count: {
           select: { comments: true },
         },
@@ -36,6 +39,8 @@ export async function GET(
     return NextResponse.json({
       ...track,
       commentsCount: track._count.comments,
+      kanbanTaskId: track.kanbanTask?.id || null,
+      kanbanTask: undefined,
       _count: undefined,
       createdAt: track.createdAt.toISOString(),
       updatedAt: track.updatedAt.toISOString(),

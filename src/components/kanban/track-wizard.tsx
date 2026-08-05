@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useKanbanStore } from '@/store/kanban-store';
+import { useAuthStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,6 +54,7 @@ const uid = () => `es_${++_uid}_${Date.now()}`;
 
 export default function TrackWizard() {
   const { boards, selectedBoardId, setBoardTasks, setIsTrackWizardOpen, setSelectedTaskId, setTrackWizardStep } = useKanbanStore();
+  const user = useAuthStore((s) => s.user);
   const boardColor = boards.find(b => b.id === selectedBoardId)?.color || '#00d9ff';
   const bc = boardColorStyles(boardColor);
   const [step, setStep] = useState(0); // 0=name, 1=instruments, 2=stages+configure
@@ -245,6 +247,7 @@ export default function TrackWizard() {
           description: trackDescription.trim(),
           instruments: selectedInstruments,
           boardId: selectedBoardId,
+          userId: user?.id,
           customStages: editableStages.map(s => ({
             emoji: s.emoji,
             label: s.label,

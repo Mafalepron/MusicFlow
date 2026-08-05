@@ -73,6 +73,7 @@ export interface Track {
   status: string;
   version: number;
   createdBy: string;
+  kanbanTaskId?: string | null;
   createdAt: string;
 }
 
