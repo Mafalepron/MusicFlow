@@ -127,3 +127,53 @@ Stage Summary:
 - A new useEffect registers the page title (`setHeaderTitle(track.title)`) and an "Open in Kanban" HeaderAction (with LayoutDashboard icon, outline variant, and the same navigation logic as the old inline button) when the project has a `kanbanTaskId`. The cleanup function clears both on unmount via `setHeaderActions([])` + `setHeaderTitle(null)`.
 - The motion.div wrapper is preserved as a slim "Contextual row" containing only the IdeasStoriesStrip and the Status selector — both explicitly called out by the task as elements to keep. The now-unused `statusColors` and `statusLabels` constants were removed to avoid unused-variable lint warnings.
 - Lint passes for track-detail-view.tsx (the only lint error is a pre-existing one in app-header.tsx unrelated to this task). TypeScript compilation is clean for the edited files. The dev server compiles successfully and the page renders with HTTP 200.
+
+---
+Task ID: 2-3
+Agent: full-stack-developer
+Task: Redesign kanban right panel (info only) and bottom panel (interactive stage/subtask management)
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from prior tasks (5-a, 7-a, 5-b): kanban store wiring, audio-context sync, header-actions store, audio editor navigation.
+- Read /home/z/my-project/src/components/kanban/task-detail-panel.tsx (908 lines), description-bottom-panel.tsx (888 lines), kanban-view.tsx (544 lines), api/tasks/route.ts (167 lines), deadline-picker.tsx (438 lines), store/kanban-store.ts, lib/store.ts, prisma/schema.prisma Task model, and api/groups/[id]/members/route.ts.
+- Verified Task model already has hexQ/hexR integer fields (default 0). Confirmed childSelect in GET /api/tasks only returned basic fields (no priority/assignee/hexR for grandchildren).
+- Edited src/app/api/tasks/route.ts:
+  * Extended GET childSelect to include priority, assignee, hexQ, hexR (so the bottom panel can render/reorder them).
+  * Changed GET children/grandchildren orderBy from createdAt asc → [{ hexR: asc }, { createdAt: asc }] so reordering by swapping hexR actually reorders the displayed list.
+  * Updated POST to allocate hexR linearly (hexR = siblingCount, hexQ = 0) when parentId is set (stages/subtasks), keeping spiral allocation only for top-level tasks (parentId null) so the radial board keeps working.
+  * Added hexQ and hexR to the PUT request body destructure and to the update.data conditionals so the client can swap them when reordering stages/subtasks.
+- Extended src/store/kanban-store.ts TaskGrandchild and TaskChild interfaces to include priority (string), assignee (string|null), hexQ (number), hexR (number) so the new bottom panel can read these fields with proper typing.
+- Completely rewrote src/components/kanban/task-detail-panel.tsx (908 → 850 lines):
+  * TrackDetailView: removed ALL stages accordion, grandchildren list, add-stage form, stage description editor, grandchildren description editor. Now shows ONLY: header (badge "Трек" + title + edit/delete), inline-editable description (Textarea with auto-save on blur or Ctrl+Enter, cancel on Escape), the existing "Open in Audio Editor" cyan/teal gradient button, overall progress bar with animated pulse, instruments tags (from trackConfig), a metadata block (status / priority / assignee / deadline) with colored dots and avatars, and a prominent "Управление этапами" hint button at the bottom that calls setSelectedStageForPanel({ taskId, stageId: stages[0]?.id || '' }) to open the bottom panel.
+  * TaskDetailView (non-track): simplified — kept header + inline-editable description + deadline picker + progress bar; replaced the inline subtasks list with a summary and a "Управление подзадачами" hint button that calls setSelectedStageForPanel({ taskId, stageId: '' }).
+  * Added MetaRow and DeadlineBadge helpers for the compact metadata display.
+  * Kept TaskForm (create/edit) and getProgress helpers unchanged.
+  * Used the React-recommended "prev-tracker" pattern (prevTaskDesc state) instead of useEffect-setState to sync the description draft with the latest task.description after a server reload.
+- Completely rewrote src/components/kanban/description-bottom-panel.tsx (888 → 1390 lines):
+  * Removed the LegacyDescriptionEditor (no longer triggered — setDescriptionEditorItem is no longer called from the right panel).
+  * New visibility condition: panel renders when (a) a track task with trackConfig is selected, OR (b) selectedStageForPanel is set for a non-track task (the "Manage subtasks" hint). Returns null otherwise.
+  * Fetches group members from /api/groups/<currentGroupId>/members in a mount effect (using useAuthStore.getState().currentGroupId) so the assignee dropdown is populated.
+  * Fixed-height outer container (320px expanded / 36px collapsed) with smooth height transition, an accent gradient line at the top, and a header bar with: Layers icon, panel title ("Этапы и подзадачи" or "Подзадачи"), task name, counts badge, close (X) and collapse/expand (ChevronDown rotated) buttons.
+  * StagesList (for track tasks): renders all stages as expandable cards; first stage auto-expanded; selectedStageId (from selectedStageForPanel) auto-expands that stage; "Add stage" form at the bottom (Input + Add/Cancel buttons).
+  * StageCard: header row contains a GripVertical drag handle (visual), status-cycle button (icon cycles todo→in-progress→review→done), priority dot, title (inline editable on double-click, Enter saves, Escape cancels, blur saves if changed), subtask count badge with % progress, assignee avatar, inline DeadlinePicker, move up/down buttons (disabled at edges), delete button, expand arrow. Expanded content shows: stage progress bar, inline-editable description Textarea (auto-save on blur/Ctrl+Enter), a metadata row with priority Select + assignee Select + status pill, then the subtasks list.
+  * SubtasksList (per stage): renders subtasks as compact rows with a left border for visual hierarchy; "Add subtask" form at the bottom.
+  * SubtaskRow: same control set as StageCard (status cycle, priority dot, inline-editable title, assignee avatar, deadline picker, move up/down, delete, expand) but smaller. Expanded content shows inline-editable description + priority/assignee selects.
+  * FlatSubtasksList (for non-track tasks): renders the task's direct children using the same SubtaskRow component, with its own "Add subtask" form.
+  * AssigneeAvatar: renders a colored circle (board color tint) with either the member's avatarUrl image or the first letter of the displayName.
+  * AssigneeSelect: dropdown of group members with avatars + instrument suffix; preserves legacy free-text assignee values that aren't in the member list as a separate SelectItem.
+  * Reorder: moveStage/moveSubtask swap hexR AND hexQ of the two adjacent siblings via two parallel PUT /api/tasks calls, then reloadTasks.
+  * All inline-editing draft state uses the React-recommended "prev-tracker" pattern (prevStageTitle, prevStageDesc, prevSubTitle, prevSubDesc, prevSelectedStageId) instead of useEffect-setState, fixing all react-hooks/set-state-in-effect lint errors.
+  * Used key={task.id} on StagesList and FlatSubtasksList to auto-reset internal state when the selected task changes (no useEffect needed for reset).
+  * Color theming: all hover/active/border colors use hexToRgba(boardColor, alpha) so the panel adapts to the board's accent color.
+  * Custom scrollbar styling via a global <style jsx> block scoped to .panel-scroll.
+- Left kanban-view.tsx unchanged: <DescriptionBottomPanel /> is already rendered unconditionally inside KanbanWorkspace's left column; the panel returns null when nothing to show, so the layout already does the right thing. The panel itself owns its fixed-height + collapse behavior.
+- Ran `bun run lint`: 2 errors total, both PRE-EXISTING in files I did NOT touch (chat/project-chat.tsx:557:17 and layout/app-header.tsx:132:7 — both `react-hooks/set-state-in-effect`). My new code (task-detail-panel.tsx, description-bottom-panel.tsx, api/tasks/route.ts, store/kanban-store.ts) compiles with zero lint errors. Removed two `// eslint-disable-next-line @next/next/no-img-element` directives that were no longer needed (Next.js doesn't flag <img> for these particular usages).
+- Ran `bunx tsc --noEmit`: zero TypeScript errors in any file I changed. The 6 remaining TS errors are all pre-existing in unrelated files (examples/websocket/server.ts, skills/image-edit, skills/stock-analysis-skill, api/boards/route.ts, components/ui/sidebar.tsx).
+- Tailed /home/z/my-project/dev.log: shows `✓ Compiled in 570ms / 676ms / 200ms / 190ms / 158ms / 205ms / 170ms / 206ms / 201ms / 235ms / 168ms` with no errors. After edits, `GET / 200 in 262ms` and `GET / 200 in 41ms` confirm the page renders cleanly.
+
+Stage Summary:
+- Right panel (task-detail-panel.tsx) is now an info-only view for both track and non-track tasks: header + inline-editable description + Open-in-Audio-Editor button (tracks) + progress + instruments + metadata read-outs + a prominent "Управление этапами" / "Управление подзадачами" hint button that opens the bottom panel via setSelectedStageForPanel.
+- Bottom panel (description-bottom-panel.tsx) is now a comprehensive, interactive stage/subtask management hub that auto-shows whenever a track task is selected (or when a non-track task's "Manage subtasks" hint is clicked). It renders all stages as expandable cards with inline-editable titles + descriptions, clickable status cycling, DeadlinePicker, priority dropdown, assignee dropdown (populated from /api/groups/<id>/members), move up/down reorder buttons (which swap hexR/hexQ via the extended PUT API), delete buttons, and a full subtask list per stage with the same controls. The panel is a fixed 320px height (36px collapsed) with a scrollable inner area, custom scrollbar, board-color theming, and a collapse/expand button.
+- The PUT /api/tasks route now accepts hexQ and hexR fields; GET /api/tasks?deep=true now returns priority/assignee/hexQ/hexR for both children and grandchildren, and orders children by hexR asc + createdAt asc so reorder swaps are visible. POST /api/tasks allocates linear hexR (= siblingCount) for child tasks so new stages/subtasks appear at the end in order, while top-level tasks keep spiral allocation for radial-board positioning.
+- TaskChild and TaskGrandchild TypeScript interfaces in kanban-store.ts now include priority/assignee/hexQ/hexR for proper typing in the new panel.
+- Lint passes for all changed files (the only 2 remaining errors are pre-existing in unrelated files). TypeScript compiles cleanly. Dev server compiles and serves the page with HTTP 200.

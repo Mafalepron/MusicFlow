@@ -14,6 +14,10 @@ export interface TaskGrandchild {
   isProject: boolean;
   deadline: string | null;
   category: string;
+  priority: string;
+  assignee: string | null;
+  hexQ: number;
+  hexR: number;
 }
 
 export interface TaskChild {
@@ -24,6 +28,10 @@ export interface TaskChild {
   isProject: boolean;
   deadline: string | null;
   category: string;
+  priority: string;
+  assignee: string | null;
+  hexQ: number;
+  hexR: number;
   soundflowTrackId: string | null;
   children?: TaskGrandchild[];
 }

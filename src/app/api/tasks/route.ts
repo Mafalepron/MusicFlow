@@ -25,6 +25,10 @@ export async function GET(req: NextRequest) {
     isProject: true,
     deadline: true,
     category: true,
+    priority: true,
+    assignee: true,
+    hexQ: true,
+    hexR: true,
     soundflowTrackId: true,
   };
 
@@ -33,14 +37,23 @@ export async function GET(req: NextRequest) {
         include: {
           children: {
             select: childSelect,
-            orderBy: { createdAt: 'asc' as const },
+            orderBy: [
+              { hexR: 'asc' as const },
+              { createdAt: 'asc' as const },
+            ],
           },
         },
-        orderBy: { createdAt: 'asc' as const },
+        orderBy: [
+          { hexR: 'asc' as const },
+          { createdAt: 'asc' as const },
+        ],
       }
     : {
         select: childSelect,
-        orderBy: { createdAt: 'asc' as const },
+        orderBy: [
+          { hexR: 'asc' as const },
+          { createdAt: 'asc' as const },
+        ],
       };
 
   const tasks = await db.task.findMany({
@@ -71,7 +84,19 @@ export async function POST(req: NextRequest) {
     where: { parentId: parentId || null },
   });
 
-  const { q, r } = spiralToAxial(siblingCount);
+  // For child tasks (stages/subtasks), allocate hexR linearly so they appear in
+  // creation order when the GET endpoint sorts by hexR asc. For top-level tasks
+  // (parentId is null) keep the spiral allocation used by the radial board.
+  let q: number;
+  let r: number;
+  if (parentId) {
+    q = 0;
+    r = siblingCount;
+  } else {
+    const spiral = spiralToAxial(siblingCount);
+    q = spiral.q;
+    r = spiral.r;
+  }
 
   const task = await db.task.create({
     data: {
@@ -96,7 +121,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const { id, title, description, status, priority, assignee, category, isProject, boardId, deadline } = body;
+  const { id, title, description, status, priority, assignee, category, isProject, boardId, deadline, hexQ, hexR } = body;
 
   if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
@@ -112,6 +137,8 @@ export async function PUT(req: NextRequest) {
       ...(isProject !== undefined && { isProject }),
       ...(boardId !== undefined && { boardId: boardId || null }),
       ...(deadline !== undefined && { deadline: deadline ? new Date(deadline) : null }),
+      ...(hexQ !== undefined && { hexQ }),
+      ...(hexR !== undefined && { hexR }),
     },
     include: {
       children: {

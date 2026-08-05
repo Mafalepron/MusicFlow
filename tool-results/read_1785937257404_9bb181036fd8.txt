@@ -1,0 +1,889 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+     4→import { useKanbanStore, Task, TaskChild, TaskStatus } from '@/store/kanban-store';
+     5→import { X, Save, CalendarDays, AlertTriangle, Flame, Clock, Plus, Check, Circle, Pencil, Trash2 } from 'lucide-react';
+     6→import { hexToRgba } from '@/lib/utils';
+     7→import DeadlinePicker, { getDeadlineInfo, MONTHS_RU } from '@/components/kanban/deadline-picker';
+     8→import { cn } from '@/lib/utils';
+     9→
+    10→const DESC_LIMIT = 2000;
+    11→const STATUS_ICON: Record<string, typeof Circle> = {
+    12→  'todo': Circle,
+    13→  'in-progress': Clock,
+    14→  'review': X,
+    15→  'done': Check,
+    16→};
+    17→const STATUS_COLOR: Record<string, string> = {
+    18→  'todo': '#64748b',
+    19→  'in-progress': '#f59e0b',
+    20→  'review': '#f43f5e',
+    21→  'done': '#10b981',
+    22→};
+    23→
+    24→export default function DescriptionBottomPanel() {
+    25→  const {
+    26→    selectedStageForPanel,
+    27→    setSelectedStageForPanel,
+    28→    descriptionEditorItem,
+    29→    setDescriptionEditorItem,
+    30→    selectedBoardId,
+    31→    setBoardTasks,
+    32→    boards,
+    33→    boardTasks,
+    34→  } = useKanbanStore();
+    35→
+    36→  const selectedBoard = boards.find(b => b.id === selectedBoardId);
+    37→  const boardColor = selectedBoard?.color || '#00d9ff';
+    38→
+    39→  // If descriptionEditorItem is set (legacy: clicking subtask), show the old editor
+    40→  if (!selectedStageForPanel && !descriptionEditorItem) return null;
+    41→  if (descriptionEditorItem && !selectedStageForPanel) {
+    42→    return <LegacyDescriptionEditor />;
+    43→  }
+    44→
+    45→  if (!selectedStageForPanel) return null;
+    46→
+    47→  // Find the parent task and stage
+    48→  const parentTask = boardTasks.find(t => t.id === selectedStageForPanel.taskId);
+    49→  if (!parentTask) {
+    50→    // Task not found in current board, clear selection
+    51→    setSelectedStageForPanel(null);
+    52→    return null;
+    53→  }
+    54→  const stage = (parentTask.children || []).find(c => c.id === selectedStageForPanel.stageId);
+    55→  if (!stage) {
+    56→    setSelectedStageForPanel(null);
+    57→    return null;
+    58→  }
+    59→
+    60→  return (
+    61→    <StageBranchPanel
+    62→      stage={stage}
+    63→      parentTaskTitle={parentTask.title}
+    64→      boardColor={boardColor}
+    65→      boardId={selectedBoardId!}
+    66→    />
+    67→  );
+    68→}
+    69→
+    70→/* ── Stage Branch Panel ────────────────────────────────── */
+    71→
+    72→function StageBranchPanel({
+    73→  stage,
+    74→  parentTaskTitle,
+    75→  boardColor,
+    76→  boardId,
+    77→}: {
+    78→  stage: TaskChild;
+    79→  parentTaskTitle: string;
+    80→  boardColor: string;
+    81→  boardId: string;
+    82→}) {
+    83→  const { setSelectedStageForPanel, setBoardTasks, selectedBoardId, boardTasks, setSelectedTaskId } = useKanbanStore();
+    84→
+    85→  // Local state: we need fresh data, so we fetch stage from parent task on each render
+    86→  const parentTask = boardTasks.find(t => t.id === useKanbanStore.getState().selectedStageForPanel?.taskId);
+    87→  const freshStage = parentTask ? (parentTask.children || []).find(c => c.id === stage.id) : stage;
+    88→
+    89→  const subtasks = freshStage?.children || [];
+    90→  const [stageDesc, setStageDesc] = useState(freshStage?.description || '');
+    91→  const [isStageDescDirty, setIsStageDescDirty] = useState(false);
+    92→  const [isStageDescExpanded, setIsStageDescExpanded] = useState(false);
+    93→  const [isStageDescEditing, setIsStageDescEditing] = useState(false);
+    94→  const [savingStageDesc, setSavingStageDesc] = useState(false);
+    95→  const [stageDeadline, setStageDeadline] = useState<string | null>(freshStage?.deadline || null);
+    96→
+    97→  const [expandedSubtaskDescs, setExpandedSubtaskDescs] = useState<Record<string, boolean>>({});
+    98→  const [editingSubtaskDescIds, setEditingSubtaskDescIds] = useState<Record<string, boolean>>({});
+    99→  const [subtaskDescDrafts, setSubtaskDescDrafts] = useState<Record<string, string>>({});
+   100→  const [subtaskDeadlines, setSubtaskDeadlines] = useState<Record<string, string | null>>({});
+   101→
+   102→  const [addingSubtask, setAddingSubtask] = useState(false);
+   103→  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+   104→  const subtaskInputRef = useRef<HTMLInputElement>(null);
+   105→  const scrollRef = useRef<HTMLDivElement>(null);
+   106→
+   107→  const stageDone = freshStage?.status === 'done';
+   108→  const stageProgress = getProgress(subtasks);
+   109→  const StatusIcon = STATUS_ICON[freshStage?.status || 'todo'] || Circle;
+   110→  const stageStatusColor = STATUS_COLOR[freshStage?.status || 'todo'] || '#64748b';
+   111→
+   112→  // Colors
+   113→  const c = useMemo(() => ({
+   114→    a04: hexToRgba(boardColor, 0.04),
+   115→    a08: hexToRgba(boardColor, 0.08),
+   116→    a1: hexToRgba(boardColor, 0.1),
+   117→    a12: hexToRgba(boardColor, 0.12),
+   118→    a15: hexToRgba(boardColor, 0.15),
+   119→    a2: hexToRgba(boardColor, 0.2),
+   120→    a25: hexToRgba(boardColor, 0.25),
+   121→    a3: hexToRgba(boardColor, 0.3),
+   122→    a4: hexToRgba(boardColor, 0.4),
+   123→    a5: hexToRgba(boardColor, 0.5),
+   124→    a6: hexToRgba(boardColor, 0.6),
+   125→    a7: hexToRgba(boardColor, 0.7),
+   126→    a8: hexToRgba(boardColor, 0.8),
+   127→    raw: boardColor,
+   128→  }), [boardColor]);
+   129→
+   130→  // Sync local state when stage data changes
+   131→  useEffect(() => {
+   132→    if (freshStage) {
+   133→      if (!isStageDescDirty) {
+   134→        setStageDesc(freshStage.description || '');
+   135→      }
+   136→      if (stageDeadline === null && freshStage.deadline) {
+   137→        setSubtaskDeadlines(prev => {
+   138→          const next = { ...prev };
+   139→          (freshStage.children || []).forEach(st => {
+   140→            if (!(st.id in next)) {
+   141→              next[st.id] = st.deadline;
+   142→            }
+   143→          });
+   144→          return next;
+   145→        });
+   146→      }
+   147→    }
+   148→  }, [freshStage?.id, freshStage?.description]);
+   149→
+   150→  // Keyboard shortcut
+   151→  useEffect(() => {
+   152→    const handler = (e: KeyboardEvent) => {
+   153→      if (e.key === 'Escape' && !isStageDescDirty && !Object.values(editingSubtaskDescIds).some(Boolean)) {
+   154→        setSelectedStageForPanel(null);
+   155→      }
+   156→    };
+   157→    window.addEventListener('keydown', handler);
+   158→    return () => window.removeEventListener('keydown', handler);
+   159→  }, [isStageDescDirty, editingSubtaskDescIds, setSelectedStageForPanel]);
+   160→
+   161→  // Reload tasks helper
+   162→  const reloadTasks = useCallback(async () => {
+   163→    if (!selectedBoardId) return;
+   164→    const isTracks = useKanbanStore.getState().boards.find(b => b.id === selectedBoardId)?.boardType === 'tracks';
+   165→    const url = `/api/tasks?boardId=${selectedBoardId}${isTracks ? '&deep=true' : ''}`;
+   166→    const res = await fetch(url);
+   167→    const data = await res.json();
+   168→    setBoardTasks(data.tasks);
+   169→  }, [selectedBoardId, setBoardTasks]);
+   170→
+   171→  // Save stage description
+   172→  const saveStageDesc = useCallback(async () => {
+   173→    if (!freshStage || savingStageDesc) return;
+   174→    setSavingStageDesc(true);
+   175→    try {
+   176→      await fetch('/api/tasks', {
+   177→        method: 'PUT',
+   178→        headers: { 'Content-Type': 'application/json' },
+   179→        body: JSON.stringify({ id: freshStage.id, description: stageDesc.trim() || null }),
+   180→      });
+   181→      setIsStageDescDirty(false);
+   182→      await reloadTasks();
+   183→    } finally {
+   184→      setSavingStageDesc(false);
+   185→    }
+   186→  }, [freshStage, stageDesc, savingStageDesc, reloadTasks]);
+   187→
+   188→  // Save subtask description
+   189→  const saveSubtaskDesc = useCallback(async (subtaskId: string) => {
+   190→    const draft = subtaskDescDrafts[subtaskId];
+   191→    if (draft === undefined) return;
+   192→    await fetch('/api/tasks', {
+   193→      method: 'PUT',
+   194→      headers: { 'Content-Type': 'application/json' },
+   195→      body: JSON.stringify({ id: subtaskId, description: draft.trim() || null }),
+   196→    });
+   197→    setEditingSubtaskDescIds(prev => ({ ...prev, [subtaskId]: false }));
+   198→    await reloadTasks();
+   199→  }, [subtaskDescDrafts, reloadTasks]);
+   200→
+   201→  // Change stage deadline
+   202→  const handleStageDeadlineChange = useCallback(async (date: string | null) => {
+   203→    if (!freshStage) return;
+   204→    setStageDeadline(date);
+   205→    await fetch('/api/tasks', {
+   206→      method: 'PUT',
+   207→      headers: { 'Content-Type': 'application/json' },
+   208→      body: JSON.stringify({ id: freshStage.id, deadline: date }),
+   209→    });
+   210→    await reloadTasks();
+   211→  }, [freshStage, reloadTasks]);
+   212→
+   213→  // Change subtask deadline
+   214→  const handleSubtaskDeadlineChange = useCallback(async (subtaskId: string, date: string | null) => {
+   215→    setSubtaskDeadlines(prev => ({ ...prev, [subtaskId]: date }));
+   216→    await fetch('/api/tasks', {
+   217→      method: 'PUT',
+   218→      headers: { 'Content-Type': 'application/json' },
+   219→      body: JSON.stringify({ id: subtaskId, deadline: date }),
+   220→    });
+   221→    await reloadTasks();
+   222→  }, [reloadTasks]);
+   223→
+   224→  // Cycle stage status
+   225→  const cycleStageStatus = useCallback(async () => {
+   226→    if (!freshStage) return;
+   227→    const order: TaskStatus[] = ['todo', 'in-progress', 'review', 'done'];
+   228→    const idx = order.indexOf(freshStage.status as TaskStatus);
+   229→    const next = order[(idx + 1) % order.length];
+   230→    await fetch('/api/tasks', {
+   231→      method: 'PUT',
+   232→      headers: { 'Content-Type': 'application/json' },
+   233→      body: JSON.stringify({ id: freshStage.id, status: next }),
+   234→    });
+   235→    await reloadTasks();
+   236→  }, [freshStage, reloadTasks]);
+   237→
+   238→  // Cycle subtask status
+   239→  const cycleSubtaskStatus = useCallback(async (e: React.MouseEvent, subtaskId: string) => {
+   240→    e.stopPropagation();
+   241→    const st = subtasks.find(s => s.id === subtaskId);
+   242→    if (!st) return;
+   243→    const order: TaskStatus[] = ['todo', 'in-progress', 'review', 'done'];
+   244→    const idx = order.indexOf(st.status as TaskStatus);
+   245→    const next = order[(idx + 1) % order.length];
+   246→    await fetch('/api/tasks', {
+   247→      method: 'PUT',
+   248→      headers: { 'Content-Type': 'application/json' },
+   249→      body: JSON.stringify({ id: subtaskId, status: next }),
+   250→    });
+   251→    await reloadTasks();
+   252→  }, [subtasks, reloadTasks]);
+   253→
+   254→  // Add subtask
+   255→  const addSubtask = useCallback(async () => {
+   256→    if (!newSubtaskTitle.trim() || !freshStage) return;
+   257→    await fetch('/api/tasks', {
+   258→      method: 'POST',
+   259→      headers: { 'Content-Type': 'application/json' },
+   260→      body: JSON.stringify({ title: newSubtaskTitle.trim(), parentId: freshStage.id }),
+   261→    });
+   262→    setNewSubtaskTitle('');
+   263→    setAddingSubtask(false);
+   264→    await reloadTasks();
+   265→    // Scroll to end
+   266→    setTimeout(() => {
+   267→      scrollRef.current?.scrollTo({ left: scrollRef.current.scrollWidth, behavior: 'smooth' });
+   268→    }, 100);
+   269→  }, [newSubtaskTitle, freshStage, reloadTasks]);
+   270→
+   271→  // Delete subtask
+   272→  const deleteSubtask = useCallback(async (e: React.MouseEvent, subtaskId: string) => {
+   273→    e.stopPropagation();
+   274→    await fetch(`/api/tasks?id=${subtaskId}`, { method: 'DELETE' });
+   275→    await reloadTasks();
+   276→  }, [reloadTasks]);
+   277→
+   278→  // Get deadline info for inline display
+   279→  const stageDeadlineInfo = useMemo(() => getDeadlineInfo(freshStage?.deadline || null), [freshStage?.deadline]);
+   280→
+   281→  return (
+   282→    <div
+   283→      className="flex-shrink-0 flex flex-col"
+   284→      style={{
+   285→        borderTop: `1px solid ${c.a25}`,
+   286→        backgroundColor: '#08080f',
+   287→        maxHeight: '45vh',
+   288→        minHeight: '120px',
+   289→      }}
+   290→    >
+   291→      {/* Accent line */}
+   292→      <div className="h-[2px] flex-shrink-0" style={{ background: `linear-gradient(90deg, ${c.a6}, ${c.a1})` }} />
+   293→
+   294→      {/* Header: stage name + close */}
+   295→      <div
+   296→        className="flex items-center gap-3 px-4 py-2 flex-shrink-0"
+   297→        style={{ borderBottom: `1px solid ${c.a12}` }}
+   298→      >
+   299→        <button onClick={cycleStageStatus} className="flex-shrink-0 transition-opacity hover:opacity-70">
+   300→          <StatusIcon className="w-4 h-4" style={{ color: stageStatusColor }} />
+   301→        </button>
+   302→        <div className="min-w-0 flex-1">
+   303→          <p className="text-xs font-semibold text-slate-200 truncate">
+   304→            {freshStage?.title || stage.title}
+   305→          </p>
+   306→          <p className="text-[9px] text-slate-600 truncate">в {parentTaskTitle}</p>
+   307→        </div>
+   308→
+   309→        {/* Stage deadline - inline */}
+   310→        <div className="flex-shrink-0 mr-2">
+   311→          <DeadlinePicker
+   312→            value={freshStage?.deadline || null}
+   313→            onChange={handleStageDeadlineChange}
+   314→            size="sm"
+   315→            isDone={stageDone}
+   316→          />
+   317→        </div>
+   318→
+   319→        <button
+   320→          onClick={() => setSelectedStageForPanel(null)}
+   321→          className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0"
+   322→        >
+   323→          <X className="w-3.5 h-3.5" />
+   324→        </button>
+   325→      </div>
+   326→
+   327→      {/* Scrollable content */}
+   328→      <div className="flex-1 overflow-y-auto min-h-0">
+   329→        {/* Stage description */}
+   330→        <div className="px-4 pt-2 pb-1">
+   331→          <div className="flex items-center justify-between mb-1.5">
+   332→            <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: c.a5 }}>
+   333→              Описание этапа
+   334→            </span>
+   335→            <div className="flex items-center gap-2">
+   336→              {isStageDescDirty && !isStageDescEditing && (
+   337→                <button
+   338→                  onClick={saveStageDesc}
+   339→                  disabled={savingStageDesc}
+   340→                  className="flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-md transition-all duration-200 disabled:opacity-50"
+   341→                  style={{ color: c.raw, backgroundColor: c.a12 }}
+   342→                >
+   343→                  <Save className="w-2.5 h-2.5" />
+   344→                  {savingStageDesc ? '...' : 'Сохранить'}
+   345→                </button>
+   346→              )}
+   347→              {!isStageDescEditing && (
+   348→                <button
+   349→                  onClick={() => setIsStageDescEditing(true)}
+   350→                  className="text-[9px] px-1.5 py-0.5 rounded transition-colors"
+   351→                  style={{ color: c.a5 }}
+   352→                >
+   353→                  <Pencil className="w-2.5 h-2.5" />
+   354→                </button>
+   355→              )}
+   356→            </div>
+   357→          </div>
+   358→
+   359→          {isStageDescEditing ? (
+   360→            <div
+   361→              className="rounded-lg overflow-hidden"
+   362→              style={{ border: `1px solid ${c.a3}` }}
+   363→            >
+   364→              <textarea
+   365→                value={stageDesc}
+   366→                onChange={(e) => {
+   367→                  setStageDesc(e.target.value.slice(0, DESC_LIMIT));
+   368→                  setIsStageDescDirty(true);
+   369→                }}
+   370→                placeholder="Введите описание этапа..."
+   371→                className="w-full bg-slate-900/80 text-[11px] text-slate-300 placeholder:text-slate-600 resize-none focus:outline-none leading-relaxed"
+   372→                style={{ height: isStageDescExpanded ? '140px' : '60px', border: 'none' }}
+   373→                autoFocus
+   374→              />
+   375→              <div className="flex items-center justify-between px-2.5 py-1.5" style={{ borderTop: `1px solid ${c.a12}` }}>
+   376→                <div className="flex items-center gap-2">
+   377→                  <span className="text-[8px] text-slate-600 tabular-nums">{stageDesc.length}/{DESC_LIMIT}</span>
+   378→                  <button
+   379→                    onClick={() => setIsStageDescExpanded(v => !v)}
+   380→                    className="text-[9px] transition-colors"
+   381→                    style={{ color: c.a5 }}
+   382→                  >
+   383→                    {isStageDescExpanded ? 'Свернуть' : 'Развернуть'}
+   384→                  </button>
+   385→                </div>
+   386→                <div className="flex items-center gap-1">
+   387→                  <button
+   388→                    onClick={() => {
+   389→                      setIsStageDescEditing(false);
+   390→                      setStageDesc(freshStage?.description || '');
+   391→                      setIsStageDescDirty(false);
+   392→                    }}
+   393→                    className="text-[9px] text-slate-500 hover:text-slate-300 px-2 py-0.5 rounded hover:bg-slate-800 transition-colors"
+   394→                  >
+   395→                    Отмена
+   396→                  </button>
+   397→                  <button
+   398→                    onClick={async () => {
+   399→                      await saveStageDesc();
+   400→                      setIsStageDescEditing(false);
+   401→                    }}
+   402→                    disabled={savingStageDesc}
+   403→                    className="text-[9px] px-2 py-0.5 rounded font-medium transition-all duration-200 disabled:opacity-50"
+   404→                    style={{ color: '#fff', backgroundColor: c.a5 }}
+   405→                  >
+   406→                    Сохранить
+   407→                  </button>
+   408→                </div>
+   409→              </div>
+   410→            </div>
+   411→          ) : (
+   412→            <div
+   413→              className="rounded-lg transition-colors cursor-pointer"
+   414→              style={{
+   415→                border: `1px solid ${c.a15}`,
+   416→                backgroundColor: c.a04,
+   417→              }}
+   418→              onClick={() => {
+   419→                setIsStageDescEditing(true);
+   420→                setIsStageDescExpanded(true);
+   421→              }}
+   422→            >
+   423→              {stageDesc ? (
+   424→                <p
+   425→                  className="text-[11px] text-slate-400 leading-relaxed px-3 py-2"
+   426→                  style={{
+   427→                    display: '-webkit-box',
+   428→                    WebkitLineClamp: isStageDescExpanded ? 20 : 2,
+   429→                    WebkitBoxOrient: 'vertical',
+   430→                    overflow: 'hidden',
+   431→                  }}
+   432→                >
+   433→                  {stageDesc}
+   434→                </p>
+   435→              ) : (
+   436→                <p className="text-[10px] text-slate-700 px-3 py-2">
+   437→                  Нажмите, чтобы добавить описание этапа...
+   438→                </p>
+   439→              )}
+   440→              {stageDesc && stageDesc.length > 100 && !isStageDescExpanded && (
+   441→                <div className="flex items-center justify-center pb-1">
+   442→                  <span className="text-[8px]" style={{ color: c.a4 }}>Показать полностью</span>
+   443→                </div>
+   444→              )}
+   445→            </div>
+   446→          )}
+   447→        </div>
+   448→
+   449→        {/* Subtasks horizontal row */}
+   450→        <div className="px-4 pt-2 pb-3">
+   451→          <div className="flex items-center justify-between mb-2">
+   452→            <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: c.a5 }}>
+   453→              Подзадачи
+   454→            </span>
+   455→            {subtasks.length > 0 && (
+   456→              <span className="text-[9px] tabular-nums" style={{ color: c.a4 }}>
+   457→                {stageProgress}%
+   458→              </span>
+   459→            )}
+   460→          </div>
+   461→
+   462→          <div
+   463→            ref={scrollRef}
+   464→            className="flex gap-2 overflow-x-auto pb-1"
+   465→            style={{
+   466→              scrollbarWidth: 'thin',
+   467→              scrollbarColor: c.a2 + ' transparent',
+   468→            }}
+   469→          >
+   470→            {subtasks.map((st) => (
+   471→              <SubtaskCard
+   472→                key={st.id}
+   473→                subtask={st}
+   474→                boardColor={boardColor}
+   475→                c={c}
+   476→                isDescExpanded={expandedSubtaskDescs[st.id] === true}
+   477→                isDescEditing={editingSubtaskDescIds[st.id] === true}
+   478→                descDraft={subtaskDescDrafts[st.id] || ''}
+   479→                onToggleDesc={() => setExpandedSubtaskDescs(prev => ({ ...prev, [st.id]: !prev[st.id] }))}
+   480→                onStartEditDesc={() => {
+   481→                  setEditingSubtaskDescIds(prev => ({ ...prev, [st.id]: true }));
+   482→                  setSubtaskDescDrafts(prev => ({ ...prev, [st.id]: st.description || '' }));
+   483→                }}
+   484→                onSaveDesc={() => saveSubtaskDesc(st.id)}
+   485→                onCancelEditDesc={() => setEditingSubtaskDescIds(prev => ({ ...prev, [st.id]: false }))}
+   486→                onDescDraftChange={(val: string) => setSubtaskDescDrafts(prev => ({ ...prev, [st.id]: val }))}
+   487→                onCycleStatus={(e: React.MouseEvent) => cycleSubtaskStatus(e, st.id)}
+   488→                onDelete={(e: React.MouseEvent) => deleteSubtask(e, st.id)}
+   489→                onDeadlineChange={(date: string | null) => handleSubtaskDeadlineChange(st.id, date)}
+   490→              />
+   491→            ))}
+   492→
+   493→            {/* Add subtask card / button */}
+   494→            {addingSubtask ? (
+   495→              <div
+   496→                className="flex-shrink-0 rounded-lg p-2.5 w-44"
+   497→                style={{
+   498→                  border: `1px dashed ${c.a3}`,
+   499→                  backgroundColor: c.a08,
+   500→                }}
+   501→              >
+   502→                <input
+   503→                  ref={subtaskInputRef}
+   504→                  value={newSubtaskTitle}
+   505→                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
+   506→                  onKeyDown={(e) => {
+   507→                    if (e.key === 'Enter') addSubtask();
+   508→                    if (e.key === 'Escape') { setAddingSubtask(false); setNewSubtaskTitle(''); }
+   509→                  }}
+   510→                  placeholder="Название..."
+   511→                  className="w-full bg-slate-900/80 border-slate-700/40 rounded-md px-2 py-1 text-[10px] text-slate-300 placeholder:text-slate-600 focus:outline-none"
+   512→                  style={{ border: `1px solid ${c.a2}` }}
+   513→                  autoFocus
+   514→                />
+   515→                <div className="flex items-center justify-end gap-1 mt-1.5">
+   516→                  <button
+   517→                    onClick={() => { setAddingSubtask(false); setNewSubtaskTitle(''); }}
+   518→                    className="text-[9px] text-slate-500 hover:text-slate-300 px-1.5 py-0.5 rounded transition-colors"
+   519→                  >
+   520→                    ×
+   521→                  </button>
+   522→                  <button
+   523→                    onClick={addSubtask}
+   524→                    disabled={!newSubtaskTitle.trim()}
+   525→                    className="text-[9px] px-2 py-0.5 rounded font-medium transition-all disabled:opacity-40"
+   526→                    style={{ color: '#fff', backgroundColor: c.a5 }}
+   527→                  >
+   528→                    Добавить
+   529→                  </button>
+   530→                </div>
+   531→              </div>
+   532→            ) : (
+   533→              <button
+   534→                onClick={() => { setAddingSubtask(true); setNewSubtaskTitle(''); }}
+   535→                className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200"
+   536→                style={{
+   537→                  border: `1px dashed ${c.a25}`,
+   538→                  color: c.a4,
+   539→                }}
+   540→                onMouseEnter={(e) => {
+   541→                  const el = e.currentTarget as HTMLElement;
+   542→                  el.style.borderColor = c.a5;
+   543→                  el.style.backgroundColor = c.a12;
+   544→                  el.style.color = c.a7;
+   545→                }}
+   546→                onMouseLeave={(e) => {
+   547→                  const el = e.currentTarget as HTMLElement;
+   548→                  el.style.borderColor = c.a25;
+   549→                  el.style.backgroundColor = 'transparent';
+   550→                  el.style.color = c.a4;
+   551→                }}
+   552→              >
+   553→                <Plus className="w-4 h-4" />
+   554→              </button>
+   555→            )}
+   556→          </div>
+   557→        </div>
+   558→      </div>
+   559→    </div>
+   560→  );
+   561→}
+   562→
+   563→/* ── Subtask Card ──────────────────────────────────────── */
+   564→
+   565→function SubtaskCard({
+   566→  subtask,
+   567→  boardColor,
+   568→  c,
+   569→  isDescExpanded,
+   570→  isDescEditing,
+   571→  descDraft,
+   572→  onToggleDesc,
+   573→  onStartEditDesc,
+   574→  onSaveDesc,
+   575→  onCancelEditDesc,
+   576→  onDescDraftChange,
+   577→  onCycleStatus,
+   578→  onDelete,
+   579→  onDeadlineChange,
+   580→}: {
+   581→  subtask: TaskChild;
+   582→  boardColor: string;
+   583→  c: Record<string, string>;
+   584→  isDescExpanded: boolean;
+   585→  isDescEditing: boolean;
+   586→  descDraft: string;
+   587→  onToggleDesc: () => void;
+   588→  onStartEditDesc: () => void;
+   589→  onSaveDesc: () => void;
+   590→  onCancelEditDesc: () => void;
+   591→  onDescDraftChange: (val: string) => void;
+   592→  onCycleStatus: (e: React.MouseEvent) => void;
+   593→  onDelete: (e: React.MouseEvent) => void;
+   594→  onDeadlineChange: (date: string | null) => void;
+   595→}) {
+   596→  const stDone = subtask.status === 'done';
+   597→  const StIcon = STATUS_ICON[subtask.status] || Circle;
+   598→  const stColor = STATUS_COLOR[subtask.status] || '#64748b';
+   599→  const hasDesc = !!subtask.description;
+   600→
+   601→  return (
+   602→    <div
+   603→      className="flex-shrink-0 rounded-lg transition-all duration-200 group/st"
+   604→      style={{
+   605→        border: `1px solid ${c.a25}`,
+   606→        backgroundColor: c.a08,
+   607→        width: '200px',
+   608→      }}
+   609→      onMouseEnter={(e) => {
+   610→        const el = e.currentTarget as HTMLElement;
+   611→        el.style.borderColor = c.a4;
+   612→        el.style.backgroundColor = c.a12;
+   613→        el.style.boxShadow = `0 0 12px ${c.a15}`;
+   614→      }}
+   615→      onMouseLeave={(e) => {
+   616→        const el = e.currentTarget as HTMLElement;
+   617→        el.style.borderColor = c.a25;
+   618→        el.style.backgroundColor = c.a08;
+   619→        el.style.boxShadow = 'none';
+   620→      }}
+   621→    >
+   622→      {/* Subtask header */}
+   623→      <div className="flex items-start gap-1.5 px-2.5 pt-2 pb-1">
+   624→        <button
+   625→          onClick={onCycleStatus}
+   626→          className="flex-shrink-0 mt-0.5 transition-opacity hover:opacity-70"
+   627→          style={{ color: stColor }}
+   628→        >
+   629→          <StIcon className="w-3.5 h-3.5" />
+   630→        </button>
+   631→        <div className="flex-1 min-w-0">
+   632→          <p
+   633→            className={cn(
+   634→              'text-[11px] font-medium leading-tight',
+   635→              stDone ? 'line-through text-slate-600' : 'text-slate-300',
+   636→            )}
+   637→          >
+   638→            {subtask.title}
+   639→          </p>
+   640→        </div>
+   641→        <div className="flex items-center gap-px opacity-0 group-hover/st:opacity-100 transition-opacity flex-shrink-0">
+   642→          {hasDesc && (
+   643→            <button
+   644→              onClick={(e) => { e.stopPropagation(); onToggleDesc(); }}
+   645→              className="p-0.5 rounded hover:bg-white/5"
+   646→              style={{ color: c.a4 }}
+   647→            >
+   648→              <Pencil className="w-2.5 h-2.5" />
+   649→            </button>
+   650→          )}
+   651→          <button
+   652→            onClick={onDelete}
+   653→            className="p-0.5 rounded hover:bg-rose-500/10 text-slate-700 hover:text-rose-400 transition-all"
+   654→          >
+   655→            <Trash2 className="w-2.5 h-2.5" />
+   656→          </button>
+   657→        </div>
+   658→      </div>
+   659→
+   660→      {/* Subtask deadline bar */}
+   661→      <div className="px-2.5 pb-1">
+   662→        <DeadlinePicker
+   663→          value={subtask.deadline || null}
+   664→          onChange={onDeadlineChange}
+   665→          size="sm"
+   666→          isDone={stDone}
+   667→        />
+   668→      </div>
+   669→
+   670→      {/* Subtask description */}
+   671→      {isDescEditing ? (
+   672→        <div className="px-2 pb-2">
+   673→          <div
+   674→            className="rounded-md overflow-hidden"
+   675→            style={{ border: `1px solid ${c.a25}` }}
+   676→          >
+   677→            <textarea
+   678→              value={descDraft}
+   679→              onChange={(e) => onDescDraftChange(e.target.value.slice(0, DESC_LIMIT))}
+   680→              placeholder="Описание..."
+   681→              className="w-full bg-slate-900/80 text-[10px] text-slate-300 placeholder:text-slate-600 resize-none focus:outline-none leading-relaxed"
+   682→              style={{ height: isDescExpanded ? '90px' : '45px', border: 'none' }}
+   683→              autoFocus
+   684→            />
+   685→            <div className="flex items-center justify-between px-2 py-1" style={{ borderTop: `1px solid ${c.a12}` }}>
+   686→              <button
+   687→                onClick={() => { onDescDraftChange(descDraft); onToggleDesc(); }}
+   688→                className="text-[8px]" style={{ color: c.a4 }}
+   689→              >
+   690→                {isDescExpanded ? 'Свернуть' : 'Развернуть'}
+   691→              </button>
+   692→              <div className="flex items-center gap-1">
+   693→                <button
+   694→                  onClick={onCancelEditDesc}
+   695→                  className="text-[8px] text-slate-500 hover:text-slate-300"
+   696→                >
+   697→                  ×
+   698→                </button>
+   699→                <button
+   700→                  onClick={onSaveDesc}
+   701→                  className="text-[8px] px-1.5 py-0.5 rounded font-medium"
+   702→                  style={{ color: '#fff', backgroundColor: c.a5 }}
+   703→                >
+   704→                  OK
+   705→                </button>
+   706→              </div>
+   707→            </div>
+   708→          </div>
+   709→        </div>
+   710→      ) : hasDesc ? (
+   711→        <div className="px-2 pb-2">
+   712→          <div
+   713→            className="rounded-md px-2 py-1.5 cursor-pointer transition-colors"
+   714→            style={{
+   715→              backgroundColor: c.a04,
+   716→              border: `1px solid ${c.a12}`,
+   717→            }}
+   718→            onClick={onStartEditDesc}
+   719→          >
+   720→            <p
+   721→              className="text-[9px] text-slate-500 leading-relaxed"
+   722→              style={{
+   723→                display: '-webkit-box',
+   724→                WebkitLineClamp: isDescExpanded ? 20 : 2,
+   725→                WebkitBoxOrient: 'vertical',
+   726→                overflow: 'hidden',
+   727→              }}
+   728→            >
+   729→              {subtask.description}
+   730→            </p>
+   731→            {subtask.description && subtask.description.length > 80 && !isDescExpanded && (
+   732→              <div className="flex justify-center mt-0.5">
+   733→                <span className="text-[7px]" style={{ color: c.a3 }}>Развернуть</span>
+   734→              </div>
+   735→            )}
+   736→          </div>
+   737→        </div>
+   738→      ) : (
+   739→        <div className="px-2 pb-2">
+   740→          <button
+   741→            onClick={onStartEditDesc}
+   742→            className="text-[8px] transition-colors py-0.5"
+   743→            style={{ color: c.a3 }}
+   744→          >
+   745→            + описание
+   746→          </button>
+   747→        </div>
+   748→      )}
+   749→    </div>
+   750→  );
+   751→}
+   752→
+   753→/* ── Legacy Description Editor (for non-stage description editing) ── */
+   754→
+   755→function LegacyDescriptionEditor() {
+   756→  const {
+   757→    descriptionEditorItem,
+   758→    setDescriptionEditorItem,
+   759→    selectedBoardId,
+   760→    setBoardTasks,
+   761→    boards,
+   762→  } = useKanbanStore();
+   763→
+   764→  const selectedBoard = boards.find(b => b.id === selectedBoardId);
+   765→  const boardColor = selectedBoard?.color || '#00d9ff';
+   766→
+   767→  const [draft, setDraft] = useState('');
+   768→  const [saving, setSaving] = useState(false);
+   769→  const [isDirty, setIsDirty] = useState(false);
+   770→  const textareaRef = useRef<HTMLTextAreaElement>(null);
+   771→
+   772→  useEffect(() => {
+   773→    if (descriptionEditorItem) {
+   774→      setDraft(descriptionEditorItem.description || '');
+   775→      setIsDirty(false);
+   776→      setTimeout(() => textareaRef.current?.focus(), 100);
+   777→    }
+   778→  }, [descriptionEditorItem?.id, descriptionEditorItem?.description]);
+   779→
+   780→  useEffect(() => {
+   781→    if (!descriptionEditorItem) return;
+   782→    const handler = (e: KeyboardEvent) => {
+   783→      if (e.key === 'Escape' && !isDirty) {
+   784→        setDescriptionEditorItem(null);
+   785→      }
+   786→    };
+   787→    window.addEventListener('keydown', handler);
+   788→    return () => window.removeEventListener('keydown', handler);
+   789→  }, [descriptionEditorItem, isDirty, setDescriptionEditorItem]);
+   790→
+   791→  const handleSave = useCallback(async () => {
+   792→    if (!descriptionEditorItem || saving) return;
+   793→    setSaving(true);
+   794→    try {
+   795→      await fetch('/api/tasks', {
+   796→        method: 'PUT',
+   797→        headers: { 'Content-Type': 'application/json' },
+   798→        body: JSON.stringify({ id: descriptionEditorItem.id, description: draft.trim() || null }),
+   799→      });
+   800→      if (selectedBoardId) {
+   801→        const isTracks = useKanbanStore.getState().boards.find(b => b.id === selectedBoardId)?.boardType === 'tracks';
+   802→        const url = `/api/tasks?boardId=${selectedBoardId}${isTracks ? '&deep=true' : ''}`;
+   803→        const res = await fetch(url);
+   804→        const data = await res.json();
+   805→        setBoardTasks(data.tasks);
+   806→      }
+   807→      setDescriptionEditorItem({
+   808→        ...descriptionEditorItem,
+   809→        description: draft.trim() || null,
+   810→      });
+   811→      setIsDirty(false);
+   812→    } finally {
+   813→      setSaving(false);
+   814→    }
+   815→  }, [descriptionEditorItem, draft, saving, selectedBoardId, setBoardTasks, setDescriptionEditorItem]);
+   816→
+   817→  const handleClose = () => {
+   818→    if (isDirty && descriptionEditorItem) {
+   819→      handleSave();
+   820→    } else {
+   821→      setDescriptionEditorItem(null);
+   822→    }
+   823→  };
+   824→
+   825→  if (!descriptionEditorItem) return null;
+   826→
+   827→  return (
+   828→    <div
+   829→      className="flex-shrink-0"
+   830→      style={{ borderTop: `1px solid ${boardColor}30`, backgroundColor: '#0a0a12' }}
+   831→    >
+   832→      <div className="flex items-center gap-3 px-4 py-2" style={{ borderBottom: `1px solid ${boardColor}15` }}>
+   833→        <div className="flex items-center gap-2 flex-1 min-w-0">
+   834→          <p className="text-xs font-medium text-slate-200 truncate">{descriptionEditorItem.title}</p>
+   835→          <p className="text-[10px] text-slate-600 truncate">в {descriptionEditorItem.parentTitle}</p>
+   836→        </div>
+   837→        <div className="flex items-center gap-2 flex-shrink-0">
+   838→          <span className="text-[9px] text-slate-600 tabular-nums">{draft.length}/{DESC_LIMIT}</span>
+   839→          {isDirty && (
+   840→            <button
+   841→              onClick={handleSave}
+   842→              disabled={saving}
+   843→              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors disabled:opacity-50"
+   844→              style={{ color: boardColor, backgroundColor: hexToRgba(boardColor, 0.1) }}
+   845→            >
+   846→              <Save className="w-3 h-3" />
+   847→              {saving ? '...' : 'Сохранить'}
+   848→            </button>
+   849→          )}
+   850→          <button
+   851→            onClick={handleClose}
+   852→            className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+   853→          >
+   854→            <X className="w-3.5 h-3.5" />
+   855→          </button>
+   856→        </div>
+   857→      </div>
+   858→
+   859→      <div className="px-4 py-2.5">
+   860→        <textarea
+   861→          ref={textareaRef}
+   862→          value={draft}
+   863→          onChange={(e) => {
+   864→            setDraft(e.target.value.slice(0, DESC_LIMIT));
+   865→            setIsDirty(true);
+   866→          }}
+   867→          placeholder="Введите описание..."
+   868→          className="w-full bg-slate-900/80 rounded-lg text-xs text-slate-300 placeholder:text-slate-600 resize-none focus:outline-none transition-colors leading-relaxed"
+   869→          style={{ border: `1px solid ${boardColor}20`, height: '100px' }}
+   870→          onFocus={(e) => { e.currentTarget.style.borderColor = boardColor + '60'; }}
+   871→          onBlur={(e) => { e.currentTarget.style.borderColor = boardColor + '20'; }}
+   872→          onKeyDown={(e) => {
+   873→            if (e.key === 'Escape') { e.preventDefault(); if (!isDirty) setDescriptionEditorItem(null); }
+   874→            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleSave(); }
+   875→          }}
+   876→        />
+   877→      </div>
+   878→    </div>
+   879→  );
+   880→}
+   881→
+   882→/* ── Helpers ──────────────────────────────────────────── */
+   883→
+   884→function getProgress(children: { status: string }[]): number {
+   885→  if (children.length === 0) return 0;
+   886→  const done = children.filter(c => c.status === 'done').length;
+   887→  return Math.round((done / children.length) * 100);
+   888→}
+   889→
