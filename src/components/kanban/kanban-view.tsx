@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useKanbanStore } from '@/store/kanban-store';
 import RadialBoard from '@/components/board/radial-board';
 import TaskStrip from '@/components/board/task-strip';
@@ -125,6 +125,30 @@ function ProjectList() {
               <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1 rounded ml-0.5">авто-доски</span>
             </button>
           </div>
+          {projectType === 'album' && (
+            <div className="rounded-lg bg-purple-500/5 border border-purple-500/30 p-2.5 flex items-start gap-2 animate-pulse">
+              <Disc3 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] text-purple-300 font-medium">Проект альбома</p>
+                <p className="text-[9px] text-slate-500 mt-0.5 leading-relaxed">
+                  Автоматически создадутся доски: Треки, Дизайн, Дистрибуция, Маркетинг, Сведение, Мастеринг, Референсы.
+                  Доска «Треки» будет иметь конструктор треков с выбором инструментов и этапов.
+                </p>
+              </div>
+            </div>
+          )}
+          {projectType === 'single' && (
+            <div className="rounded-lg bg-amber-500/5 border border-amber-500/30 p-2.5 flex items-start gap-2 animate-pulse">
+              <AudioLines className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] text-amber-300 font-medium">Проект сингла</p>
+                <p className="text-[9px] text-slate-500 mt-0.5 leading-relaxed">
+                  Автоматически создадутся доски: Трек, Обложка, Публикация, Продвижение.
+                  Доска «Трек» будет иметь конструктор треков с выбором инструментов и этапов.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -132,15 +156,46 @@ function ProjectList() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-6">
           {projects.length === 0 && !loading && (
             <div className="col-span-full text-center py-16 space-y-6">
+              {/* Main empty hint — pulsing */}
               <div className="animate-pulse">
                 <Music className="w-10 h-10 text-slate-700 mx-auto mb-3" />
                 <p className="text-slate-400 text-sm font-medium">Создайте первый проект</p>
                 <p className="text-slate-600 text-xs mt-1">Альбом, сингл, тур, клип...</p>
               </div>
+              {/* Auto-boards hint cards */}
+              <div className="max-w-md mx-auto space-y-3">
+                <div className="rounded-xl border border-purple-500/25 bg-purple-500/5 p-4 text-left animate-pulse" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Disc3 className="w-4 h-4 text-purple-400" />
+                    <span className="text-xs font-medium text-purple-300">Альбом</span>
+                    <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded ml-auto">авто-доски</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    7 досок создадутся автоматически: Треки, Дизайн, Дистрибуция, Маркетинг, Сведение, Мастеринг, Референсы
+                  </p>
+                </div>
+                <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 text-left animate-pulse" style={{ animationDelay: '1s', animationDuration: '2.5s' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AudioLines className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-medium text-amber-300">Сингл</span>
+                    <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded ml-auto">авто-доски</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    4 доски создадутся автоматически: Трек, Обложка, Публикация, Продвижение
+                  </p>
+                </div>
+                <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-left animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '2.5s' }}>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-cyan-400" />
+                    <span className="text-xs font-medium text-cyan-300">Общий</span>
+                    <span className="text-[10px] text-slate-500 ml-auto">доски вручную</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           {projects.map((project) => {
-            const color = '#00d9ff';
+            const color = getStatusColor(project.status);
             const isAlbum = project.projectType === 'album';
             const isSingle = project.projectType === 'single';
             return (
@@ -167,6 +222,19 @@ function ProjectList() {
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors mt-1" />
                 </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 4px ${color}60` }} />
+                  <span className="text-[10px]" style={{ color }}>{getStatusLabel(project.status)}</span>
+                  {project.children?.length > 0 && (
+                    <span className="text-[10px] text-slate-600">{project.children.length} подзадач</span>
+                  )}
+                  {isAlbum && (
+                    <span className="text-[9px] text-purple-400/60 bg-purple-500/10 px-1.5 py-0.5 rounded ml-auto">Альбом</span>
+                  )}
+                  {isSingle && (
+                    <span className="text-[9px] text-amber-400/60 bg-amber-500/10 px-1.5 py-0.5 rounded ml-auto">Сингл</span>
+                  )}
+                </div>
                 <button
                   onClick={(e) => handleDelete(e, project.id)}
                   className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-slate-700 text-slate-500 hover:text-rose-400 transition-all"
@@ -189,24 +257,36 @@ function KanbanWorkspace() {
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newBoardColor, setNewBoardColor] = useState('#00d9ff');
   const BOARD_COLORS = ['#00d9ff', '#ff8c00', '#ff3366', '#00ff88', '#a855f7', '#eab308', '#06b6d4', '#f43f5e'];
+  const onboardingInitRef = useRef<string | null>(null);
 
   const project = projects.find((p) => p.id === selectedProjectId);
   const selectedBoard = boards.find((b) => b.id === selectedBoardId);
   const boardColor = selectedBoard?.color || '#00d9ff';
 
-  const loadBoards = async () => {
+  const loadBoards = useCallback(async () => {
     if (!selectedProjectId) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/boards?projectId=${selectedProjectId}`);
       const data = await res.json();
       setBoards(data.boards);
+      // Start onboarding only once per project entry
+      if (onboardingInitRef.current !== selectedProjectId) {
+        onboardingInitRef.current = selectedProjectId;
+        const ghostIds = data.boards
+          .filter((b: { isGhost: boolean }) => b.isGhost)
+          .sort((a: { sortOrder: number }, b: { sortOrder: number }) => a.sortOrder - b.sortOrder)
+          .map((b: { id: string }) => b.id);
+        if (ghostIds.length > 0) {
+          useKanbanStore.getState().startOnboarding(ghostIds);
+        }
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedProjectId, setBoards]);
 
-  useEffect(() => { void loadBoards(); }, [selectedProjectId, setBoards]);
+  useEffect(() => { void loadBoards(); }, [loadBoards]);
 
   const handleCreateBoard = async () => {
     if (!newBoardTitle.trim() || !selectedProjectId) return;
@@ -297,4 +377,26 @@ export function KanbanPage() {
       </div>
     </main>
   );
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  'todo': '#00d9ff',
+  'in-progress': '#ff8c00',
+  'review': '#ff3366',
+  'done': '#00ff88',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  'todo': 'К выполнению',
+  'in-progress': 'В работе',
+  'review': 'На проверке',
+  'done': 'Готово',
+};
+
+function getStatusColor(status: string) {
+  return STATUS_COLORS[status] || '#00d9ff';
+}
+
+function getStatusLabel(status: string) {
+  return STATUS_LABELS[status] || status;
 }
