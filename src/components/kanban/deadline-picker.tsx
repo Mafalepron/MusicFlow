@@ -101,7 +101,109 @@ export default function DeadlinePicker({
   };
 
   if (inline) {
-    return <InlineDeadlineButton value={value} onClick={() => setOpen(!open)} daysLeft={daysLeft} status={status} isDone={isDone} size={size} />;
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <InlineDeadlineButton value={value} onClick={() => setOpen(!open)} daysLeft={daysLeft} status={status} isDone={isDone} size={size} />
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-auto p-0 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[60]"
+          align="start"
+          sideOffset={8}
+        >
+          {/* Presets row */}
+          <div className="border-b border-slate-800/80 px-3 py-2">
+            <div className="flex flex-wrap gap-1">
+              {PRESETS.map((p) => {
+                const PresetIcon = p.icon;
+                return (
+                  <button
+                    key={p.key}
+                    onClick={() => handlePreset(p.key)}
+                    className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md
+                      bg-slate-800/60 text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10
+                      transition-all duration-150 hover:scale-[1.03] active:scale-95"
+                  >
+                    <PresetIcon className="w-2.5 h-2.5" />
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Calendar */}
+          <div className="p-2">
+            <Calendar
+              mode="single"
+              selected={deadlineDate || undefined}
+              onSelect={handleSelect}
+              defaultMonth={deadlineDate || new Date()}
+              className="bg-transparent p-0 [--cell-size:1.5rem]"
+              classNames={{
+                root: 'w-fit',
+                months: 'flex flex-col w-full',
+                month: 'flex flex-col w-full gap-1',
+                nav: 'flex items-center justify-between w-full px-1',
+                button_previous: 'h-6 w-6 text-slate-500 hover:text-slate-200 hover:bg-slate-800 rounded',
+                button_next: 'h-6 w-6 text-slate-500 hover:text-slate-200 hover:bg-slate-800 rounded',
+                month_caption: 'flex items-center justify-center h-6 w-full text-slate-300 font-medium text-xs',
+                caption_label: 'text-xs text-slate-300',
+                table: 'w-full border-collapse mt-1',
+                weekdays: 'flex w-full',
+                weekday: 'text-slate-600 text-[10px] font-normal flex-1 text-center py-0.5',
+                week: 'flex w-full mt-0.5',
+                day: 'relative w-full p-0 text-center aspect-square select-none',
+                today: 'rounded-md',
+                outside: 'text-slate-700',
+                disabled: 'text-slate-700 opacity-40',
+                hidden: 'invisible',
+              }}
+              formatters={{
+                formatCaption: (date) => MONTHS_RU[date.getMonth()],
+                formatWeekdayName: (date) => WEEKDAYS_SHORT[date.getDay() === 0 ? 6 : date.getDay() - 1],
+              }}
+              components={{
+                DayButton: ({ day, modifiers, ...props }) => {
+                  const isSelected = modifiers.selected;
+                  const isToday = modifiers.today;
+                  const d = day.date;
+
+                  return (
+                    <button
+                      {...props}
+                      className={cn(
+                        'w-6 h-6 text-[10px] rounded-md flex items-center justify-center transition-all duration-150 relative',
+                        !isSelected && 'hover:bg-slate-800 text-slate-300 hover:text-white',
+                        isToday && !isSelected && 'ring-1 ring-cyan-500/40 text-cyan-400 font-semibold',
+                        isSelected && 'bg-cyan-600 text-white hover:bg-cyan-500 shadow-md shadow-cyan-500/20 scale-105',
+                      )}
+                    >
+                      {d.getDate()}
+                    </button>
+                  );
+                },
+              }}
+            />
+          </div>
+
+          {/* Footer */}
+          {value && (
+            <div className="border-t border-slate-800/80 px-3 py-2 flex items-center justify-between">
+              <DeadlineTimeInfo daysLeft={daysLeft} status={status} isDone={isDone} />
+              <button
+                onClick={handleClear}
+                className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-rose-400
+                  transition-colors duration-150 px-1.5 py-0.5 rounded hover:bg-rose-500/10"
+              >
+                <X className="w-3 h-3" />
+                Сбросить
+              </button>
+            </div>
+          )}
+        </PopoverContent>
+      </Popover>
+    );
   }
 
   return (
@@ -376,13 +478,13 @@ function InlineDeadlineButton({
 }) {
   if (!value) {
     return (
-      <button
+      <span
         onClick={onClick}
-        className="flex items-center gap-1 text-slate-700 hover:text-slate-400 transition-colors"
+        className="flex items-center gap-1 text-slate-500 hover:text-cyan-400 transition-colors cursor-pointer px-1 py-0.5 rounded hover:bg-cyan-500/10"
       >
         <CalendarDays className={size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
-        <span className={size === 'sm' ? 'text-[9px]' : 'text-[10px]'}>+дедлайн</span>
-      </button>
+        <span className={size === 'sm' ? 'text-[9px]' : 'text-[10px]'}>дедлайн</span>
+      </span>
     );
   }
   const d = new Date(value);
@@ -391,29 +493,37 @@ function InlineDeadlineButton({
   const isSmall = size === 'sm';
 
   return (
-    <button
+    <span
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1 rounded px-1 py-0.5 transition-all duration-150 hover:scale-105',
-        status === 'overdue' && !isDone && 'bg-rose-500/10 hover:bg-rose-500/20',
-        status === 'urgent' && !isDone && 'bg-amber-500/10 hover:bg-amber-500/20',
-        status === 'soon' && !isDone && 'bg-cyan-500/10 hover:bg-cyan-500/20',
+        'flex items-center gap-1 rounded px-1.5 py-0.5 transition-all duration-150 cursor-pointer',
+        status === 'overdue' && !isDone && 'bg-rose-500/15 hover:bg-rose-500/25',
+        status === 'urgent' && !isDone && 'bg-amber-500/15 hover:bg-amber-500/25',
+        status === 'soon' && !isDone && 'bg-cyan-500/15 hover:bg-cyan-500/25',
+        !isDone && status === 'ok' && 'bg-slate-700/30 hover:bg-slate-700/50',
       )}
     >
+      <CalendarDays className={cn(
+        isSmall ? 'w-3 h-3' : 'w-3.5 h-3.5',
+        status === 'overdue' && !isDone ? 'text-rose-400' :
+        status === 'urgent' && !isDone ? 'text-amber-400' :
+        status === 'soon' && !isDone ? 'text-cyan-400' :
+        isDone ? 'text-emerald-500' : 'text-slate-400'
+      )} />
       <span className={cn(
         'font-medium transition-colors',
         isSmall ? 'text-[9px]' : 'text-[10px]',
         status === 'overdue' && !isDone ? 'text-rose-400' :
         status === 'urgent' && !isDone ? 'text-amber-400' :
         status === 'soon' && !isDone ? 'text-cyan-400' :
-        isDone ? 'text-emerald-500' : 'text-slate-500',
+        isDone ? 'text-emerald-500' : 'text-slate-300',
       )}>
         {day} {month}
       </span>
       {status === 'overdue' && !isDone && (
         <span className="text-[8px] font-bold text-rose-400 animate-pulse">!</span>
       )}
-    </button>
+    </span>
   );
 }
 

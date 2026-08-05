@@ -162,22 +162,23 @@ export default function DescriptionBottomPanel() {
     <div
       className="flex-shrink-0 flex flex-col"
       style={{
-        borderTop: `1px solid ${c.a25}`,
-        backgroundColor: '#08080f',
-        height: isCollapsed ? '36px' : '320px',
+        borderTop: `2px solid ${c.a4}`,
+        backgroundColor: '#0a0a14',
+        height: isCollapsed ? '40px' : '340px',
         transition: 'height 220ms ease',
+        boxShadow: `0 -8px 24px rgba(0,0,0,0.3), 0 -1px 0 ${c.a15}`,
       }}
     >
       {/* Accent gradient line */}
       <div
-        className="h-[2px] flex-shrink-0"
-        style={{ background: `linear-gradient(90deg, ${c.a6}, ${c.a1})` }}
+        className="h-[3px] flex-shrink-0"
+        style={{ background: `linear-gradient(90deg, ${c.raw}, ${c.a3} 50%, transparent)` }}
       />
 
       {/* Header */}
       <div
-        className="flex items-center gap-2 px-3 py-1.5 flex-shrink-0"
-        style={{ borderBottom: isCollapsed ? 'none' : `1px solid ${c.a12}` }}
+        className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
+        style={{ borderBottom: isCollapsed ? 'none' : `1px solid ${c.a25}`, backgroundColor: c.a04 }}
       >
         <button
           onClick={() => setIsCollapsed(v => !v)}
@@ -509,31 +510,37 @@ function StageCard({
 
   return (
     <div
-      className="mx-2 rounded-lg overflow-hidden transition-all"
+      className="mx-2 rounded-xl overflow-hidden transition-all"
       style={{
-        border: `1px solid ${isSelected ? c.a4 : c.a15}`,
-        backgroundColor: isSelected ? c.a08 : 'rgba(15, 15, 25, 0.4)',
-        boxShadow: isSelected ? `0 0 12px ${c.a15}` : 'none',
+        border: `1.5px solid ${isSelected ? c.a6 : c.a25}`,
+        backgroundColor: isSelected ? c.a12 : '#0f0f1a',
+        boxShadow: isSelected ? `0 0 0 1px ${c.a3}, 0 4px 12px ${c.a15}` : '0 2px 8px rgba(0,0,0,0.2)',
       }}
     >
       {/* Stage header */}
-      <div className="flex items-center gap-1.5 px-2 py-1.5">
+      <div
+        className="flex items-center gap-2 px-3 py-2"
+        style={{
+          backgroundColor: isSelected ? c.a08 : c.a04,
+          borderBottom: isExpanded ? `1px solid ${c.a2}` : 'none',
+        }}
+      >
         {/* Drag handle (visual) */}
-        <GripVertical className="w-3 h-3 text-slate-700 flex-shrink-0" />
+        <GripVertical className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
 
         {/* Status cycle */}
         <button
           onClick={(e) => { e.stopPropagation(); void cycleStatus(); }}
-          className="flex-shrink-0 transition-opacity hover:opacity-70"
+          className="flex-shrink-0 p-1 rounded-md transition-all hover:bg-slate-800/60"
           title="Сменить статус"
         >
-          <StatusIcon className="w-3.5 h-3.5" style={{ color: statusHex }} />
+          <StatusIcon className="w-4 h-4" style={{ color: statusHex }} />
         </button>
 
         {/* Priority dot */}
         <span
-          className="w-2 h-2 rounded-full flex-shrink-0"
-          style={{ backgroundColor: priorityHex, boxShadow: `0 0 4px ${priorityHex}80` }}
+          className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-slate-900"
+          style={{ backgroundColor: priorityHex, boxShadow: `0 0 6px ${priorityHex}` }}
           title={`Приоритет: ${PRIORITIES.find(p => p.value === stage.priority)?.label || stage.priority}`}
         />
 
@@ -547,8 +554,8 @@ function StageCard({
               if (e.key === 'Escape') { setIsEditingTitle(false); setTitleDraft(stage.title); }
             }}
             onBlur={() => void saveTitle()}
-            className="flex-1 min-w-0 bg-slate-900/80 rounded px-1.5 py-0.5 text-[11px] text-slate-200 focus:outline-none"
-            style={{ border: `1px solid ${c.a4}` }}
+            className="flex-1 min-w-0 bg-slate-900/90 rounded-md px-2 py-1 text-[12px] text-slate-100 font-medium focus:outline-none"
+            style={{ border: `1.5px solid ${c.a5}` }}
             autoFocus
           />
         ) : (
@@ -556,8 +563,8 @@ function StageCard({
             onDoubleClick={() => setIsEditingTitle(true)}
             onClick={() => { onSelect(); onToggleExpand(); }}
             className={cn(
-              'flex-1 min-w-0 text-left text-[11px] font-medium truncate transition-colors',
-              stage.status === 'done' ? 'text-slate-600 line-through' : 'text-slate-200'
+              'flex-1 min-w-0 text-left text-[12px] font-semibold truncate transition-colors',
+              stage.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-100'
             )}
             title="Двойной клик — переименовать"
           >
@@ -568,8 +575,8 @@ function StageCard({
         {/* Subtask count badge */}
         {subtasks.length > 0 && (
           <span
-            className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 tabular-nums"
-            style={{ backgroundColor: c.a12, color: c.raw }}
+            className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 tabular-nums font-bold"
+            style={{ backgroundColor: c.a2, color: c.raw, border: `1px solid ${c.a3}` }}
             title={`${subtasks.length} подзадач · ${stageProgress}%`}
           >
             {stageProgress}%
@@ -596,60 +603,59 @@ function StageCard({
         />
 
         {/* Move up/down */}
-        <div className="flex items-center opacity-0 hover:opacity-100 group-hover:opacity-100 transition-opacity flex-shrink-0"
-          style={{ opacity: 1 }}
-        >
+        <div className="flex items-center transition-opacity flex-shrink-0" style={{ opacity: 1 }}>
           <button
             onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
             disabled={index === 0}
-            className="p-0.5 rounded hover:bg-slate-800 text-slate-600 hover:text-slate-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-slate-200 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
             title="Выше"
           >
-            <ArrowUp className="w-3 h-3" />
+            <ArrowUp className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
             disabled={index === total - 1}
-            className="p-0.5 rounded hover:bg-slate-800 text-slate-600 hover:text-slate-300 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-slate-200 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
             title="Ниже"
           >
-            <ArrowDown className="w-3 h-3" />
+            <ArrowDown className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Delete */}
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="p-0.5 rounded hover:bg-rose-500/10 text-slate-700 hover:text-rose-400 transition-all flex-shrink-0"
+          className="p-1 rounded-md hover:bg-rose-500/15 text-slate-600 hover:text-rose-400 transition-all flex-shrink-0"
           title="Удалить этап"
         >
-          <Trash2 className="w-3 h-3" />
+          <Trash2 className="w-3.5 h-3.5" />
         </button>
 
         {/* Expand arrow */}
         <button
           onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
-          className="p-0.5 rounded hover:bg-slate-800 text-slate-500 transition-colors flex-shrink-0"
+          className="p-1 rounded-md hover:bg-slate-800 text-slate-400 transition-colors flex-shrink-0"
         >
           {isExpanded
-            ? <ChevronDown className="w-3 h-3 rotate-180" />
-            : <ChevronDown className="w-3 h-3" />
+            ? <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+            : <ChevronDown className="w-3.5 h-3.5" />
           }
         </button>
       </div>
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="px-2 pb-2 space-y-1.5">
+        <div className="px-3 py-2 space-y-2">
           {/* Progress bar */}
           {subtasks.length > 0 && (
-            <div className="px-1">
-              <div className="h-1 bg-slate-800/60 rounded-full overflow-hidden">
+            <div>
+              <div className="h-1.5 bg-slate-800/80 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${stageProgress}%`,
                     backgroundColor: stageProgress === 100 ? '#10b981' : stageProgress > 50 ? boardColor : stageProgress > 0 ? '#f59e0b' : '#334155',
+                    boxShadow: stageProgress > 0 ? `0 0 6px ${stageProgress === 100 ? '#10b981' : boardColor}80` : 'none',
                   }}
                 />
               </div>
@@ -664,8 +670,8 @@ function StageCard({
                   value={descDraft}
                   onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
                   placeholder="Описание этапа..."
-                  className="bg-slate-900/80 text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none focus:outline-none"
-                  style={{ border: `1px solid ${c.a3}` }}
+                  className="bg-slate-900/90 text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[55px] resize-none focus:outline-none rounded-md"
+                  style={{ border: `1.5px solid ${c.a4}` }}
                   autoFocus
                   onKeyDown={(e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
@@ -674,27 +680,25 @@ function StageCard({
                   onBlur={() => void saveDesc()}
                 />
                 <div className="flex items-center justify-between">
-                  <span className="text-[8px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
-                  <span className="text-[8px] text-slate-700">Ctrl+Enter — сохранить</span>
+                  <span className="text-[9px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
+                  <span className="text-[9px] text-slate-700">Ctrl+Enter — сохранить</span>
                 </div>
               </div>
             ) : stage.description ? (
               <button
                 onClick={() => setIsEditingDesc(true)}
-                className="w-full text-left rounded px-2 py-1 transition-colors hover:bg-slate-800/40"
-                style={{ border: `1px solid ${c.a12}`, backgroundColor: c.a04 }}
+                className="w-full text-left rounded-md px-2.5 py-1.5 transition-colors hover:bg-slate-800/50"
+                style={{ border: `1px solid ${c.a2}`, backgroundColor: c.a08 }}
               >
-                <p className="text-[10px] text-slate-400 leading-relaxed whitespace-pre-wrap line-clamp-3">
+                <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-3">
                   {stage.description}
                 </p>
               </button>
             ) : (
               <button
                 onClick={() => setIsEditingDesc(true)}
-                className="text-[10px] transition-colors py-0.5 px-1"
-                style={{ color: c.a3 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = c.a6; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = c.a3; }}
+                className="text-[11px] transition-colors py-1 px-2 rounded-md hover:bg-slate-800/40"
+                style={{ color: c.a5, border: `1px dashed ${c.a25}` }}
               >
                 + описание этапа
               </button>
@@ -702,26 +706,26 @@ function StageCard({
           </div>
 
           {/* Metadata controls row */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap p-1.5 rounded-md" style={{ backgroundColor: c.a04, border: `1px solid ${c.a15}` }}>
             {/* Priority select */}
             <Select
               value={stage.priority}
               onValueChange={(v) => void onUpdate({ priority: v })}
             >
               <SelectTrigger
-                className="h-6 text-[10px] bg-slate-900/80 border-slate-700/50 text-slate-300 px-2 py-0 w-auto min-w-[90px]"
-                style={{ borderColor: c.a2 }}
+                className="h-7 text-[11px] bg-slate-900/90 text-slate-200 px-2 py-0 w-auto min-w-[100px] font-medium rounded-md"
+                style={{ border: `1px solid ${c.a3}` }}
               >
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: priorityHex }} />
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: priorityHex, boxShadow: `0 0 4px ${priorityHex}` }} />
                   <SelectValue />
                 </span>
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-700">
+              <SelectContent className="bg-slate-900 border-slate-700 z-[60]">
                 {PRIORITIES.map(p => (
                   <SelectItem key={p.value} value={p.value}>
                     <span className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.hex }} />
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.hex }} />
                       {p.label}
                     </span>
                   </SelectItem>
@@ -739,8 +743,8 @@ function StageCard({
 
             {/* Status display */}
             <span
-              className="text-[9px] px-1.5 py-0.5 rounded-full"
-              style={{ backgroundColor: hexToRgba(statusHex, 0.15), color: statusHex }}
+              className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: hexToRgba(statusHex, 0.2), color: statusHex, border: `1px solid ${hexToRgba(statusHex, 0.3)}` }}
             >
               {STATUSES.find(s => s.value === stage.status)?.label || stage.status}
             </span>
@@ -942,20 +946,23 @@ function SubtaskRow({
 
   return (
     <div>
-      <div className="flex items-center gap-1.5 px-1.5 py-1 rounded hover:bg-slate-800/40 transition-colors group/sub">
+      <div
+        className="flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors group/sub"
+        style={{ backgroundColor: subDone ? 'transparent' : c.a04 }}
+      >
         {/* Status cycle */}
         <button
           onClick={(e) => { e.stopPropagation(); void cycleStatus(); }}
-          className="flex-shrink-0 transition-opacity hover:opacity-70"
+          className="flex-shrink-0 p-0.5 rounded transition-opacity hover:opacity-70"
           title="Сменить статус"
         >
-          <StatusIcon className="w-3 h-3" style={{ color: statusHex }} />
+          <StatusIcon className="w-3.5 h-3.5" style={{ color: statusHex }} />
         </button>
 
         {/* Priority dot */}
         <span
-          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: priorityHex }}
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{ backgroundColor: priorityHex, boxShadow: `0 0 4px ${priorityHex}80` }}
           title={`Приоритет: ${PRIORITIES.find(p => p.value === subtask.priority)?.label || subtask.priority}`}
         />
 
@@ -969,8 +976,8 @@ function SubtaskRow({
               if (e.key === 'Escape') { setIsEditingTitle(false); setTitleDraft(subtask.title); }
             }}
             onBlur={() => void saveTitle()}
-            className="flex-1 min-w-0 bg-slate-900/80 rounded px-1.5 py-0.5 text-[10px] text-slate-200 focus:outline-none"
-            style={{ border: `1px solid ${c.a3}` }}
+            className="flex-1 min-w-0 bg-slate-900/90 rounded px-2 py-0.5 text-[11px] text-slate-100 focus:outline-none"
+            style={{ border: `1.5px solid ${c.a4}` }}
             autoFocus
           />
         ) : (
@@ -978,8 +985,8 @@ function SubtaskRow({
             onDoubleClick={() => setIsEditingTitle(true)}
             onClick={onToggleExpand}
             className={cn(
-              'flex-1 min-w-0 text-left text-[10px] truncate transition-colors',
-              subDone ? 'text-slate-600 line-through' : 'text-slate-300'
+              'flex-1 min-w-0 text-left text-[11px] font-medium truncate transition-colors',
+              subDone ? 'text-slate-600 line-through' : 'text-slate-200'
             )}
             title="Двойной клик — переименовать"
           >
@@ -1010,18 +1017,18 @@ function SubtaskRow({
         <button
           onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
           disabled={index === 0}
-          className="p-0.5 rounded hover:bg-slate-700 text-slate-700 hover:text-slate-300 transition-colors disabled:opacity-20 disabled:cursor-not-allowed flex-shrink-0"
+          className="p-0.5 rounded hover:bg-slate-700 text-slate-600 hover:text-slate-300 transition-colors disabled:opacity-20 disabled:cursor-not-allowed flex-shrink-0"
           title="Выше"
         >
-          <ArrowUp className="w-2.5 h-2.5" />
+          <ArrowUp className="w-3 h-3" />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
           disabled={index === total - 1}
-          className="p-0.5 rounded hover:bg-slate-700 text-slate-700 hover:text-slate-300 transition-colors disabled:opacity-20 disabled:cursor-not-allowed flex-shrink-0"
+          className="p-0.5 rounded hover:bg-slate-700 text-slate-600 hover:text-slate-300 transition-colors disabled:opacity-20 disabled:cursor-not-allowed flex-shrink-0"
           title="Ниже"
         >
-          <ArrowDown className="w-2.5 h-2.5" />
+          <ArrowDown className="w-3 h-3" />
         </button>
 
         {/* Delete */}
@@ -1030,7 +1037,7 @@ function SubtaskRow({
           className="p-0.5 rounded hover:bg-rose-500/10 text-slate-700 hover:text-rose-400 transition-all opacity-0 group-hover/sub:opacity-100 flex-shrink-0"
           title="Удалить"
         >
-          <Trash2 className="w-2.5 h-2.5" />
+          <Trash2 className="w-3 h-3" />
         </button>
       </div>
 
@@ -1043,8 +1050,8 @@ function SubtaskRow({
               value={descDraft}
               onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
               placeholder="Описание подзадачи..."
-              className="bg-slate-900/80 text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[40px] resize-none focus:outline-none"
-              style={{ border: `1px solid ${c.a25}` }}
+              className="bg-slate-900/90 text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[45px] resize-none focus:outline-none rounded-md"
+              style={{ border: `1.5px solid ${c.a3}` }}
               autoFocus
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
@@ -1055,42 +1062,40 @@ function SubtaskRow({
           ) : subtask.description ? (
             <button
               onClick={() => setIsEditingDesc(true)}
-              className="w-full text-left rounded px-1.5 py-1 transition-colors hover:bg-slate-800/40"
-              style={{ border: `1px solid ${c.a12}`, backgroundColor: c.a04 }}
+              className="w-full text-left rounded-md px-2 py-1 transition-colors hover:bg-slate-800/40"
+              style={{ border: `1px solid ${c.a15}`, backgroundColor: c.a04 }}
             >
-              <p className="text-[9px] text-slate-500 leading-relaxed whitespace-pre-wrap line-clamp-2">
+              <p className="text-[10px] text-slate-400 leading-relaxed whitespace-pre-wrap line-clamp-2">
                 {subtask.description}
               </p>
             </button>
           ) : (
             <button
               onClick={() => setIsEditingDesc(true)}
-              className="text-[9px] transition-colors py-0.5"
-              style={{ color: c.a3 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = c.a6; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = c.a3; }}
+              className="text-[10px] transition-colors py-0.5 px-1.5 rounded"
+              style={{ color: c.a4 }}
             >
               + описание
             </button>
           )}
 
           {/* Metadata row */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap p-1 rounded-md" style={{ backgroundColor: c.a04, border: `1px solid ${c.a12}` }}>
             {/* Priority */}
             <Select
               value={subtask.priority}
               onValueChange={(v) => void onUpdate({ priority: v })}
             >
               <SelectTrigger
-                className="h-5 text-[9px] bg-slate-900/80 border-slate-700/50 text-slate-300 px-1.5 py-0 w-auto min-w-[80px]"
-                style={{ borderColor: c.a2 }}
+                className="h-6 text-[10px] bg-slate-900/90 text-slate-200 px-1.5 py-0 w-auto min-w-[85px] rounded-md"
+                style={{ border: `1px solid ${c.a25}` }}
               >
                 <span className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: priorityHex }} />
                   <SelectValue />
                 </span>
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-700">
+              <SelectContent className="bg-slate-900 border-slate-700 z-[60]">
                 {PRIORITIES.map(p => (
                   <SelectItem key={p.value} value={p.value}>
                     <span className="flex items-center gap-1.5">
@@ -1304,17 +1309,17 @@ function AssigneeSelect({
     >
       <SelectTrigger
         className={cn(
-          'bg-slate-900/80 border-slate-700/50 text-slate-300 px-2 py-0 w-auto min-w-[110px]',
-          compact ? 'h-5 text-[9px]' : 'h-6 text-[10px]'
+          'bg-slate-900/90 text-slate-200 px-2 py-0 w-auto min-w-[120px] rounded-md font-medium',
+          compact ? 'h-6 text-[10px]' : 'h-7 text-[11px]'
         )}
-        style={{ borderColor: hexToRgba(boardColor, 0.2) }}
+        style={{ border: `1px solid ${hexToRgba(boardColor, 0.3)}` }}
       >
         <span className="flex items-center gap-1 truncate">
-          <User className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} style={{ color: hexToRgba(boardColor, 0.6) }} />
+          <User className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} style={{ color: hexToRgba(boardColor, 0.7) }} />
           <SelectValue placeholder="Не назначен" />
         </span>
       </SelectTrigger>
-      <SelectContent className="bg-slate-900 border-slate-700 max-h-60 overflow-y-auto">
+      <SelectContent className="bg-slate-900 border-slate-700 max-h-60 overflow-y-auto z-[60]">
         <SelectItem value="__none__">
           <span className="text-slate-500">— Не назначен —</span>
         </SelectItem>
