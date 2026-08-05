@@ -351,9 +351,15 @@ function KanbanWorkspace() {
           </div>
           <DescriptionBottomPanel />
         </div>
-        <div className="w-[360px] border-l border-slate-800/60 bg-slate-950/80 flex flex-col">
-          <TaskDetailPanel />
-          {isTrackWizardOpen ? <TrackWizard /> : <ProjectChat />}
+        <div className="w-[360px] border-l border-slate-800/60 bg-slate-950/80 flex flex-col min-h-0">
+          {isTrackWizardOpen ? (
+            <TrackWizard />
+          ) : (
+            <>
+              <TaskDetailPanel />
+              <ProjectChat />
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -362,20 +368,18 @@ function KanbanWorkspace() {
 
 export function KanbanPage() {
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="h-screen flex flex-col">
-        <div className="flex items-center gap-3 border-b border-slate-800/60 px-4 py-3">
-          <Button variant="ghost" onClick={() => useKanbanStore.getState().selectProject('')} className="text-slate-400 hover:text-slate-200">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Назад к проектам
-          </Button>
-          <div className="flex items-center gap-2">
-            <Hexagon className="w-4 h-4 text-cyan-400" />
-            <span className="text-sm font-medium text-slate-300">Kanban workspace</span>
-          </div>
+    <div className="bg-slate-950 text-slate-100 flex flex-col h-[calc(100dvh-11.5rem)] lg:h-[calc(100dvh-9rem)]">
+      <div className="flex items-center gap-3 border-b border-slate-800/60 px-4 py-3 shrink-0">
+        <Button variant="ghost" onClick={() => useKanbanStore.getState().selectProject('')} className="text-slate-400 hover:text-slate-200">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Назад к проектам
+        </Button>
+        <div className="flex items-center gap-2">
+          <Hexagon className="w-4 h-4 text-cyan-400" />
+          <span className="text-sm font-medium text-slate-300">Kanban workspace</span>
         </div>
-        <KanbanWorkspace />
       </div>
-    </main>
+      <KanbanWorkspace />
+    </div>
   );
 }
 

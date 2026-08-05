@@ -276,7 +276,7 @@ export default function TrackWizard() {
   const STEPS = ['Название', 'Инструменты', 'Этапы'];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="border-b border-slate-800/50 p-4 shrink-0">
         <div className="flex items-center justify-between mb-3">
