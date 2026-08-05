@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import DeadlinePicker, { getDeadlineInfo } from '@/components/kanban/deadline-picker';
 import {
+  Popover, PopoverTrigger, PopoverContent,
+} from '@/components/ui/popover';
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -45,6 +48,18 @@ const PRIORITY_HEX: Record<string, string> = {
   high: '#f43f5e',
 };
 
+const PRIORITY_LEVELS: Record<string, number> = {
+  low: 1,
+  medium: 2,
+  high: 3,
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  low: 'Низкий',
+  medium: 'Средний',
+  high: 'Высокий',
+};
+
 const STATUS_ICON: Record<string, typeof Circle> = {
   todo: Circle,
   'in-progress': Clock,
@@ -77,6 +92,108 @@ interface ColorSet {
   a5: string;
   a6: string;
   a7: string;
+}
+
+/* ── Priority Bars (visual indicator) ──────────────────── */
+
+function PriorityBars({ priority, size = 'sm' }: { priority: string; size?: 'sm' | 'xs' }) {
+  const level = PRIORITY_LEVELS[priority] || 2;
+  const hex = PRIORITY_HEX[priority] || '#64748b';
+  const barW = size === 'xs' ? 'w-[2.5px]' : 'w-[3px]';
+  const gap = size === 'xs' ? 'gap-[1.5px]' : 'gap-[2px]';
+
+  return (
+    <div className={cn('flex items-end', gap)} style={{ height: size === 'xs' ? '10px' : '12px' }}>
+      {[1, 2, 3].map(i => (
+        <div
+          key={i}
+          className={cn(barW, 'rounded-sm transition-all duration-200')}
+          style={{
+            height: i === 1 ? '30%' : i === 2 ? '65%' : '100%',
+            backgroundColor: i <= level ? hex : hexToRgba(hex, 0.15),
+            boxShadow: i <= level ? `0 0 3px ${hex}60` : 'none',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ── Priority Selector (popover) ──────────────────────── */
+
+function PrioritySelector({
+  priority,
+  onChange,
+  size = 'sm',
+}: {
+  priority: string;
+  onChange: (v: string) => void;
+  size?: 'sm' | 'xs';
+}) {
+  const [open, setOpen] = useState(false);
+  const level = PRIORITY_LEVELS[priority] || 2;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            'flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-all cursor-pointer border border-transparent hover:bg-slate-800/60',
+            size === 'xs' ? 'h-5' : 'h-6',
+          )}
+          title={`Приоритет: ${PRIORITY_LABELS[priority] || priority}`}
+        >
+          <PriorityBars priority={priority} size={size} />
+          <span
+            className={cn('font-medium', size === 'xs' ? 'text-[9px]' : 'text-[10px]')}
+            style={{ color: PRIORITY_HEX[priority] || '#64748b' }}
+          >
+            {level === 1 ? 'P1' : level === 2 ? 'P2' : 'P3'}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-44 p-2 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[70]"
+        align="start"
+        sideOffset={6}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-[9px] uppercase tracking-wider text-slate-600 font-semibold mb-1.5 px-1">Приоритет</p>
+        <div className="space-y-1">
+          {PRIORITIES.map(p => {
+            const isActive = priority === p.value;
+            const pLevel = PRIORITY_LEVELS[p.value];
+            return (
+              <button
+                key={p.value}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(p.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition-all',
+                  isActive ? 'bg-slate-800' : 'hover:bg-slate-800/60',
+                )}
+                style={isActive ? { boxShadow: `inset 2px 0 0 ${p.hex}` } : undefined}
+              >
+                <PriorityBars priority={p.value} size="sm" />
+                <div className="flex-1 text-left">
+                  <span className={cn('text-[11px] font-medium', isActive ? 'text-slate-100' : 'text-slate-300')}>
+                    {p.label}
+                  </span>
+                  <span className="text-[9px] text-slate-600 ml-1">P{pLevel}</span>
+                </div>
+                {isActive && <Check className="w-3 h-3" style={{ color: p.hex }} />}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 /* ── Main Panel ────────────────────────────────────────── */
@@ -537,11 +654,11 @@ function StageCard({
           <StatusIcon className="w-4 h-4" style={{ color: statusHex }} />
         </button>
 
-        {/* Priority dot */}
-        <span
-          className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-2 ring-slate-900"
-          style={{ backgroundColor: priorityHex, boxShadow: `0 0 6px ${priorityHex}` }}
-          title={`Приоритет: ${PRIORITIES.find(p => p.value === stage.priority)?.label || stage.priority}`}
+        {/* Priority selector (interactive bars) */}
+        <PrioritySelector
+          priority={stage.priority}
+          onChange={(v) => void onUpdate({ priority: v })}
+          size="sm"
         />
 
         {/* Title (inline editable) */}
@@ -707,31 +824,11 @@ function StageCard({
 
           {/* Metadata controls row */}
           <div className="flex items-center gap-2 flex-wrap p-1.5 rounded-md" style={{ backgroundColor: c.a04, border: `1px solid ${c.a15}` }}>
-            {/* Priority select */}
-            <Select
-              value={stage.priority}
-              onValueChange={(v) => void onUpdate({ priority: v })}
-            >
-              <SelectTrigger
-                className="h-7 text-[11px] bg-slate-900/90 text-slate-200 px-2 py-0 w-auto min-w-[100px] font-medium rounded-md"
-                style={{ border: `1px solid ${c.a3}` }}
-              >
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: priorityHex, boxShadow: `0 0 4px ${priorityHex}` }} />
-                  <SelectValue />
-                </span>
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-700 z-[60]">
-                {PRIORITIES.map(p => (
-                  <SelectItem key={p.value} value={p.value}>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.hex }} />
-                      {p.label}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Priority — using PrioritySelector (already in header, here as label only) */}
+            <span className="text-[10px] text-slate-500 flex items-center gap-1">
+              <PriorityBars priority={stage.priority} size="xs" />
+              {PRIORITY_LABELS[stage.priority] || stage.priority}
+            </span>
 
             {/* Assignee select */}
             <AssigneeSelect
@@ -959,11 +1056,11 @@ function SubtaskRow({
           <StatusIcon className="w-3.5 h-3.5" style={{ color: statusHex }} />
         </button>
 
-        {/* Priority dot */}
-        <span
-          className="w-2 h-2 rounded-full flex-shrink-0"
-          style={{ backgroundColor: priorityHex, boxShadow: `0 0 4px ${priorityHex}80` }}
-          title={`Приоритет: ${PRIORITIES.find(p => p.value === subtask.priority)?.label || subtask.priority}`}
+        {/* Priority selector (interactive bars) */}
+        <PrioritySelector
+          priority={subtask.priority}
+          onChange={(v) => void onUpdate({ priority: v })}
+          size="xs"
         />
 
         {/* Title (inline editable) */}
@@ -1081,31 +1178,11 @@ function SubtaskRow({
 
           {/* Metadata row */}
           <div className="flex items-center gap-2 flex-wrap p-1 rounded-md" style={{ backgroundColor: c.a04, border: `1px solid ${c.a12}` }}>
-            {/* Priority */}
-            <Select
-              value={subtask.priority}
-              onValueChange={(v) => void onUpdate({ priority: v })}
-            >
-              <SelectTrigger
-                className="h-6 text-[10px] bg-slate-900/90 text-slate-200 px-1.5 py-0 w-auto min-w-[85px] rounded-md"
-                style={{ border: `1px solid ${c.a25}` }}
-              >
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: priorityHex }} />
-                  <SelectValue />
-                </span>
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-700 z-[60]">
-                {PRIORITIES.map(p => (
-                  <SelectItem key={p.value} value={p.value}>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.hex }} />
-                      {p.label}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Priority — label only (selector is in the row header) */}
+            <span className="text-[10px] text-slate-500 flex items-center gap-1">
+              <PriorityBars priority={subtask.priority} size="xs" />
+              {PRIORITY_LABELS[subtask.priority] || subtask.priority}
+            </span>
 
             {/* Assignee */}
             <AssigneeSelect
