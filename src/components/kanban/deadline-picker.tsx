@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Popover, PopoverTrigger, PopoverContent,
@@ -104,12 +104,52 @@ export default function DeadlinePicker({
     return (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <InlineDeadlineButton value={value} onClick={() => setOpen(!open)} daysLeft={daysLeft} status={status} isDone={isDone} size={size} />
+          <button
+            type="button"
+            className={cn(
+              'flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-all duration-150 cursor-pointer border border-transparent',
+              !value && 'text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10',
+              value && status === 'overdue' && !isDone && 'bg-rose-500/15 hover:bg-rose-500/25 border-rose-500/20',
+              value && status === 'urgent' && !isDone && 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/20',
+              value && status === 'soon' && !isDone && 'bg-cyan-500/15 hover:bg-cyan-500/25 border-cyan-500/20',
+              value && !isDone && status === 'ok' && 'bg-slate-700/30 hover:bg-slate-700/50',
+            )}
+          >
+            <CalendarDays className={cn(
+              size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5',
+              !value ? 'text-slate-500' :
+              status === 'overdue' && !isDone ? 'text-rose-400' :
+              status === 'urgent' && !isDone ? 'text-amber-400' :
+              status === 'soon' && !isDone ? 'text-cyan-400' :
+              isDone ? 'text-emerald-500' : 'text-slate-400'
+            )} />
+            {value ? (
+              <>
+                <span className={cn(
+                  'font-medium transition-colors',
+                  size === 'sm' ? 'text-[9px]' : 'text-[10px]',
+                  status === 'overdue' && !isDone ? 'text-rose-400' :
+                  status === 'urgent' && !isDone ? 'text-amber-400' :
+                  status === 'soon' && !isDone ? 'text-cyan-400' :
+                  isDone ? 'text-emerald-500' : 'text-slate-300',
+                )}>
+                  {String(new Date(value).getDate()).padStart(2, '0')} {MONTHS_RU[new Date(value).getMonth()]}
+                </span>
+                {status === 'overdue' && !isDone && (
+                  <span className="text-[8px] font-bold text-rose-400 animate-pulse">!</span>
+                )}
+              </>
+            ) : (
+              <span className={size === 'sm' ? 'text-[9px]' : 'text-[10px]'}>дедлайн</span>
+            )}
+          </button>
         </PopoverTrigger>
         <PopoverContent
           className="w-auto p-0 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[60]"
           align="start"
           sideOffset={8}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
         >
           {/* Presets row */}
           <div className="border-b border-slate-800/80 px-3 py-2">
@@ -466,21 +506,23 @@ function DeadlineTimeInfo({ daysLeft, status, isDone }: { daysLeft: number; stat
   );
 }
 
-function InlineDeadlineButton({
-  value, onClick, daysLeft, status, isDone, size,
-}: {
-  value: string | null;
-  onClick: () => void;
-  daysLeft: number;
-  status: 'ok' | 'soon' | 'urgent' | 'overdue' | 'done';
-  isDone: boolean;
-  size: 'sm' | 'md';
-}) {
+const InlineDeadlineButton = React.forwardRef<
+  HTMLSpanElement,
+  {
+    value: string | null;
+    daysLeft: number;
+    status: 'ok' | 'soon' | 'urgent' | 'overdue' | 'done';
+    isDone: boolean;
+    size: 'sm' | 'md';
+  }
+>(function InlineDeadlineButton({ value, daysLeft, status, isDone, size }, ref) {
   if (!value) {
     return (
       <span
-        onClick={onClick}
-        className="flex items-center gap-1 text-slate-500 hover:text-cyan-400 transition-colors cursor-pointer px-1 py-0.5 rounded hover:bg-cyan-500/10"
+        ref={ref}
+        role="button"
+        tabIndex={0}
+        className="flex items-center gap-1 text-slate-500 hover:text-cyan-400 transition-colors cursor-pointer px-1.5 py-0.5 rounded-md hover:bg-cyan-500/10 border border-transparent select-none"
       >
         <CalendarDays className={size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
         <span className={size === 'sm' ? 'text-[9px]' : 'text-[10px]'}>дедлайн</span>
@@ -494,12 +536,14 @@ function InlineDeadlineButton({
 
   return (
     <span
-      onClick={onClick}
+      ref={ref}
+      role="button"
+      tabIndex={0}
       className={cn(
-        'flex items-center gap-1 rounded px-1.5 py-0.5 transition-all duration-150 cursor-pointer',
-        status === 'overdue' && !isDone && 'bg-rose-500/15 hover:bg-rose-500/25',
-        status === 'urgent' && !isDone && 'bg-amber-500/15 hover:bg-amber-500/25',
-        status === 'soon' && !isDone && 'bg-cyan-500/15 hover:bg-cyan-500/25',
+        'flex items-center gap-1 rounded-md px-1.5 py-0.5 transition-all duration-150 cursor-pointer border border-transparent select-none',
+        status === 'overdue' && !isDone && 'bg-rose-500/15 hover:bg-rose-500/25 border-rose-500/20',
+        status === 'urgent' && !isDone && 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/20',
+        status === 'soon' && !isDone && 'bg-cyan-500/15 hover:bg-cyan-500/25 border-cyan-500/20',
         !isDone && status === 'ok' && 'bg-slate-700/30 hover:bg-slate-700/50',
       )}
     >
@@ -525,7 +569,7 @@ function InlineDeadlineButton({
       )}
     </span>
   );
-}
+});
 
 /* ── Helpers ──────────────────────────────────── */
 
