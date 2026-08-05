@@ -1,0 +1,702 @@
+  2000→                                          : 'h-2.5 w-2.5 bg-[#F59E0B]'
+  2001→                                  }`}
+  2002→                                />
+  2003→                                {/* Vertical line */}
+  2004→                                <div
+  2005→                                  className={`absolute left-1/2 top-full h-4 w-0.5 -translate-x-1/2 -rotate-0 transition-colors ${
+  2006→                                    isFocused ? 'bg-[#F59E0B]/60' : isHovered ? 'bg-[#F59E0B]/40' : 'bg-[#F59E0B]/20'
+  2007→                                  }`}
+  2008→                                />
+  2009→                              </>
+  2010→                            ) : (
+  2011→                              <>
+  2012→                                {/* Point marker: circle pin */}
+  2013→                                <div
+  2014→                                  className={`rounded-full border-2 transition-all duration-150 ${
+  2015→                                    isFocused
+  2016→                                      ? 'h-4 w-4 border-[#00E5FF] bg-[#00E5FF]/30 shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+  2017→                                      : isHovered
+  2018→                                        ? 'h-3.5 w-3.5 border-[#00E5FF] bg-[#00E5FF]/40 shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+  2019→                                        : comment.isResolved
+  2020→                                          ? 'h-2.5 w-2.5 border-[#10B981] bg-[#10B981]'
+  2021→                                          : 'h-2.5 w-2.5 border-[#00E5FF] bg-[#00E5FF]'
+  2022→                                  }`}
+  2023→                                  style={{ borderColor: 'inherit' }}
+  2024→                                >
+  2025→                                  <div className="m-auto h-1 w-1 rounded-full bg-white" />
+  2026→                                </div>
+  2027→
+  2028→                                {/* Vertical line down from pin */}
+  2029→                                <div
+  2030→                                  className={`absolute left-1/2 top-full h-4 w-px -translate-x-1/2 transition-colors ${
+  2031→                                    isFocused ? 'bg-[#00E5FF]/60' : isHovered ? 'bg-[#00E5FF]/40' : 'bg-[#00E5FF]/20'
+  2032→                                  }`}
+  2033→                                />
+  2034→                              </>
+  2035→                            )}
+  2036→
+  2037→                          </motion.button>
+  2038→                        );
+  2039→                      })}
+  2040→                    {/* Range END markers — smaller diamonds at the end position of range comments */}
+  2041→                    {waveformReady && displayDuration > 0 &&
+  2042→                      comments
+  2043→                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+  2044→                        .map((comment) => {
+  2045→                          const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
+  2046→                          if (endPct < 0 || endPct > 1) return null;
+  2047→                          const isFocused = focusedCommentId === comment.id;
+  2048→                          const isHovered = hoveredMarkerId === comment.id;
+  2049→                          return (
+  2050→                            <motion.button
+  2051→                              key={`end-marker-${comment.id}`}
+  2052→                              onMouseEnter={(e) => {
+  2053→                                if (markerHideTimerRef.current) {
+  2054→                                  clearTimeout(markerHideTimerRef.current);
+  2055→                                  markerHideTimerRef.current = null;
+  2056→                                }
+  2057→                                const rect = e.currentTarget.getBoundingClientRect();
+  2058→                                const isRight = rect.left > window.innerWidth / 2;
+  2059→                                setHoveredMarkerId(comment.id);
+  2060→                                setMarkerTooltipPos({ top: rect.top - 8, left: isRight ? rect.right : rect.left, right: isRight });
+  2061→                              }}
+  2062→                              onMouseLeave={() => {
+  2063→                                markerTooltipHoverRef.current = false;
+  2064→                                markerHideTimerRef.current = setTimeout(() => {
+  2065→                                  if (!markerTooltipHoverRef.current) {
+  2066→                                    setHoveredMarkerId(null);
+  2067→                                    setMarkerTooltipPos(null);
+  2068→                                  }
+  2069→                                }, 200);
+  2070→                              }}
+  2071→                              onClick={(e) => {
+  2072→                                e.stopPropagation();
+  2073→                                handleMarkerClick(comment);
+  2074→                              }}
+  2075→                              initial={false}
+  2076→                              animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
+  2077→                              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+  2078→                              className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
+  2079→                              style={{ left: `${endPct * 100}%` }}
+  2080→                              title={''}
+  2081→                            >
+  2082→                              <div
+  2083→                                className={`rotate-45 transition-all duration-150 ${
+  2084→                                  isFocused
+  2085→                                    ? 'h-3.5 w-3.5 bg-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+  2086→                                    : isHovered
+  2087→                                      ? 'h-3 w-3 bg-[#F59E0B]/80 shadow-[0_0_6px_rgba(245,158,11,0.4)]'
+  2088→                                      : comment.isResolved
+  2089→                                        ? 'h-2 w-2 bg-[#10B981]'
+  2090→                                        : 'h-2 w-2 bg-[#F59E0B]'
+  2091→                                }`}
+  2092→                              />
+  2093→                              <div
+  2094→                                className={`absolute left-1/2 top-full h-3 w-0.5 -translate-x-1/2 transition-colors ${
+  2095→                                  isFocused ? 'bg-[#F59E0B]/50' : isHovered ? 'bg-[#F59E0B]/35' : 'bg-[#F59E0B]/15'
+  2096→                                }`}
+  2097→                              />
+  2098→                            </motion.button>
+  2099→                          );
+  2100→                        })}
+  2101→                  </div>
+  2102→                  <p className="mt-1.5 text-center text-[10px] text-muted-foreground/50">
+  2103→                    {currentAudioUrl
+  2104→                      ? `Click on waveform to seek · ${markerMode === 'range' ? 'First click sets range start, second click sets end' : 'Click to place a marker at that position'}`
+  2105→                      : 'Upload audio to enable waveform interaction'}
+  2106→                  </p>
+  2107→                </div>
+  2108→              </div>
+  2109→
+  2110→              {/* Marker hover tooltip — rendered via portal to escape overflow clipping */}
+  2111→              {hoveredMarkerId && markerTooltipPos && (() => {
+  2112→                const comment = comments.find((c) => c.id === hoveredMarkerId);
+  2113→                if (!comment) return null;
+  2114→                return createPortal(
+  2115→                  <AnimatePresence>
+  2116→                    <motion.div
+  2117→                      initial={{ opacity: 0, y: 4, scale: 0.95 }}
+  2118→                      animate={{ opacity: 1, y: 0, scale: 1 }}
+  2119→                      exit={{ opacity: 0, y: 4, scale: 0.95 }}
+  2120→                      transition={{ duration: 0.12 }}
+  2121→                      className="fixed z-[9999] rounded-lg border border-border bg-[#15151A] px-3 py-2 shadow-2xl shadow-black/70"
+  2122→                      style={{
+  2123→                        bottom: window.innerHeight - markerTooltipPos.top + 4,
+  2124→                        left: markerTooltipPos.right ? 'auto' : markerTooltipPos.left,
+  2125→                        right: markerTooltipPos.right ? window.innerWidth - markerTooltipPos.left : 'auto',
+  2126→                        minWidth: 200,
+  2127→                        maxWidth: 280,
+  2128→                        whiteSpace: 'normal',
+  2129→                        transform: markerTooltipPos.right ? 'translateX(100%)' : 'translateX(-50%)',
+  2130→                      }}
+  2131→                      onClick={(e) => e.stopPropagation()}
+  2132→                      onMouseEnter={() => {
+  2133→                        markerTooltipHoverRef.current = true;
+  2134→                        if (markerHideTimerRef.current) {
+  2135→                          clearTimeout(markerHideTimerRef.current);
+  2136→                          markerHideTimerRef.current = null;
+  2137→                        }
+  2138→                      }}
+  2139→                      onMouseLeave={() => {
+  2140→                        markerTooltipHoverRef.current = false;
+  2141→                        setHoveredMarkerId(null);
+  2142→                        setMarkerTooltipPos(null);
+  2143→                      }}
+  2144→                    >
+  2145→                      <div className="flex items-center gap-2">
+  2146→                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#8A2BE2]/20 text-[9px] font-bold text-[#8A2BE2]">
+  2147→                          {getInitials(comment.userName)}
+  2148→                        </div>
+  2149→                        <div className="min-w-0 flex-1">
+  2150→                          <p className="truncate text-[11px] font-semibold text-foreground leading-tight">
+  2151→                            {comment.userName}
+  2152→                            {commentNumberMap.get(comment.id) && (
+  2153→                              <span className="ml-1.5 text-xs font-bold text-[#8A2BE2]">
+  2154→                                #{commentNumberMap.get(comment.id)}
+  2155→                              </span>
+  2156→                            )}
+  2157→                          </p>
+  2158→                          <p className="text-[10px] text-muted-foreground leading-tight">
+  2159→                            {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+  2160→                              ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
+  2161→                              : formatTimestamp(comment.timestampMs)} · {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+  2162→                          </p>
+  2163→                        </div>
+  2164→                      </div>
+  2165→                      <div className="mt-1 border-t border-border/50 pt-1">
+  2166→                        <p className="line-clamp-3 text-[10px] text-muted-foreground/70">
+  2167→                          {comment.text}
+  2168→                        </p>
+  2169→                      </div>
+  2170→                      <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-border/50 pt-1.5">
+  2171→                        <button
+  2172→                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+  2173→                          onClick={(e) => {
+  2174→                            e.stopPropagation();
+  2175→                            startEditingComment(comment);
+  2176→                            handleMarkerClick(comment);
+  2177→                          }}
+  2178→                        >
+  2179→                          <Pencil className="h-2.5 w-2.5" />
+  2180→                          Edit
+  2181→                        </button>
+  2182→                        <button
+  2183→                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#10B981]/15 hover:text-[#10B981]"
+  2184→                          onClick={(e) => {
+  2185→                            e.stopPropagation();
+  2186→                            handleToggleResolved(comment.id, comment.isResolved);
+  2187→                          }}
+  2188→                        >
+  2189→                          {comment.isResolved ? <DoubleCheckIcon className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
+  2190→                          {comment.isResolved ? 'Unresolve' : 'Resolve'}
+  2191→                        </button>
+  2192→                        <button
+  2193→                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+  2194→                          onClick={(e) => { e.stopPropagation(); shareCommentToChat(comment); }}
+  2195→                        >
+  2196→                          <Send className="h-2.5 w-2.5 rotate-[-30deg]" />
+  2197→                          Send
+  2198→                        </button>
+  2199→                        <button
+  2200→                          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+  2201→                          onClick={(e) => {
+  2202→                            e.stopPropagation();
+  2203→                            handleDeleteComment(comment.id);
+  2204→                          }}
+  2205→                        >
+  2206→                          <Trash2 className="h-2.5 w-2.5" />
+  2207→                          Delete
+  2208→                        </button>
+  2209→                      </div>
+  2210→                    </motion.div>
+  2211→                  </AnimatePresence>,
+  2212→                  document.body
+  2213→                );
+  2214→              })()}
+  2215→
+  2216→              {/* Comments Section */}
+  2217→              <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 lg:px-6">
+  2218→                <div className="flex items-center justify-between mb-3">
+  2219→                  <div className="flex items-center gap-2">
+  2220→                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
+  2221→                    <h2 className="text-sm font-semibold text-foreground">
+  2222→                      Timestamp Comments
+  2223→                    </h2>
+  2224→                    <Badge
+  2225→                      variant="secondary"
+  2226→                      className="h-5 px-1.5 text-[10px]"
+  2227→                    >
+  2228→                      {comments.length}
+  2229→                    </Badge>
+  2230→                  </div>
+  2231→                  <Button
+  2232→                    variant="outline"
+  2233→                    size="sm"
+  2234→                    className="h-7 gap-1.5 text-xs"
+  2235→                    onClick={() => {
+  2236→                      setCommentTimestamp(Math.round(currentTime * 1000));
+  2237→                      setRangeStartMs(0);
+  2238→                      setRangeEndMsState(0);
+  2239→                      setIsSelectingRange(false);
+  2240→                      setShowCommentInput(true);
+  2241→                    }}
+  2242→                  >
+  2243→                    <Plus className="h-3 w-3" />
+  2244→                    Add Comment
+  2245→                  </Button>
+  2246→                </div>
+  2247→
+  2248→                <AnimatePresence>
+  2249→                  {showCommentInput && (
+  2250→                    <motion.div
+  2251→                      initial={{ opacity: 0, height: 0 }}
+  2252→                      animate={{ opacity: 1, height: 'auto' }}
+  2253→                      exit={{ opacity: 0, height: 0 }}
+  2254→                      className="mb-3 overflow-hidden"
+  2255→                    >
+  2256→                      <Card className={`border bg-opacity-5 ${markerMode === 'range' ? 'border-[#F59E0B]/30 bg-[#F59E0B]/5' : 'border-[#00E5FF]/30 bg-[#00E5FF]/5'}`}>
+  2257→                        <CardContent className="p-3">
+  2258→                          {/* Marker mode toggle */}
+  2259→                          <div className="mb-2 flex items-center gap-2">
+  2260→                            <div className="flex items-center rounded-md border border-border bg-[#1E1E28] p-0.5">
+  2261→                              <button
+  2262→                                onClick={() => {
+  2263→                                  setMarkerMode('point');
+  2264→                                  setIsSelectingRange(false);
+  2265→                                }}
+  2266→                                className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
+  2267→                                  markerMode === 'point'
+  2268→                                    ? 'bg-[#00E5FF] text-black shadow-sm shadow-[#00E5FF]/30'
+  2269→                                    : 'text-muted-foreground hover:text-foreground'
+  2270→                                }`}
+  2271→                              >
+  2272→                                <MapPin className="h-2.5 w-2.5" />
+  2273→                                Point
+  2274→                              </button>
+  2275→                              <button
+  2276→                                onClick={() => {
+  2277→                                  setMarkerMode('range');
+  2278→                                  setIsSelectingRange(false);
+  2279→                                }}
+  2280→                                className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
+  2281→                                  markerMode === 'range'
+  2282→                                    ? 'bg-[#F59E0B] text-black shadow-sm shadow-[#F59E0B]/30'
+  2283→                                    : 'text-muted-foreground hover:text-foreground'
+  2284→                                }`}
+  2285→                              >
+  2286→                                <MoveHorizontal className="h-2.5 w-2.5" />
+  2287→                                Range
+  2288→                              </button>
+  2289→                            </div>
+  2290→
+  2291→                            {/* Timestamp / range display */}
+  2292→                            {markerMode === 'range' ? (
+  2293→                              <div className="flex items-center gap-1.5">
+  2294→                                <Badge
+  2295→                                  variant="outline"
+  2296→                                  className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px]"
+  2297→                                >
+  2298→                                  {formatTimestamp(rangeStartMs || commentTimestamp || Math.round(currentTime * 1000))}
+  2299→                                </Badge>
+  2300→                                <span className="text-[10px] text-muted-foreground">→</span>
+  2301→                                {isSelectingRange ? (
+  2302→                                  <Badge
+  2303→                                    variant="outline"
+  2304→                                    className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px] animate-pulse"
+  2305→                                  >
+  2306→                                    Click end point…
+  2307→                                  </Badge>
+  2308→                                ) : rangeEndMsState > 0 ? (
+  2309→                                  <Badge
+  2310→                                    variant="outline"
+  2311→                                    className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px]"
+  2312→                                  >
+  2313→                                    {formatTimestamp(rangeEndMsState)}
+  2314→                                  </Badge>
+  2315→                                ) : (
+  2316→                                  <span className="text-[10px] text-muted-foreground/60">
+  2317→                                    Click start on waveform
+  2318→                                  </span>
+  2319→                                )}
+  2320→                                {rangeEndMsState > rangeStartMs && (
+  2321→                                  <span className="text-[9px] text-muted-foreground/50">
+  2322→                                    ({formatDuration((rangeEndMsState - rangeStartMs) / 1000)})
+  2323→                                  </span>
+  2324→                                )}
+  2325→                              </div>
+  2326→                            ) : (
+  2327→                              <div className="flex items-center gap-1.5">
+  2328→                                <Badge
+  2329→                                  variant="outline"
+  2330→                                  className="border-[#00E5FF]/30 text-[#00E5FF] text-[10px]"
+  2331→                                >
+  2332→                                  {formatTimestamp(commentTimestamp || Math.round(currentTime * 1000))}
+  2333→                                </Badge>
+  2334→                                <span className="text-[10px] text-muted-foreground">
+  2335→                                  at this timestamp
+  2336→                                </span>
+  2337→                              </div>
+  2338→                            )}
+  2339→                          </div>
+  2340→
+  2341→                          {/* Range selection in-progress indicator on waveform hint */}
+  2342→                          {markerMode === 'range' && isSelectingRange && (
+  2343→                            <p className="mb-2 text-[10px] text-[#F59E0B]">
+  2344→                              📍 Range start set — now click on the waveform to set the end point
+  2345→                            </p>
+  2346→                          )}
+  2347→
+  2348→                          <Input
+  2349→                            placeholder="Write your comment..."
+  2350→                            value={newCommentText}
+  2351→                            onChange={(e) => setNewCommentText(e.target.value)}
+  2352→                            onKeyDown={(e) => {
+  2353→                              if (e.key === 'Enter' && !e.shiftKey) {
+  2354→                                e.preventDefault();
+  2355→                                if (markerMode === 'range' && isSelectingRange) return; // don't submit while selecting
+  2356→                                handleAddComment();
+  2357→                              }
+  2358→                              if (e.key === 'Escape') {
+  2359→                                setShowCommentInput(false);
+  2360→                                setNewCommentText('');
+  2361→                                setRangeStartMs(0);
+  2362→                                setRangeEndMsState(0);
+  2363→                                setIsSelectingRange(false);
+  2364→                              }
+  2365→                            }}
+  2366→                            className="mb-2 h-8 text-sm"
+  2367→                            autoFocus
+  2368→                          />
+  2369→                          <div className="flex justify-end gap-2">
+  2370→                            <Button
+  2371→                              variant="ghost"
+  2372→                              size="sm"
+  2373→                              className="h-7 text-xs"
+  2374→                              onClick={() => {
+  2375→                                setShowCommentInput(false);
+  2376→                                setNewCommentText('');
+  2377→                                setRangeStartMs(0);
+  2378→                                setRangeEndMsState(0);
+  2379→                                setIsSelectingRange(false);
+  2380→                              }}
+  2381→                            >
+  2382→                              Cancel
+  2383→                            </Button>
+  2384→                            <Button
+  2385→                              size="sm"
+  2386→                              className="h-7 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-xs text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+  2387→                              onClick={handleAddComment}
+  2388→                              disabled={!newCommentText.trim() || (markerMode === 'range' && isSelectingRange)}
+  2389→                            >
+  2390→                              Post Comment
+  2391→                            </Button>
+  2392→                          </div>
+  2393→                        </CardContent>
+  2394→                      </Card>
+  2395→                    </motion.div>
+  2396→                  )}
+  2397→                </AnimatePresence>
+  2398→
+  2399→                <ScrollArea className="flex-1" style={{ minHeight: 0 }}>
+  2400→                  <div className="space-y-2 pb-4">
+  2401→                    {(() => {
+  2402→                      const versionComments = comments.filter((c) => activeVersion?.id && c.versionId === activeVersion.id);
+  2403→                      const tree = buildCommentTree(versionComments);
+  2404→                      if (tree.length === 0) return (
+  2405→                        <div className="flex flex-col items-center justify-center py-8">
+  2406→                          <MessageCircle className="mb-2 h-8 w-8 text-muted-foreground/30" />
+  2407→                          <p className="text-xs text-muted-foreground">No comments yet. Click the waveform to add one.</p>
+  2408→                        </div>
+  2409→                      );
+  2410→                      return tree.map((comment) => (
+  2411→                        <div key={comment.id}>
+  2412→                          {/* TOP-LEVEL COMMENT CARD */}
+  2413→                          <motion.div
+  2414→                            id={`comment-${comment.id}`}
+  2415→                            initial={{ opacity: 0, x: -8 }}
+  2416→                            animate={{ opacity: 1, x: 0 }}
+  2417→                            className={`group rounded-lg border p-3 transition-colors ${
+  2418→                              focusedCommentId === comment.id
+  2419→                                ? comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+  2420→                                  ? 'border-[#F59E0B]/50 bg-[#F59E0B]/5'
+  2421→                                  : 'border-[#00E5FF]/50 bg-[#00E5FF]/5'
+  2422→                                : comment.isResolved
+  2423→                                  ? 'border-border/50 bg-card/50 opacity-60'
+  2424→                                  : 'border-border bg-card'
+  2425→                            }`}
+  2426→                          >
+  2427→                            <div className="flex items-start gap-2.5">
+  2428→                              <Avatar className="h-6 w-6 shrink-0">
+  2429→                                <AvatarFallback className="text-[9px] bg-[#1E1E28] text-muted-foreground">
+  2430→                                  {getInitials(comment.userName)}
+  2431→                                </AvatarFallback>
+  2432→                              </Avatar>
+  2433→                              <div className="min-w-0 flex-1">
+  2434→                                <div className="flex items-center gap-1.5 mb-0.5">
+  2435→                                  <Badge
+  2436→                                    variant="outline"
+  2437→                                    className="h-5 px-1.5 text-xs font-bold border-[#8A2BE2]/50 text-[#8A2BE2]"
+  2438→                                  >
+  2439→                                    #{commentNumberMap.get(comment.id) ?? '?'}
+  2440→                                  </Badge>
+  2441→                                  <span className="text-xs font-medium text-foreground">
+  2442→                                    {comment.userName}
+  2443→                                  </span>
+  2444→                                  {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs ? (
+  2445→                                    <MoveHorizontal className="h-3 w-3 text-[#F59E0B] shrink-0" />
+  2446→                                  ) : (
+  2447→                                    <MapPin className="h-3 w-3 text-[#00E5FF] shrink-0" />
+  2448→                                  )}
+  2449→                                  <Badge
+  2450→                                    variant="outline"
+  2451→                                    className={`h-4 px-1 text-[10px] cursor-pointer transition-colors ${
+  2452→                                      comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+  2453→                                        ? 'border-[#F59E0B]/30 text-[#F59E0B] hover:bg-[#F59E0B]/10'
+  2454→                                        : 'border-[#00E5FF]/30 text-[#00E5FF] hover:bg-[#00E5FF]/10'
+  2455→                                    }`}
+  2456→                                    onClick={() => seekTo(comment.timestampMs / 1000)}
+  2457→                                  >
+  2458→                                    {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+  2459→                                      ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
+  2460→                                      : formatTimestamp(comment.timestampMs)}
+  2461→                                  </Badge>
+  2462→                                  {/* Resolve checkmark — after timestamp, left side */}
+  2463→                                  <Tooltip>
+  2464→                                    <TooltipTrigger asChild>
+  2465→                                      <button
+  2466→                                        className={`rounded p-0.5 transition-colors ${
+  2467→                                          comment.isResolved
+  2468→                                            ? 'text-[#10B981] hover:bg-[#10B981]/15'
+  2469→                                            : 'text-muted-foreground/40 hover:bg-[#10B981]/15 hover:text-[#10B981]'
+  2470→                                        }`}
+  2471→                                        onClick={() => handleToggleResolved(comment.id, comment.isResolved)}
+  2472→                                      >
+  2473→                                        {comment.isResolved ? <DoubleCheckIcon className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+  2474→                                      </button>
+  2475→                                    </TooltipTrigger>
+  2476→                                    <TooltipContent>{comment.isResolved ? 'Unresolve' : 'Resolve'}</TooltipContent>
+  2477→                                  </Tooltip>
+  2478→                                  {/* Edit / Delete actions */}
+  2479→                                  <div className="ml-auto flex items-center gap-0.5 opacity-40 transition-opacity hover:opacity-100">
+  2480→                                    <Tooltip>
+  2481→                                      <TooltipTrigger asChild>
+  2482→                                        <button
+  2483→                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+  2484→                                          onClick={() => startEditingComment(comment)}
+  2485→                                        >
+  2486→                                          <Pencil className="h-3 w-3" />
+  2487→                                        </button>
+  2488→                                      </TooltipTrigger>
+  2489→                                      <TooltipContent>Edit comment</TooltipContent>
+  2490→                                    </Tooltip>
+  2491→                                    <Tooltip>
+  2492→                                      <TooltipTrigger asChild>
+  2493→                                        <button
+  2494→                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+  2495→                                          onClick={() => handleDeleteComment(comment.id)}
+  2496→                                        >
+  2497→                                          <Trash2 className="h-3 w-3" />
+  2498→                                        </button>
+  2499→                                      </TooltipTrigger>
+  2500→                                      <TooltipContent>Delete comment</TooltipContent>
+  2501→                                    </Tooltip>
+  2502→                                  </div>
+  2503→                                </div>
+  2504→                                {/* Comment text / edit mode */}
+  2505→                                <AnimatePresence mode="wait">
+  2506→                                  {editingCommentId === comment.id ? (
+  2507→                                    <motion.div
+  2508→                                      key="edit"
+  2509→                                      initial={{ opacity: 0, height: 0 }}
+  2510→                                      animate={{ opacity: 1, height: 'auto' }}
+  2511→                                      exit={{ opacity: 0, height: 0 }}
+  2512→                                      className="overflow-hidden"
+  2513→                                    >
+  2514→                                      <div className="rounded-md border border-[#8A2BE2]/30 bg-[#8A2BE2]/5 p-2">
+  2515→                                        <textarea
+  2516→                                          className="w-full resize-none bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
+  2517→                                          rows={2}
+  2518→                                          value={editCommentText}
+  2519→                                          onChange={(e) => setEditCommentText(e.target.value)}
+  2520→                                          autoFocus
+  2521→                                          onKeyDown={(e) => {
+  2522→                                            if (e.key === 'Enter' && e.metaKey) {
+  2523→                                              e.preventDefault();
+  2524→                                              handleEditComment(comment.id);
+  2525→                                            }
+  2526→                                            if (e.key === 'Escape') {
+  2527→                                              cancelEditingComment();
+  2528→                                            }
+  2529→                                          }}
+  2530→                                          placeholder="Edit your comment..."
+  2531→                                        />
+  2532→                                        <div className="flex items-center justify-between mt-1.5">
+  2533→                                          <span className="text-[9px] text-muted-foreground/40">⌘+Enter to save</span>
+  2534→                                          <div className="flex gap-1.5">
+  2535→                                            <Button
+  2536→                                              variant="ghost"
+  2537→                                              size="sm"
+  2538→                                              className="h-6 px-2 text-[10px]"
+  2539→                                              onClick={cancelEditingComment}
+  2540→                                            >
+  2541→                                              Cancel
+  2542→                                            </Button>
+  2543→                                            <Button
+  2544→                                              size="sm"
+  2545→                                              className="h-6 gap-1 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-2 text-[10px] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+  2546→                                              onClick={() => handleEditComment(comment.id)}
+  2547→                                              disabled={!editCommentText.trim()}
+  2548→                                            >
+  2549→                                              <Check className="h-2.5 w-2.5" />
+  2550→                                              Save
+  2551→                                            </Button>
+  2552→                                          </div>
+  2553→                                        </div>
+  2554→                                      </div>
+  2555→                                    </motion.div>
+  2556→                                  ) : (
+  2557→                                    <motion.p
+  2558→                                      key="text"
+  2559→                                      initial={{ opacity: 0 }}
+  2560→                                      animate={{ opacity: 1 }}
+  2561→                                      exit={{ opacity: 0 }}
+  2562→                                      className="text-xs text-muted-foreground leading-relaxed"
+  2563→                                    >
+  2564→                                      {comment.text}
+  2565→                                    </motion.p>
+  2566→                                  )}
+  2567→                                </AnimatePresence>
+  2568→                                {/* Comment creation time — left, under text */}
+  2569→                                <span className="text-[10px] text-muted-foreground/40">
+  2570→                                  {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+  2571→                                </span>
+  2572→                                <div className="mt-1.5 flex items-center gap-2">
+  2573→                                  {/* Airplane share-to-chat button (lower-right) */}
+  2574→                                  <Tooltip>
+  2575→                                    <TooltipTrigger asChild>
+  2576→                                      <button
+  2577→                                        className="ml-auto flex h-6 items-center gap-1 rounded-full px-2 text-muted-foreground/40 transition-all hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2] hover:shadow-[#8A2BE2]/20 hover:shadow-md"
+  2578→                                        onClick={() => shareCommentToChat(comment)}
+  2579→                                      >
+  2580→                                        <Send className="h-3 w-3 rotate-[-30deg]" />
+  2581→                                        <span className="text-[10px] font-medium">Send</span>
+  2582→                                      </button>
+  2583→                                    </TooltipTrigger>
+  2584→                                    <TooltipContent>Send comment to chat</TooltipContent>
+  2585→                                  </Tooltip>
+  2586→                                  <Tooltip>
+  2587→                                    <TooltipTrigger asChild>
+  2588→                                      <Button
+  2589→                                        variant="ghost"
+  2590→                                        size="sm"
+  2591→                                        className="h-6 gap-1 px-2 text-[10px] text-[#00E5FF] hover:text-[#00E5FF] hover:bg-[#00E5FF]/10"
+  2592→                                        onClick={() => seekTo(comment.timestampMs / 1000)}
+  2593→                                      >
+  2594→                                        <LocateFixed className="h-3 w-3" />
+  2595→                                        Jump to
+  2596→                                      </Button>
+  2597→                                    </TooltipTrigger>
+  2598→                                    <TooltipContent>Jump to this timestamp</TooltipContent>
+  2599→                                  </Tooltip>
+  2600→                                  {!comment.isResolved && (
+  2601→                                  <Tooltip>
+  2602→                                    <TooltipTrigger asChild>
+  2603→                                      <Button
+  2604→                                        variant="ghost"
+  2605→                                        size="sm"
+  2606→                                        className="h-6 gap-1 px-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-[#1E1E28]"
+  2607→                                        onClick={() => {
+  2608→                                          setReplyingTo(replyingTo === comment.id ? null : comment.id);
+  2609→                                          setReplyText('');
+  2610→                                          if (editingCommentId === comment.id) cancelEditingComment();
+  2611→                                        }}
+  2612→                                      >
+  2613→                                        <Reply className="h-3 w-3" />
+  2614→                                        Reply
+  2615→                                      </Button>
+  2616→                                    </TooltipTrigger>
+  2617→                                    <TooltipContent>Reply to this comment</TooltipContent>
+  2618→                                  </Tooltip>
+  2619→                                  )}
+  2620→                                  {comment.isResolved && (
+  2621→                                    <span className="text-[9px] text-[#10B981]/60 italic">Thread closed</span>
+  2622→                                  )}
+  2623→                                </div>
+  2624→                                {/* Inline reply input — hidden when resolved */}
+  2625→                                <AnimatePresence>
+  2626→                                  {replyingTo === comment.id && !comment.isResolved && (
+  2627→                                    <motion.div
+  2628→                                      initial={{ opacity: 0, height: 0 }}
+  2629→                                      animate={{ opacity: 1, height: 'auto' }}
+  2630→                                      exit={{ opacity: 0, height: 0 }}
+  2631→                                      className="mt-2 ml-2 overflow-hidden border-l-2 border-[#8A2BE2]/30 pl-3"
+  2632→                                    >
+  2633→                                      <Input
+  2634→                                        placeholder={`Reply to ${comment.userName}...`}
+  2635→                                        value={replyText}
+  2636→                                        onChange={(e) => setReplyText(e.target.value)}
+  2637→                                        onKeyDown={(e) => {
+  2638→                                          if (e.key === 'Enter' && !e.shiftKey) {
+  2639→                                            e.preventDefault();
+  2640→                                            handleReply();
+  2641→                                          }
+  2642→                                          if (e.key === 'Escape') {
+  2643→                                            setReplyingTo(null);
+  2644→                                            setReplyText('');
+  2645→                                          }
+  2646→                                        }}
+  2647→                                        className="mb-1.5 h-7 text-xs"
+  2648→                                        autoFocus
+  2649→                                      />
+  2650→                                      <div className="flex justify-end gap-1.5">
+  2651→                                        <Button
+  2652→                                          variant="ghost"
+  2653→                                          size="sm"
+  2654→                                          className="h-6 px-2 text-[10px]"
+  2655→                                          onClick={() => {
+  2656→                                            setReplyingTo(null);
+  2657→                                            setReplyText('');
+  2658→                                          }}
+  2659→                                        >
+  2660→                                          Cancel
+  2661→                                        </Button>
+  2662→                                        <Button
+  2663→                                          size="sm"
+  2664→                                          className="h-6 gap-1 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-2 text-[10px] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+  2665→                                          onClick={handleReply}
+  2666→                                          disabled={!replyText.trim()}
+  2667→                                        >
+  2668→                                          <Send className="h-2.5 w-2.5" />
+  2669→                                          Reply
+  2670→                                        </Button>
+  2671→                                      </div>
+  2672→                                    </motion.div>
+  2673→                                  )}
+  2674→                                </AnimatePresence>
+  2675→                              </div>
+  2676→                            </div>
+  2677→                          </motion.div>
+  2678→
+  2679→                          {/* NESTED REPLIES THREAD */}
+  2680→                          {comment.replies.length > 0 && (
+  2681→                            <div className="ml-4 mt-1 space-y-1 border-l-2 border-[#8A2BE2]/20 pl-3">
+  2682→                              <button
+  2683→                                className="flex items-center gap-1 text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+  2684→                                onClick={() => toggleThread(comment.id)}
+  2685→                              >
+  2686→                                {collapsedThreads.has(comment.id) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+  2687→                                <MessageSquareQuote className="h-3 w-3" />
+  2688→                                <span>{comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}</span>
+  2689→                              </button>
+  2690→                              <AnimatePresence initial={false}>
+  2691→                                {!collapsedThreads.has(comment.id) && comment.replies.map((reply) => (
+  2692→                                  <motion.div
+  2693→                                    key={reply.id}
+  2694→                                    id={`comment-${reply.id}`}
+  2695→                                    initial={{ opacity: 0, x: -6 }}
+  2696→                                    animate={{ opacity: 1, x: 0 }}
+  2697→                                    exit={{ opacity: 0, x: -6 }}
+  2698→                                    transition={{ duration: 0.15 }}
+  2699→                                    className={`rounded-md border p-2.5 transition-colors ${
+
+[showing lines 2000-2699 of 3246; use offset=2700 with limit to continue reading]

@@ -1,0 +1,547 @@
+     1→  2700→                                      focusedCommentId === reply.id
+     2→  2701→                                        ? 'border-[#8A2BE2]/40 bg-[#8A2BE2]/5'
+     3→  2702→                                        : comment.isResolved
+     4→  2703→                                          ? 'border-border/40 bg-card/40 opacity-50'
+     5→  2704→                                          : 'border-border bg-card'
+     6→  2705→                                    }`}
+     7→  2706→                                  >
+     8→  2707→                                    <div className="flex items-start gap-2">
+     9→  2708→                                      <Avatar className="h-5 w-5 shrink-0">
+    10→  2709→                                        <AvatarFallback className="text-[8px] bg-[#1E1E28] text-muted-foreground">
+    11→  2710→                                          {getInitials(reply.userName)}
+    12→  2711→                                        </AvatarFallback>
+    13→  2712→                                      </Avatar>
+    14→  2713→                                      <div className="min-w-0 flex-1">
+    15→  2714→                                        <div className="flex items-center gap-1 mb-0.5">
+    16→  2715→                                          <span className="text-[11px] font-medium text-foreground">
+    17→  2716→                                            {reply.userName}
+    18→  2717→                                          </span>
+    19→  2718→                                          {/* Reply actions — no timestamp badge, no resolve */}
+    20→  2719→                                          <div className="ml-auto flex items-center gap-0.5 opacity-30 transition-opacity hover:opacity-100">
+    21→  2720→                                            <Tooltip>
+    22→  2721→                                              <TooltipTrigger asChild>
+    23→  2722→                                                <button
+    24→  2723→                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+    25→  2724→                                                  onClick={() => startEditingComment(reply)}
+    26→  2725→                                                >
+    27→  2726→                                                  <Pencil className="h-2.5 w-2.5" />
+    28→  2727→                                                </button>
+    29→  2728→                                              </TooltipTrigger>
+    30→  2729→                                              <TooltipContent>Edit</TooltipContent>
+    31→  2730→                                            </Tooltip>
+    32→  2731→                                            <Tooltip>
+    33→  2732→                                              <TooltipTrigger asChild>
+    34→  2733→                                                <button
+    35→  2734→                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+    36→  2735→                                                  onClick={() => handleDeleteComment(reply.id)}
+    37→  2736→                                                >
+    38→  2737→                                                  <Trash2 className="h-2.5 w-2.5" />
+    39→  2738→                                                </button>
+    40→  2739→                                              </TooltipTrigger>
+    41→  2740→                                              <TooltipContent>Delete</TooltipContent>
+    42→  2741→                                            </Tooltip>
+    43→  2742→                                          </div>
+    44→  2743→                                        </div>
+    45→  2744→                                        {/* Reply text / edit mode */}
+    46→  2745→                                        <AnimatePresence mode="wait">
+    47→  2746→                                          {editingCommentId === reply.id ? (
+    48→  2747→                                            <motion.div
+    49→  2748→                                              key="edit"
+    50→  2749→                                              initial={{ opacity: 0, height: 0 }}
+    51→  2750→                                              animate={{ opacity: 1, height: 'auto' }}
+    52→  2751→                                              exit={{ opacity: 0, height: 0 }}
+    53→  2752→                                              className="overflow-hidden"
+    54→  2753→                                            >
+    55→  2754→                                              <div className="rounded border border-[#8A2BE2]/20 bg-[#8A2BE2]/5 p-1.5">
+    56→  2755→                                                <textarea
+    57→  2756→                                                  className="w-full resize-none bg-transparent text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
+    58→  2757→                                                  rows={1}
+    59→  2758→                                                  value={editCommentText}
+    60→  2759→                                                  onChange={(e) => setEditCommentText(e.target.value)}
+    61→  2760→                                                  autoFocus
+    62→  2761→                                                  onKeyDown={(e) => {
+    63→  2762→                                                    if (e.key === 'Enter' && e.metaKey) {
+    64→  2763→                                                      e.preventDefault();
+    65→  2764→                                                      handleEditComment(reply.id);
+    66→  2765→                                                    }
+    67→  2766→                                                    if (e.key === 'Escape') cancelEditingComment();
+    68→  2767→                                                  }}
+    69→  2768→                                                  placeholder="Edit reply..."
+    70→  2769→                                                />
+    71→  2770→                                                <div className="flex justify-end gap-1 mt-1">
+    72→  2771→                                                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={cancelEditingComment}>Cancel</Button>
+    73→  2772→                                                  <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-1.5 text-[9px] text-white" onClick={() => handleEditComment(reply.id)} disabled={!editCommentText.trim()}>
+    74→  2773→                                                    <Check className="h-2 w-2" /> Save
+    75→  2774→                                                  </Button>
+    76→  2775→                                                </div>
+    77→  2776→                                              </div>
+    78→  2777→                                            </motion.div>
+    79→  2778→                                          ) : (
+    80→  2779→                                            <motion.p
+    81→  2780→                                              key="text"
+    82→  2781→                                              initial={{ opacity: 0 }}
+    83→  2782→                                              animate={{ opacity: 1 }}
+    84→  2783→                                              exit={{ opacity: 0 }}
+    85→  2784→                                              className="text-[11px] text-muted-foreground leading-relaxed"
+    86→  2785→                                            >
+    87→  2786→                                              {reply.text}
+    88→  2787→                                            </motion.p>
+    89→  2788→                                          )}
+    90→  2789→                                        </AnimatePresence>
+    91→  2790→                                        <div className="mt-1 flex items-center gap-1.5">
+    92→  2791→                                          <span className="text-[9px] text-muted-foreground/40">
+    93→  2792→                                            {format(new Date(reply.createdAt), 'MMM d, h:mm a')}
+    94→  2793→                                          </span>
+    95→  2794→                                          {!comment.isResolved && (
+    96→  2795→                                          <button
+    97→  2796→                                            className="text-[9px] text-muted-foreground/40 transition-colors hover:text-[#8A2BE2]"
+    98→  2797→                                            onClick={() => {
+    99→  2798→                                              setReplyingTo(replyingTo === reply.id ? null : reply.id);
+   100→  2799→                                              setReplyText('');
+   101→  2800→                                              if (editingCommentId === reply.id) cancelEditingComment();
+   102→  2801→                                            }}
+   103→  2802→                                          >
+   104→  2803→                                            <Reply className="inline h-2.5 w-2.5" /> Reply
+   105→  2804→                                          </button>
+   106→  2805→                                          )}
+   107→  2806→                                        </div>
+   108→  2807→                                        {/* Inline reply input for reply-to-reply — hidden when parent resolved */}
+   109→  2808→                                        <AnimatePresence>
+   110→  2809→                                          {replyingTo === reply.id && !comment.isResolved && (
+   111→  2810→                                            <motion.div
+   112→  2811→                                              initial={{ opacity: 0, height: 0 }}
+   113→  2812→                                              animate={{ opacity: 1, height: 'auto' }}
+   114→  2813→                                              exit={{ opacity: 0, height: 0 }}
+   115→  2814→                                              className="mt-1 overflow-hidden"
+   116→  2815→                                            >
+   117→  2816→                                              <Input
+   118→  2817→                                                placeholder={`Reply to ${reply.userName}...`}
+   119→  2818→                                                value={replyText}
+   120→  2819→                                                onChange={(e) => setReplyText(e.target.value)}
+   121→  2820→                                                onKeyDown={(e) => {
+   122→  2821→                                                  if (e.key === 'Enter' && !e.shiftKey) {
+   123→  2822→                                                    e.preventDefault();
+   124→  2823→                                                    handleReply();
+   125→  2824→                                                  }
+   126→  2825→                                                  if (e.key === 'Escape') {
+   127→  2826→                                                    setReplyingTo(null);
+   128→  2827→                                                    setReplyText('');
+   129→  2828→                                                  }
+   130→  2829→                                                }}
+   131→  2830→                                                className="mb-1 h-6 text-[10px]"
+   132→  2831→                                                autoFocus
+   133→  2832→                                              />
+   134→  2833→                                              <div className="flex justify-end gap-1">
+   135→  2834→                                                <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Cancel</Button>
+   136→  2835→                                                <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-1.5 text-[9px] text-white" onClick={handleReply} disabled={!replyText.trim()}>
+   137→  2836→                                                  <Send className="h-2 w-2" /> Reply
+   138→  2837→                                                </Button>
+   139→  2838→                                              </div>
+   140→  2839→                                            </motion.div>
+   141→  2840→                                          )}
+   142→  2841→                                        </AnimatePresence>
+   143→  2842→                                      </div>
+   144→  2843→                                    </div>
+   145→  2844→                                  </motion.div>
+   146→  2845→                                ))}
+   147→  2846→                              </AnimatePresence>
+   148→  2847→                            </div>
+   149→  2848→                          )}
+   150→  2849→                        </div>
+   151→  2850→                      ));
+   152→  2851→                    })()}
+   153→  2852→                  </div>
+   154→  2853→                  <div ref={commentsEndRef} />
+   155→  2854→                </ScrollArea>
+   156→  2855→              </div>
+   157→  2856→            </div>
+   158→  2857→          </ResizablePanel>
+   159→  2858→
+   160→  2859→          {/* Resize Handle */}
+   161→  2860→          <ResizableHandle withHandle className="bg-border hover:bg-[#8A2BE2]/30 transition-colors" />
+   162→  2861→
+   163→  2862→          {/* Right Panel: Chat */}
+   164→  2863→          <ResizablePanel defaultSize={30} minSize={25}>
+   165→  2864→            <div className="flex h-full flex-col border-l border-border">
+   166→  2865→              {/* Chat Header */}
+   167→  2866→              <div className="shrink-0 border-b border-border px-4 py-3">
+   168→  2867→                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+   169→  2868→                  <MessageCircle className="h-4 w-4 text-[#8A2BE2]" />
+   170→  2869→                  Chat
+   171→  2870→                  <Badge
+   172→  2871→                    variant="secondary"
+   173→  2872→                    className="h-5 px-1.5 text-[10px]"
+   174→  2873→                  >
+   175→  2874→                    {chatMessages.length}
+   176→  2875→                  </Badge>
+   177→  2876→                </h2>
+   178→  2877→              </div>
+   179→  2878→
+   180→  2879→              {/* Participant avatars row */}
+   181→  2880→              {groupMembers.length > 0 && (
+   182→  2881→                <div className="shrink-0 border-b border-border px-4 py-2">
+   183→  2882→                  <div className="flex items-center gap-3">
+   184→  2883→                    <div className="flex items-center">
+   185→  2884→                      {groupMembers.slice(0, 5).map((member, idx) => {
+   186→  2885→                        const isOnline = onlineUserIds.has(member.userId);
+   187→  2886→                        return (
+   188→  2887→                          <div
+   189→  2888→                            key={member.userId}
+   190→  2889→                            className="relative"
+   191→  2890→                            style={{ marginLeft: idx > 0 ? '-6px' : '0', zIndex: 5 - idx }}
+   192→  2891→                          >
+   193→  2892→                            <Avatar className="h-7 w-7 border-2 border-background">
+   194→  2893→                              <AvatarFallback className={`text-[9px] ${isOnline ? 'bg-[#10B981]/20 text-[#10B981]' : 'bg-[#1E1E28] text-muted-foreground'}`}>
+   195→  2894→                                {getInitials(member.displayName)}
+   196→  2895→                              </AvatarFallback>
+   197→  2896→                            </Avatar>
+   198→  2897→                            {/* Online indicator dot */}
+   199→  2898→                            <div
+   200→  2899→                              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-[#10B981]' : 'bg-[#4B5563]'}`}
+   201→  2900→                            />
+   202→  2901→                          </div>
+   203→  2902→                        );
+   204→  2903→                      })}
+   205→  2904→                      {groupMembers.length > 5 && (
+   206→  2905→                        <div
+   207→  2906→                          className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E1E28] border-2 border-background text-[9px] font-medium text-muted-foreground"
+   208→  2907→                          style={{ marginLeft: '-6px', zIndex: 0 }}
+   209→  2908→                        >
+   210→  2909→                          +{groupMembers.length - 5}
+   211→  2910→                        </div>
+   212→  2911→                      )}
+   213→  2912→                    </div>
+   214→  2913→                    <span className="text-[10px] text-muted-foreground/60">
+   215→  2914→                      {groupMembers.length} member{groupMembers.length !== 1 ? 's' : ''} · {onlineUserIds.size} online
+   216→  2915→                    </span>
+   217→  2916→                  </div>
+   218→  2917→                </div>
+   219→  2918→              )}
+   220→  2919→
+   221→  2920→              {/* Messages */}
+   222→  2921→              <ScrollArea className="flex-1 px-4" ref={chatScrollRef}>
+   223→  2922→                <div className="space-y-3 py-4">
+   224→  2923→                  {chatMessages.length === 0 ? (
+   225→  2924→                    <div className="flex flex-col items-center justify-center py-16">
+   226→  2925→                      <MessageCircle className="mb-2 h-8 w-8 text-muted-foreground/30" />
+   227→  2926→                      <p className="text-xs text-muted-foreground">
+   228→  2927→                        No messages yet
+   229→  2928→                      </p>
+   230→  2929→                      <p className="text-[11px] text-muted-foreground/50 mt-1">
+   231→  2930→                        Start the conversation!
+   232→  2931→                      </p>
+   233→  2932→                    </div>
+   234→  2933→                  ) : (
+   235→  2934→                    chatMessages.map((msg, idx) => {
+   236→  2935→                      const isOwn = msg.userId === user?.id;
+   237→  2936→                      return (
+   238→  2937→                        <motion.div
+   239→  2938→                          key={msg.id}
+   240→  2939→                          initial={{ opacity: 0, y: 8 }}
+   241→  2940→                          animate={{ opacity: 1, y: 0 }}
+   242→  2941→                          transition={{ duration: 0.2 }}
+   243→  2942→                          className={`flex gap-2.5 ${isOwn ? 'flex-row-reverse' : ''}`}
+   244→  2943→                        >
+   245→  2944→                          <Avatar className="h-7 w-7 shrink-0 mt-0.5">
+   246→  2945→                            <AvatarFallback
+   247→  2946→                              className={`text-[10px] ${
+   248→  2947→                                isOwn
+   249→  2948→                                  ? 'bg-[#8A2BE2]/20 text-[#8A2BE2]'
+   250→  2949→                                  : 'bg-[#1E1E28] text-muted-foreground'
+   251→  2950→                              }`}
+   252→  2951→                            >
+   253→  2952→                              {getInitials(msg.userName)}
+   254→  2953→                            </AvatarFallback>
+   255→  2954→                          </Avatar>
+   256→  2955→                          <div
+   257→  2956→                            className={`max-w-[80%] ${isOwn ? 'items-end' : 'items-start'}`}
+   258→  2957→                          >
+   259→  2958→                            <div
+   260→  2959→                              className={`flex items-center gap-1.5 mb-0.5 ${isOwn ? 'flex-row-reverse' : ''}`}
+   261→  2960→                            >
+   262→  2961→                              <span className="text-[11px] font-medium text-foreground">
+   263→  2962→                                {msg.userName}
+   264→  2963→                              </span>
+   265→  2964→                              <span className="text-[10px] text-muted-foreground/50">
+   266→  2965→                                {format(new Date(msg.createdAt), 'h:mm a')}
+   267→  2966→                              </span>
+   268→  2967→                            </div>
+   269→  2968→                            <div
+   270→  2969→                              className={`rounded-xl px-3 py-1.5 text-xs leading-relaxed ${
+   271→  2970→                                isOwn
+   272→  2971→                                  ? 'bg-[#8A2BE2]/20 text-foreground rounded-br-sm'
+   273→  2972→                                  : 'bg-[#1E1E28] text-foreground rounded-bl-sm'
+   274→  2973→                              }`}
+   275→  2974→                            >
+   276→  2975→                              {renderChatText(msg.text)}
+   277→  2976→                            </div>
+   278→  2977→                          </div>
+   279→  2978→                        </motion.div>
+   280→  2979→                      );
+   281→  2980→                    })
+   282→  2981→                  )}
+   283→  2982→                </div>
+   284→  2983→                <div ref={chatEndRef} />
+   285→  2984→              </ScrollArea>
+   286→  2985→
+   287→  2986→              {/* Chat Input */}
+   288→  2987→              <div className="shrink-0 border-t border-border p-3">
+   289→  2988→                {/* Linked timestamp badge */}
+   290→  2989→                <AnimatePresence>
+   291→  2990→                  {(chatLinkedTimestamp > 0 || chatLinkedCommentId) && (
+   292→  2991→                    <motion.div
+   293→  2992→                      initial={{ opacity: 0, height: 0 }}
+   294→  2993→                      animate={{ opacity: 1, height: 'auto' }}
+   295→  2994→                      exit={{ opacity: 0, height: 0 }}
+   296→  2995→                      className="mb-2 flex items-center gap-1.5 overflow-hidden"
+   297→  2996→                    >
+   298→  2997→                      <Badge
+   299→  2998→                        variant="outline"
+   300→  2999→                        className="h-6 gap-1 border-[#00E5FF]/30 bg-[#00E5FF]/10 px-2 text-[10px] text-[#00E5FF]"
+   301→  3000→                      >
+   302→  3001→                        <Clock className="h-2.5 w-2.5" />
+   303→  3002→                        {formatTimestamp(chatLinkedTimestamp)}
+   304→  3003→                      </Badge>
+   305→  3004→                      {chatLinkedCommentId && (() => {
+   306→  3005→                        const linkedComment = comments.find((c) => c.id === chatLinkedCommentId);
+   307→  3006→                        const linkedVersion = linkedComment ? versions.find((v) => v.id === linkedComment.versionId) : null;
+   308→  3007→                        const vLabel = linkedVersion ? `v${linkedVersion.version}` : '';
+   309→  3008→                        return (
+   310→  3009→                          <Badge
+   311→  3010→                            variant="outline"
+   312→  3011→                            className="h-6 gap-1 border-[#FB923C]/50 bg-[#FB923C]/15 px-2 text-xs font-semibold text-[#FB923C]"
+   313→  3012→                          >
+   314→  3013→                            <Send className="h-3 w-3 rotate-[-30deg]" />
+   315→  3014→                            Comment linked{vLabel && <span className="ml-0.5 opacity-60">{vLabel}</span>}
+   316→  3015→                          </Badge>
+   317→  3016→                        );
+   318→  3017→                      })()}
+   319→  3018→                      <button
+   320→  3019→                        onClick={() => { setChatLinkedTimestamp(0); setChatLinkedCommentId(null); }}
+   321→  3020→                        className="ml-auto flex h-4 w-4 items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-[#1E1E28] hover:text-foreground"
+   322→  3021→                      >
+   323→  3022→                        <X className="h-3 w-3" />
+   324→  3023→                      </button>
+   325→  3024→                    </motion.div>
+   326→  3025→                  )}
+   327→  3026→                </AnimatePresence>
+   328→  3027→                <div className="flex items-center gap-2">
+   329→  3028→                  <Tooltip>
+   330→  3029→                    <TooltipTrigger asChild>
+   331→  3030→                      <Button
+   332→  3031→                        variant="ghost"
+   333→  3032→                        size="icon"
+   334→  3033→                        className={`h-9 w-9 shrink-0 transition-colors ${
+   335→  3034→                          chatLinkedTimestamp > 0
+   336→  3035→                            ? 'bg-[#00E5FF]/10 text-[#00E5FF] hover:bg-[#00E5FF]/20'
+   337→  3036→                            : 'text-muted-foreground hover:text-foreground'
+   338→  3037→                        }`}
+   339→  3038→                        onClick={() => {
+   340→  3039→                          const ts = Math.round(currentTime * 1000);
+   341→  3040→                          setChatLinkedTimestamp(ts);
+   342→  3041→                        }}
+   343→  3042→                      >
+   344→  3043→                        <Clock className="h-4 w-4" />
+   345→  3044→                      </Button>
+   346→  3045→                    </TooltipTrigger>
+   347→  3046→                    <TooltipContent>Link current timestamp to message</TooltipContent>
+   348→  3047→                  </Tooltip>
+   349→  3048→                  <Input
+   350→  3049→                    placeholder="Type a message..."
+   351→  3050→                    value={chatInput}
+   352→  3051→                    onChange={(e) => setChatInput(e.target.value)}
+   353→  3052→                    onKeyDown={(e) => {
+   354→  3053→                      if (e.key === 'Enter' && !e.shiftKey) {
+   355→  3054→                        e.preventDefault();
+   356→  3055→                        handleSendMessage();
+   357→  3056→                      }
+   358→  3057→                    }}
+   359→  3058→                    className="h-9 text-sm"
+   360→  3059→                  />
+   361→  3060→                  <Button
+   362→  3061→                    size="icon"
+   363→  3062→                    className="h-9 w-9 shrink-0 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+   364→  3063→                    onClick={handleSendMessage}
+   365→  3064→                    disabled={!chatInput.trim() && !chatLinkedCommentId}
+   366→  3065→                  >
+   367→  3066→                    <Send className="h-4 w-4" />
+   368→  3067→                  </Button>
+   369→  3068→                </div>
+   370→  3069→              </div>
+   371→  3070→            </div>
+   372→  3071→          </ResizablePanel>
+   373→  3072→        </ResizablePanelGroup>
+   374→  3073→      </div>
+   375→  3074→    </div>
+   376→  3075→  );
+   377→  3076→}
+   378→  3077→
+   379→  3078→
+   380→  3079→// --- Add Version Dialog ---
+   381→  3080→
+   382→  3081→interface AddVersionDialogProps {
+   383→  3082→  open: boolean;
+   384→  3083→  onOpenChange: (open: boolean) => void;
+   385→  3084→  onSubmit: (file: File, label: string) => void;
+   386→  3085→  isUploading: boolean;
+   387→  3086→  uploadProgress: number;
+   388→  3087→  nextVersion: number;
+   389→  3088→}
+   390→  3089→
+   391→  3090→function AddVersionDialog({
+   392→  3091→  open,
+   393→  3092→  onOpenChange,
+   394→  3093→  onSubmit,
+   395→  3094→  isUploading,
+   396→  3095→  uploadProgress,
+   397→  3096→  nextVersion,
+   398→  3097→}: AddVersionDialogProps) {
+   399→  3098→  // Use a derived key from open to reset state; store label/selectedFile internally
+   400→  3099→  const [dialogState, setDialogState] = useState<{ file: File | null; label: string; initialized: boolean }>({
+   401→  3100→    file: null,
+   402→  3101→    label: `v${nextVersion}`,
+   403→  3102→    initialized: false,
+   404→  3103→  });
+   405→  3104→
+   406→  3105→  const handleDialogOpen = useCallback((isOpen: boolean) => {
+   407→  3106→    if (isOpen) {
+   408→  3107→      // Reset when dialog opens
+   409→  3108→      setDialogState({ file: null, label: `v${nextVersion}`, initialized: true });
+   410→  3109→    }
+   411→  3110→    onOpenChange(isOpen);
+   412→  3111→  }, [onOpenChange, nextVersion]);
+   413→  3112→
+   414→  3113→  const handleSubmit = useCallback(() => {
+   415→  3114→    if (!dialogState.file) return;
+   416→  3115→    onSubmit(dialogState.file, dialogState.label);
+   417→  3116→  }, [dialogState, onSubmit]);
+   418→  3117→
+   419→  3118→  return (
+   420→  3119→    <Dialog open={open} onOpenChange={handleDialogOpen}>
+   421→  3120→      <DialogContent className="sm:max-w-md bg-[#0F0F15] border-border">
+   422→  3121→        <DialogHeader>
+   423→  3122→          <DialogTitle className="text-foreground">Add New Version</DialogTitle>
+   424→  3123→          <DialogDescription className="text-muted-foreground">
+   425→  3124→            Upload an audio file to create a new version of this track.
+   426→  3125→          </DialogDescription>
+   427→  3126→        </DialogHeader>
+   428→  3127→
+   429→  3128→        <div className="space-y-4 pt-2">
+   430→  3129→          {/* File input area */}
+   431→  3130→          <div className="space-y-2">
+   432→  3131→            <label className="text-xs font-medium text-foreground">Audio File *</label>
+   433→  3132→            <div
+   434→  3133→              className={`flex items-center gap-3 rounded-lg border border-dashed p-4 transition-colors cursor-pointer ${
+   435→  3134→                dialogState.file
+   436→  3135→                  ? 'border-[#8A2BE2]/50 bg-[#8A2BE2]/5'
+   437→  3136→                  : 'border-muted-foreground/30 bg-[#1E1E28] hover:border-muted-foreground/50'
+   438→  3137→              }`}
+   439→  3138→              onClick={() => {
+   440→  3139→                const input = document.createElement('input');
+   441→  3140→                input.type = 'file';
+   442→  3141→                input.accept = 'audio/*';
+   443→  3142→                input.onchange = (e) => {
+   444→  3143→                  const file = (e.target as HTMLInputElement).files?.[0];
+   445→  3144→                  if (file) setDialogState((s) => ({ ...s, file }));
+   446→  3145→                };
+   447→  3146→                input.click();
+   448→  3147→              }}
+   449→  3148→            >
+   450→  3149→              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+   451→  3150→                dialogState.file ? 'bg-[#8A2BE2]/20' : 'bg-[#25252D]'
+   452→  3151→              }`}>
+   453→  3152→                <Upload className={`h-4 w-4 ${dialogState.file ? 'text-[#8A2BE2]' : 'text-muted-foreground'}`} />
+   454→  3153→              </div>
+   455→  3154→              <div className="min-w-0 flex-1">
+   456→  3155→                {dialogState.file ? (
+   457→  3156→                  <>
+   458→  3157→                    <p className="text-sm font-medium text-foreground truncate">{dialogState.file.name}</p>
+   459→  3158→                    <p className="text-[10px] text-muted-foreground">
+   460→  3159→                      {(dialogState.file.size / (1024 * 1024)).toFixed(2)} MB
+   461→  3160→                    </p>
+   462→  3161→                  </>
+   463→  3162→                ) : (
+   464→  3163→                  <>
+   465→  3164→                    <p className="text-sm text-muted-foreground">Click to select an audio file</p>
+   466→  3165→                    <p className="text-[10px] text-muted-foreground/50">MP3, WAV, OGG, FLAC...</p>
+   467→  3166→                  </>
+   468→  3167→                )}
+   469→  3168→              </div>
+   470→  3169→              {dialogState.file && (
+   471→  3170→                <button
+   472→  3171→                  onClick={(e) => {
+   473→  3172→                    e.stopPropagation();
+   474→  3173→                    setDialogState((s) => ({ ...s, file: null }));
+   475→  3174→                  }}
+   476→  3175→                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/40 hover:bg-[#1E1E28] hover:text-foreground"
+   477→  3176→                >
+   478→  3177→                  <X className="h-3.5 w-3.5" />
+   479→  3178→                </button>
+   480→  3179→              )}
+   481→  3180→            </div>
+   482→  3181→          </div>
+   483→  3182→
+   484→  3183→          {/* Label input */}
+   485→  3184→          <div className="space-y-2">
+   486→  3185→            <label className="text-xs font-medium text-foreground">Version Label</label>
+   487→  3186→            <Input
+   488→  3187→              value={dialogState.label}
+   489→  3188→              onChange={(e) => setDialogState((s) => ({ ...s, label: e.target.value }))}
+   490→  3189→              placeholder={`v${nextVersion}`}
+   491→  3190→              className="h-9 text-sm bg-[#1E1E28] border-border"
+   492→  3191→            />
+   493→  3192→          </div>
+   494→  3193→
+   495→  3194→          {/* Progress bar */}
+   496→  3195→          {isUploading && (
+   497→  3196→            <div className="space-y-1.5">
+   498→  3197→              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+   499→  3198→                <span>Uploading...</span>
+   500→  3199→                <span>{uploadProgress}%</span>
+   501→  3200→              </div>
+   502→  3201→              <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#1E1E28]">
+   503→  3202→                <motion.div
+   504→  3203→                  className="h-full rounded-full bg-gradient-to-r from-[#8A2BE2] to-[#6366F1]"
+   505→  3204→                  initial={{ width: 0 }}
+   506→  3205→                  animate={{ width: `${uploadProgress}%` }}
+   507→  3206→                  transition={{ duration: 0.3 }}
+   508→  3207→                />
+   509→  3208→              </div>
+   510→  3209→            </div>
+   511→  3210→          )}
+   512→  3211→
+   513→  3212→          {/* Actions */}
+   514→  3213→          <div className="flex justify-end gap-2 pt-1">
+   515→  3214→            <Button
+   516→  3215→              variant="ghost"
+   517→  3216→              size="sm"
+   518→  3217→              onClick={() => handleDialogOpen(false)}
+   519→  3218→              disabled={isUploading}
+   520→  3219→              className="text-xs"
+   521→  3220→            >
+   522→  3221→              Cancel
+   523→  3222→            </Button>
+   524→  3223→            <Button
+   525→  3224→              size="sm"
+   526→  3225→              onClick={handleSubmit}
+   527→  3226→              disabled={!dialogState.file || isUploading}
+   528→  3227→              className="bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-white text-xs hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+   529→  3228→            >
+   530→  3229→              {isUploading ? (
+   531→  3230→                <>
+   532→  3231→                  <div className="mr-1.5 h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+   533→  3232→                  Uploading...
+   534→  3233→                </>
+   535→  3234→              ) : (
+   536→  3235→                <>
+   537→  3236→                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+   538→  3237→                  Upload Version
+   539→  3238→                </>
+   540→  3239→              )}
+   541→  3240→            </Button>
+   542→  3241→          </div>
+   543→  3242→        </div>
+   544→  3243→      </DialogContent>
+   545→  3244→    </Dialog>
+   546→  3245→  );
+   547→  3246→}

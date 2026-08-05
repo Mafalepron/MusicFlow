@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useKanbanStore, Task, TaskStatus, TaskPriority, TaskCategory, TaskChild, TaskGrandchild } from '@/store/kanban-store';
+import { useNavigationStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,7 +17,7 @@ import {
 import {
   Check, Circle, Clock, Eye, Plus, Trash2, Pencil,
   ChevronDown, ChevronUp, ChevronRight, X, Save, Music, FolderOpen,
-  Cat, MessageSquare,
+  Cat, MessageSquare, AudioWaveform,
 } from 'lucide-react';
 import DeadlinePicker, { getDeadlineInfo } from '@/components/kanban/deadline-picker';
 import { cn, boardColorStyles, hexToRgba } from '@/lib/utils';
@@ -256,6 +257,30 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
           </div>
         )}
       </div>
+
+      {/* Open in Audio Editor — prominent button for track tasks linked to a SoundFlow track */}
+      {task.soundflowTrackId && (
+        <div className="px-4 py-3 border-b border-slate-800/30">
+          <button
+            onClick={() => {
+              const kanbanState = useKanbanStore.getState();
+              const kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
+              const sfProjectId = kanbanProject?.soundflowProjectId;
+              if (sfProjectId && task.soundflowTrackId) {
+                useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId);
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 text-[11px] font-semibold text-white px-3 py-2 rounded-md transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+            style={{
+              background: 'linear-gradient(135deg, #06b6d4 0%, #14b8a6 100%)',
+              boxShadow: '0 2px 10px rgba(6, 182, 212, 0.35), 0 0 18px rgba(20, 184, 166, 0.18)',
+            }}
+          >
+            <AudioWaveform className="w-3.5 h-3.5" />
+            Открыть в аудиоредакторе
+          </button>
+        </div>
+      )}
 
       {/* Progress */}
       <div className="border-b border-slate-800/30 px-4 py-3">

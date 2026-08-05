@@ -2,6 +2,8 @@
 
 import { useEffect, useCallback } from 'react';
 import { useNavigationStore, useAuthStore, useDataStore, type Project } from '@/lib/store';
+import { useKanbanStore } from '@/store/kanban-store';
+import { useChatContextStore } from '@/store/chat-context-store';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { OnboardingView } from '@/components/views/onboarding-view';
@@ -14,6 +16,7 @@ import { GroupSettingsView } from '@/components/views/group-settings-view';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { TopBar } from '@/components/layout/top-bar';
 import { KanbanPage } from '@/components/kanban/kanban-view';
+import ProjectChat from '@/components/chat/project-chat';
 
 const viewTransition = {
   initial: { opacity: 0, x: 10 },
@@ -21,6 +24,46 @@ const viewTransition = {
   exit: { opacity: 0, x: -10 },
   transition: { duration: 0.2 },
 };
+
+function ChatContextSync() {
+  const currentView = useNavigationStore((s) => s.currentView);
+  const navSelectedProjectId = useNavigationStore((s) => s.selectedProjectId);
+  const projects = useDataStore((s) => s.projects);
+  const kanbanSelectedProjectId = useKanbanStore((s) => s.selectedProjectId);
+  const kanbanProjects = useKanbanStore((s) => s.projects);
+  const setActiveChatProject = useChatContextStore((s) => s.setActiveChatProject);
+
+  useEffect(() => {
+    let chatProjectId: string | null = null;
+    let chatProjectName: string | null = null;
+
+    if (currentView === 'kanban' && kanbanSelectedProjectId) {
+      // In kanban view: use the selected kanban project task ID
+      chatProjectId = kanbanSelectedProjectId;
+      const kp = kanbanProjects.find(p => p.id === kanbanSelectedProjectId);
+      chatProjectName = kp?.title || null;
+    } else if (currentView === 'project-detail' || currentView === 'track-detail') {
+      // In project/track detail: use the SoundFlow project's kanbanTaskId
+      if (navSelectedProjectId) {
+        const project = projects.find(p => p.id === navSelectedProjectId);
+        if (project?.kanbanTaskId) {
+          chatProjectId = project.kanbanTaskId;
+          chatProjectName = project.title;
+        }
+      }
+    }
+
+    // Only update if we have a new context; preserve last context on non-project views
+    if (chatProjectId) {
+      const current = useChatContextStore.getState();
+      if (current.activeChatProjectId !== chatProjectId || current.activeChatProjectName !== chatProjectName) {
+        setActiveChatProject(chatProjectId, chatProjectName);
+      }
+    }
+  }, [currentView, navSelectedProjectId, kanbanSelectedProjectId, projects, kanbanProjects, setActiveChatProject]);
+
+  return null;
+}
 
 function AppContent() {
   const currentView = useNavigationStore((s) => s.currentView);
@@ -74,6 +117,10 @@ function AppContent() {
           </div>
         </footer>
       </div>
+
+      {/* Global floating chat — accessible from any view */}
+      <ChatContextSync />
+      <ProjectChat />
     </div>
   );
 }

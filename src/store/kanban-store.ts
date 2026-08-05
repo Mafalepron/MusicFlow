@@ -24,6 +24,7 @@ export interface TaskChild {
   isProject: boolean;
   deadline: string | null;
   category: string;
+  soundflowTrackId: string | null;
   children?: TaskGrandchild[];
 }
 
@@ -45,6 +46,8 @@ export interface Task {
   deadline: string | null;
   createdAt: string;
   updatedAt: string;
+  soundflowProjectId: string | null;
+  soundflowTrackId: string | null;
   children: TaskChild[];
 }
 

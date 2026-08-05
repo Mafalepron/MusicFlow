@@ -57,8 +57,6 @@ export async function POST(request: NextRequest) {
         const filename = `${crypto.randomUUID()}${ext}`
         const filepath = path.join(AUDIO_DIR, filename)
 
-        // Ensure the uploads/audio directory exists before writing.
-        // mkdir with recursive:true is a no-op if it already exists.
         await mkdir(AUDIO_DIR, { recursive: true })
 
         const bytes = await audioFile.arrayBuffer()
@@ -84,7 +82,10 @@ export async function POST(request: NextRequest) {
       sourceIdeaId = parsed.data.sourceIdeaId
     }
 
-    const project = await db.project.findUnique({ where: { id: projectId } })
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      include: { kanbanTask: { select: { id: true } } },
+    })
     if (!project) {
       return NextResponse.json(
         { error: 'Project not found' },
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
 
     const existingTrackCount = await db.track.count({ where: { projectId } })
 
+    // 1. Create the SoundFlow Track
     const track = await db.track.create({
       data: {
         title,
@@ -110,6 +112,41 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    // 2. If the project has a linked Kanban workspace, create a Kanban Task
+    //    for this track in the "Треки" or "Трек" board
+    if (project.kanbanTask) {
+      const kanbanProjectId = project.kanbanTask.id
+
+      // Find the tracks board (title "Треки" for albums/ep, "Трек" for singles)
+      const tracksBoard = await db.board.findFirst({
+        where: {
+          projectId: kanbanProjectId,
+          boardType: 'tracks',
+        },
+        orderBy: { sortOrder: 'asc' },
+      })
+
+      if (tracksBoard) {
+        const siblingCount = await db.task.count({
+          where: { boardId: tracksBoard.id, parentId: null },
+        })
+
+        await db.task.create({
+          data: {
+            title,
+            boardId: tracksBoard.id,
+            trackConfig: JSON.stringify({ instruments: [], stages: [] }),
+            soundflowTrackId: track.id,
+            status: 'todo',
+            priority: 'medium',
+            category: 'recording',
+            hexQ: 0,
+            hexR: siblingCount,
+          },
+        })
+      }
+    }
 
     return NextResponse.json(
       {

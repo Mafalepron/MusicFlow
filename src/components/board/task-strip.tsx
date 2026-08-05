@@ -1,6 +1,7 @@
 'use client';
 
 import { useKanbanStore, Task, TaskStatus } from '@/store/kanban-store';
+import { useNavigationStore } from '@/lib/store';
 import { useEffect, useRef, useMemo } from 'react';
 import { Check, Circle, Clock, Eye, Trash2, Pencil, Plus, Music } from 'lucide-react';
 import { cn, hexToRgba } from '@/lib/utils';
@@ -192,7 +193,18 @@ export default function TaskStrip() {
             <div
               key={task.id}
               onClick={() => setSelectedTaskId(task.id)}
-              onDoubleClick={() => setEditingTask(task)}
+              onDoubleClick={() => {
+                if (task.soundflowTrackId) {
+                  const kanbanState = useKanbanStore.getState();
+                  const kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
+                  const sfProjectId = kanbanProject?.soundflowProjectId;
+                  if (sfProjectId && task.soundflowTrackId) {
+                    useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId);
+                    return;
+                  }
+                }
+                setEditingTask(task);
+              }}
               className={cn(
                 'group flex-shrink-0 rounded-lg cursor-pointer transition-all duration-200',
                 isSelected && 'animate-in fade-in duration-200',
@@ -219,6 +231,20 @@ export default function TaskStrip() {
                 >
                   {task.title}
                 </p>
+                {task.soundflowTrackId && (
+                  <span
+                    className="flex-shrink-0 flex items-center gap-0.5 text-[8px] font-semibold px-1 py-0.5 rounded"
+                    style={{
+                      color: '#22d3ee',
+                      backgroundColor: 'rgba(34, 211, 238, 0.12)',
+                      boxShadow: 'inset 0 0 0 1px rgba(34, 211, 238, 0.25)',
+                    }}
+                    title="Связан с аудиотреком — двойной клик откроет редактор"
+                  >
+                    <Music className="w-2 h-2" />
+                    Audio
+                  </span>
+                )}
                 {allLeaves.length > 0 && (
                   <span className="text-[8px] flex-shrink-0 tabular-nums font-medium" style={{ color: styles.progressTextColor }}>
                     {progress}%

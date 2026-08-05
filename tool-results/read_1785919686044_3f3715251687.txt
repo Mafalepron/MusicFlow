@@ -1,0 +1,702 @@
+   601→
+   602→    audio.addEventListener('loadedmetadata', onLoaded);
+   603→    audio.addEventListener('timeupdate', onTimeUpdate);
+   604→    audio.addEventListener('ended', onEnded);
+   605→    audio.addEventListener('play', onPlay);
+   606→    audio.addEventListener('pause', onPause);
+   607→
+   608→    return () => {
+   609→      audio.removeEventListener('loadedmetadata', onLoaded);
+   610→      audio.removeEventListener('timeupdate', onTimeUpdate);
+   611→      audio.removeEventListener('ended', onEnded);
+   612→      audio.removeEventListener('play', onPlay);
+   613→      audio.removeEventListener('pause', onPause);
+   614→      audio.pause();
+   615→      audio.src = '';
+   616→      audioRef.current = null;
+   617→    };
+   618→  }, [currentAudioUrl]);
+   619→
+   620→  // Display duration: prefer audio-loaded duration, fall back to track metadata
+   621→  const displayDuration = duration > 0 ? duration : (track?.durationMs ? track.durationMs / 1000 : 0);
+   622→
+   623→  // Sync volume
+   624→  useEffect(() => {
+   625→    if (audioRef.current) {
+   626→      audioRef.current.volume = isMuted ? 0 : volume;
+   627→    }
+   628→  }, [volume, isMuted]);
+   629→
+   630→  // Marker tooltip position is now calculated directly in onMouseEnter handler
+   631→  // (removed the old useEffect + ref pattern to fix timing issues with framer-motion)
+   632→
+   633→  const togglePlay = useCallback(() => {
+   634→    if (!audioRef.current) return;
+   635→    if (isPlaying) {
+   636→      audioRef.current.pause();
+   637→    } else {
+   638→      audioRef.current.play();
+   639→    }
+   640→  }, [isPlaying]);
+   641→
+   642→  const skip = useCallback((seconds: number) => {
+   643→    if (!audioRef.current) return;
+   644→    audioRef.current.currentTime = Math.max(
+   645→      0,
+   646→      Math.min(audioRef.current.currentTime + seconds, duration)
+   647→    );
+   648→  }, [duration]);
+   649→
+   650→  const seekTo = useCallback((time: number) => {
+   651→    if (!audioRef.current) return;
+   652→    audioRef.current.currentTime = time;
+   653→    setCurrentTime(time);
+   654→  }, []);
+   655→
+   656→  // --- Waveform ---
+   657→
+   658→  useEffect(() => {
+   659→    if (!currentAudioUrl) return;
+   660→
+   661→    let cancelled = false;
+   662→    setWaveformReady(false);
+   663→
+   664→    async function generateWaveform() {
+   665→      try {
+   666→        const url = `/api/waveform?audio=${encodeURIComponent(currentAudioUrl)}&samples=200`;
+   667→        const res = await fetch(url);
+   668→        if (!res.ok || cancelled) return;
+   669→        const data = await res.json();
+   670→        if (cancelled) return;
+   671→        if (data.samples && data.samples.length > 0) {
+   672→          waveformRef.current = new Float32Array(data.samples);
+   673→          setWaveformReady(true);
+   674→        }
+   675→      } catch {
+   676→        // Silently fail — waveform won't render
+   677→      }
+   678→    }
+   679→
+   680→    generateWaveform();
+   681→    return () => { cancelled = true; };
+   682→  }, [currentAudioUrl]);
+   683→
+   684→  // Draw waveform — uses requestAnimationFrame only while playing, single draw otherwise
+   685→  useEffect(() => {
+   686→    const canvas = canvasRef.current;
+   687→    const waveform = waveformRef.current;
+   688→    if (!canvas || !waveform) return;
+   689→
+   690→    const ctx = canvas.getContext('2d');
+   691→    if (!ctx) return;
+   692→
+   693→    let rafId = 0;
+   694→
+   695→    const draw = () => {
+   696→      const dpr = window.devicePixelRatio || 1;
+   697→      const rect = canvas.getBoundingClientRect();
+   698→
+   699→      // Only resize canvas if dimensions changed
+   700→      const targetW = Math.round(rect.width * dpr);
+   701→      const targetH = Math.round(rect.height * dpr);
+   702→      if (canvas.width !== targetW || canvas.height !== targetH) {
+   703→        canvas.width = targetW;
+   704→        canvas.height = targetH;
+   705→      }
+   706→      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+   707→
+   708→      const width = rect.width;
+   709→      const height = rect.height;
+   710→      const barCount = waveform.length;
+   711→      const barWidth = width / barCount;
+   712→      const barGap = 1;
+   713→      const centerY = height / 2;
+   714→
+   715→      // Clear
+   716→      ctx.clearRect(0, 0, width, height);
+   717→
+   718→      const progress = duration > 0 ? currentTime / duration : 0;
+   719→      const progressX = progress * width;
+   720→
+   721→      // Create gradient (cached via closure — only recreated when canvas resets)
+   722→      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+   723→      gradient.addColorStop(0, '#8A2BE2');
+   724→      gradient.addColorStop(0.5, '#6366F1');
+   725→      gradient.addColorStop(1, '#00E5FF');
+   726→
+   727→      const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
+   728→      dimGradient.addColorStop(0, 'rgba(138,43,226,0.25)');
+   729→      dimGradient.addColorStop(0.5, 'rgba(99,102,241,0.25)');
+   730→      dimGradient.addColorStop(1, 'rgba(0,229,255,0.25)');
+   731→
+   732→      // Batch bars by color to minimize fillStyle switches
+   733→      // First pass: unplayed bars
+   734→      ctx.fillStyle = dimGradient;
+   735→      for (let i = 0; i < barCount; i++) {
+   736→        const x = i * barWidth;
+   737→        if (x < progressX) continue;
+   738→        const amplitude = waveform[i];
+   739→        const barHeight = Math.max(2, amplitude * centerY * 0.85);
+   740→        const bw = Math.max(1, barWidth - barGap);
+   741→        ctx.beginPath();
+   742→        ctx.roundRect(x, centerY - barHeight, bw, barHeight * 2, 1);
+   743→        ctx.fill();
+   744→      }
+   745→
+   746→      // Second pass: played bars
+   747→      ctx.fillStyle = gradient;
+   748→      for (let i = 0; i < barCount; i++) {
+   749→        const x = i * barWidth;
+   750→        if (x >= progressX) continue;
+   751→        const amplitude = waveform[i];
+   752→        const barHeight = Math.max(2, amplitude * centerY * 0.85);
+   753→        const bw = Math.max(1, barWidth - barGap);
+   754→        ctx.beginPath();
+   755→        ctx.roundRect(x, centerY - barHeight, bw, barHeight * 2, 1);
+   756→        ctx.fill();
+   757→      }
+   758→
+   759→      // Progress cursor
+   760→      if (progress > 0 && progress < 1) {
+   761→        ctx.strokeStyle = '#FFFFFF';
+   762→        ctx.lineWidth = 2;
+   763→        ctx.shadowColor = 'rgba(255,255,255,0.5)';
+   764→        ctx.shadowBlur = 4;
+   765→        ctx.beginPath();
+   766→        ctx.moveTo(progressX, 0);
+   767→        ctx.lineTo(progressX, height);
+   768→        ctx.stroke();
+   769→        ctx.shadowBlur = 0;
+   770→      }
+   771→
+   772→      // Keep animating only while playing
+   773→      if (isPlaying) {
+   774→        rafId = requestAnimationFrame(draw);
+   775→      }
+   776→    };
+   777→
+   778→    draw();
+   779→
+   780→    // Also draw on resize
+   781→    const handleResize = () => { rafId = requestAnimationFrame(draw); };
+   782→    window.addEventListener('resize', handleResize);
+   783→
+   784→    return () => {
+   785→      cancelAnimationFrame(rafId);
+   786→      window.removeEventListener('resize', handleResize);
+   787→    };
+   788→  }, [waveformReady, currentTime, duration, isPlaying]);
+   789→
+   790→  // Redraw once when seeking while paused
+   791→  useEffect(() => {
+   792→    if (waveformReady && !isPlaying) {
+   793→      const canvas = canvasRef.current;
+   794→      if (!canvas) return;
+   795→      // Force a redraw by triggering a minimal state change
+   796→      const ctx = canvas.getContext('2d');
+   797→      if (!ctx || !waveformRef.current) return;
+   798→      const waveform = waveformRef.current;
+   799→      const dpr = window.devicePixelRatio || 1;
+   800→      const rect = canvas.getBoundingClientRect();
+   801→      const width = rect.width;
+   802→      const height = rect.height;
+   803→      const barCount = waveform.length;
+   804→      const barWidth = width / barCount;
+   805→      const barGap = 1;
+   806→      const centerY = height / 2;
+   807→      const progress = duration > 0 ? currentTime / duration : 0;
+   808→      const progressX = progress * width;
+   809→      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+   810→      ctx.clearRect(0, 0, width, height);
+   811→      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+   812→      gradient.addColorStop(0, '#8A2BE2');
+   813→      gradient.addColorStop(0.5, '#6366F1');
+   814→      gradient.addColorStop(1, '#00E5FF');
+   815→      const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
+   816→      dimGradient.addColorStop(0, 'rgba(138,43,226,0.25)');
+   817→      dimGradient.addColorStop(0.5, 'rgba(99,102,241,0.25)');
+   818→      dimGradient.addColorStop(1, 'rgba(0,229,255,0.25)');
+   819→      ctx.fillStyle = dimGradient;
+   820→      for (let i = 0; i < barCount; i++) {
+   821→        const x = i * barWidth;
+   822→        if (x < progressX) continue;
+   823→        const a = waveform[i];
+   824→        const bh = Math.max(2, a * centerY * 0.85);
+   825→        const bw = Math.max(1, barWidth - barGap);
+   826→        ctx.beginPath();
+   827→        ctx.roundRect(x, centerY - bh, bw, bh * 2, 1);
+   828→        ctx.fill();
+   829→      }
+   830→      ctx.fillStyle = gradient;
+   831→      for (let i = 0; i < barCount; i++) {
+   832→        const x = i * barWidth;
+   833→        if (x >= progressX) continue;
+   834→        const a = waveform[i];
+   835→        const bh = Math.max(2, a * centerY * 0.85);
+   836→        const bw = Math.max(1, barWidth - barGap);
+   837→        ctx.beginPath();
+   838→        ctx.roundRect(x, centerY - bh, bw, bh * 2, 1);
+   839→        ctx.fill();
+   840→      }
+   841→      if (progress > 0 && progress < 1) {
+   842→        ctx.strokeStyle = '#FFFFFF';
+   843→        ctx.lineWidth = 2;
+   844→        ctx.shadowColor = 'rgba(255,255,255,0.5)';
+   845→        ctx.shadowBlur = 4;
+   846→        ctx.beginPath();
+   847→        ctx.moveTo(progressX, 0);
+   848→        ctx.lineTo(progressX, height);
+   849→        ctx.stroke();
+   850→        ctx.shadowBlur = 0;
+   851→      }
+   852→    }
+   853→  }, [currentTime, waveformReady, isPlaying, duration]);
+   854→
+   855→  const handleWaveformClick = useCallback(
+   856→    (e: React.MouseEvent<HTMLCanvasElement>) => {
+   857→      const canvas = canvasRef.current;
+   858→      if (!canvas || duration <= 0) return;
+   859→
+   860→      const rect = canvas.getBoundingClientRect();
+   861→      const x = e.clientX - rect.left;
+   862→      const progress = x / rect.width;
+   863→      const time = progress * duration;
+   864→
+   865→      seekTo(time);
+   866→
+   867→      const clickedMs = Math.round(time * 1000);
+   868→
+   869→      if (markerMode === 'range') {
+   870→        if (!isSelectingRange) {
+   871→          // First click — set range start
+   872→          setRangeStartMs(clickedMs);
+   873→          setRangeEndMsState(clickedMs);
+   874→          setIsSelectingRange(true);
+   875→          setCommentTimestamp(clickedMs);
+   876→          setShowCommentInput(true);
+   877→        } else {
+   878→          // Second click — set range end
+   879→          const start = Math.min(rangeStartMs, clickedMs);
+   880→          const end = Math.max(rangeStartMs, clickedMs);
+   881→          setRangeStartMs(start);
+   882→          setRangeEndMsState(end);
+   883→          setCommentTimestamp(start);
+   884→          setIsSelectingRange(false);
+   885→        }
+   886→      } else {
+   887→        // Point mode — single timestamp
+   888→        setCommentTimestamp(clickedMs);
+   889→        setRangeStartMs(0);
+   890→        setRangeEndMsState(0);
+   891→        setShowCommentInput(true);
+   892→      }
+   893→    },
+   894→    [duration, seekTo, markerMode, isSelectingRange, rangeStartMs]
+   895→  );
+   896→
+   897→  const handleMarkerClick = useCallback(
+   898→    (comment: Comment) => {
+   899→      seekTo(comment.timestampMs / 1000);
+   900→      setFocusedCommentId(comment.id);
+   901→      // Keep highlight for 3 seconds
+   902→      setTimeout(() => {
+   903→        setFocusedCommentId(null);
+   904→      }, 3000);
+   905→    },
+   906→    [seekTo]
+   907→  );
+   908→
+   909→  // Parse timestamp references in chat text: [MM:SS.s] → clickable badge
+   910→  // Parse comment references: [Comment #N @ MM:SS.s] → clickable badge that highlights comment
+   911→  function renderChatText(text: string) {
+   912→    // Split on both patterns: comment links (with optional version) and timestamp links
+   913→    const parts = text.split(/(\[Comment #\d+ @ \d{2}:\d{2}\.\d(?: \| v\d+)?\]|\[\d{2}:\d{2}\.\d\])/g);
+   914→    return parts.map((part, i) => {
+   915→      // Check for comment link pattern: [Comment #N @ MM:SS.s] or [Comment #N @ MM:SS.s | vN]
+   916→      const commentMatch = part.match(/^\[Comment #(\d+) @ (\d{2}):(\d{2})\.(\d)(?: \| (v\d+))?\]$/);
+   917→      if (commentMatch) {
+   918→        const commentNum = parseInt(commentMatch[1], 10);
+   919→        const mins = parseInt(commentMatch[2], 10);
+   920→        const secs = parseInt(commentMatch[3], 10);
+   921→        const tenths = parseInt(commentMatch[4], 10);
+   922→        const ms = (mins * 60 + secs) * 1000 + tenths * 100;
+   923→        const versionLabel = commentMatch[5] || null;
+   924→        return (
+   925→          <button
+   926→            key={i}
+   927→            className="inline-flex items-center gap-1 rounded bg-[#FB923C]/15 px-2 py-0.5 text-xs font-semibold text-[#FB923C] hover:bg-[#FB923C]/25 transition-colors"
+   928→            onClick={() => {
+   929→              // Find the comment by number across ALL versions (roots sorted by timestamp)
+   930→              const allRoots = comments.filter((c) => !c.parentId);
+   931→              const sortedRoots = [...allRoots].sort((a, b) => a.timestampMs - b.timestampMs || a.createdAt.localeCompare(b.createdAt));
+   932→              // Build per-version number maps
+   933→              const target = sortedRoots.find((c) => {
+   934→                const vComments = comments.filter((cc) => cc.versionId === c.versionId);
+   935→                const vRoots = vComments.filter((cc) => !cc.parentId);
+   936→                const idx = vRoots.indexOf(c);
+   937→                return idx + 1 === commentNum;
+   938→              });
+   939→              if (!target) return;
+   940→              const targetVersion = versions.find((v) => v.id === target.versionId);
+   941→              // If comment is on a different version, show switch dialog
+   942→              if (targetVersion && activeVersion && target.versionId !== activeVersion.id) {
+   943→                setPendingVersionSwitch({
+   944→                  commentId: target.id,
+   945→                  versionId: targetVersion.id,
+   946→                  versionLabel: `v${targetVersion.version}` + (targetVersion.label ? ` (${targetVersion.label})` : ''),
+   947→                  timestampMs: target.timestampMs,
+   948→                });
+   949→                return;
+   950→              }
+   951→              // Same version or no version mismatch — seek and focus
+   952→              seekTo(ms / 1000);
+   953→              setFocusedCommentId(target.id);
+   954→              setTimeout(() => setFocusedCommentId(null), 4000);
+   955→            }}
+   956→          >
+   957→            <Send className="h-3 w-3 rotate-[-30deg]" />
+   958→            #{commentNum}{versionLabel && <span className="ml-0.5 opacity-60">{versionLabel}</span>}
+   959→          </button>
+   960→        );
+   961→      }
+   962→      // Check for timestamp pattern: [MM:SS.s]
+   963→      const match = part.match(/^\[(\d{2}):(\d{2})\.(\d)\]$/);
+   964→      if (match) {
+   965→        const mins = parseInt(match[1], 10);
+   966→        const secs = parseInt(match[2], 10);
+   967→        const tenths = parseInt(match[3], 10);
+   968→        const ms = (mins * 60 + secs) * 1000 + tenths * 100;
+   969→        return (
+   970→          <button
+   971→            key={i}
+   972→            className="inline-flex items-center gap-0.5 rounded bg-[#00E5FF]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#00E5FF] hover:bg-[#00E5FF]/25 transition-colors"
+   973→            onClick={() => seekTo(ms / 1000)}
+   974→          >
+   975→            <Clock className="h-2.5 w-2.5" />
+   976→            {part}
+   977→          </button>
+   978→        );
+   979→      }
+   980→      return <span key={i}>{part}</span>;
+   981→    });
+   982→  }
+   983→
+   984→  // --- Comments ---
+   985→
+   986→  useEffect(() => {
+   987→    if (!selectedTrackId) return;
+   988→    fetch(`/api/tracks/${selectedTrackId}/comments`)
+   989→      .then((r) => r.json())
+   990→      .then((data) => {
+   991→        if (Array.isArray(data)) setComments(data.map(normalizeComment));
+   992→      })
+   993→      .catch(() => {});
+   994→  }, [selectedTrackId, activeVersionId]);
+   995→
+   996→  // Scroll to focused comment
+   997→  useEffect(() => {
+   998→    if (focusedCommentId) {
+   999→      const el = document.getElementById(`comment-${focusedCommentId}`);
+  1000→      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  1001→    }
+  1002→  }, [focusedCommentId]);
+  1003→
+  1004→  const handleAddComment = useCallback(async () => {
+  1005→    if (!newCommentText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
+  1006→
+  1007→    const timestamp = commentTimestamp || Math.round(currentTime * 1000);
+  1008→
+  1009→    try {
+  1010→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments`, {
+  1011→        method: 'POST',
+  1012→        headers: { 'Content-Type': 'application/json' },
+  1013→        body: JSON.stringify({
+  1014→          userId: user.id,
+  1015→          text: newCommentText.trim(),
+  1016→          timestampMs: timestamp,
+  1017→          ...(markerMode === 'range' && rangeEndMsState > timestamp ? { rangeEndMs: rangeEndMsState } : {}),
+  1018→          versionId: activeVersion.id,
+  1019→        }),
+  1020→      });
+  1021→      if (!res.ok) return;
+  1022→      const comment = normalizeComment(await res.json());
+  1023→      addComment(comment);
+  1024→      setComments((prev) => [...prev, comment]);
+  1025→      setNewCommentText('');
+  1026→      setShowCommentInput(false);
+  1027→      setCommentTimestamp(0);
+  1028→      setRangeStartMs(0);
+  1029→      setRangeEndMsState(0);
+  1030→      setIsSelectingRange(false);
+  1031→    } catch {
+  1032→      // Silently fail
+  1033→    }
+  1034→  }, [newCommentText, selectedTrackId, user, commentTimestamp, currentTime, addComment, activeVersion, markerMode, rangeEndMsState]);
+  1035→
+  1036→  const handleEditComment = useCallback(async (commentId: string) => {
+  1037→    if (!editCommentText.trim() || !selectedTrackId) return;
+  1038→    try {
+  1039→      const updateData: Record<string, unknown> = { text: editCommentText.trim() };
+  1040→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1041→        method: 'PUT',
+  1042→        headers: { 'Content-Type': 'application/json' },
+  1043→        body: JSON.stringify(updateData),
+  1044→      });
+  1045→      if (!res.ok) return;
+  1046→      const updated = normalizeComment(await res.json());
+  1047→      updateCommentStore(commentId, { text: updated.text });
+  1048→      setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, text: updated.text } : c)));
+  1049→      setEditingCommentId(null);
+  1050→      setEditCommentText('');
+  1051→      // Emit socket event
+  1052→      socketRef.current?.emit('comment:edit', { trackId: selectedTrackId, commentId, text: updated.text });
+  1053→      toast({ description: 'Comment updated' });
+  1054→    } catch {
+  1055→      toast({ description: 'Failed to update comment', variant: 'destructive' });
+  1056→    }
+  1057→  }, [editCommentText, selectedTrackId, updateCommentStore, toast]);
+  1058→
+  1059→  const handleDeleteComment = useCallback(async (commentId: string) => {
+  1060→    if (!selectedTrackId) return;
+  1061→    try {
+  1062→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1063→        method: 'DELETE',
+  1064→      });
+  1065→      if (!res.ok) return;
+  1066→      removeCommentStore(commentId);
+  1067→      setComments((prev) => prev.filter((c) => c.id !== commentId));
+  1068→      if (focusedCommentId === commentId) setFocusedCommentId(null);
+  1069→      // Emit socket event
+  1070→      socketRef.current?.emit('comment:delete', { trackId: selectedTrackId, commentId });
+  1071→      toast({ description: 'Comment deleted' });
+  1072→    } catch {
+  1073→      toast({ description: 'Failed to delete comment', variant: 'destructive' });
+  1074→    }
+  1075→  }, [selectedTrackId, removeCommentStore, focusedCommentId, toast]);
+  1076→
+  1077→  const handleToggleResolved = useCallback(async (commentId: string, isResolved: boolean) => {
+  1078→    if (!selectedTrackId) return;
+  1079→    try {
+  1080→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1081→        method: 'PUT',
+  1082→        headers: { 'Content-Type': 'application/json' },
+  1083→        body: JSON.stringify({ isResolved: !isResolved }),
+  1084→      });
+  1085→      if (!res.ok) return;
+  1086→      const updated = normalizeComment(await res.json());
+  1087→      updateCommentStore(commentId, { isResolved: updated.isResolved });
+  1088→      setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, isResolved: updated.isResolved } : c)));
+  1089→      socketRef.current?.emit('comment:edit', { trackId: selectedTrackId, commentId, isResolved: updated.isResolved });
+  1090→      // When resolving, collapse the thread
+  1091→      if (updated.isResolved) {
+  1092→        setCollapsedThreads((prev) => new Set([...prev, commentId]));
+  1093→      }
+  1094→    } catch {
+  1095→      // Silently fail
+  1096→    }
+  1097→  }, [selectedTrackId, updateCommentStore]);
+  1098→
+  1099→  const startEditingComment = useCallback((comment: Comment) => {
+  1100→    setEditingCommentId(comment.id);
+  1101→    setEditCommentText(comment.text);
+  1102→    setReplyingTo(null);
+  1103→    setReplyText('');
+  1104→  }, []);
+  1105→
+  1106→  const cancelEditingComment = useCallback(() => {
+  1107→    setEditingCommentId(null);
+  1108→    setEditCommentText('');
+  1109→  }, []);
+  1110→
+  1111→  // --- Chat ---
+  1112→
+  1113→  useEffect(() => {
+  1114→    if (!selectedTrackId) return;
+  1115→    fetch(`/api/messages?entityType=track&entityId=${selectedTrackId}`)
+  1116→      .then((r) => r.json())
+  1117→      .then((data) => {
+  1118→        if (Array.isArray(data)) setChatMessages(data.map(normalizeMessage));
+  1119→      })
+  1120→      .catch(() => {});
+  1121→  }, [selectedTrackId]);
+  1122→
+  1123→  // Auto-scroll chat to bottom
+  1124→  useEffect(() => {
+  1125→    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  1126→  }, [chatMessages]);
+  1127→
+  1128→  const handleSendMessage = useCallback(async () => {
+  1129→    if (!chatInput.trim() || !selectedTrackId || !user) return;
+  1130→
+  1131→    // Build message text
+  1132→    let text = chatInput.trim();
+  1133→    const hasCommentLink = !!chatLinkedCommentId;
+  1134→    if (chatLinkedCommentId) {
+  1135→      // Prepend comment link to message (with version label)
+  1136→      const linkedComment = comments.find((c) => c.id === chatLinkedCommentId);
+  1137→      const linkedVersion = linkedComment ? versions.find((v) => v.id === linkedComment.versionId) : null;
+  1138→      const versionLabel = linkedVersion ? `v${linkedVersion.version}` : 'v?';
+  1139→      const versionComments = comments.filter((c) => c.versionId === linkedComment?.versionId);
+  1140→      const roots = versionComments.filter((c) => !c.parentId);
+  1141→      const commentIdx = roots.findIndex((c) => c.id === chatLinkedCommentId);
+  1142→      const commentNum = commentIdx >= 0 ? commentIdx + 1 : '???';
+  1143→      const tsStr = formatTimestamp(chatLinkedTimestamp || 0);
+  1144→      const commentLink = `[Comment #${commentNum} @ ${tsStr} | ${versionLabel}]`;
+  1145→      text = text ? `${commentLink} ${text}` : commentLink;
+  1146→    } else if (chatLinkedTimestamp > 0) {
+  1147→      const tsStr = formatTimestamp(chatLinkedTimestamp);
+  1148→      text = `[${tsStr}] ${text}`;
+  1149→    }
+  1150→
+  1151→    // Allow sending if there's text or a comment link
+  1152→    if (!text.trim() && !hasCommentLink) return;
+  1153→
+  1154→    try {
+  1155→      const res = await fetch('/api/messages', {
+  1156→        method: 'POST',
+  1157→        headers: { 'Content-Type': 'application/json' },
+  1158→        body: JSON.stringify({
+  1159→          entityType: 'track',
+  1160→          entityId: selectedTrackId,
+  1161→          userId: user.id,
+  1162→          text,
+  1163→        }),
+  1164→      });
+  1165→      if (!res.ok) return;
+  1166→      const msg = normalizeMessage(await res.json());
+  1167→      addMessage(msg);
+  1168→      setChatMessages((prev) => [...prev, msg]);
+  1169→      setChatInput('');
+  1170→      setChatLinkedTimestamp(0);
+  1171→      setChatLinkedCommentId(null);
+  1172→    } catch {
+  1173→      // Silently fail
+  1174→    }
+  1175→  }, [chatInput, selectedTrackId, user, addMessage, chatLinkedTimestamp]);
+  1176→
+  1177→  // --- WebSocket ---
+  1178→
+  1179→  useEffect(() => {
+  1180→    if (!selectedTrackId) return;
+  1181→
+  1182→    const socket = io('/?XTransformPort=3004');
+  1183→    socketRef.current = socket;
+  1184→
+  1185→    const room = `track:${selectedTrackId}`;
+  1186→    socket.emit('room:join', { room, userId: user?.id, userName: user?.displayName, avatarUrl: user?.avatarUrl });
+  1187→
+  1188→    socket.on('presence:update', (data: any) => {
+  1189→      if (data?.users) {
+  1190→        setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
+  1191→      }
+  1192→    });
+  1193→
+  1194→    socket.on('presence:current', (data: any) => {
+  1195→      if (data?.users) {
+  1196→        setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
+  1197→      }
+  1198→    });
+  1199→
+  1200→    socket.on('comment:new', (raw: any) => {
+  1201→      const comment = normalizeComment(raw);
+  1202→      addComment(comment);
+  1203→      setComments((prev) => {
+  1204→        if (prev.some((c) => c.id === comment.id)) return prev;
+  1205→        return [...prev, comment];
+  1206→      });
+  1207→    });
+  1208→
+  1209→    socket.on('comment:updated', (data: { commentId: string; text?: string; isResolved?: boolean; timestampMs?: number }) => {
+  1210→      updateCommentStore(data.commentId, {
+  1211→        ...(data.text !== undefined ? { text: data.text } : {}),
+  1212→        ...(data.isResolved !== undefined ? { isResolved: data.isResolved } : {}),
+  1213→        ...(data.timestampMs !== undefined ? { timestampMs: data.timestampMs } : {}),
+  1214→      });
+  1215→      setComments((prev) =>
+  1216→        prev.map((c) =>
+  1217→          c.id === data.commentId
+  1218→            ? { ...c, ...(data.text !== undefined ? { text: data.text } : {}), ...(data.isResolved !== undefined ? { isResolved: data.isResolved } : {}), ...(data.timestampMs !== undefined ? { timestampMs: data.timestampMs } : {}) }
+  1219→            : c
+  1220→        )
+  1221→      );
+  1222→    });
+  1223→
+  1224→    socket.on('comment:deleted', (data: { commentId: string }) => {
+  1225→      removeCommentStore(data.commentId);
+  1226→      setComments((prev) => prev.filter((c) => c.id !== data.commentId));
+  1227→      setFocusedCommentId((prev) => (prev === data.commentId ? null : prev));
+  1228→    });
+  1229→
+  1230→    socket.on('message:new', (raw: any) => {
+  1231→      const msg = normalizeMessage(raw);
+  1232→      addMessage(msg);
+  1233→      setChatMessages((prev) => {
+  1234→        if (prev.some((m) => m.id === msg.id)) return prev;
+  1235→        return [...prev, msg];
+  1236→      });
+  1237→    });
+  1238→
+  1239→    return () => {
+  1240→      socket.emit('room:leave', { room, userId: user?.id });
+  1241→      socket.disconnect();
+  1242→      socketRef.current = null;
+  1243→      setOnlineUserIds(new Set());
+  1244→    };
+  1245→  }, [selectedTrackId, addComment, addMessage, updateCommentStore, removeCommentStore, user]);
+  1246→
+  1247→  // --- Status Change ---
+  1248→
+  1249→  const handleStatusChange = useCallback(
+  1250→    (newStatus: string) => {
+  1251→      if (!selectedTrackId) return;
+  1252→      updateTrackStatus(selectedTrackId, newStatus);
+  1253→      socketRef.current?.emit('track:update_status', {
+  1254→        trackId: selectedTrackId,
+  1255→        status: newStatus,
+  1256→      });
+  1257→    },
+  1258→    [selectedTrackId, updateTrackStatus]
+  1259→  );
+  1260→
+  1261→  // --- Fetch Versions ---
+  1262→
+  1263→  useEffect(() => {
+  1264→    if (!selectedTrackId) return;
+  1265→    fetch(`/api/tracks/${selectedTrackId}/versions`)
+  1266→      .then((r) => r.json())
+  1267→      .then((data) => {
+  1268→        if (Array.isArray(data)) {
+  1269→          setVersions(data);
+  1270→          // Set active to first version if none selected
+  1271→          if (data.length > 0 && !activeVersionId) {
+  1272→            setActiveVersionId(data[0].id);
+  1273→          }
+  1274→        }
+  1275→      })
+  1276→      .catch(() => {});
+  1277→  }, [selectedTrackId]);
+  1278→
+  1279→  // --- Add Version (via file upload dialog) ---
+  1280→
+  1281→  const handleAddVersion = useCallback(async (file: File, label: string) => {
+  1282→    if (!selectedTrackId || !user) return;
+  1283→
+  1284→    setIsUploadingVersion(true);
+  1285→    setUploadProgress(0);
+  1286→
+  1287→    try {
+  1288→      const formData = new FormData();
+  1289→      formData.append('audio', file);
+  1290→      formData.append('label', label);
+  1291→      formData.append('createdBy', user.id);
+  1292→
+  1293→      const xhr = new XMLHttpRequest();
+  1294→      const url = `/api/tracks/${selectedTrackId}/versions`;
+  1295→
+  1296→      await new Promise<void>((resolve, reject) => {
+  1297→        xhr.upload.addEventListener('progress', (e) => {
+  1298→          if (e.lengthComputable) {
+  1299→            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+  1300→          }
+
+[showing lines 601-1300 of 3246; use offset=1301 with limit to continue reading]

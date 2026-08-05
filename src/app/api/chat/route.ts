@@ -77,6 +77,9 @@ export async function GET(req: NextRequest) {
       referencedTask: {
         select: { id: true, title: true, status: true },
       },
+      user: {
+        select: { id: true, displayName: true, avatarUrl: true },
+      },
     },
     take: 100,
   });
@@ -86,7 +89,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { content, projectId, author, referencedTaskId } = body;
+  const { content, projectId, author, userId, referencedTaskId } = body;
 
   if (!content?.trim()) {
     return NextResponse.json({ error: 'Content is required' }, { status: 400 });
@@ -101,16 +104,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Look up user display name if userId provided
+  let resolvedAuthor = author?.trim() || 'Пользователь';
+  if (userId) {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    if (user) resolvedAuthor = user.displayName;
+  }
+
   const message = await db.chatMessage.create({
     data: {
       content: content.trim(),
       projectId: projectId || null,
-      author: author?.trim() || 'Пользователь',
+      author: resolvedAuthor,
+      userId: userId || null,
       referencedTaskId: refTaskId,
     },
     include: {
       referencedTask: {
         select: { id: true, title: true, status: true },
+      },
+      user: {
+        select: { id: true, displayName: true, avatarUrl: true },
       },
     },
   });

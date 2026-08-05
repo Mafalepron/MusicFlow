@@ -2,7 +2,7 @@
 
 import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Music, Upload, Loader2, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, Music, Upload, Loader2, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useNavigationStore, useDataStore, useAuthStore } from '@/lib/store';
+import { useKanbanStore } from '@/store/kanban-store';
 
 const statusColors: Record<string, string> = {
   draft: '#F59E0B',
@@ -242,6 +243,21 @@ export function ProjectDetailView() {
           </div>
 
           <div className="flex items-center gap-3">
+            {project.kanbanTaskId && (
+              <Button
+                onClick={() => {
+                  navigate('kanban');
+                  setTimeout(() => {
+                    useKanbanStore.getState().selectProject(project.kanbanTaskId!);
+                  }, 300);
+                }}
+                variant="outline"
+                className="border-[#00E5FF]/30 text-[#00E5FF] hover:bg-[#00E5FF]/10 hover:text-[#00E5FF]"
+              >
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                Open Kanban
+              </Button>
+            )}
             <Select
               value={project.status}
               onValueChange={handleStatusChange}

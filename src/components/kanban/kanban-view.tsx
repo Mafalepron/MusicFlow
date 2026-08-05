@@ -8,7 +8,6 @@ import OnboardingHintPanel from '@/components/board/onboarding-hint-panel';
 import TaskDetailPanel from '@/components/kanban/task-detail-panel';
 import TrackWizard from '@/components/kanban/track-wizard';
 import DescriptionBottomPanel from '@/components/kanban/description-bottom-panel';
-import ProjectChat from '@/components/chat/project-chat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,7 +19,6 @@ function ProjectList() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [projectType, setProjectType] = useState<'general' | 'album' | 'single'>('general');
 
   const loadProjects = async () => {
     setLoading(true);
@@ -37,31 +35,15 @@ function ProjectList() {
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
-    const res = await fetch('/api/tasks', {
+    // Only create standard (general) kanbans here.
+    // Music projects (album/ep/single) with autoboards are created from the Projects tab.
+    await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newTitle.trim(), isProject: true, projectType }),
+      body: JSON.stringify({ title: newTitle.trim(), isProject: true, projectType: 'general' }),
     });
-    const task = await res.json();
-
-    if (projectType === 'album') {
-      await fetch('/api/boards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'album-defaults', projectId: task.id, createAlbumDefaults: true }),
-      });
-    }
-    if (projectType === 'single') {
-      await fetch('/api/boards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'single-defaults', projectId: task.id, createSingleDefaults: true }),
-      });
-    }
-
     setNewTitle('');
     setCreating(false);
-    setProjectType('general');
     await loadProjects();
   };
 
@@ -95,109 +77,38 @@ function ProjectList() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void handleCreate()}
-              placeholder="Название проекта..."
+              placeholder="Название канбан-доски..."
               autoFocus
               className="bg-slate-900/80 border-slate-700/50 text-sm text-slate-200 placeholder:text-slate-600 h-8 focus:border-cyan-500/50"
             />
             <Button size="sm" onClick={() => void handleCreate()} disabled={!newTitle.trim()} className="bg-cyan-600 hover:bg-cyan-700 text-white h-8 text-xs">Создать</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setCreating(false); setProjectType('general'); }} className="h-8 text-xs text-slate-500">Отмена</Button>
+            <Button size="sm" variant="ghost" onClick={() => setCreating(false)} className="h-8 text-xs text-slate-500">Отмена</Button>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-500">Тип:</span>
-            <button
-              onClick={() => setProjectType('general')}
-              className={cn('flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-md border transition-all duration-150', projectType === 'general' ? 'bg-slate-700/60 border-slate-600 text-slate-200' : 'border-slate-800/50 text-slate-500 hover:text-slate-400 hover:border-slate-700')}
-            >
-              <Zap className="w-3 h-3" /> Общий
-            </button>
-            <button
-              onClick={() => setProjectType('album')}
-              className={cn('flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-md border transition-all duration-150', projectType === 'album' ? 'bg-purple-500/15 border-purple-500/40 text-purple-300' : 'border-slate-800/50 text-slate-500 hover:text-slate-400 hover:border-slate-700')}
-            >
-              <Disc3 className="w-3 h-3" /> Альбом
-              <span className="text-[8px] bg-purple-500/20 text-purple-400 px-1 rounded ml-0.5">авто-доски</span>
-            </button>
-            <button
-              onClick={() => setProjectType('single')}
-              className={cn('flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-md border transition-all duration-150', projectType === 'single' ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'border-slate-800/50 text-slate-500 hover:text-slate-400 hover:border-slate-700')}
-            >
-              <AudioLines className="w-3 h-3" /> Сингл
-              <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1 rounded ml-0.5">авто-доски</span>
-            </button>
+            <Zap className="w-3 h-3 text-cyan-400" />
+            <span className="text-[10px] text-slate-500">Стандартный канбан — доски добавляются вручную</span>
           </div>
-          {projectType === 'album' && (
-            <div className="rounded-lg bg-purple-500/5 border border-purple-500/30 p-2.5 flex items-start gap-2 animate-pulse">
-              <Disc3 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[10px] text-purple-300 font-medium">Проект альбома</p>
-                <p className="text-[9px] text-slate-500 mt-0.5 leading-relaxed">
-                  Автоматически создадутся доски: Треки, Дизайн, Дистрибуция, Маркетинг, Сведение, Мастеринг, Референсы.
-                  Доска «Треки» будет иметь конструктор треков с выбором инструментов и этапов.
-                </p>
-              </div>
-            </div>
-          )}
-          {projectType === 'single' && (
-            <div className="rounded-lg bg-amber-500/5 border border-amber-500/30 p-2.5 flex items-start gap-2 animate-pulse">
-              <AudioLines className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[10px] text-amber-300 font-medium">Проект сингла</p>
-                <p className="text-[9px] text-slate-500 mt-0.5 leading-relaxed">
-                  Автоматически создадутся доски: Трек, Обложка, Публикация, Продвижение.
-                  Доска «Трек» будет иметь конструктор треков с выбором инструментов и этапов.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
       <ScrollArea className="flex-1">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-6">
           {projects.length === 0 && !loading && (
-            <div className="col-span-full text-center py-16 space-y-6">
-              {/* Main empty hint — pulsing */}
+            <div className="col-span-full text-center py-16 space-y-4">
               <div className="animate-pulse">
                 <Music className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-                <p className="text-slate-400 text-sm font-medium">Создайте первый проект</p>
-                <p className="text-slate-600 text-xs mt-1">Альбом, сингл, тур, клип...</p>
-              </div>
-              {/* Auto-boards hint cards */}
-              <div className="max-w-md mx-auto space-y-3">
-                <div className="rounded-xl border border-purple-500/25 bg-purple-500/5 p-4 text-left animate-pulse" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Disc3 className="w-4 h-4 text-purple-400" />
-                    <span className="text-xs font-medium text-purple-300">Альбом</span>
-                    <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded ml-auto">авто-доски</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    7 досок создадутся автоматически: Треки, Дизайн, Дистрибуция, Маркетинг, Сведение, Мастеринг, Референсы
-                  </p>
-                </div>
-                <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 text-left animate-pulse" style={{ animationDelay: '1s', animationDuration: '2.5s' }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <AudioLines className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-medium text-amber-300">Сингл</span>
-                    <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded ml-auto">авто-доски</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    4 доски создадутся автоматически: Трек, Обложка, Публикация, Продвижение
-                  </p>
-                </div>
-                <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-left animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '2.5s' }}>
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-cyan-400" />
-                    <span className="text-xs font-medium text-cyan-300">Общий</span>
-                    <span className="text-[10px] text-slate-500 ml-auto">доски вручную</span>
-                  </div>
-                </div>
+                <p className="text-slate-400 text-sm font-medium">Канбан-проектов пока нет</p>
+                <p className="text-slate-600 text-xs mt-1">Создайте стандартный канбан или откройте музыкальный проект из вкладки Projects</p>
               </div>
             </div>
           )}
           {projects.map((project) => {
             const color = getStatusColor(project.status);
-            const isAlbum = project.projectType === 'album';
-            const isSingle = project.projectType === 'single';
+            const isMusic = project.soundflowProjectId !== null && project.soundflowProjectId !== undefined;
+            const pType = project.projectType;
+            const isAlbum = pType === 'album' || pType === 'ep';
+            const isSingle = pType === 'single';
+            const isEp = pType === 'ep';
             return (
               <div
                 key={project.id}
@@ -206,8 +117,13 @@ function ProjectList() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', isAlbum ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20' : isSingle ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20' : '')}>
-                      {isAlbum ? <Disc3 className="w-4 h-4 text-purple-400" /> : isSingle ? <AudioLines className="w-4 h-4 text-amber-400" /> : <FolderOpen className="w-4 h-4" style={{ color }} />}
+                    <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', isAlbum ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20' : isSingle ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/20' : '')} style={!isAlbum && !isSingle ? { backgroundColor: color + '15' } : undefined}>
+                      {isAlbum
+                        ? <Disc3 className="w-4 h-4 text-purple-400" />
+                        : isSingle
+                          ? <AudioLines className="w-4 h-4 text-amber-400" />
+                          : <FolderOpen className="w-4 h-4" style={{ color }} />
+                      }
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
@@ -228,11 +144,14 @@ function ProjectList() {
                   {project.children?.length > 0 && (
                     <span className="text-[10px] text-slate-600">{project.children.length} подзадач</span>
                   )}
-                  {isAlbum && (
-                    <span className="text-[9px] text-purple-400/60 bg-purple-500/10 px-1.5 py-0.5 rounded ml-auto">Альбом</span>
+                  {isMusic && (
+                    <span className="text-[9px] text-cyan-400/80 bg-cyan-500/10 px-1.5 py-0.5 rounded ml-auto capitalize flex items-center gap-1">
+                      <Music className="w-2.5 h-2.5" />
+                      {isEp ? 'EP' : pType}
+                    </span>
                   )}
-                  {isSingle && (
-                    <span className="text-[9px] text-amber-400/60 bg-amber-500/10 px-1.5 py-0.5 rounded ml-auto">Сингл</span>
+                  {!isMusic && (
+                    <span className="text-[9px] text-slate-500 bg-slate-800/60 px-1.5 py-0.5 rounded ml-auto">Канбан</span>
                   )}
                 </div>
                 <button
@@ -355,10 +274,7 @@ function KanbanWorkspace() {
           {isTrackWizardOpen ? (
             <TrackWizard />
           ) : (
-            <>
-              <TaskDetailPanel />
-              <ProjectChat />
-            </>
+            <TaskDetailPanel />
           )}
         </div>
       </div>

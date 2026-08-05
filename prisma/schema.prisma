@@ -24,6 +24,7 @@ model User {
   trackVersions   TrackVersion[]
   messages        Message[]
   notifications   Notification[]
+  chatMessages    ChatMessage[]
 }
 
 model Group {
@@ -57,19 +58,20 @@ model GroupMember {
 }
 
 model Project {
-  id        String   @id @default(cuid())
-  groupId   String
-  title     String
-  type      String   @default("single")
-  coverUrl  String?
-  status    String   @default("draft")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  groupId      String
+  title        String
+  type         String   @default("single")
+  coverUrl     String?
+  status       String   @default("draft")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  group  Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  tracks Track[]
-  ideas  Idea[]   @relation("IdeaProject")
+  group      Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  tracks     Track[]
+  ideas      Idea[]   @relation("IdeaProject")
   notifications Notification[]
+  kanbanTask Task?   @relation("ProjectKanbanLink")
 
   @@index([groupId])
 }
@@ -117,6 +119,7 @@ model Track {
   creator    User       @relation(fields: [createdBy], references: [id])
   versions   TrackVersion[]
   comments   Comment[]
+  kanbanTask Task?      @relation("TrackKanbanLink")
 
   @@index([projectId])
 }
@@ -208,31 +211,35 @@ model Board {
 }
 
 model Task {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  status      String   @default("todo")
-  priority    String   @default("medium")
-  assignee    String?
-  category    String   @default("general")
-  isProject   Boolean  @default(false)
-  projectType String   @default("general")
-  trackConfig String?
-  parentId    String?
-  boardId     String?
-  hexQ       Int      @default(0)
-  hexR       Int      @default(0)
-  deadline   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
+  id                 String   @id @default(cuid())
+  title              String
+  description        String?
+  status             String   @default("todo")
+  priority           String   @default("medium")
+  assignee           String?
+  category           String   @default("general")
+  isProject          Boolean  @default(false)
+  projectType        String   @default("general")
+  trackConfig        String?
+  parentId           String?
+  boardId            String?
+  hexQ               Int      @default(0)
+  hexR               Int      @default(0)
+  deadline           DateTime?
+  soundflowProjectId String?  @unique // FK to Project.id — if this kanban project wraps a SoundFlow Project
+  soundflowTrackId   String?  @unique // FK to Track.id — if this kanban track wraps a real audio Track
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now()) @updatedAt
 
-  parent      Task?            @relation("TaskTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Task[]           @relation("TaskTree")
-  board       Board?           @relation(fields: [boardId], references: [id], onDelete: SetNull)
-  boards      Board[]          @relation("ProjectBoards")
-  connectionsFrom TaskConnection[] @relation("TaskFrom")
-  connectionsTo   TaskConnection[] @relation("TaskTo")
-  chatMessages    ChatMessage[]     @relation("ChatTaskRef")
+  parent             Task?            @relation("TaskTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children           Task[]           @relation("TaskTree")
+  board              Board?           @relation(fields: [boardId], references: [id], onDelete: SetNull)
+  boards             Board[]          @relation("ProjectBoards")
+  connectionsFrom    TaskConnection[] @relation("TaskFrom")
+  connectionsTo      TaskConnection[] @relation("TaskTo")
+  chatMessages       ChatMessage[]    @relation("ChatTaskRef")
+  soundflowProject   Project?         @relation("ProjectKanbanLink", fields: [soundflowProjectId], references: [id], onDelete: SetNull)
+  soundflowTrack     Track?           @relation("TrackKanbanLink", fields: [soundflowTrackId], references: [id], onDelete: SetNull)
 }
 
 model TaskConnection {
@@ -247,10 +254,13 @@ model TaskConnection {
 
 model ChatMessage {
   id               String   @id @default(cuid())
-  projectId        String?
+  projectId        String?  // FK to Task.id (the kanban project wrapper)
+  userId           String?  // Real user ID (replaces free-text author for authenticated users)
   author           String   @default("Пользователь")
   content          String
   referencedTaskId String?
   referencedTask   Task?    @relation("ChatTaskRef", fields: [referencedTaskId], references: [id], onDelete: SetNull)
   createdAt        DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 }

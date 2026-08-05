@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
-import { Plus, FolderOpen } from 'lucide-react';
+import { Plus, FolderOpen, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useNavigationStore, useDataStore } from '@/lib/store';
+import { useKanbanStore } from '@/store/kanban-store';
 import { CreateProjectDialog } from '@/components/shared/create-project-dialog';
 
 const statusColors: Record<string, string> = {
@@ -85,10 +86,9 @@ export function ProjectsView() {
           {projects.map((project) => (
             <motion.div key={project.id} variants={cardVariants}>
               <Card
-                onClick={() => navigate('project-detail', project.id)}
                 className="group cursor-pointer border-[#25252D] bg-[#15151A] transition-colors hover:border-[#8A2BE2]/40 hover:bg-[#1A1A22]"
               >
-                <CardContent className="p-5">
+                <CardContent className="p-5" onClick={() => navigate('project-detail', project.id)}>
                   {/* Type badge */}
                   <div className="mb-3 flex items-center justify-between">
                     <span
@@ -129,6 +129,25 @@ export function ProjectsView() {
                     </span>
                   </div>
                 </CardContent>
+
+                {/* Open in Kanban button */}
+                {project.kanbanTaskId && (
+                  <div className="border-t border-[#25252D] px-5 py-2.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('kanban');
+                        setTimeout(() => {
+                          useKanbanStore.getState().selectProject(project.kanbanTaskId!);
+                        }, 300);
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-[#00E5FF] hover:text-[#00E5FF]/80 transition-colors"
+                    >
+                      <LayoutDashboard className="h-3.5 w-3.5" />
+                      Open Kanban workspace
+                    </button>
+                  </div>
+                )}
               </Card>
             </motion.div>
           ))}

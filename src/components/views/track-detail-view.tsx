@@ -25,13 +25,11 @@ import {
   Music2,
   LocateFixed,
   Lightbulb,
-  Clock,
   X,
   Reply,
   Upload,
   MapPin,
   MoveHorizontal,
-  ArrowLeftRight,
   Pencil,
   Trash2,
   Check,
@@ -39,6 +37,7 @@ import {
   ChevronDown,
   ChevronRight,
   MessageSquareQuote,
+  LayoutDashboard,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -62,19 +61,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from '@/components/ui/resizable';
-import {
   useNavigationStore,
   useDataStore,
   useAuthStore,
   type Comment,
-  type ChatMessage,
   type Idea,
   type TrackVersion,
 } from '@/lib/store';
+import { useKanbanStore } from '@/store/kanban-store';
+import { useAudioContextStore } from '@/store/audio-context-store';
 
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -184,9 +179,9 @@ function getInitials(name?: string | null): string {
     .slice(0, 2);
 }
 
-// The backend API returns comments and messages with a nested `user` object
+// The backend API returns comments with a nested `user` object
 // (e.g. `user: { displayName, ... }`), but the frontend store types expect a
-// flat `userName` field. These normalizers bridge that gap so the rest of the
+// flat `userName` field. This normalizer bridges that gap so the rest of the
 // component can rely on `userName` always being present.
 function normalizeComment(raw: any): Comment {
   return {
@@ -200,18 +195,6 @@ function normalizeComment(raw: any): Comment {
     rangeEndMs: raw.rangeEndMs ?? undefined,
     text: raw.text ?? '',
     isResolved: raw.isResolved ?? false,
-    createdAt: raw.createdAt,
-  };
-}
-
-function normalizeMessage(raw: any): ChatMessage {
-  return {
-    id: raw.id,
-    entityType: raw.entityType,
-    entityId: raw.entityId,
-    userId: raw.userId,
-    userName: raw.userName ?? raw.user?.displayName ?? 'Unknown',
-    text: raw.text ?? '',
     createdAt: raw.createdAt,
   };
 }
@@ -449,8 +432,12 @@ export function TrackDetailView() {
   const addComment = useDataStore((s) => s.addComment);
   const updateCommentStore = useDataStore((s) => s.updateComment);
   const removeCommentStore = useDataStore((s) => s.removeComment);
-  const addMessage = useDataStore((s) => s.addMessage);
   const updateTrackStatus = useDataStore((s) => s.updateTrackStatus);
+
+  // Audio context store — sync local playback state to global store for floating chat widget
+  const setActiveTrack = useAudioContextStore((s) => s.setActiveTrack);
+  const setAudioContextTime = useAudioContextStore((s) => s.setCurrentTime);
+  const setAudioContextPlaying = useAudioContextStore((s) => s.setIsPlaying);
 
   const track = useMemo(
     () => tracks.find((t) => t.id === selectedTrackId) ?? null,
@@ -525,14 +512,7 @@ export function TrackDetailView() {
     [versions, activeVersionId]
   );
 
-  // Chat state
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLinkedTimestamp, setChatLinkedTimestamp] = useState(0);
-  const [chatLinkedCommentId, setChatLinkedCommentId] = useState<string | null>(null);
-  const [pendingVersionSwitch, setPendingVersionSwitch] = useState<{ commentId: string; versionId: string; versionLabel: string; timestampMs: number } | null>(null);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
-  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  // Hovered comment marker (waveform overlay tooltip)
   const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
 
   // Participant presence
@@ -626,6 +606,33 @@ export function TrackDetailView() {
       audioRef.current.volume = isMuted ? 0 : volume;
     }
   }, [volume, isMuted]);
+
+  // Sync current playback position to global audio context store (used by floating chat widget)
+  useEffect(() => {
+    setAudioContextTime(currentTime);
+  }, [currentTime, setAudioContextTime]);
+
+  // Sync play/pause state to global audio context store
+  useEffect(() => {
+    setAudioContextPlaying(isPlaying);
+  }, [isPlaying, setAudioContextPlaying]);
+
+  // Sync active track (trackId, projectId, kanbanTaskId) to global audio context store.
+  // The floating chat widget reads these to scope its messages and timestamp links.
+  useEffect(() => {
+    if (!selectedTrackId) {
+      setActiveTrack(null, null, null);
+      return;
+    }
+    setActiveTrack(
+      selectedTrackId,
+      selectedProjectId ?? null,
+      projectOfTrack?.kanbanTaskId ?? null
+    );
+    return () => {
+      setActiveTrack(null, null, null);
+    };
+  }, [selectedTrackId, selectedProjectId, projectOfTrack?.kanbanTaskId, setActiveTrack]);
 
   // Marker tooltip position is now calculated directly in onMouseEnter handler
   // (removed the old useEffect + ref pattern to fix timing issues with framer-motion)
@@ -906,81 +913,6 @@ export function TrackDetailView() {
     [seekTo]
   );
 
-  // Parse timestamp references in chat text: [MM:SS.s] → clickable badge
-  // Parse comment references: [Comment #N @ MM:SS.s] → clickable badge that highlights comment
-  function renderChatText(text: string) {
-    // Split on both patterns: comment links (with optional version) and timestamp links
-    const parts = text.split(/(\[Comment #\d+ @ \d{2}:\d{2}\.\d(?: \| v\d+)?\]|\[\d{2}:\d{2}\.\d\])/g);
-    return parts.map((part, i) => {
-      // Check for comment link pattern: [Comment #N @ MM:SS.s] or [Comment #N @ MM:SS.s | vN]
-      const commentMatch = part.match(/^\[Comment #(\d+) @ (\d{2}):(\d{2})\.(\d)(?: \| (v\d+))?\]$/);
-      if (commentMatch) {
-        const commentNum = parseInt(commentMatch[1], 10);
-        const mins = parseInt(commentMatch[2], 10);
-        const secs = parseInt(commentMatch[3], 10);
-        const tenths = parseInt(commentMatch[4], 10);
-        const ms = (mins * 60 + secs) * 1000 + tenths * 100;
-        const versionLabel = commentMatch[5] || null;
-        return (
-          <button
-            key={i}
-            className="inline-flex items-center gap-1 rounded bg-[#FB923C]/15 px-2 py-0.5 text-xs font-semibold text-[#FB923C] hover:bg-[#FB923C]/25 transition-colors"
-            onClick={() => {
-              // Find the comment by number across ALL versions (roots sorted by timestamp)
-              const allRoots = comments.filter((c) => !c.parentId);
-              const sortedRoots = [...allRoots].sort((a, b) => a.timestampMs - b.timestampMs || a.createdAt.localeCompare(b.createdAt));
-              // Build per-version number maps
-              const target = sortedRoots.find((c) => {
-                const vComments = comments.filter((cc) => cc.versionId === c.versionId);
-                const vRoots = vComments.filter((cc) => !cc.parentId);
-                const idx = vRoots.indexOf(c);
-                return idx + 1 === commentNum;
-              });
-              if (!target) return;
-              const targetVersion = versions.find((v) => v.id === target.versionId);
-              // If comment is on a different version, show switch dialog
-              if (targetVersion && activeVersion && target.versionId !== activeVersion.id) {
-                setPendingVersionSwitch({
-                  commentId: target.id,
-                  versionId: targetVersion.id,
-                  versionLabel: `v${targetVersion.version}` + (targetVersion.label ? ` (${targetVersion.label})` : ''),
-                  timestampMs: target.timestampMs,
-                });
-                return;
-              }
-              // Same version or no version mismatch — seek and focus
-              seekTo(ms / 1000);
-              setFocusedCommentId(target.id);
-              setTimeout(() => setFocusedCommentId(null), 4000);
-            }}
-          >
-            <Send className="h-3 w-3 rotate-[-30deg]" />
-            #{commentNum}{versionLabel && <span className="ml-0.5 opacity-60">{versionLabel}</span>}
-          </button>
-        );
-      }
-      // Check for timestamp pattern: [MM:SS.s]
-      const match = part.match(/^\[(\d{2}):(\d{2})\.(\d)\]$/);
-      if (match) {
-        const mins = parseInt(match[1], 10);
-        const secs = parseInt(match[2], 10);
-        const tenths = parseInt(match[3], 10);
-        const ms = (mins * 60 + secs) * 1000 + tenths * 100;
-        return (
-          <button
-            key={i}
-            className="inline-flex items-center gap-0.5 rounded bg-[#00E5FF]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#00E5FF] hover:bg-[#00E5FF]/25 transition-colors"
-            onClick={() => seekTo(ms / 1000)}
-          >
-            <Clock className="h-2.5 w-2.5" />
-            {part}
-          </button>
-        );
-      }
-      return <span key={i}>{part}</span>;
-    });
-  }
-
   // --- Comments ---
 
   useEffect(() => {
@@ -1108,72 +1040,6 @@ export function TrackDetailView() {
     setEditCommentText('');
   }, []);
 
-  // --- Chat ---
-
-  useEffect(() => {
-    if (!selectedTrackId) return;
-    fetch(`/api/messages?entityType=track&entityId=${selectedTrackId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setChatMessages(data.map(normalizeMessage));
-      })
-      .catch(() => {});
-  }, [selectedTrackId]);
-
-  // Auto-scroll chat to bottom
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
-
-  const handleSendMessage = useCallback(async () => {
-    if (!chatInput.trim() || !selectedTrackId || !user) return;
-
-    // Build message text
-    let text = chatInput.trim();
-    const hasCommentLink = !!chatLinkedCommentId;
-    if (chatLinkedCommentId) {
-      // Prepend comment link to message (with version label)
-      const linkedComment = comments.find((c) => c.id === chatLinkedCommentId);
-      const linkedVersion = linkedComment ? versions.find((v) => v.id === linkedComment.versionId) : null;
-      const versionLabel = linkedVersion ? `v${linkedVersion.version}` : 'v?';
-      const versionComments = comments.filter((c) => c.versionId === linkedComment?.versionId);
-      const roots = versionComments.filter((c) => !c.parentId);
-      const commentIdx = roots.findIndex((c) => c.id === chatLinkedCommentId);
-      const commentNum = commentIdx >= 0 ? commentIdx + 1 : '???';
-      const tsStr = formatTimestamp(chatLinkedTimestamp || 0);
-      const commentLink = `[Comment #${commentNum} @ ${tsStr} | ${versionLabel}]`;
-      text = text ? `${commentLink} ${text}` : commentLink;
-    } else if (chatLinkedTimestamp > 0) {
-      const tsStr = formatTimestamp(chatLinkedTimestamp);
-      text = `[${tsStr}] ${text}`;
-    }
-
-    // Allow sending if there's text or a comment link
-    if (!text.trim() && !hasCommentLink) return;
-
-    try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entityType: 'track',
-          entityId: selectedTrackId,
-          userId: user.id,
-          text,
-        }),
-      });
-      if (!res.ok) return;
-      const msg = normalizeMessage(await res.json());
-      addMessage(msg);
-      setChatMessages((prev) => [...prev, msg]);
-      setChatInput('');
-      setChatLinkedTimestamp(0);
-      setChatLinkedCommentId(null);
-    } catch {
-      // Silently fail
-    }
-  }, [chatInput, selectedTrackId, user, addMessage, chatLinkedTimestamp]);
-
   // --- WebSocket ---
 
   useEffect(() => {
@@ -1227,22 +1093,13 @@ export function TrackDetailView() {
       setFocusedCommentId((prev) => (prev === data.commentId ? null : prev));
     });
 
-    socket.on('message:new', (raw: any) => {
-      const msg = normalizeMessage(raw);
-      addMessage(msg);
-      setChatMessages((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-    });
-
     return () => {
       socket.emit('room:leave', { room, userId: user?.id });
       socket.disconnect();
       socketRef.current = null;
       setOnlineUserIds(new Set());
     };
-  }, [selectedTrackId, addComment, addMessage, updateCommentStore, removeCommentStore, user]);
+  }, [selectedTrackId, addComment, updateCommentStore, removeCommentStore, user]);
 
   // --- Status Change ---
 
@@ -1334,21 +1191,6 @@ export function TrackDetailView() {
   }, [selectedTrackId, user]);
 
   // --- Reply to Comment ---
-
-  const shareCommentToChat = useCallback((comment: Comment) => {
-    // Find the comment number (1-based index among root comments for its version)
-    const versionComments = comments.filter((c) => c.versionId === comment.versionId);
-    const roots = versionComments.filter((c) => !c.parentId);
-    const commentIndex = roots.findIndex((c) => c.id === comment.id);
-    const commentNum = commentIndex >= 0 ? commentIndex + 1 : '???';
-    // Find version label
-    const commentVersion = versions.find((v) => v.id === comment.versionId);
-    const versionLabel = commentVersion ? `v${commentVersion.version}` : 'v?';
-    // Show link badge above textarea, not in the textarea itself
-    setChatLinkedCommentId(comment.id);
-    setChatLinkedTimestamp(comment.timestampMs);
-    toast({ description: `Comment #${commentNum} (${versionLabel}) linked to chat` });
-  }, [toast, comments, versions]);
 
   const handleReply = useCallback(async () => {
     if (!replyingTo || !replyText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
@@ -1491,6 +1333,37 @@ export function TrackDetailView() {
           />
         </div>
 
+        {/* Open in Kanban — jump to this project's kanban board */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 gap-1.5 text-xs"
+              disabled={!projectOfTrack?.kanbanTaskId}
+              onClick={() => {
+                const project = useDataStore
+                  .getState()
+                  .projects.find((p) => p.id === selectedProjectId);
+                if (!project?.kanbanTaskId) return;
+                useNavigationStore.getState().navigate('kanban');
+                const taskId = project.kanbanTaskId;
+                setTimeout(() => {
+                  useKanbanStore.getState().selectProject(taskId);
+                }, 300);
+              }}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Open in Kanban</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {projectOfTrack?.kanbanTaskId
+              ? 'Open this project\'s kanban board'
+              : 'No kanban board linked to this project'}
+          </TooltipContent>
+        </Tooltip>
+
         {/* Status selector */}
         <Select value={track.status} onValueChange={handleStatusChange}>
           <SelectTrigger
@@ -1607,52 +1480,10 @@ export function TrackDetailView() {
         nextVersion={versions.length + 1}
       />
 
-      {/* Version switch dialog — shown when clicking a comment link from a different version */}
-      <Dialog open={!!pendingVersionSwitch} onOpenChange={(open) => { if (!open) setPendingVersionSwitch(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Switch Version?</DialogTitle>
-            <DialogDescription>
-              This comment is on version {pendingVersionSwitch?.versionLabel}, but you are currently viewing{' '}
-              {activeVersion ? `v${activeVersion.version}` + (activeVersion.label ? ` (${activeVersion.label})` : '') : 'no version'}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPendingVersionSwitch(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              className="bg-[#8A2BE2] text-white hover:bg-[#8A2BE2]/90"
-              onClick={() => {
-                if (!pendingVersionSwitch) return;
-                // Switch to the target version
-                setActiveVersionId(pendingVersionSwitch.versionId);
-                // Seek and focus the comment
-                seekTo(pendingVersionSwitch.timestampMs / 1000);
-                setFocusedCommentId(pendingVersionSwitch.commentId);
-                setTimeout(() => setFocusedCommentId(null), 4000);
-                setPendingVersionSwitch(null);
-              }}
-            >
-              <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" />
-              Switch to {pendingVersionSwitch?.versionLabel}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Resizable Panels */}
+      {/* Main content — single full-width column (chat moved to global floating widget) */}
       <div className="min-h-0 flex-1">
-        <ResizablePanelGroup direction="horizontal">
-          {/* Left Panel: Player + Waveform + Comments */}
-          <ResizablePanel defaultSize={70} minSize={40}>
-            <div className="flex h-full flex-col">
-              {/* Audio Player */}
+        <div className="flex h-full flex-col">
+          {/* Audio Player */}
               <div className="shrink-0 border-b border-border p-4 lg:p-6">
                 {/* Seek bar */}
                 <div className="mb-4">
@@ -2190,13 +2021,6 @@ export function TrackDetailView() {
                           {comment.isResolved ? 'Unresolve' : 'Resolve'}
                         </button>
                         <button
-                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
-                          onClick={(e) => { e.stopPropagation(); shareCommentToChat(comment); }}
-                        >
-                          <Send className="h-2.5 w-2.5 rotate-[-30deg]" />
-                          Send
-                        </button>
-                        <button
                           className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -2244,6 +2068,53 @@ export function TrackDetailView() {
                     Add Comment
                   </Button>
                 </div>
+
+                {/* Participant presence — online indicators (chat moved to global floating widget) */}
+                {groupMembers.length > 0 && (
+                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-[#101016]/50 px-3 py-2">
+                    <div className="flex items-center">
+                      {groupMembers.slice(0, 6).map((member, idx) => {
+                        const isOnline = onlineUserIds.has(member.userId);
+                        return (
+                          <div
+                            key={member.userId}
+                            className="relative"
+                            style={{ marginLeft: idx > 0 ? '-6px' : '0', zIndex: 6 - idx }}
+                          >
+                            <Avatar className="h-6 w-6 border-2 border-background">
+                              <AvatarFallback
+                                className={`text-[8px] ${
+                                  isOnline
+                                    ? 'bg-[#10B981]/20 text-[#10B981]'
+                                    : 'bg-[#1E1E28] text-muted-foreground'
+                                }`}
+                              >
+                                {getInitials(member.displayName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            {/* Online indicator dot */}
+                            <div
+                              className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-background ${
+                                isOnline ? 'bg-[#10B981]' : 'bg-[#4B5563]'
+                              }`}
+                            />
+                          </div>
+                        );
+                      })}
+                      {groupMembers.length > 6 && (
+                        <div
+                          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1E1E28] border-2 border-background text-[8px] font-medium text-muted-foreground"
+                          style={{ marginLeft: '-6px', zIndex: 0 }}
+                        >
+                          +{groupMembers.length - 6}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground/70">
+                      {onlineUserIds.size} online · {groupMembers.length} member{groupMembers.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
 
                 <AnimatePresence>
                   {showCommentInput && (
@@ -2570,25 +2441,12 @@ export function TrackDetailView() {
                                   {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
                                 </span>
                                 <div className="mt-1.5 flex items-center gap-2">
-                                  {/* Airplane share-to-chat button (lower-right) */}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        className="ml-auto flex h-6 items-center gap-1 rounded-full px-2 text-muted-foreground/40 transition-all hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2] hover:shadow-[#8A2BE2]/20 hover:shadow-md"
-                                        onClick={() => shareCommentToChat(comment)}
-                                      >
-                                        <Send className="h-3 w-3 rotate-[-30deg]" />
-                                        <span className="text-[10px] font-medium">Send</span>
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Send comment to chat</TooltipContent>
-                                  </Tooltip>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-6 gap-1 px-2 text-[10px] text-[#00E5FF] hover:text-[#00E5FF] hover:bg-[#00E5FF]/10"
+                                        className="ml-auto h-6 gap-1 px-2 text-[10px] text-[#00E5FF] hover:text-[#00E5FF] hover:bg-[#00E5FF]/10"
                                         onClick={() => seekTo(comment.timestampMs / 1000)}
                                       >
                                         <LocateFixed className="h-3 w-3" />
@@ -2854,222 +2712,6 @@ export function TrackDetailView() {
                 </ScrollArea>
               </div>
             </div>
-          </ResizablePanel>
-
-          {/* Resize Handle */}
-          <ResizableHandle withHandle className="bg-border hover:bg-[#8A2BE2]/30 transition-colors" />
-
-          {/* Right Panel: Chat */}
-          <ResizablePanel defaultSize={30} minSize={25}>
-            <div className="flex h-full flex-col border-l border-border">
-              {/* Chat Header */}
-              <div className="shrink-0 border-b border-border px-4 py-3">
-                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-[#8A2BE2]" />
-                  Chat
-                  <Badge
-                    variant="secondary"
-                    className="h-5 px-1.5 text-[10px]"
-                  >
-                    {chatMessages.length}
-                  </Badge>
-                </h2>
-              </div>
-
-              {/* Participant avatars row */}
-              {groupMembers.length > 0 && (
-                <div className="shrink-0 border-b border-border px-4 py-2">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center">
-                      {groupMembers.slice(0, 5).map((member, idx) => {
-                        const isOnline = onlineUserIds.has(member.userId);
-                        return (
-                          <div
-                            key={member.userId}
-                            className="relative"
-                            style={{ marginLeft: idx > 0 ? '-6px' : '0', zIndex: 5 - idx }}
-                          >
-                            <Avatar className="h-7 w-7 border-2 border-background">
-                              <AvatarFallback className={`text-[9px] ${isOnline ? 'bg-[#10B981]/20 text-[#10B981]' : 'bg-[#1E1E28] text-muted-foreground'}`}>
-                                {getInitials(member.displayName)}
-                              </AvatarFallback>
-                            </Avatar>
-                            {/* Online indicator dot */}
-                            <div
-                              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${isOnline ? 'bg-[#10B981]' : 'bg-[#4B5563]'}`}
-                            />
-                          </div>
-                        );
-                      })}
-                      {groupMembers.length > 5 && (
-                        <div
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1E1E28] border-2 border-background text-[9px] font-medium text-muted-foreground"
-                          style={{ marginLeft: '-6px', zIndex: 0 }}
-                        >
-                          +{groupMembers.length - 5}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-muted-foreground/60">
-                      {groupMembers.length} member{groupMembers.length !== 1 ? 's' : ''} · {onlineUserIds.size} online
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Messages */}
-              <ScrollArea className="flex-1 px-4" ref={chatScrollRef}>
-                <div className="space-y-3 py-4">
-                  {chatMessages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16">
-                      <MessageCircle className="mb-2 h-8 w-8 text-muted-foreground/30" />
-                      <p className="text-xs text-muted-foreground">
-                        No messages yet
-                      </p>
-                      <p className="text-[11px] text-muted-foreground/50 mt-1">
-                        Start the conversation!
-                      </p>
-                    </div>
-                  ) : (
-                    chatMessages.map((msg, idx) => {
-                      const isOwn = msg.userId === user?.id;
-                      return (
-                        <motion.div
-                          key={msg.id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className={`flex gap-2.5 ${isOwn ? 'flex-row-reverse' : ''}`}
-                        >
-                          <Avatar className="h-7 w-7 shrink-0 mt-0.5">
-                            <AvatarFallback
-                              className={`text-[10px] ${
-                                isOwn
-                                  ? 'bg-[#8A2BE2]/20 text-[#8A2BE2]'
-                                  : 'bg-[#1E1E28] text-muted-foreground'
-                              }`}
-                            >
-                              {getInitials(msg.userName)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div
-                            className={`max-w-[80%] ${isOwn ? 'items-end' : 'items-start'}`}
-                          >
-                            <div
-                              className={`flex items-center gap-1.5 mb-0.5 ${isOwn ? 'flex-row-reverse' : ''}`}
-                            >
-                              <span className="text-[11px] font-medium text-foreground">
-                                {msg.userName}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground/50">
-                                {format(new Date(msg.createdAt), 'h:mm a')}
-                              </span>
-                            </div>
-                            <div
-                              className={`rounded-xl px-3 py-1.5 text-xs leading-relaxed ${
-                                isOwn
-                                  ? 'bg-[#8A2BE2]/20 text-foreground rounded-br-sm'
-                                  : 'bg-[#1E1E28] text-foreground rounded-bl-sm'
-                              }`}
-                            >
-                              {renderChatText(msg.text)}
-                            </div>
-                          </div>
-                        </motion.div>
-                      );
-                    })
-                  )}
-                </div>
-                <div ref={chatEndRef} />
-              </ScrollArea>
-
-              {/* Chat Input */}
-              <div className="shrink-0 border-t border-border p-3">
-                {/* Linked timestamp badge */}
-                <AnimatePresence>
-                  {(chatLinkedTimestamp > 0 || chatLinkedCommentId) && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mb-2 flex items-center gap-1.5 overflow-hidden"
-                    >
-                      <Badge
-                        variant="outline"
-                        className="h-6 gap-1 border-[#00E5FF]/30 bg-[#00E5FF]/10 px-2 text-[10px] text-[#00E5FF]"
-                      >
-                        <Clock className="h-2.5 w-2.5" />
-                        {formatTimestamp(chatLinkedTimestamp)}
-                      </Badge>
-                      {chatLinkedCommentId && (() => {
-                        const linkedComment = comments.find((c) => c.id === chatLinkedCommentId);
-                        const linkedVersion = linkedComment ? versions.find((v) => v.id === linkedComment.versionId) : null;
-                        const vLabel = linkedVersion ? `v${linkedVersion.version}` : '';
-                        return (
-                          <Badge
-                            variant="outline"
-                            className="h-6 gap-1 border-[#FB923C]/50 bg-[#FB923C]/15 px-2 text-xs font-semibold text-[#FB923C]"
-                          >
-                            <Send className="h-3 w-3 rotate-[-30deg]" />
-                            Comment linked{vLabel && <span className="ml-0.5 opacity-60">{vLabel}</span>}
-                          </Badge>
-                        );
-                      })()}
-                      <button
-                        onClick={() => { setChatLinkedTimestamp(0); setChatLinkedCommentId(null); }}
-                        className="ml-auto flex h-4 w-4 items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-[#1E1E28] hover:text-foreground"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                <div className="flex items-center gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`h-9 w-9 shrink-0 transition-colors ${
-                          chatLinkedTimestamp > 0
-                            ? 'bg-[#00E5FF]/10 text-[#00E5FF] hover:bg-[#00E5FF]/20'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                        onClick={() => {
-                          const ts = Math.round(currentTime * 1000);
-                          setChatLinkedTimestamp(ts);
-                        }}
-                      >
-                        <Clock className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Link current timestamp to message</TooltipContent>
-                  </Tooltip>
-                  <Input
-                    placeholder="Type a message..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    className="h-9 text-sm"
-                  />
-                  <Button
-                    size="icon"
-                    className="h-9 w-9 shrink-0 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
-                    onClick={handleSendMessage}
-                    disabled={!chatInput.trim() && !chatLinkedCommentId}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
       </div>
     </div>
   );

@@ -42,6 +42,7 @@ export interface Project {
   type: string;
   coverUrl?: string;
   status: string;
+  kanbanTaskId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

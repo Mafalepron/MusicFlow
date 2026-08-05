@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     isProject: true,
     deadline: true,
     category: true,
+    soundflowTrackId: true,
   };
 
   const childrenArgs = deep === 'true'
@@ -45,10 +46,17 @@ export async function GET(req: NextRequest) {
   const tasks = await db.task.findMany({
     where,
     orderBy: { createdAt: 'asc' as const },
-    include: { children: childrenArgs },
+    include: { children: childrenArgs, soundflowProject: { select: { id: true } } },
   });
 
-  return NextResponse.json({ tasks });
+  // Serialize: include soundflowProjectId and soundflowTrackId at top level
+  const serialized = tasks.map((t: typeof tasks[number]) => ({
+    ...t,
+    soundflowProjectId: t.soundflowProject?.id || null,
+    soundflowTrackId: t.soundflowTrackId || null,
+  }));
+
+  return NextResponse.json({ tasks: serialized });
 }
 
 export async function POST(req: NextRequest) {
