@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Music, Upload, Loader2, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { useNavigationStore, useDataStore, useAuthStore } from '@/lib/store';
 import { useKanbanStore } from '@/store/kanban-store';
+import { useHeaderActionsStore } from '@/store/header-actions-store';
 
 const statusColors: Record<string, string> = {
   draft: '#F59E0B',
@@ -102,6 +103,31 @@ export function ProjectDetailView() {
         .sort((a, b) => (a.trackNumber ?? 999) - (b.trackNumber ?? 999)),
     [tracks, selectedProjectId]
   );
+
+  // Register contextual header actions (Open Kanban)
+  const setHeaderActions = useHeaderActionsStore((s) => s.setActions);
+  const setHeaderTitle = useHeaderActionsStore((s) => s.setTitle);
+  useEffect(() => {
+    const actions: { id: string; label: string; icon: React.ReactNode; onClick: () => void; variant?: 'default' | 'outline' | 'ghost'; className?: string }[] = [];
+    if (project?.kanbanTaskId) {
+      actions.push({
+        id: 'open-kanban',
+        label: 'Kanban',
+        icon: <LayoutDashboard className="h-3.5 w-3.5" />,
+        onClick: () => {
+          navigate('kanban');
+          setTimeout(() => {
+            useKanbanStore.getState().selectProject(project.kanbanTaskId!);
+          }, 300);
+        },
+        variant: 'outline',
+        className: 'border-[#00E5FF]/30 text-[#00E5FF] hover:bg-[#00E5FF]/10 hover:text-[#00E5FF]',
+      });
+    }
+    setHeaderActions(actions);
+    setHeaderTitle(project?.title || null);
+    return () => { setHeaderActions([]); setHeaderTitle(null); };
+  }, [project, setHeaderActions, setHeaderTitle, navigate]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!project) return;
@@ -257,14 +283,6 @@ export function ProjectDetailView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <button
-          onClick={() => navigate('projects')}
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-[#A0A0B0] transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Projects
-        </button>
-
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-foreground">{project.title}</h1>
@@ -278,21 +296,6 @@ export function ProjectDetailView() {
           </div>
 
           <div className="flex items-center gap-3">
-            {project.kanbanTaskId && (
-              <Button
-                onClick={() => {
-                  navigate('kanban');
-                  setTimeout(() => {
-                    useKanbanStore.getState().selectProject(project.kanbanTaskId!);
-                  }, 300);
-                }}
-                variant="outline"
-                className="border-[#00E5FF]/30 text-[#00E5FF] hover:bg-[#00E5FF]/10 hover:text-[#00E5FF]"
-              >
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                Open Kanban
-              </Button>
-            )}
             <Select
               value={project.status}
               onValueChange={handleStatusChange}

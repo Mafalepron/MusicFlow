@@ -70,6 +70,7 @@ import {
 } from '@/lib/store';
 import { useKanbanStore } from '@/store/kanban-store';
 import { useAudioContextStore } from '@/store/audio-context-store';
+import { useHeaderActionsStore } from '@/store/header-actions-store';
 
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -93,20 +94,6 @@ interface ChatMember {
 }
 
 // --- Constants ---
-
-const statusColors: Record<string, string> = {
-  idea: 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30',
-  recording: 'bg-[#3B82F6]/15 text-[#3B82F6] border-[#3B82F6]/30',
-  mixing: 'bg-[#8A2BE2]/15 text-[#8A2BE2] border-[#8A2BE2]/30',
-  final: 'bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30',
-};
-
-const statusLabels: Record<string, string> = {
-  idea: 'Idea',
-  recording: 'Recording',
-  mixing: 'Mixing',
-  final: 'Final',
-};
 
 // Build a nested tree from flat comment list
 interface CommentNode extends Comment {
@@ -439,6 +426,12 @@ export function TrackDetailView() {
   const setAudioContextTime = useAudioContextStore((s) => s.setCurrentTime);
   const setAudioContextPlaying = useAudioContextStore((s) => s.setIsPlaying);
 
+  // Header actions store — register contextual actions (Open in Kanban) and the
+  // page title with the unified AppHeader. The duplicate inline back button +
+  // title header has been removed; breadcrumbs are rendered by AppHeader.
+  const setHeaderActions = useHeaderActionsStore((s) => s.setActions);
+  const setHeaderTitle = useHeaderActionsStore((s) => s.setTitle);
+
   const track = useMemo(
     () => tracks.find((t) => t.id === selectedTrackId) ?? null,
     [tracks, selectedTrackId]
@@ -633,6 +626,56 @@ export function TrackDetailView() {
       setActiveTrack(null, null, null);
     };
   }, [selectedTrackId, selectedProjectId, projectOfTrack?.kanbanTaskId, setActiveTrack]);
+
+  // Register contextual header actions and the page title with the unified
+  // AppHeader. Breadcrumbs (Group / Projects / Project Title / Track) are
+  // rendered by AppHeader, and the "Open in Kanban" action appears as a header
+  // button (only when this project has a linked kanbanTaskId).
+  useEffect(() => {
+    if (!track) {
+      setHeaderTitle(null);
+      setHeaderActions([]);
+      return;
+    }
+
+    setHeaderTitle(track.title);
+
+    const kanbanTaskId = projectOfTrack?.kanbanTaskId;
+    if (kanbanTaskId) {
+      setHeaderActions([
+        {
+          id: 'open-in-kanban',
+          label: 'Open in Kanban',
+          icon: <LayoutDashboard className="h-3.5 w-3.5" />,
+          variant: 'outline',
+          onClick: () => {
+            const project = useDataStore
+              .getState()
+              .projects.find((p) => p.id === selectedProjectId);
+            if (!project?.kanbanTaskId) return;
+            useNavigationStore.getState().navigate('kanban');
+            const taskId = project.kanbanTaskId;
+            setTimeout(() => {
+              useKanbanStore.getState().selectProject(taskId);
+            }, 300);
+          },
+        },
+      ]);
+    } else {
+      setHeaderActions([]);
+    }
+
+    return () => {
+      setHeaderActions([]);
+      setHeaderTitle(null);
+    };
+  }, [
+    track,
+    projectOfTrack?.kanbanTaskId,
+    selectedProjectId,
+    setHeaderActions,
+    setHeaderTitle,
+  ]);
 
   // Marker tooltip position is now calculated directly in onMouseEnter handler
   // (removed the old useEffect + ref pattern to fix timing issues with framer-motion)
@@ -1292,39 +1335,16 @@ export function TrackDetailView() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Back button and title row */}
+      {/* Contextual row — ideas strip + status selector.
+          Back button, title, and "Open in Kanban" action have moved to the
+          unified AppHeader (breadcrumbs + header-actions store). */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
         className="flex items-center gap-3 border-b border-border px-4 py-3 lg:px-6"
       >
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              onClick={() => navigate('project-detail', selectedProjectId ?? undefined)}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Back to project</TooltipContent>
-        </Tooltip>
-
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="truncate text-lg font-bold text-foreground">
-              {track.title}
-            </h1>
-            <Badge
-              variant="outline"
-              className={`shrink-0 text-[10px] uppercase tracking-wide ${statusColors[track.status] || ''}`}
-            >
-              {statusLabels[track.status] || track.status}
-            </Badge>
-          </div>
           {/* Ideas Stories Strip — in header area */}
           <IdeasStoriesStrip
             ideas={projectIdeas}
@@ -1332,37 +1352,6 @@ export function TrackDetailView() {
             projectName={projectOfTrack?.title ?? ''}
           />
         </div>
-
-        {/* Open in Kanban — jump to this project's kanban board */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 shrink-0 gap-1.5 text-xs"
-              disabled={!projectOfTrack?.kanbanTaskId}
-              onClick={() => {
-                const project = useDataStore
-                  .getState()
-                  .projects.find((p) => p.id === selectedProjectId);
-                if (!project?.kanbanTaskId) return;
-                useNavigationStore.getState().navigate('kanban');
-                const taskId = project.kanbanTaskId;
-                setTimeout(() => {
-                  useKanbanStore.getState().selectProject(taskId);
-                }, 300);
-              }}
-            >
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Open in Kanban</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {projectOfTrack?.kanbanTaskId
-              ? 'Open this project\'s kanban board'
-              : 'No kanban board linked to this project'}
-          </TooltipContent>
-        </Tooltip>
 
         {/* Status selector */}
         <Select value={track.status} onValueChange={handleStatusChange}>

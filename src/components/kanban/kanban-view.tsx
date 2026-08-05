@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { useKanbanStore } from '@/store/kanban-store';
+import { useHeaderActionsStore } from '@/store/header-actions-store';
 import RadialBoard from '@/components/board/radial-board';
 import TaskStrip from '@/components/board/task-strip';
 import OnboardingHintPanel from '@/components/board/onboarding-hint-panel';
@@ -489,17 +490,32 @@ function KanbanWorkspace() {
 }
 
 export function KanbanPage() {
+  const { selectedProjectId, selectProject } = useKanbanStore();
+  const setHeaderActions = useHeaderActionsStore((s) => s.setActions);
+  const setHeaderTitle = useHeaderActionsStore((s) => s.setTitle);
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      // Inside a kanban project — register back action
+      setHeaderActions([
+        {
+          id: 'back-to-projects',
+          label: 'К проектам',
+          icon: <ArrowLeft className="h-3.5 w-3.5" />,
+          onClick: () => selectProject(''),
+          variant: 'ghost',
+        },
+      ]);
+    } else {
+      // On the project list — no contextual actions needed
+      setHeaderActions([]);
+    }
+    setHeaderTitle(null);
+    return () => { /* keep actions on unmount so transitions don't flicker */ };
+  }, [selectedProjectId, selectProject, setHeaderActions, setHeaderTitle]);
+
   return (
-    <div className="bg-slate-950 text-slate-100 flex flex-col h-[calc(100dvh-11.5rem)] lg:h-[calc(100dvh-9rem)]">
-      <div className="flex items-center gap-3 border-b border-slate-800/60 px-4 py-3 shrink-0">
-        <Button variant="ghost" onClick={() => useKanbanStore.getState().selectProject('')} className="text-slate-400 hover:text-slate-200">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Назад к проектам
-        </Button>
-        <div className="flex items-center gap-2">
-          <Hexagon className="w-4 h-4 text-cyan-400" />
-          <span className="text-sm font-medium text-slate-300">Kanban workspace</span>
-        </div>
-      </div>
+    <div className="bg-slate-950 text-slate-100 flex flex-col h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-7rem)]">
       <KanbanWorkspace />
     </div>
   );

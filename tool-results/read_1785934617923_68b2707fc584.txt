@@ -1,0 +1,681 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  Search, X, Bell, Menu, ChevronRight, ChevronDown,
+     7→  MessageCircle, LogOut, Settings, User, Check, Copy,
+     8→  Home, Lightbulb, FolderOpen, LayoutGrid, Music,
+     9→} from 'lucide-react';
+    10→import { Button } from '@/components/ui/button';
+    11→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+    12→import {
+    13→  Tooltip,
+    14→  TooltipContent,
+    15→  TooltipProvider,
+    16→  TooltipTrigger,
+    17→} from '@/components/ui/tooltip';
+    18→import {
+    19→  Sheet,
+    20→  SheetContent,
+    21→  SheetTrigger,
+    22→  SheetTitle,
+    23→} from '@/components/ui/sheet';
+    24→import {
+    25→  Popover,
+    26→  PopoverContent,
+    27→  PopoverTrigger,
+    28→} from '@/components/ui/popover';
+    29→import { Separator } from '@/components/ui/separator';
+    30→import { ScrollArea } from '@/components/ui/scroll-area';
+    31→import { useNavigationStore, useAuthStore, useDataStore, type ViewName } from '@/lib/store';
+    32→import { useHeaderActionsStore } from '@/store/header-actions-store';
+    33→import { useChatContextStore } from '@/store/chat-context-store';
+    34→import { formatDistanceToNow } from 'date-fns';
+    35→import { cn } from '@/lib/utils';
+    36→
+    37→const viewLabels: Record<string, string> = {
+    38→  home: 'Home',
+    39→  ideas: 'Ideas',
+    40→  projects: 'Projects',
+    41→  'project-detail': 'Project',
+    42→  'track-detail': 'Track',
+    43→  kanban: 'Kanban',
+    44→  'group-settings': 'Settings',
+    45→};
+    46→
+    47→const navItems: { icon: typeof Home; label: string; view: ViewName }[] = [
+    48→  { icon: Home, label: 'Home', view: 'home' },
+    49→  { icon: Lightbulb, label: 'Ideas', view: 'ideas' },
+    50→  { icon: FolderOpen, label: 'Projects', view: 'projects' },
+    51→  { icon: LayoutGrid, label: 'Kanban', view: 'kanban' },
+    52→];
+    53→
+    54→export function AppHeader() {
+    55→  const { currentView, selectedProjectId, navigate } = useNavigationStore();
+    56→  const { user, logout, currentGroupName: persistedGroupName, currentGroupInviteCode: persistedInviteCode } = useAuthStore();
+    57→  const currentGroup = useDataStore((s) => s.currentGroup);
+    58→  const projects = useDataStore((s) => s.projects);
+    59→  const tracks = useDataStore((s) => s.tracks);
+    60→  const notifications = useDataStore((s) => s.notifications);
+    61→  const notificationCount = useDataStore((s) => s.notificationCount);
+    62→  const setNotifications = useDataStore((s) => s.setNotifications);
+    63→  const setNotificationCount = useDataStore((s) => s.setNotificationCount);
+    64→  const headerActions = useHeaderActionsStore((s) => s.actions);
+    65→  const headerTitle = useHeaderActionsStore((s) => s.title);
+    66→  const { activeChatProjectId, activeChatProjectName } = useChatContextStore();
+    67→
+    68→  const [searchOpen, setSearchOpen] = useState(false);
+    69→  const [searchQuery, setSearchQuery] = useState('');
+    70→  const [searchResults, setSearchResults] = useState<{ type: 'project' | 'track'; id: string; title: string; subtitle?: string }[]>([]);
+    71→  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    72→  const [profileOpen, setProfileOpen] = useState(false);
+    73→  const [copied, setCopied] = useState(false);
+    74→  const notifRef = useRef<HTMLDivElement>(null);
+    75→  const [notifOpen, setNotifOpen] = useState(false);
+    76→
+    77→  const groupName = currentGroup?.name || persistedGroupName || 'SoundFlow';
+    78→  const inviteCode = currentGroup?.inviteCode || persistedInviteCode || '';
+    79→
+    80→  // Fetch notifications on mount
+    81→  useEffect(() => {
+    82→    const currentUser = useAuthStore.getState().user;
+    83→    if (!currentUser) return;
+    84→    fetch(`/api/notifications?userId=${currentUser.id}`)
+    85→      .then(r => r.json())
+    86→      .then(data => {
+    87→        if (Array.isArray(data)) {
+    88→          setNotifications(data);
+    89→          setNotificationCount(data.filter((n: { isRead: boolean }) => !n.isRead).length);
+    90→        }
+    91→      })
+    92→      .catch(() => {});
+    93→  }, [setNotifications, setNotificationCount]);
+    94→
+    95→  // Close notification dropdown on outside click
+    96→  useEffect(() => {
+    97→    if (!notifOpen) return;
+    98→    const handler = (e: MouseEvent) => {
+    99→      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+   100→        setNotifOpen(false);
+   101→      }
+   102→    };
+   103→    document.addEventListener('mousedown', handler);
+   104→    return () => document.removeEventListener('mousedown', handler);
+   105→  }, [notifOpen]);
+   106→
+   107→  // Build breadcrumbs
+   108→  const breadcrumbs: { label: string; view?: string; projectId?: string }[] = [
+   109→    { label: groupName },
+   110→  ];
+   111→
+   112→  if (currentView === 'project-detail' && selectedProjectId) {
+   113→    breadcrumbs.push({ label: 'Projects', view: 'projects' });
+   114→    const project = projects.find((p) => p.id === selectedProjectId);
+   115→    breadcrumbs.push({ label: project?.title || 'Project' });
+   116→  } else if (currentView === 'track-detail' && selectedProjectId) {
+   117→    breadcrumbs.push({ label: 'Projects', view: 'projects' });
+   118→    const project = projects.find((p) => p.id === selectedProjectId);
+   119→    breadcrumbs.push({ label: project?.title || 'Project', view: 'project-detail', projectId: selectedProjectId });
+   120→    breadcrumbs.push({ label: headerTitle || 'Track' });
+   121→  } else if (currentView !== 'home') {
+   122→    breadcrumbs.push({ label: headerTitle || viewLabels[currentView] || currentView });
+   123→  }
+   124→
+   125→  // Search logic
+   126→  useEffect(() => {
+   127→    if (!searchQuery.trim()) {
+   128→      setSearchResults([]);
+   129→      return;
+   130→    }
+   131→    const q = searchQuery.toLowerCase();
+   132→    const pResults = projects
+   133→      .filter(p => p.title.toLowerCase().includes(q))
+   134→      .slice(0, 5)
+   135→      .map(p => ({ type: 'project' as const, id: p.id, title: p.title, subtitle: p.type }));
+   136→    const tResults = tracks
+   137→      .filter(t => t.title.toLowerCase().includes(q))
+   138→      .slice(0, 5)
+   139→      .map(t => ({ type: 'track' as const, id: t.id, title: t.title, subtitle: projects.find(p => p.id === t.projectId)?.title }));
+   140→    setSearchResults([...pResults, ...tResults]);
+   141→  }, [searchQuery, projects, tracks]);
+   142→
+   143→  const handleSearchSelect = (result: { type: 'project' | 'track'; id: string; subtitle?: string }) => {
+   144→    if (result.type === 'project') {
+   145→      navigate('project-detail', result.id);
+   146→    } else {
+   147→      const track = tracks.find(t => t.id === result.id);
+   148→      if (track) navigate('track-detail', track.projectId, track.id);
+   149→    }
+   150→    setSearchOpen(false);
+   151→    setSearchQuery('');
+   152→  };
+   153→
+   154→  const markAsRead = async (id: string) => {
+   155→    fetch('/api/notifications', {
+   156→      method: 'PATCH',
+   157→      headers: { 'Content-Type': 'application/json' },
+   158→      body: JSON.stringify({ ids: [id] }),
+   159→    });
+   160→    setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+   161→    setNotificationCount(Math.max(0, notificationCount - 1));
+   162→  };
+   163→
+   164→  const markAllRead = async () => {
+   165→    const currentUser = useAuthStore.getState().user;
+   166→    if (!currentUser) return;
+   167→    fetch('/api/notifications', {
+   168→      method: 'PATCH',
+   169→      headers: { 'Content-Type': 'application/json' },
+   170→      body: JSON.stringify({ all: true, userId: currentUser.id }),
+   171→    });
+   172→    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+   173→    setNotificationCount(0);
+   174→  };
+   175→
+   176→  const handleNotificationClick = (notif: typeof notifications[number]) => {
+   177→    markAsRead(notif.id);
+   178→    setNotifOpen(false);
+   179→    if (notif.type === 'chat_message' || notif.type === 'track_version' || notif.type === 'comment') {
+   180→      navigate('project-detail', notif.projectId);
+   181→    }
+   182→  };
+   183→
+   184→  const handleCopyCode = () => {
+   185→    if (inviteCode) {
+   186→      navigator.clipboard.writeText(inviteCode);
+   187→      setCopied(true);
+   188→      setTimeout(() => setCopied(false), 2000);
+   189→    }
+   190→  };
+   191→
+   192→  const handleLogout = () => {
+   193→    logout();
+   194→    navigate('onboarding');
+   195→  };
+   196→
+   197→  const handleNavigate = (view: ViewName) => {
+   198→    navigate(view);
+   199→    setMobileNavOpen(false);
+   200→  };
+   201→
+   202→  return (
+   203→    <>
+   204→      {/* Unified Header */}
+   205→      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/80 backdrop-blur-xl px-3 lg:px-6">
+   206→        {/* Mobile: hamburger menu */}
+   207→        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+   208→          <SheetTrigger asChild>
+   209→            <Button
+   210→              variant="ghost"
+   211→              size="icon"
+   212→              className="lg:hidden h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground shrink-0"
+   213→            >
+   214→              <Menu className="h-5 w-5" />
+   215→            </Button>
+   216→          </SheetTrigger>
+   217→          <SheetContent side="left" className="w-64 p-0 bg-sidebar border-sidebar-border">
+   218→            <SheetTitle className="sr-only">Navigation</SheetTitle>
+   219→            <MobileNavContent
+   220→              currentView={currentView}
+   221→              onNavigate={handleNavigate}
+   222→              groupName={groupName}
+   223→              inviteCode={inviteCode}
+   224→              user={user}
+   225→              onCopyCode={handleCopyCode}
+   226→              copied={copied}
+   227→              onLogout={handleLogout}
+   228→              notificationCount={notificationCount}
+   229→            />
+   230→          </SheetContent>
+   231→        </Sheet>
+   232→
+   233→        {/* Logo — mobile only (desktop has sidebar) */}
+   234→        <div className="flex items-center gap-2 lg:hidden">
+   235→          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20">
+   236→            <Music className="h-4 w-4 text-primary" />
+   237→          </div>
+   238→        </div>
+   239→
+   240→        {/* Breadcrumbs */}
+   241→        <nav className="hidden sm:flex items-center gap-1 text-sm min-w-0 flex-1">
+   242→          <AnimatePresence mode="wait">
+   243→            <motion.div
+   244→              key={breadcrumbs.map(b => b.label).join('/')}
+   245→              initial={{ opacity: 0, x: -5 }}
+   246→              animate={{ opacity: 1, x: 0 }}
+   247→              transition={{ duration: 0.2 }}
+   248→              className="flex items-center gap-1 min-w-0"
+   249→            >
+   250→              {breadcrumbs.map((crumb, i) => (
+   251→                <span key={i} className="flex items-center gap-1 min-w-0">
+   252→                  {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />}
+   253→                  {crumb.view ? (
+   254→                    <button
+   255→                      onClick={() => navigate(crumb.view as ViewName, crumb.projectId)}
+   256→                      className="text-muted-foreground hover:text-foreground transition-colors truncate max-w-[120px]"
+   257→                    >
+   258→                      {crumb.label}
+   259→                    </button>
+   260→                  ) : (
+   261→                    <span className={cn(
+   262→                      'font-medium truncate',
+   263→                      i === breadcrumbs.length - 1 ? 'text-foreground' : 'text-muted-foreground'
+   264→                    )}>
+   265→                      {crumb.label}
+   266→                    </span>
+   267→                  )}
+   268→                </span>
+   269→              ))}
+   270→            </motion.div>
+   271→          </AnimatePresence>
+   272→        </nav>
+   273→
+   274→        {/* Spacer on mobile (breadcrumbs hidden) */}
+   275→        <div className="flex-1 sm:hidden" />
+   276→
+   277→        {/* Contextual actions from views */}
+   278→        <div className="flex items-center gap-1.5">
+   279→          <AnimatePresence mode="popLayout">
+   280→            {headerActions.map((action) => (
+   281→              <motion.div
+   282→                key={action.id}
+   283→                initial={{ opacity: 0, scale: 0.9 }}
+   284→                animate={{ opacity: 1, scale: 1 }}
+   285→                exit={{ opacity: 0, scale: 0.9 }}
+   286→                transition={{ duration: 0.15 }}
+   287→              >
+   288→                <Button
+   289→                  size="sm"
+   290→                  variant={action.variant || 'outline'}
+   291→                  onClick={action.onClick}
+   292→                  className={cn('h-8 text-xs gap-1.5', action.className)}
+   293→                >
+   294→                  {action.icon}
+   295→                  <span className="hidden md:inline">{action.label}</span>
+   296→                </Button>
+   297→              </motion.div>
+   298→            ))}
+   299→          </AnimatePresence>
+   300→        </div>
+   301→
+   302→        {/* Search */}
+   303→        <TooltipProvider delayDuration={300}>
+   304→          <Tooltip>
+   305→            <TooltipTrigger asChild>
+   306→              <Button
+   307→                variant="ghost"
+   308→                size="icon"
+   309→                className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground shrink-0"
+   310→                onClick={() => setSearchOpen(!searchOpen)}
+   311→              >
+   312→                <Search className="h-4 w-4" />
+   313→              </Button>
+   314→            </TooltipTrigger>
+   315→            <TooltipContent>Search</TooltipContent>
+   316→          </Tooltip>
+   317→        </TooltipProvider>
+   318→
+   319→        {/* Search overlay */}
+   320→        <AnimatePresence>
+   321→          {searchOpen && (
+   322→            <motion.div
+   323→              initial={{ opacity: 0, width: 0 }}
+   324→              animate={{ opacity: 1, width: 'auto' }}
+   325→              exit={{ opacity: 0, width: 0 }}
+   326→              transition={{ duration: 0.2 }}
+   327→              className="absolute left-3 right-3 top-full mt-1 z-40 sm:left-auto sm:right-16 sm:w-80"
+   328→            >
+   329→              <div className="rounded-xl border border-border bg-card shadow-2xl shadow-black/40 overflow-hidden">
+   330→                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
+   331→                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+   332→                  <input
+   333→                    autoFocus
+   334→                    value={searchQuery}
+   335→                    onChange={(e) => setSearchQuery(e.target.value)}
+   336→                    onKeyDown={(e) => {
+   337→                      if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); }
+   338→                      if (e.key === 'Enter' && searchResults.length > 0) handleSearchSelect(searchResults[0]);
+   339→                    }}
+   340→                    placeholder="Search projects, tracks..."
+   341→                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+   342→                  />
+   343→                  <Button
+   344→                    variant="ghost"
+   345→                    size="icon"
+   346→                    className="h-6 w-6 shrink-0"
+   347→                    onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+   348→                  >
+   349→                    <X className="h-3.5 w-3.5" />
+   350→                  </Button>
+   351→                </div>
+   352→                {searchResults.length > 0 && (
+   353→                  <ScrollArea className="max-h-64">
+   354→                    <div className="p-1">
+   355→                      {searchResults.map((result) => (
+   356→                        <button
+   357→                          key={result.type + result.id}
+   358→                          onClick={() => handleSearchSelect(result)}
+   359→                          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#1E1E28] transition-colors text-left"
+   360→                        >
+   361→                          <div className={cn(
+   362→                            'w-7 h-7 rounded-md flex items-center justify-center shrink-0',
+   363→                            result.type === 'project' ? 'bg-primary/15' : 'bg-[#00E5FF]/15'
+   364→                          )}>
+   365→                            {result.type === 'project'
+   366→                              ? <FolderOpen className="h-3.5 w-3.5 text-primary" />
+   367→                              : <Music className="h-3.5 w-3.5 text-[#00E5FF]" />
+   368→                            }
+   369→                          </div>
+   370→                          <div className="min-w-0 flex-1">
+   371→                            <p className="text-xs font-medium text-foreground truncate">{result.title}</p>
+   372→                            {result.subtitle && (
+   373→                              <p className="text-[10px] text-muted-foreground truncate capitalize">{result.subtitle}</p>
+   374→                            )}
+   375→                          </div>
+   376→                          <span className={cn(
+   377→                            'text-[9px] px-1.5 py-0.5 rounded shrink-0',
+   378→                            result.type === 'project' ? 'bg-primary/15 text-primary' : 'bg-[#00E5FF]/15 text-[#00E5FF]'
+   379→                          )}>
+   380→                            {result.type}
+   381→                          </span>
+   382→                        </button>
+   383→                      ))}
+   384→                    </div>
+   385→                  </ScrollArea>
+   386→                )}
+   387→                {searchQuery && searchResults.length === 0 && (
+   388→                  <div className="p-6 text-center">
+   389→                    <p className="text-xs text-muted-foreground">No results found</p>
+   390→                  </div>
+   391→                )}
+   392→              </div>
+   393→            </motion.div>
+   394→          )}
+   395→        </AnimatePresence>
+   396→
+   397→        {/* Notifications */}
+   398→        <div className="relative" ref={notifRef}>
+   399→          <TooltipProvider delayDuration={300}>
+   400→            <Tooltip>
+   401→              <TooltipTrigger asChild>
+   402→                <Button
+   403→                  variant="ghost"
+   404→                  size="icon"
+   405→                  className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground shrink-0 relative"
+   406→                  onClick={() => setNotifOpen(!notifOpen)}
+   407→                >
+   408→                  <Bell className="h-4 w-4" />
+   409→                  <AnimatePresence>
+   410→                    {notificationCount > 0 && (
+   411→                      <motion.span
+   412→                        initial={{ scale: 0 }}
+   413→                        animate={{ scale: 1 }}
+   414→                        exit={{ scale: 0 }}
+   415→                        className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground"
+   416→                      >
+   417→                        {notificationCount > 99 ? '99+' : notificationCount}
+   418→                      </motion.span>
+   419→                    )}
+   420→                  </AnimatePresence>
+   421→                </Button>
+   422→              </TooltipTrigger>
+   423→              <TooltipContent>Notifications</TooltipContent>
+   424→            </Tooltip>
+   425→          </TooltipProvider>
+   426→
+   427→          <AnimatePresence>
+   428→            {notifOpen && (
+   429→              <motion.div
+   430→                initial={{ opacity: 0, y: -8 }}
+   431→                animate={{ opacity: 1, y: 0 }}
+   432→                exit={{ opacity: 0, y: -8 }}
+   433→                transition={{ duration: 0.15 }}
+   434→                className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-card shadow-2xl shadow-black/60 z-50 overflow-hidden"
+   435→              >
+   436→                <div className="flex items-center justify-between border-b border-border p-3">
+   437→                  <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
+   438→                  {notificationCount > 0 && (
+   439→                    <button onClick={markAllRead} className="text-[10px] text-primary hover:underline">Mark all read</button>
+   440→                  )}
+   441→                </div>
+   442→                <div className="max-h-64 overflow-y-auto">
+   443→                  {notifications.length === 0 ? (
+   444→                    <div className="p-6 text-center">
+   445→                      <Bell className="mx-auto mb-2 h-6 w-6 text-muted-foreground/30" />
+   446→                      <p className="text-xs text-muted-foreground">No notifications</p>
+   447→                    </div>
+   448→                  ) : (
+   449→                    notifications.map((notif) => (
+   450→                      <button
+   451→                        key={notif.id}
+   452→                        onClick={() => handleNotificationClick(notif)}
+   453→                        className={cn(
+   454→                          'w-full text-left px-3 py-2.5 border-b border-border/50 last:border-0 transition-colors hover:bg-[#1E1E28]',
+   455→                          !notif.isRead && 'bg-primary/5'
+   456→                        )}
+   457→                      >
+   458→                        <div className="flex items-start gap-2">
+   459→                          <span className={cn('mt-0.5 text-xs', notif.isRead ? 'text-muted-foreground/40' : 'text-primary')}>
+   460→                            {notif.isRead ? '✓✓' : '✓'}
+   461→                          </span>
+   462→                          <div className="min-w-0 flex-1">
+   463→                            <p className="text-xs font-medium text-foreground truncate">{notif.title}</p>
+   464→                            {notif.body && <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{notif.body}</p>}
+   465→                            <p className="text-[10px] text-muted-foreground/40 mt-1">
+   466→                              {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
+   467→                            </p>
+   468→                          </div>
+   469→                        </div>
+   470→                      </button>
+   471→                    ))
+   472→                  )}
+   473→                </div>
+   474→              </motion.div>
+   475→            )}
+   476→          </AnimatePresence>
+   477→        </div>
+   478→
+   479→        {/* Profile dropdown */}
+   480→        <Popover open={profileOpen} onOpenChange={setProfileOpen}>
+   481→          <TooltipProvider delayDuration={300}>
+   482→            <Tooltip>
+   483→              <TooltipTrigger asChild>
+   484→                <PopoverTrigger asChild>
+   485→                  <button className="flex items-center gap-2 rounded-lg pl-1 pr-2 py-1 hover:bg-[#1E1E28] transition-colors shrink-0">
+   486→                    <Avatar className="h-7 w-7">
+   487→                      <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
+   488→                      <AvatarFallback className="bg-primary/20 text-primary text-xs">
+   489→                        {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+   490→                      </AvatarFallback>
+   491→                    </Avatar>
+   492→                    <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
+   493→                  </button>
+   494→                </PopoverTrigger>
+   495→              </TooltipTrigger>
+   496→              <TooltipContent>Profile & Settings</TooltipContent>
+   497→            </Tooltip>
+   498→          </TooltipProvider>
+   499→
+   500→          <PopoverContent align="end" className="w-64 p-0 bg-card border-border">
+   501→            <div className="p-3 border-b border-border">
+   502→              <div className="flex items-center gap-3">
+   503→                <Avatar className="h-10 w-10">
+   504→                  <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
+   505→                  <AvatarFallback className="bg-primary/20 text-primary">
+   506→                    {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+   507→                  </AvatarFallback>
+   508→                </Avatar>
+   509→                <div className="min-w-0 flex-1">
+   510→                  <p className="text-sm font-medium text-foreground truncate">
+   511→                    {user?.displayName || 'User'}
+   512→                  </p>
+   513→                  <p className="text-xs text-muted-foreground truncate">
+   514→                    {user?.email || ''}
+   515→                  </p>
+   516→                </div>
+   517→              </div>
+   518→            </div>
+   519→
+   520→            {/* Group info */}
+   521→            <div className="p-3 border-b border-border">
+   522→              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">Group</p>
+   523→              <p className="text-sm font-medium text-foreground truncate mb-1.5">{groupName}</p>
+   524→              {inviteCode && (
+   525→                <div className="flex items-center gap-1.5">
+   526→                  <code className="flex-1 rounded bg-background px-2 py-1 text-xs text-[#00E5FF] font-mono">
+   527→                    {inviteCode}
+   528→                  </code>
+   529→                  <Button
+   530→                    variant="ghost"
+   531→                    size="icon"
+   532→                    className="h-7 w-7 hover:bg-[#2A2A36] shrink-0"
+   533→                    onClick={handleCopyCode}
+   534→                  >
+   535→                    {copied ? <Check className="h-3 w-3 text-[#10B981]" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+   536→                  </Button>
+   537→                </div>
+   538→              )}
+   539→            </div>
+   540→
+   541→            {/* Menu items */}
+   542→            <div className="p-1.5">
+   543→              <button
+   544→                onClick={() => { setProfileOpen(false); navigate('group-settings'); }}
+   545→                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#1E1E28] transition-colors text-left"
+   546→              >
+   547→                <Settings className="h-4 w-4 text-muted-foreground" />
+   548→                <span className="text-sm text-foreground">Settings</span>
+   549→              </button>
+   550→              <button
+   551→                onClick={handleLogout}
+   552→                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#1E1E28] transition-colors text-left"
+   553→              >
+   554→                <LogOut className="h-4 w-4 text-muted-foreground" />
+   555→                <span className="text-sm text-foreground">Logout</span>
+   556→              </button>
+   557→            </div>
+   558→          </PopoverContent>
+   559→        </Popover>
+   560→      </header>
+   561→    </>
+   562→  );
+   563→}
+   564→
+   565→// Mobile nav content (shared between Sheet and could be reused)
+   566→function MobileNavContent({
+   567→  currentView,
+   568→  onNavigate,
+   569→  groupName,
+   570→  inviteCode,
+   571→  user,
+   572→  onCopyCode,
+   573→  copied,
+   574→  onLogout,
+   575→  notificationCount,
+   576→}: {
+   577→  currentView: string;
+   578→  onNavigate: (view: ViewName) => void;
+   579→  groupName: string;
+   580→  inviteCode: string;
+   581→  user: { displayName?: string; email?: string; avatarUrl?: string } | null;
+   582→  onCopyCode: () => void;
+   583→  copied: boolean;
+   584→  onLogout: () => void;
+   585→  notificationCount: number;
+   586→}) {
+   587→  return (
+   588→    <div className="flex h-full flex-col">
+   589→      {/* Logo */}
+   590→      <div className="flex items-center gap-2 px-4 py-5">
+   591→        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
+   592→          <Music className="h-4 w-4 text-primary" />
+   593→        </div>
+   594→        <span className="text-lg font-bold text-primary">SoundFlow</span>
+   595→      </div>
+   596→
+   597→      <Separator className="bg-border" />
+   598→
+   599→      {/* Group info */}
+   600→      <div className="px-3 py-3">
+   601→        <div className="rounded-lg bg-[#1E1E28] p-3">
+   602→          <p className="text-sm font-medium text-foreground truncate">{groupName}</p>
+   603→          {inviteCode && (
+   604→            <div className="mt-2 flex items-center gap-1.5">
+   605→              <code className="flex-1 rounded bg-background px-2 py-0.5 text-xs text-[#00E5FF] font-mono">
+   606→                {inviteCode}
+   607→              </code>
+   608→              <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-[#2A2A36]" onClick={onCopyCode}>
+   609→                {copied ? <Check className="h-3 w-3 text-[#10B981]" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+   610→              </Button>
+   611→            </div>
+   612→          )}
+   613→        </div>
+   614→      </div>
+   615→
+   616→      {/* Navigation */}
+   617→      <ScrollArea className="flex-1 px-3 py-2">
+   618→        <nav className="space-y-1">
+   619→          {navItems.map((item) => {
+   620→            const isActive = currentView === item.view ||
+   621→              (item.view === 'projects' && (currentView === 'project-detail' || currentView === 'track-detail'));
+   622→            return (
+   623→              <button
+   624→                key={item.view}
+   625→                onClick={() => onNavigate(item.view)}
+   626→                className={cn(
+   627→                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors border-l-2',
+   628→                  isActive
+   629→                    ? 'bg-primary/10 text-primary border-primary'
+   630→                    : 'text-muted-foreground hover:bg-[#1E1E28] hover:text-foreground border-transparent'
+   631→                )}
+   632→              >
+   633→                <item.icon className="h-4 w-4" />
+   634→                {item.label}
+   635→                {item.view === 'projects' && notificationCount > 0 && (
+   636→                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[9px] font-bold text-primary-foreground">
+   637→                    {notificationCount > 99 ? '99+' : notificationCount}
+   638→                  </span>
+   639→                )}
+   640→              </button>
+   641→            );
+   642→          })}
+   643→
+   644→          <button
+   645→            onClick={() => onNavigate('group-settings')}
+   646→            className={cn(
+   647→              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors border-l-2',
+   648→              currentView === 'group-settings'
+   649→                ? 'bg-primary/10 text-primary border-primary'
+   650→                : 'text-muted-foreground hover:bg-[#1E1E28] hover:text-foreground border-transparent'
+   651→            )}
+   652→          >
+   653→            <Settings className="h-4 w-4" />
+   654→            Settings
+   655→          </button>
+   656→        </nav>
+   657→      </ScrollArea>
+   658→
+   659→      {/* User Section */}
+   660→      <Separator className="bg-border" />
+   661→      <div className="p-3">
+   662→        <div className="flex items-center gap-3">
+   663→          <Avatar className="h-8 w-8">
+   664→            <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
+   665→            <AvatarFallback className="bg-primary/20 text-primary text-xs">
+   666→              {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+   667→            </AvatarFallback>
+   668→          </Avatar>
+   669→          <div className="flex-1 min-w-0">
+   670→            <p className="text-sm font-medium text-foreground truncate">{user?.displayName || 'User'}</p>
+   671→            <p className="text-xs text-muted-foreground truncate">{user?.email || ''}</p>
+   672→          </div>
+   673→          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground" onClick={onLogout}>
+   674→            <LogOut className="h-4 w-4" />
+   675→          </Button>
+   676→        </div>
+   677→      </div>
+   678→    </div>
+   679→  );
+   680→}
+   681→

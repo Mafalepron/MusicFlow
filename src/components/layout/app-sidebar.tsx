@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Music, Home, Lightbulb, FolderOpen, Settings, LogOut, Menu, Copy, Check } from 'lucide-react';
+import { Music, Home, Lightbulb, FolderOpen, Settings, LogOut, Copy, Check, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,19 +12,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import { useNavigationStore, useAuthStore, useDataStore, type ViewName } from '@/lib/store';
 
 const navItems: { icon: typeof Home; label: string; view: ViewName }[] = [
   { icon: Home, label: 'Home', view: 'home' },
   { icon: Lightbulb, label: 'Ideas', view: 'ideas' },
   { icon: FolderOpen, label: 'Projects', view: 'projects' },
-  { icon: FolderOpen, label: 'Kanban', view: 'kanban' },
+  { icon: LayoutGrid, label: 'Kanban', view: 'kanban' },
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -184,34 +178,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function AppSidebar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-
   return (
     <>
-      {/* Mobile trigger */}
-      <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-background/80 backdrop-blur-md px-4 lg:hidden">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground"
-          onClick={() => setMobileOpen(true)}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-        <div className="flex items-center gap-2">
-          <Music className="h-5 w-5 text-primary" />
-          <span className="font-bold text-primary">SoundFlow</span>
-        </div>
-      </div>
-
-      {/* Mobile Sheet */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-60 p-0 bg-sidebar border-sidebar-border">
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SidebarContent onNavigate={() => setMobileOpen(false)} />
-        </SheetContent>
-      </Sheet>
-
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:fixed lg:inset-y-0 lg:z-30 border-r border-border bg-sidebar">
         <SidebarContent />

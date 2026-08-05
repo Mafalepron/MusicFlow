@@ -14,7 +14,7 @@ import { ProjectDetailView } from '@/components/views/project-detail-view';
 import { TrackDetailView } from '@/components/views/track-detail-view';
 import { GroupSettingsView } from '@/components/views/group-settings-view';
 import { AppSidebar } from '@/components/layout/app-sidebar';
-import { TopBar } from '@/components/layout/top-bar';
+import { AppHeader } from '@/components/layout/app-header';
 import { KanbanPage } from '@/components/kanban/kanban-view';
 import ProjectChat from '@/components/chat/project-chat';
 
@@ -86,16 +86,16 @@ function AppContent() {
   // Don't render content until navigation is resolved
   const activeView = currentView === 'onboarding' ? 'home' : currentView;
 
-  // Main app layout with sidebar + topbar + content
+  // Main app layout with sidebar + unified header + content
   return (
     <div className="min-h-screen bg-background">
       <AppSidebar />
 
       {/* Main content area — offset for sidebar on desktop */}
       <div className="lg:pl-60 flex min-h-screen flex-col">
-        <TopBar />
+        <AppHeader />
 
-        <main className="flex-1 p-4 lg:p-6 mt-0 lg:mt-0">
+        <main className="flex-1 p-4 lg:p-6">
           <AnimatePresence mode="wait">
             <motion.div key={activeView} {...viewTransition}>
               {activeView === 'home' && <HomeView />}
