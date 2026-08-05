@@ -31,6 +31,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigationStore, useAuthStore, useDataStore, type ViewName } from '@/lib/store';
 import { useHeaderActionsStore } from '@/store/header-actions-store';
 import { useChatContextStore } from '@/store/chat-context-store';
+import { useChatUIStore } from '@/store/chat-ui-store';
+import { useChatUnread } from '@/components/chat/project-chat';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -64,6 +66,8 @@ export function AppHeader() {
   const headerActions = useHeaderActionsStore((s) => s.actions);
   const headerTitle = useHeaderActionsStore((s) => s.title);
   const { activeChatProjectId, activeChatProjectName } = useChatContextStore();
+  const { isOpen: chatOpen, toggle: toggleChat } = useChatUIStore();
+  const chatUnread = useChatUnread();
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -475,6 +479,51 @@ export function AppHeader() {
             )}
           </AnimatePresence>
         </div>
+
+        {/* Chat toggle — innovative animated button */}
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={toggleChat}
+                disabled={!activeChatProjectId}
+                className={cn(
+                  'relative h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0',
+                  chatOpen
+                    ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                    : activeChatProjectId
+                      ? 'text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/20'
+                      : 'text-muted-foreground/40 cursor-not-allowed border border-transparent',
+                )}
+              >
+                {/* Pulsing aura when there are unread messages */}
+                {chatUnread > 0 && !chatOpen && activeChatProjectId && (
+                  <span className="absolute inset-0 rounded-lg bg-cyan-500/20 animate-ping" style={{ animationDuration: '2s' }} />
+                )}
+                <MessageCircle className={cn('h-4 w-4 relative transition-transform', chatOpen && 'scale-90')} />
+                {/* Unread badge */}
+                {chatUnread > 0 && !chatOpen && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 px-1 text-[9px] font-bold text-white shadow-lg shadow-cyan-500/30"
+                  >
+                    {chatUnread > 9 ? '9+' : chatUnread}
+                  </motion.span>
+                )}
+                {/* Active project indicator dot */}
+                {activeChatProjectId && !chatOpen && chatUnread === 0 && (
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-background" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {activeChatProjectId
+                ? chatOpen ? 'Close chat' : `Chat: ${activeChatProjectName || 'project'}`
+                : 'Select a project to chat'}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {/* Profile dropdown */}
         <Popover open={profileOpen} onOpenChange={setProfileOpen}>
