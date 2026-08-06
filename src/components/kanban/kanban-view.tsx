@@ -477,16 +477,44 @@ function KanbanWorkspace() {
           </div>
           <DescriptionBottomPanel />
         </div>
-        <div className="w-[360px] flex flex-col min-h-0" style={{
-          borderLeft: `2px solid ${hexToRgba(boardColor, 0.3)}`,
-          background: 'linear-gradient(180deg, rgba(5, 10, 20, 0.95), rgba(8, 12, 24, 0.98))',
-          boxShadow: `inset 1px 0 0 ${hexToRgba(boardColor, 0.1)}, -4px 0 24px rgba(0, 0, 0, 0.5)`,
+        <div className="w-[360px] flex flex-col min-h-0 relative overflow-hidden rp-panel" style={{
+          borderLeft: `2px solid ${hexToRgba(boardColor, 0.35)}`,
+          background: 'linear-gradient(180deg, rgba(5, 10, 20, 0.97), rgba(8, 12, 24, 0.99))',
+          boxShadow: `inset 1px 0 0 ${hexToRgba(boardColor, 0.15)}, -4px 0 24px rgba(0, 0, 0, 0.5), inset 4px 0 24px ${hexToRgba(boardColor, 0.04)}`,
         }}>
-          {isTrackWizardOpen ? (
-            <TrackWizard />
-          ) : (
-            <TaskDetailPanel />
-          )}
+          <style jsx global>{`
+            .rp-panel .rp-grid {
+              position: absolute; inset: 0;
+              background-image:
+                linear-gradient(${hexToRgba(boardColor, 0.025)} 1px, transparent 1px),
+                linear-gradient(90deg, ${hexToRgba(boardColor, 0.025)} 1px, transparent 1px);
+              background-size: 20px 20px;
+              pointer-events: none; z-index: 0;
+            }
+            .rp-panel .rp-scanlines {
+              position: absolute; inset: 0;
+              background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, ${hexToRgba(boardColor, 0.012)} 2px, ${hexToRgba(boardColor, 0.012)} 3px);
+              pointer-events: none; z-index: 1;
+            }
+          `}</style>
+          <div className="rp-grid" />
+          <div className="rp-scanlines" />
+          {/* Neon left accent line */}
+          <div
+            className="absolute left-0 top-0 bottom-0 w-[2px] z-[1] pointer-events-none"
+            style={{
+              background: `linear-gradient(180deg, transparent, ${boardColor} 20%, #FCEE0A 50%, ${boardColor} 80%, transparent)`,
+              boxShadow: `0 0 8px ${hexToRgba(boardColor, 0.5)}, 0 0 16px ${hexToRgba(boardColor, 0.2)}`,
+              opacity: 0.7,
+            }}
+          />
+          <div className="relative z-[2] flex flex-col flex-1 min-h-0">
+            {isTrackWizardOpen ? (
+              <TrackWizard />
+            ) : (
+              <TaskDetailPanel />
+            )}
+          </div>
         </div>
       </div>
     </div>

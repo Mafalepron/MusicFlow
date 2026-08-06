@@ -282,9 +282,16 @@ export default function TrackWizard() {
   const STEPS = ['Название', 'Инструменты', 'Этапы'];
 
   return (
-    <div className="flex flex-col flex-1 min-h-0" style={{ background: 'linear-gradient(180deg, rgba(6,6,12,0.95), rgba(10,10,18,0.98))' }}>
+    <div className="tw-panel flex flex-col flex-1 min-h-0">
+      {/* Grid pattern overlay */}
+      <div className="tw-grid" />
+      {/* Scan line overlay */}
+      <div className="tw-scanlines" />
+      {/* Top neon border with pulsing glow */}
+      <div className="tw-neon-top" />
+
       {/* Header */}
-      <div className="p-4 shrink-0" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)', background: 'linear-gradient(90deg, rgba(252,238,10,0.03), transparent)' }}>
+      <div className="p-4 shrink-0 relative z-10" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)', background: 'linear-gradient(90deg, rgba(252,238,10,0.03), transparent)' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FCEE0A, #F1F100)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}>
@@ -292,7 +299,7 @@ export default function TrackWizard() {
             </div>
             <div>
               <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}>Конструктор трека</h3>
-              <p className="text-[9px] text-slate-600 font-mono">// мастер создания пайплайна</p>
+              <p className="text-[9px] text-slate-600 font-mono">{'// мастер создания пайплайна'}</p>
             </div>
           </div>
           <button onClick={handleClose} className="p-1.5 rounded transition-all" style={{ color: '#4a4a5e', border: '1px solid transparent' }}
@@ -315,13 +322,18 @@ export default function TrackWizard() {
                 )}
                 style={i === step ? { color: '#FCEE0A', textShadow: '0 0 4px rgba(252,238,10,0.3)' } : undefined}
               >
-                {i < step ? <Check className="w-3 h-3" /> : <span className="w-4 h-4 rounded-full border text-center text-[9px] flex items-center justify-center" style={{
-                  borderColor: i === step ? '#FCEE0A' : i < step ? '#FCEE0A' : '#334155',
+                {i < step ? <Check className="w-3 h-3" /> : <span className="w-4 h-4 text-center text-[9px] font-bold flex items-center justify-center" style={{
+                  clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                  border: '1.5px solid',
+                  borderColor: i === step ? 'rgba(252,238,10,0.8)' : '#334155',
+                  background: i === step ? 'rgba(252,238,10,0.12)' : 'transparent',
+                  color: i === step ? '#FCEE0A' : '#5a7a9e',
+                  boxShadow: i === step ? '0 0 8px rgba(252,238,10,0.3)' : 'none',
                 }}>{i + 1}</span>}
                 <span className="hidden lg:inline uppercase tracking-wider">{s}</span>
               </button>
               {i < STEPS.length - 1 && (
-                <div className="flex-1 h-px mx-1" style={{ backgroundColor: i < step ? 'rgba(252,238,10,0.3)' : '#1e293b' }} />
+                <div className="flex-1 h-px mx-1" style={{ background: i < step ? 'linear-gradient(90deg, rgba(252,238,10,0.5), rgba(252,238,10,0.1))' : 'linear-gradient(90deg, #1e293b, #1e293b)' }} />
               )}
             </div>
           ))}
@@ -329,7 +341,7 @@ export default function TrackWizard() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 relative z-10 tw-scroll">
         {/* Step 0: Name + Description + Deadline */}
         {step === 0 && (
           <div className="space-y-3">
@@ -341,10 +353,7 @@ export default function TrackWizard() {
                 onKeyDown={(e) => e.key === 'Enter' && canProceed() && setStep(1)}
                 placeholder="Лирика, Эксперимент..."
                 autoFocus
-                className="text-sm text-slate-100 placeholder:text-slate-600 h-10 rounded-md focus:outline-none"
-                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; e.currentTarget.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.15)'; e.currentTarget.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
+                className="bg-[rgba(8,8,16,0.92)] text-sm text-slate-200 placeholder:text-slate-600 h-10 rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(252,238,10,0.35)] transition-colors px-3"
               />
             </div>
             <div className="space-y-1.5">
@@ -354,10 +363,7 @@ export default function TrackWizard() {
                 onChange={(e) => setTrackDescription(e.target.value)}
                 placeholder="Краткое описание идеи трека, настроение, жанр..."
                 rows={3}
-                className="text-sm text-slate-200 placeholder:text-slate-600 resize-none rounded-md focus:outline-none"
-                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.15)'; }}
+                className="bg-[rgba(8,8,16,0.92)] text-sm text-slate-300 placeholder:text-slate-600 min-h-[60px] resize-none rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(252,238,10,0.35)] transition-colors px-3 py-2"
               />
             </div>
             <div className="space-y-1.5">
@@ -424,10 +430,7 @@ export default function TrackWizard() {
                 onChange={(e) => setCustomInstrument(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addCustomInstrument()}
                 placeholder="Свой инструмент..."
-                className="text-[11px] text-slate-100 placeholder:text-slate-600 h-8 rounded-md focus:outline-none"
-                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(0,229,255,0.2)' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(0,229,255,0.5)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,229,255,0.1)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(0,229,255,0.2)'; e.currentTarget.style.boxShadow = 'none'; }}
+                className="flex-1 bg-[rgba(8,8,16,0.92)] text-[11px] text-slate-300 placeholder:text-slate-600 h-8 rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(0,229,255,0.3)] transition-colors px-2.5 py-1.5"
               />
               <button
                 onClick={addCustomInstrument}
@@ -455,7 +458,7 @@ export default function TrackWizard() {
         {step === 2 && (
           <div className="space-y-3">
             {/* Templates section */}
-            <div className="overflow-hidden" style={{ border: '1.5px solid rgba(0,229,255,0.2)', background: 'rgba(0,229,255,0.03)', clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}>
+            <div className="overflow-hidden" style={{ border: '1.5px solid rgba(0,229,255,0.22)', background: 'linear-gradient(135deg, rgba(10,18,32,0.7), rgba(6,10,20,0.85))', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}>
               <button
                 onClick={() => setShowTemplates(v => !v)}
                 className="w-full flex items-center justify-between px-3 py-2.5 transition-colors"
@@ -543,8 +546,7 @@ export default function TrackWizard() {
                         <Input
                           value={DEFAULT_STAGE_EMOJIS[editableStages.length % DEFAULT_STAGE_EMOJIS.length]}
                           onChange={(e) => {}}
-                          className="w-12 text-sm text-center p-1 h-8 rounded-md focus:outline-none"
-                          style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(0,229,255,0.2)' }}
+                          className="w-12 bg-[rgba(8,8,16,0.92)] text-sm text-center text-slate-300 p-1 h-8 rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(0,229,255,0.3)] transition-colors"
                           maxLength={4}
                           readOnly
                         />
@@ -557,10 +559,7 @@ export default function TrackWizard() {
                           }}
                           placeholder="Название нового этапа"
                           autoFocus
-                          className="flex-1 text-xs text-slate-100 h-8 rounded-md focus:outline-none"
-                          style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(0,229,255,0.2)' }}
-                          onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(0,229,255,0.5)'; }}
-                          onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(0,229,255,0.2)'; }}
+                          className="flex-1 bg-[rgba(8,8,16,0.92)] text-xs text-slate-300 placeholder:text-slate-600 h-8 rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(0,229,255,0.3)] transition-colors px-2.5 py-1.5"
                         />
                       </div>
                       <Textarea
@@ -571,11 +570,8 @@ export default function TrackWizard() {
                           if (e.key === 'Escape') { setShowNewStageForm(false); setNewStageLabel(''); setNewStageDesc(''); }
                         }}
                         placeholder="Описание этапа (необязательно)"
-                        className="text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none rounded-md focus:outline-none"
-                        style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(0,229,255,0.2)' }}
+                        className="bg-[rgba(8,8,16,0.92)] text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(0,229,255,0.3)] transition-colors px-2.5 py-1.5"
                         rows={2}
-                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(0,229,255,0.5)'; }}
-                        onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(0,229,255,0.2)'; }}
                       />
                       <div className="flex gap-2 justify-end">
                         <button
@@ -621,22 +617,12 @@ export default function TrackWizard() {
                 return (
                   <div
                     key={stage.id}
-                    className="overflow-hidden transition-all duration-200"
-                    style={isExpanded ? {
-                      border: '2px solid rgba(252,238,10,0.4)',
-                      background: 'linear-gradient(135deg, rgba(10,18,32,0.9), rgba(6,10,20,0.95))',
-                      boxShadow: '0 0 16px rgba(252,238,10,0.1), inset 0 0 12px rgba(252,238,10,0.02)',
-                      clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-                    } : {
-                      border: '1.5px solid rgba(0,229,255,0.18)',
-                      background: 'rgba(8,14,26,0.7)',
-                      clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-                    }}
+                    className={cn('tw-stage-card overflow-hidden transition-all duration-200', isExpanded && 'tw-stage-card-selected')}
                   >
                     {/* Stage header */}
                     <div
-                      className="flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors"
-                      style={{ borderBottom: isExpanded ? '1px solid rgba(252,238,10,0.1)' : 'none' }}
+                      className="flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors relative z-10"
+                      style={{ borderBottom: isExpanded ? '1px solid rgba(252,238,10,0.15)' : 'none' }}
                       onClick={() => setExpandedStageId(isExpanded ? null : stage.id)}
                     >
                       <span className="text-base">{stage.emoji}</span>
@@ -662,23 +648,21 @@ export default function TrackWizard() {
 
                     {/* Expanded: editable content */}
                     {isExpanded && (
-                      <div className="px-3 py-3 space-y-3" style={{ background: 'linear-gradient(to bottom, rgba(252,238,10,0.02), transparent)' }}>
+                      <div className="px-3 py-3 space-y-3 relative z-10" style={{ background: 'linear-gradient(to bottom, rgba(252,238,10,0.03), transparent)' }}>
                         {/* Stage name */}
                         <div className="space-y-1">
-                          <label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(0,229,255,0.6)' }}>Название этапа</label>
+                          <label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(0,229,255,0.7)' }}>Название этапа</label>
                           <div className="flex gap-2">
                             <Input
                               value={stage.emoji}
                               onChange={(e) => updateStage(stage.id, { emoji: e.target.value })}
-                              className="w-12 text-sm text-center p-1 h-8 rounded-md focus:outline-none"
-                              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(0,229,255,0.2)' }}
+                              className="w-12 bg-[rgba(8,8,16,0.92)] text-sm text-center text-slate-300 p-1 h-8 rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(0,229,255,0.3)] transition-colors"
                               maxLength={4}
                             />
                             <Input
                               value={stage.label}
                               onChange={(e) => updateStage(stage.id, { label: e.target.value })}
-                              className="flex-1 text-xs text-slate-100 h-8 rounded-md focus:outline-none"
-                              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(0,229,255,0.2)' }}
+                              className="flex-1 bg-[rgba(8,8,16,0.92)] text-xs text-slate-300 placeholder:text-slate-600 h-8 rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(0,229,255,0.3)] transition-colors px-2.5 py-1.5"
                               placeholder="Название этапа"
                             />
                           </div>
@@ -686,13 +670,12 @@ export default function TrackWizard() {
 
                         {/* Stage description */}
                         <div className="space-y-1">
-                          <label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(0,229,255,0.6)' }}>Описание этапа</label>
+                          <label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(0,229,255,0.7)' }}>Описание этапа</label>
                           <Textarea
                             value={stage.description}
                             onChange={(e) => updateStage(stage.id, { description: e.target.value })}
                             placeholder="Опишите, что делается на этом этапе..."
-                            className="text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[55px] resize-none rounded-md focus:outline-none"
-                            style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(0,229,255,0.2)' }}
+                            className="bg-[rgba(8,8,16,0.92)] text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[55px] resize-none rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(0,229,255,0.3)] transition-colors px-2.5 py-1.5"
                             rows={2}
                           />
                         </div>
@@ -767,8 +750,7 @@ export default function TrackWizard() {
                                 }}
                                 placeholder="Название подзадачи"
                                 autoFocus
-                                className="text-[11px] text-slate-100 placeholder:text-slate-600 h-7 rounded-md focus:outline-none"
-                                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}
+                                className="bg-[rgba(8,8,16,0.92)] text-[11px] text-slate-300 placeholder:text-slate-600 h-7 rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
                               />
                               <Textarea
                                 value={newSubtaskDesc}
@@ -778,8 +760,7 @@ export default function TrackWizard() {
                                   if (e.key === 'Escape') setAddingSubtaskForStage(null);
                                 }}
                                 placeholder="Описание (необязательно)"
-                                className="text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[35px] resize-none rounded-md focus:outline-none"
-                                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}
+                                className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[35px] resize-none rounded-md focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
                                 rows={2}
                               />
                               <div className="flex gap-2 justify-end">
@@ -812,7 +793,7 @@ export default function TrackWizard() {
       </div>
 
       {/* Footer navigation */}
-      <div className="px-4 py-3 flex items-center justify-between shrink-0" style={{ borderTop: '2px solid rgba(252, 238, 10, 0.12)' }}>
+      <div className="px-4 py-3 flex items-center justify-between shrink-0 relative z-10" style={{ borderTop: '2px solid rgba(252, 238, 10, 0.15)', background: 'linear-gradient(90deg, rgba(252,238,10,0.04), transparent 70%)' }}>
         <button
           onClick={() => step > 0 ? setStep(step - 1) : handleClose()}
           className="flex items-center gap-1 text-[11px] font-medium transition-all"
@@ -846,6 +827,103 @@ export default function TrackWizard() {
           </button>
         )}
       </div>
+      <style jsx global>{`
+        .tw-panel {
+          position: relative;
+          background: linear-gradient(180deg, rgba(5, 10, 20, 0.97), rgba(8, 12, 24, 0.99));
+          overflow: hidden;
+        }
+        .tw-grid {
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
+          background-size: 24px 24px;
+          pointer-events: none;
+          z-index: 0;
+        }
+        .tw-scanlines {
+          position: absolute;
+          inset: 0;
+          background: repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 2px,
+            rgba(0, 229, 255, 0.02) 2px,
+            rgba(0, 229, 255, 0.02) 3px
+          );
+          pointer-events: none;
+          z-index: 1;
+          animation: tw-scan 8s linear infinite;
+        }
+        @keyframes tw-scan {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(3px); }
+        }
+        .tw-neon-top {
+          height: 3px;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 2;
+          background: linear-gradient(90deg, transparent, #00E5FF 20%, #FCEE0A 50%, #00E5FF 80%, transparent);
+          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
+          animation: tw-pulse-neon 3s ease-in-out infinite;
+        }
+        @keyframes tw-pulse-neon {
+          0%, 100% { opacity: 0.8; box-shadow: 0 0 8px rgba(252, 238, 10, 0.4), 0 0 16px rgba(252, 238, 10, 0.15); }
+          50% { opacity: 1; box-shadow: 0 0 16px rgba(252, 238, 10, 0.7), 0 0 32px rgba(252, 238, 10, 0.3); }
+        }
+        /* Cyberpunk stage card — deep dark with blue default border, yellow on hover/expanded */
+        .tw-stage-card {
+          position: relative;
+          background: linear-gradient(135deg, rgba(10, 18, 32, 0.92), rgba(6, 10, 20, 0.96));
+          border: 2px solid rgba(0, 229, 255, 0.22);
+          clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+          transition: all 200ms;
+          overflow: hidden;
+        }
+        .tw-stage-card::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 4px;
+          height: 100%;
+          background: linear-gradient(180deg, transparent, rgba(0, 229, 255, 0.5) 20%, rgba(0, 229, 255, 0.5) 80%, transparent);
+          opacity: 0.8;
+          z-index: 1;
+          pointer-events: none;
+        }
+        .tw-stage-card:hover {
+          border-color: rgba(252, 238, 10, 0.5);
+          background: linear-gradient(135deg, rgba(14, 24, 42, 0.92), rgba(8, 14, 26, 0.96));
+          box-shadow: 0 0 24px rgba(252, 238, 10, 0.12), inset 0 0 12px rgba(252, 238, 10, 0.03);
+        }
+        .tw-stage-card-selected {
+          border-color: rgba(252, 238, 10, 0.6);
+          border-width: 2px;
+          box-shadow: 0 0 0 1px rgba(252, 238, 10, 0.3), 0 0 32px rgba(252, 238, 10, 0.15);
+        }
+        .tw-stage-card-selected::after {
+          background: linear-gradient(180deg, transparent, rgba(252, 238, 10, 0.6) 20%, rgba(252, 238, 10, 0.6) 80%, transparent);
+        }
+        /* Scrollbar — cyberpunk themed */
+        .tw-scroll::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+        .tw-scroll::-webkit-scrollbar-track {
+          background: rgba(252, 238, 10, 0.03);
+        }
+        .tw-scroll::-webkit-scrollbar-thumb {
+          background: rgba(0, 229, 255, 0.3);
+          border-radius: 0;
+        }
+        .tw-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(252, 238, 10, 0.5);
+        }
+      `}</style>
     </div>
   );
 }

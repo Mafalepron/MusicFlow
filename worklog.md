@@ -524,3 +524,57 @@ Stage Summary:
 - Selected task cards and stage cards show only a yellow border outline — no yellow background fill.
 - New Track button hover: blue background stays the same shade; only text and border turn yellow.
 - All popups (priority, assignee, deadline, delete) now use the board color for borders with angular cyberpunk clip-path corners, dark backgrounds, and yellow section titles.
+
+---
+Task ID: 1
+Agent: track-wizard-styler
+Task: Restyle track wizard to cyberpunk 2077 style matching bottom panel
+
+Work Log:
+- Read /home/z/my-project/worklog.md to review prior agents' work (kanban track panel, audio editor navigation, task strip).
+- Read /home/z/my-project/src/components/kanban/track-wizard.tsx (851 lines) and /home/z/my-project/src/components/kanban/description-bottom-panel.tsx to study the bottom panel's `.cp-*` cyberpunk CSS patterns (deep dark gradient, scanlines, grid pattern, neon top border, angular clip-paths, blue→yellow color states).
+- Verified `cn` from `@/lib/utils` uses `twMerge`, so Tailwind utility overrides on shadcn `<Input>`/`<Textarea>` will properly win.
+- Applied MultiEdit to track-wizard.tsx with these styling-only changes:
+  * **Container** (line 285): replaced inline `background` with `tw-panel` class; inserted three overlay divs `tw-grid`, `tw-scanlines`, `tw-neon-top` (matching the bottom panel's `cp-panel`, `cp-scanlines`, `cp-neon-top` semantics).
+  * **Header / Content / Footer**: added `relative z-10` so they sit above the absolute-positioned overlays; footer gained a subtle yellow-tinted gradient background to match the header.
+  * **Step indicators**: replaced the rounded `border` circle with an angular `clip-path: polygon(...)` shape using blue default border + yellow border/background/glow for the active step; the connecting divider became a yellow gradient when the step is completed.
+  * **Input/Textarea fields** (step 0 name/description, step 1 custom instrument, step 2 new-stage form, step 2 stage emoji/label/description, step 2 new-subtask form): converted all inline `style={{ background, border, ... }}` and `onFocus`/`onBlur` handlers to the bottom panel's editor className: `bg-[rgba(8,8,16,0.92)] ... focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] border border-[rgba(252,238,10,0.35)]` (yellow tint for name/description/subtask variants, blue `rgba(0,229,255,0.3)` tint for stage-internal fields).
+  * **Stage cards in step 2** (the `editableStages.map` output): replaced the inline expanded/collapsed style ternary with `className={cn('tw-stage-card overflow-hidden transition-all duration-200', isExpanded && 'tw-stage-card-selected')}` and added `relative z-10` to the stage header and expanded content so the card's `::after` accent bar doesn't cover interactive elements.
+  * **Templates section**: bumped the clip-path corner radius from 6px to 8px and switched background from `rgba(0,229,255,0.03)` to a deep dark gradient `linear-gradient(135deg, rgba(10,18,32,0.7), rgba(6,10,20,0.85))` matching `cp-stage-card` look.
+  * **Instrument chips (step 1)** and **template chips (step 2)**: kept existing blue/yellow cyberpunk styling (already aligned with bottom panel).
+  * **Buttons** ("Добавить", "Далее", "Создать", "Назад", "Отмена", "Добавить все", "Свой этап"): kept existing yellow-gradient + clip-path styling for primary, blue-default + yellow-hover for secondary (already aligned).
+  * **Pre-existing lint fix**: wrapped the `// мастер создания пайплайна` literal text in `{'...'}` braces (matching the bottom panel's `{'// '}{task.title}` pattern at line 318) — this resolved the existing `react/jsx-no-comment-textnodes` error at line 295:66.
+  * Added a `<style jsx global>` block at the end of the component defining `tw-panel`, `tw-grid`, `tw-scanlines` (+ `@keyframes tw-scan`), `tw-neon-top` (+ `@keyframes tw-pulse-neon`), `tw-stage-card` + `::after` + `:hover` + `-selected` + `-selected::after`, and `tw-scroll` webkit-scrollbar styling — all mirroring the bottom panel's `cp-*` equivalents but namespaced to avoid collisions when both panels render simultaneously.
+- Verified no logic/state/API calls were changed — only `className`, `style` props, and the appended CSS block.
+- Ran `bun run lint 2>&1 | grep track-wizard` — returned **0 matches**, confirming no new lint errors introduced. Total lint errors dropped from 3 to 2 (the remaining 2 are in `project-chat.tsx:557` and `app-header.tsx:132`, both unrelated pre-existing `react-hooks/set-state-in-effect` errors).
+- Checked `dev.log` — dev server compiles cleanly (`✓ Compiled in 266ms` etc.), no errors related to track-wizard.
+
+Stage Summary:
+- Track wizard container now has the same deep dark gradient + scanlines + 24px grid overlay + pulsing neon top border as the bottom panel.
+- Step 2 stage cards now use a unified `.tw-stage-card` CSS class with blue default border, yellow border + glow on hover, yellow border + outer ring on expanded (selected), and a 4px left accent bar via `::after` — visually identical to `.cp-stage-card` in the bottom panel.
+- All `<Input>` and `<Textarea>` fields share the bottom panel description-editor styling (`bg-[rgba(8,8,16,0.92)]` + `border-[rgba(252,238,10,0.35)]` or `rgba(0,229,255,0.3)` + `focus-visible:border-[#FCEE0A]`), with the shadcn default `focus-visible:ring-[3px]` correctly overridden to `ring-0` via tailwind-merge.
+- Step indicators became angular clip-path badges with yellow active glow; dividers became yellow gradients for completed steps.
+- All overlays (`tw-grid`, `tw-scanlines`) are `position: absolute; inset: 0; pointer-events: none; z-index: 0/1` while header/content/footer are `relative z-10`, preserving clickability of all buttons and inputs.
+- No functionality, state management, or API calls were touched. Lint verification confirms zero new errors (and one pre-existing error was incidentally fixed).
+
+---
+Task ID: 12 (main agent continuation)
+Agent: main (Z.ai Code)
+Task: Continuation of 5 changes — verified track wizard (done by subagent), fixed deep fetch for percentage alignment, verified all changes.
+
+Work Log:
+- Subagent (Task ID: 1) completed the track wizard restyle — added scanlines, grid, neon top border, angular clip-path stage cards, yellow-bordered inputs, angular step indicators.
+- Verified changes 2 (add buttons yellow default), 4 (top panel cyberpunk), 5 (right panel cyberpunk) via VLM.
+- For change 3 (percentage alignment): discovered that percentage badges weren't showing at all because `reloadTasks` in both `description-bottom-panel.tsx` and `task-strip.tsx` only appended `&deep=true` for tracks boards (`boardType === 'tracks'`). Non-tracks boards containing track tasks weren't fetching children/stages.
+- Fixed: changed both `reloadTasks` functions to always append `&deep=true` regardless of board type.
+- After fix: verified both stage badges (Сонграйтинг 50%, Аранжировка 0%) render at identical X position (x=607, right=655, w=48) — perfectly vertically aligned.
+- VLM confirmed: "Perfect Vertical Stacking: The 50% badge and the 0% badge share the exact same horizontal X-coordinate. They are stacked directly on top of one another."
+- Final lint: 2 errors (down from 3 — subagent fixed a pre-existing jsx comment error in track-wizard.tsx). Remaining 2 are pre-existing in other files.
+
+Stage Summary:
+- Track wizard now matches bottom panel cyberpunk style (scanlines, grid, neon border, angular cards, yellow inputs).
+- Bottom panel add buttons are yellow by default, cyan on hover (inverted from before).
+- Stage percentage badges are now vertically aligned (fixed 48px width, always fetched with deep=true).
+- Top panel has scanlines, grid, pulsing neon top border, angular card corners.
+- Right panel has neon left accent line, grid pattern, angular header with clip-path corners.
+- Deep fetch fix ensures stages/subtasks always load for any board containing track tasks.

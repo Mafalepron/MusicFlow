@@ -253,8 +253,8 @@ export default function DescriptionBottomPanel() {
 
   const reloadTasks = useCallback(async () => {
     if (!selectedBoardId) return;
-    const isTracks = useKanbanStore.getState().boards.find(b => b.id === selectedBoardId)?.boardType === 'tracks';
-    const url = `/api/tasks?boardId=${selectedBoardId}${isTracks ? '&deep=true' : ''}`;
+    // Always fetch deep — non-track boards may still contain track tasks with stages
+    const url = `/api/tasks?boardId=${selectedBoardId}&deep=true`;
     const res = await fetch(url);
     const data = await res.json();
     setBoardTasks(data.tasks);
@@ -694,19 +694,21 @@ export default function DescriptionBottomPanel() {
           font-weight: 700;
           letter-spacing: 0.05em;
           text-transform: uppercase;
-          color: #00E5FF;
+          color: #FCEE0A;
           transition: all 150ms;
-          border: 1.5px solid rgba(0, 229, 255, 0.3);
-          background: rgba(0, 229, 255, 0.06);
+          border: 1.5px solid rgba(252, 238, 10, 0.4);
+          background: rgba(252, 238, 10, 0.08);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-          box-shadow: 0 0 6px rgba(0, 229, 255, 0.06);
+          box-shadow: 0 0 8px rgba(252, 238, 10, 0.12), inset 0 0 6px rgba(252, 238, 10, 0.03);
+          text-shadow: 0 0 6px rgba(252, 238, 10, 0.3);
         }
         .cp-add-btn:hover {
-          color: #FCEE0A;
-          border-color: rgba(252, 238, 10, 0.6);
-          background: rgba(252, 238, 10, 0.1);
-          box-shadow: 0 0 16px rgba(252, 238, 10, 0.2), inset 0 0 10px rgba(252, 238, 10, 0.04);
-          text-shadow: 0 0 8px rgba(252, 238, 10, 0.4);
+          color: #00E5FF;
+          border-color: rgba(0, 229, 255, 0.7);
+          background: rgba(0, 229, 255, 0.12);
+          box-shadow: 0 0 20px rgba(0, 229, 255, 0.25), inset 0 0 12px rgba(0, 229, 255, 0.05);
+          text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+          transform: translateY(-1px);
         }
         .cp-desc-card {
           padding: 8px 12px;
@@ -1013,11 +1015,11 @@ function StageCard({
           </button>
         )}
 
-        {/* Subtask count badge */}
+        {/* Subtask count badge — fixed width so percentages align across all stages */}
         {subtasks.length > 0 && (
           <span
             className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 tabular-nums font-bold text-right"
-            style={{ backgroundColor: c.a2, color: '#FCEE0A', border: `1px solid ${c.a3}`, minWidth: '38px' }}
+            style={{ backgroundColor: c.a2, color: '#FCEE0A', border: `1px solid ${c.a3}`, width: '48px', textAlign: 'right' }}
             title={`${subtasks.length} подзадач · ${stageProgress}%`}
           >
             {stageProgress}%

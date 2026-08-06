@@ -179,8 +179,20 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
-      {/* Header — title + metadata in one line */}
-      <div className="p-4" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.3)}`, background: `linear-gradient(90deg, ${hexToRgba(boardColor, 0.06)}, transparent)` }}>
+      {/* Header — title + metadata in one line (cyberpunk angular) */}
+      <div
+        className="p-4 relative"
+        style={{
+          borderBottom: `2px solid ${hexToRgba(boardColor, 0.35)}`,
+          background: `linear-gradient(135deg, ${hexToRgba(boardColor, 0.08)}, transparent 70%)`,
+          clipPath: 'polygon(0 0, 100% 0, 100% 100%, calc(100% - 8px) 100%, 0 calc(100% - 8px))',
+        }}
+      >
+        {/* Neon left accent */}
+        <div
+          className="absolute left-0 top-2 bottom-2 w-[2px] pointer-events-none"
+          style={{ background: boardColor, boxShadow: `0 0 8px ${boardColor}, 0 0 16px ${hexToRgba(boardColor, 0.3)}` }}
+        />
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
           <div className="flex items-center gap-1">
@@ -373,8 +385,8 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
           Обложка
         </span>
         <div
-          className="aspect-square max-w-[160px] rounded-lg border border-dashed flex items-center justify-center overflow-hidden"
-          style={{ borderColor: 'rgba(252, 238, 10, 0.4)', backgroundColor: 'rgba(10, 14, 24, 0.6)' }}
+          className="aspect-square max-w-[160px] border border-dashed flex items-center justify-center overflow-hidden"
+          style={{ borderColor: 'rgba(252, 238, 10, 0.4)', backgroundColor: 'rgba(10, 14, 24, 0.6)', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
         >
           {task.soundflowTrackId ? (
             <div className="w-full h-full flex items-center justify-center text-slate-700">
@@ -602,8 +614,20 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
-      {/* Header — title + metadata in one line (cyberpunk, matches TrackDetailView) */}
-      <div className="p-4" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.3)}`, background: `linear-gradient(90deg, ${hexToRgba(boardColor, 0.06)}, transparent)` }}>
+      {/* Header — title + metadata in one line (cyberpunk angular) */}
+      <div
+        className="p-4 relative"
+        style={{
+          borderBottom: `2px solid ${hexToRgba(boardColor, 0.35)}`,
+          background: `linear-gradient(135deg, ${hexToRgba(boardColor, 0.08)}, transparent 70%)`,
+          clipPath: 'polygon(0 0, 100% 0, 100% 100%, calc(100% - 8px) 100%, 0 calc(100% - 8px))',
+        }}
+      >
+        {/* Neon left accent */}
+        <div
+          className="absolute left-0 top-2 bottom-2 w-[2px] pointer-events-none"
+          style={{ background: boardColor, boxShadow: `0 0 8px ${boardColor}, 0 0 16px ${hexToRgba(boardColor, 0.3)}` }}
+        />
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
           <div className="flex items-center gap-1">

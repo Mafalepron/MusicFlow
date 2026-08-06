@@ -54,21 +54,25 @@ export default function TaskStrip() {
   // Styles use the BOARD COLOR (not hardcoded yellow) so the task frame matches
   // the board block color on the radial diagram.
   const styles = useMemo(() => ({
-    containerBorder: { borderBottom: `2px solid ${c.a3}`, background: 'linear-gradient(180deg, rgba(5,10,20,0.95), rgba(8,12,24,0.98))' },
-    accentLine: { background: `linear-gradient(90deg, ${c.a6}, ${c.a1})`, boxShadow: `0 0 8px ${c.a35}` },
+    containerBorder: {
+      borderBottom: `2px solid ${c.a3}`,
+      background: 'linear-gradient(180deg, rgba(5,10,20,0.97), rgba(8,12,24,0.99))',
+      position: 'relative' as const,
+    },
+    accentLine: { background: `linear-gradient(90deg, transparent, ${c.a6} 20%, #FCEE0A 50%, ${c.a6} 80%, transparent)`, boxShadow: `0 0 12px ${c.a5}, 0 0 24px ${c.a2}` },
     dotBg: { backgroundColor: c.raw, boxShadow: `0 0 8px ${c.a5}` },
-    titleColor: { color: c.raw, textShadow: `0 0 8px ${c.a35}`, letterSpacing: '0.12em' },
+    titleColor: { color: c.raw, textShadow: `0 0 10px ${c.a5}, 0 0 4px ${c.a35}`, letterSpacing: '0.14em' },
     scrollbar: { scrollbarWidth: 'thin' as const, scrollbarColor: c.a3 + ' transparent' },
     cardDefault: {
       backgroundColor: 'rgba(10, 18, 32, 0.85)',
-      border: `2px solid ${c.a25}`,
-      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+      border: `1.5px solid ${c.a25}`,
+      clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
     },
     cardSelected: {
       backgroundColor: 'rgba(10, 18, 32, 0.85)',
-      border: '2px solid rgba(252, 238, 10, 0.55)',
-      boxShadow: '0 0 24px rgba(252, 238, 10, 0.22)',
-      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+      border: '2px solid rgba(252, 238, 10, 0.6)',
+      boxShadow: '0 0 0 1px rgba(252, 238, 10, 0.2), 0 0 28px rgba(252, 238, 10, 0.2)',
+      clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
     },
     progressBg: { backgroundColor: 'rgba(255,255,255,0.04)' },
     iconActive: c.raw,
@@ -95,8 +99,8 @@ export default function TaskStrip() {
 
   const reloadTasks = async () => {
     if (!selectedBoardId) return;
-    const isTracks = boardType === 'tracks';
-    const url = '/api/tasks?boardId=' + selectedBoardId + (isTracks ? '&deep=true' : '');
+    // Always fetch deep — non-track boards may still contain track tasks with stages
+    const url = '/api/tasks?boardId=' + selectedBoardId + '&deep=true';
     const res = await fetch(url);
     const data = await res.json();
     setBoardTasks(data.tasks);
@@ -140,13 +144,30 @@ export default function TaskStrip() {
     const selDone = selectedTask?.status === 'done';
     return (
       <div
-        className="flex-shrink-0 cursor-pointer select-none"
+        className="flex-shrink-0 cursor-pointer select-none ts-panel"
         style={styles.containerBorder}
         onClick={() => setIsCollapsed(false)}
         title="Развернуть список задач"
       >
-        <div className="h-[2px]" style={styles.accentLine} />
-        <div className="flex items-center gap-2 px-3 py-1.5">
+        <style jsx global>{`
+          .ts-panel { position: relative; overflow: hidden; }
+          .ts-scanlines {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0, 229, 255, 0.015) 2px, rgba(0, 229, 255, 0.015) 3px);
+            pointer-events: none; z-index: 1;
+            animation: ts-scan 8s linear infinite;
+          }
+          @keyframes ts-scan { 0% { transform: translateY(0); } 100% { transform: translateY(3px); } }
+          .ts-neon-top {
+            height: 3px; flex-shrink: 0; position: relative; z-index: 2;
+            box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
+            animation: ts-pulse-neon 3s ease-in-out infinite;
+          }
+          @keyframes ts-pulse-neon { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+        `}</style>
+        <div className="ts-scanlines" />
+        <div className="ts-neon-top" style={{ background: `linear-gradient(90deg, transparent, ${c.a6} 20%, #FCEE0A 50%, ${c.a6} 80%, transparent)` }} />
+        <div className="flex items-center gap-2 px-3 py-1.5 relative z-[2]">
           <ChevronDown
             className="w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 rotate-180"
             style={{ color: c.a6 }}
@@ -187,9 +208,38 @@ export default function TaskStrip() {
 
   // ── EXPANDED: full task list ──
   return (
-    <div className="flex-shrink-0" style={styles.containerBorder}>
-      <div className="h-[2px]" style={styles.accentLine} />
-      <div className="flex items-center gap-1.5 px-3 py-1.5">
+    <div className="flex-shrink-0 ts-panel" style={styles.containerBorder}>
+      <style jsx global>{`
+        .ts-panel { position: relative; overflow: hidden; }
+        .ts-grid {
+          position: absolute; inset: 0;
+          background-image:
+            linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
+          background-size: 20px 20px;
+          pointer-events: none; z-index: 0;
+        }
+        .ts-scanlines {
+          position: absolute; inset: 0;
+          background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0, 229, 255, 0.015) 2px, rgba(0, 229, 255, 0.015) 3px);
+          pointer-events: none; z-index: 1;
+          animation: ts-scan 8s linear infinite;
+        }
+        @keyframes ts-scan { 0% { transform: translateY(0); } 100% { transform: translateY(3px); } }
+        .ts-neon-top {
+          height: 3px; flex-shrink: 0; position: relative; z-index: 2;
+          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
+          animation: ts-pulse-neon 3s ease-in-out infinite;
+        }
+        @keyframes ts-pulse-neon { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+      `}</style>
+      {/* Scan line overlay */}
+      <div className="ts-scanlines" />
+      {/* Grid pattern overlay */}
+      <div className="ts-grid" />
+      {/* Neon top border */}
+      <div className="ts-neon-top" style={{ background: `linear-gradient(90deg, transparent, ${c.a6} 20%, #FCEE0A 50%, ${c.a6} 80%, transparent)` }} />
+      <div className="flex items-center gap-1.5 px-3 py-1.5 relative z-[2]">
         <button
           onClick={() => setIsCollapsed(true)}
           className="flex-shrink-0 p-0.5 rounded transition-all hover:bg-white/5"
@@ -220,31 +270,32 @@ export default function TaskStrip() {
             style={{
               fontSize: '10px',
               fontWeight: 800,
-              letterSpacing: '0.08em',
+              letterSpacing: '0.1em',
               textTransform: 'uppercase',
-              padding: '7px 16px',
+              padding: '8px 18px',
               color: '#000',
               background: `linear-gradient(135deg, ${c.raw}, ${c.raw} 50%, ${c.raw})`,
-              border: `1px solid ${c.a8}`,
-              clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-              boxShadow: `0 0 12px ${c.a4}, inset 0 1px 0 rgba(255, 255, 255, 0.4)`,
+              border: `1.5px solid ${c.a8}`,
+              clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+              boxShadow: `0 0 14px ${c.a4}, 0 0 28px ${c.a15}, inset 0 1px 0 rgba(255, 255, 255, 0.4)`,
               cursor: 'pointer',
               transition: 'all 180ms ease',
+              textShadow: '0 1px 0 rgba(255,255,255,0.3)',
             }}
             onMouseEnter={(e) => {
               const el = e.currentTarget;
               el.style.color = '#FCEE0A';
-              el.style.border = '1px solid #FCEE0A';
-              el.style.boxShadow = '0 0 0 1px rgba(252, 238, 10, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4)';
-              el.style.textShadow = '0 0 8px rgba(252, 238, 10, 0.6)';
+              el.style.border = '1.5px solid #FCEE0A';
+              el.style.boxShadow = '0 0 0 1px rgba(252, 238, 10, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(252, 238, 10, 0.15)';
+              el.style.textShadow = '0 0 8px rgba(252, 238, 10, 0.8), 0 1px 0 rgba(255,255,255,0.3)';
               el.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
               const el = e.currentTarget;
               el.style.color = '#000';
-              el.style.border = `1px solid ${c.a8}`;
-              el.style.boxShadow = `0 0 12px ${c.a4}, inset 0 1px 0 rgba(255, 255, 255, 0.4)`;
-              el.style.textShadow = 'none';
+              el.style.border = `1.5px solid ${c.a8}`;
+              el.style.boxShadow = `0 0 14px ${c.a4}, 0 0 28px ${c.a15}, inset 0 1px 0 rgba(255, 255, 255, 0.4)`;
+              el.style.textShadow = '0 1px 0 rgba(255,255,255,0.3)';
               el.style.transform = 'translateY(0)';
             }}
           >
@@ -258,7 +309,7 @@ export default function TaskStrip() {
 
       <div
         ref={scrollRef}
-        className="flex gap-2 px-3 pb-2 overflow-x-auto"
+        className="flex gap-2 px-3 pb-2 overflow-x-auto relative z-[2]"
         style={styles.scrollbar}
       >
         {boardTasks.length === 0 && (
