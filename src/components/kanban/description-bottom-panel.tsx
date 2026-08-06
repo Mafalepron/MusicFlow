@@ -650,18 +650,19 @@ export default function DescriptionBottomPanel() {
           gap: 6px;
           padding: 6px 10px;
           font-size: 10px;
-          color: #4a4a5e;
+          font-weight: 600;
+          color: #FCEE0A;
           transition: all 150ms;
-          border: 1px dashed rgba(252, 238, 10, 0.15);
-          background: rgba(252, 238, 10, 0.01);
+          border: 1px solid rgba(252, 238, 10, 0.3);
+          background: rgba(252, 238, 10, 0.06);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
         }
         .cp-add-btn:hover {
-          color: #FCEE0A;
-          border-color: rgba(252, 238, 10, 0.4);
-          border-style: solid;
-          background: rgba(252, 238, 10, 0.06);
-          box-shadow: 0 0 8px rgba(252, 238, 10, 0.1);
+          color: #fff;
+          border-color: rgba(252, 238, 10, 0.6);
+          background: rgba(252, 238, 10, 0.12);
+          box-shadow: 0 0 12px rgba(252, 238, 10, 0.2), inset 0 0 8px rgba(252, 238, 10, 0.05);
+          text-shadow: 0 0 6px rgba(252, 238, 10, 0.5);
         }
         .cp-desc-card {
           padding: 8px 10px;
@@ -967,8 +968,8 @@ function StageCard({
         {/* Subtask count badge */}
         {subtasks.length > 0 && (
           <span
-            className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 tabular-nums font-bold"
-            style={{ backgroundColor: c.a2, color: c.raw, border: `1px solid ${c.a3}` }}
+            className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 tabular-nums font-bold text-right"
+            style={{ backgroundColor: c.a2, color: c.raw, border: `1px solid ${c.a3}`, minWidth: '38px' }}
             title={`${subtasks.length} подзадач · ${stageProgress}%`}
           >
             {stageProgress}%

@@ -48,29 +48,34 @@ export default function TaskStrip() {
   }), [boardColor]);
 
   const styles = useMemo(() => ({
-    containerBorder: { borderBottom: '1px solid ' + c.a25 },
-    accentLine: { background: 'linear-gradient(90deg, ' + c.a6 + ', ' + c.a1 + ')' },
-    dotBg: { backgroundColor: c.raw, boxShadow: '0 0 6px ' + c.raw50 },
-    titleColor: { color: c.a8 },
+    containerBorder: { borderBottom: '1px solid rgba(252, 238, 10, 0.08)', background: 'linear-gradient(180deg, rgba(6,6,12,0.95), rgba(10,10,18,0.98))' },
+    accentLine: { background: 'linear-gradient(90deg, rgba(252,238,10,0.4), rgba(252,238,10,0.05))', boxShadow: '0 0 6px rgba(252,238,10,0.15)' },
+    dotBg: { backgroundColor: '#FCEE0A', boxShadow: '0 0 6px rgba(252,238,10,0.4)' },
+    titleColor: { color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)', letterSpacing: '0.12em' },
     scrollbar: { scrollbarWidth: 'thin' as const, scrollbarColor: c.a2 + ' transparent' },
     cardDefault: {
-      backgroundColor: c.a12,
-      border: '1px solid ' + c.a35,
-      boxShadow: 'inset 0 1px 0 ' + c.a1,
+      backgroundColor: 'rgba(20, 20, 36, 0.7)',
+      border: '1px solid rgba(252, 238, 10, 0.1)',
+      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     cardSelected: {
-      backgroundColor: c.a22,
-      border: '1px solid ' + c.a6,
-      boxShadow: '0 0 16px ' + c.a2 + ', 0 0 4px ' + c.a3 + ', inset 0 1px 0 ' + c.a15,
+      backgroundColor: 'rgba(252, 238, 10, 0.08)',
+      border: '1px solid rgba(252, 238, 10, 0.3)',
+      boxShadow: '0 0 12px rgba(252, 238, 10, 0.1), inset 0 0 8px rgba(252, 238, 10, 0.03)',
+      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
-    progressBg: { backgroundColor: c.a12 },
+    progressBg: { backgroundColor: 'rgba(255,255,255,0.04)' },
     btnGrad: {
-      background: 'linear-gradient(135deg, ' + c.raw + ', ' + c.a65 + ')',
-      boxShadow: '0 2px 8px ' + c.a3 + ', 0 0 16px ' + c.a1,
+      background: 'linear-gradient(135deg, rgba(252,238,10,0.9), rgba(252,238,10,0.7))',
+      color: '#000',
+      boxShadow: '0 0 8px rgba(252,238,10,0.3)',
+      clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
     },
     tracksBtnGrad: {
-      background: 'linear-gradient(135deg, #9333ea, #ec4899)',
-      boxShadow: '0 2px 8px rgba(147, 51, 234, 0.3), 0 0 16px rgba(236, 72, 153, 0.1)',
+      background: 'linear-gradient(135deg, rgba(252,238,10,0.9), rgba(0,240,255,0.7))',
+      color: '#000',
+      boxShadow: '0 0 10px rgba(252,238,10,0.3), 0 0 16px rgba(0,240,255,0.1)',
+      clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
     },
     iconActive: c.raw,
     iconDone: c.a4,
@@ -127,14 +132,14 @@ export default function TaskStrip() {
   const showButton = !isCreating && !isTrackWizardOpen;
 
   const handleCardEnter = (el: HTMLElement) => {
-    el.style.backgroundColor = c.a18;
-    el.style.borderColor = c.a5;
-    el.style.boxShadow = '0 0 12px ' + c.a15 + ', inset 0 1px 0 ' + c.a12;
+    el.style.backgroundColor = 'rgba(252, 238, 10, 0.06)';
+    el.style.borderColor = 'rgba(252, 238, 10, 0.2)';
+    el.style.boxShadow = '0 0 10px rgba(252, 238, 10, 0.08)';
   };
   const handleCardLeave = (el: HTMLElement) => {
-    el.style.backgroundColor = c.a12;
-    el.style.borderColor = c.a35;
-    el.style.boxShadow = 'inset 0 1px 0 ' + c.a1;
+    el.style.backgroundColor = 'rgba(20, 20, 36, 0.7)';
+    el.style.borderColor = 'rgba(252, 238, 10, 0.1)';
+    el.style.boxShadow = 'none';
   };
 
   return (
@@ -157,7 +162,7 @@ export default function TaskStrip() {
               }
             }}
             className={cn(
-              'flex items-center gap-1 text-[10px] font-medium text-white px-2.5 py-1 rounded-md transition-all duration-200',
+              'flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 transition-all duration-200',
               isTracksBoard && boardTasks.length === 0 && 'animate-pulse',
             )}
             style={isTracksBoard ? styles.tracksBtnGrad : styles.btnGrad}

@@ -180,7 +180,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
       {/* Header — title + metadata in one line */}
-      <div className="border-b border-slate-800/50 p-4">
+      <div className="p-4" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.08)', background: 'linear-gradient(90deg, rgba(252,238,10,0.02), transparent)' }}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
           <div className="flex items-center gap-1">
@@ -247,7 +247,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
 
       {/* Open in Audio Editor */}
       {task.soundflowTrackId && (
-        <div className="px-4 py-3 border-b border-slate-800/30">
+        <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.06)' }}>
           <button
             onClick={async () => {
               const kanbanState = useKanbanStore.getState();
@@ -290,35 +290,37 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
         </div>
       )}
 
-      {/* Description (inline editable) */}
-      <div className="border-b border-slate-800/30 px-4 py-3">
-        <div className="flex items-center justify-between mb-1.5">
+      {/* Description (inline editable) — cyberpunk styled */}
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.06)' }}>
+        <div className="flex items-center justify-between mb-2">
           <span
-            className="text-[9px] uppercase tracking-widest font-medium"
-            style={{ color: hexToRgba(boardColor, 0.55) }}
+            className="text-[9px] uppercase tracking-widest font-bold"
+            style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
           >
             Описание
           </span>
           {!isEditingDesc && (
             <button
               onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
-              className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1"
-              style={{ color: hexToRgba(boardColor, 0.5) }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = boardColor; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = hexToRgba(boardColor, 0.5); }}
+              className="text-[9px] px-2 py-0.5 rounded transition-all flex items-center gap-1 font-medium"
+              style={{ color: '#FCEE0A', border: '1px solid rgba(252,238,10,0.2)', background: 'rgba(252,238,10,0.04)', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
             >
               <Pencil className="w-2.5 h-2.5" /> Изменить
             </button>
           )}
         </div>
         {isEditingDesc ? (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Textarea
               value={descDraft}
               onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
               placeholder="Опишите трек..."
-              className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none transition-colors"
-              style={{ borderColor: hexToRgba(boardColor, 0.3) }}
+              className="text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none rounded-md"
+              style={{
+                background: 'rgba(8, 8, 16, 0.9)',
+                border: '1px solid rgba(252, 238, 10, 0.2)',
+                boxShadow: 'inset 0 0 8px rgba(252, 238, 10, 0.03)',
+              }}
               autoFocus
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -330,23 +332,40 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
                   setDescDraft(task.description || '');
                 }
               }}
-              onBlur={() => {
-                if (descDraft.trim() !== (task.description || '').trim()) {
-                  void saveDesc();
-                } else {
-                  setIsEditingDesc(false);
-                }
-              }}
             />
             <div className="flex items-center justify-between">
               <span className="text-[8px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
-              <span className="text-[8px] text-slate-700">Ctrl+Enter — сохранить</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => { setIsEditingDesc(false); setDescDraft(task.description || ''); }}
+                  className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => void saveDesc()}
+                  className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+                  style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+                >
+                  Сохранить
+                </button>
+              </div>
             </div>
           </div>
         ) : task.description ? (
-          <p className="text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap">
-            {task.description}
-          </p>
+          <div
+            className="rounded-md px-3 py-2 transition-all cursor-pointer"
+            style={{
+              background: 'rgba(0, 240, 255, 0.03)',
+              border: '1px solid rgba(0, 240, 255, 0.12)',
+              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+            }}
+            onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+          >
+            <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">
+              {task.description}
+            </p>
+          </div>
         ) : (
           <button
             onClick={() => { setDescDraft(''); setIsEditingDesc(true); }}
@@ -358,7 +377,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       </div>
 
       {/* Track cover */}
-      <div className="border-b border-slate-800/30 px-4 py-3">
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.06)' }}>
         <span
           className="text-[9px] uppercase tracking-widest font-medium block mb-2"
           style={{ color: hexToRgba(boardColor, 0.55) }}
