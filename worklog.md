@@ -223,3 +223,73 @@ Stage Summary:
 - The non-track right window (`TaskDetailView`) now matches the tracks cyberpunk style: yellow border, glow, clip-path corners, one-line metadata under the title.
 - "Управление подзадачами" redundant hint button removed; replaced with a subtle pointer to the bottom panel.
 - `selectedStageForPanel` is still used for stage highlighting within tracks but no longer gates panel visibility.
+
+---
+Task ID: 7
+Agent: main (Z.ai Code)
+Task: 1) Task card frame color on the top panel should match the board block color from the radial diagram for ANY board; 2) Remove the "Audio" text from the task badge, keep only the music note icon; 3) Require user confirmation before deleting a task; 4) The top task panel should be collapsible, showing only the current task when collapsed.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand previous work (Task 6: cyberpunk TaskDetailView + always-pinned bottom panel).
+- Read /home/z/my-project/src/components/board/task-strip.tsx (323 lines) — found all 4 issues:
+  * Task card styles (`cardDefault`, `cardSelected`) used hardcoded `rgba(252, 238, 10, ...)` (yellow) instead of the board color.
+  * The header accent line, dot, title color, and "New Task" button all used hardcoded yellow.
+  * The audio badge at line 263-276 showed `<Music icon> Audio` text.
+  * `handleDelete` immediately called DELETE with no confirmation.
+  * No collapse/expand toggle existed.
+- Read /home/z/my-project/src/components/board/radial-board.tsx — confirmed board panels use `item.board.color` for their frame (`--bs`, `--bc` CSS vars), so the task strip needs to match.
+- Read /home/z/my-project/src/components/ui/popover.tsx — confirmed Popover/PopoverTrigger/PopoverContent are available for the delete confirmation.
+
+Changes made to /home/z/my-project/src/components/board/task-strip.tsx (full rewrite):
+
+1. **Board-color-matched frame** — Replaced ALL hardcoded yellow (`#FCEE0A` / `rgba(252,238,10,...)`) with board-color-derived values from the `c` (colorSet) object:
+   - `containerBorder`: `borderBottom: 2px solid ${c.a3}`
+   - `accentLine`: `linear-gradient(90deg, ${c.a6}, ${c.a1})` with `boxShadow: 0 0 8px ${c.a35}`
+   - `dotBg`: `backgroundColor: c.raw, boxShadow: 0 0 8px ${c.a5}`
+   - `titleColor`: `color: c.raw, textShadow: 0 0 8px ${c.a35}`
+   - `cardDefault`: `border: 2px solid ${c.a25}`
+   - `cardSelected`: `backgroundColor: c.a12, border: 2px solid ${c.a55}, boxShadow: 0 0 24px ${c.a22}, inset 0 0 16px ${c.a04}`
+   - `handleCardEnter`/`handleCardLeave`: use `c.a1`, `c.a45`, `c.a15`, `c.a04`, `c.a25`
+   - The "New Task"/"Новый трек" button: `background: linear-gradient(135deg, ${c.raw}, ...)` with `border: 1px solid ${c.a8}`, `boxShadow: 0 0 12px ${c.a4}`, hover uses `c.a55`/`c.a2`
+   - Added `a45`, `a55` alpha variants to the colorSet for finer border control.
+
+2. **Audio badge — icon only** — Changed the badge from a text+icon pill to a compact 4×4 icon-only square:
+   ```tsx
+   <span className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded"
+     style={{ color: '#22d3ee', backgroundColor: 'rgba(34, 211, 238, 0.12)',
+       boxShadow: 'inset 0 0 0 1px rgba(34, 211, 238, 0.25)' }}
+     title="Связан с аудиотреком — двойной клик откроет редактор">
+     <Music className="w-2.5 h-2.5" />
+   </span>
+   ```
+   Removed the "Audio" text entirely; kept the cyan tint and the tooltip explaining double-click behavior.
+
+3. **Delete confirmation popover** — Extracted a new `DeleteTaskButton` component that wraps the trash icon in a Popover:
+   - Clicking the trash opens a popover with: a red warning triangle icon, "Удалить задачу?" title, the task name in quotes («...»), an irreversibility warning message, and "Отмена" (Cancel) + "Удалить" (Delete) buttons.
+   - The Delete button is red (`#dc2626`) with a glow; shows "..." while deleting.
+   - A footer line with the board-color dot says "Подтвердите удаление".
+   - `stopPropagation` on both the trigger and popover content prevents the card click from firing.
+
+4. **Collapsible task panel** — Added `const [isCollapsed, setIsCollapsed] = useState(false)` and a chevron toggle button at the start of the header:
+   - When collapsed: `visibleTasks = selectedTask ? [selectedTask] : []` — only the selected task card is rendered (or "Нет выбранной задачи" placeholder if none selected).
+   - A "текущая" (current) badge appears next to the task count when collapsed and a task is selected.
+   - The chevron rotates 180° when collapsed (points up) vs expanded (points down).
+   - The button title toggles between "Развернуть список задач" and "Свернуть (только текущая задача)".
+   - The task list `<div>` is only rendered when `!isCollapsed || visibleTasks.length > 0`.
+
+Verification via Agent Browser + VLM:
+- Logged in with test account, navigated to the Kanban project, dismissed onboarding.
+- Created 3 boards with distinct colors via API: "Тестовая доска" (#00d9ff cyan), "Зелёная доска" (#00ff88 green), "Оранжевая доска" (#ff8c00 orange), each with tasks.
+- VLM confirmed for the GREEN board: task card border, header title "ЗЕЛЕНАЯ ДОСКА", dot, accent line, and "New Task" button are ALL neon green — matching the board color.
+- VLM confirmed for the ORANGE board: border, title "ОРАНЖЕВАЯ ДОСКА", dot, and accent line are ALL orange.
+- VLM confirmed for the CYAN test board: border is cyan/blue, NOT yellow.
+- Collapse test: clicked the chevron → button title changed to "Развернуть список задач", "текущая" badge appeared, only the selected task remained visible (the other task "Первая подзадача" was hidden).
+- Delete confirmation test: hovered a task, clicked the trash button → popover opened with "Удалить задачу?", "«Первая подзадача»", irreversibility warning, Cancel + Delete (red) buttons. VLM confirmed the red warning triangle and red Delete button.
+- No runtime errors in console (only pre-existing AnimatePresence warning).
+- Lint: no new errors introduced (3 pre-existing errors in other files remain unchanged).
+
+Stage Summary:
+- The top task strip now dynamically adapts its entire color scheme (frame, title, accent line, button) to match the selected board's color — verified with cyan, green, and orange boards.
+- The audio badge is now a compact icon-only square (no "Audio" text).
+- Deleting a task now requires explicit confirmation via a styled popover with the task name and irreversibility warning.
+- The top panel can be collapsed via a chevron toggle; when collapsed, only the currently selected task is shown (with a "текущая" badge), saving vertical space.

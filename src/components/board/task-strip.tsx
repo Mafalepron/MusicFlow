@@ -2,9 +2,10 @@
 
 import { useKanbanStore, Task, TaskStatus } from '@/store/kanban-store';
 import { useNavigationStore } from '@/lib/store';
-import { useEffect, useRef, useMemo } from 'react';
-import { Check, Circle, Clock, Eye, Trash2, Pencil, Plus, Music } from 'lucide-react';
+import { useEffect, useRef, useMemo, useState } from 'react';
+import { Check, Circle, Clock, Eye, Trash2, Pencil, Plus, Music, ChevronDown, AlertTriangle } from 'lucide-react';
 import { cn, hexToRgba } from '@/lib/utils';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 const STATUS_ICON: Record<string, typeof Circle> = {
   'todo': Circle,
@@ -20,6 +21,7 @@ export default function TaskStrip() {
     isCreating, isTrackWizardOpen, setIsCreating,
   } = useKanbanStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const selectedBoard = boards.find(b => b.id === selectedBoardId);
   const boardColor = selectedBoard?.color || '#00d9ff';
   const boardType = selectedBoard?.boardType || '';
@@ -38,7 +40,9 @@ export default function TaskStrip() {
     a3: hexToRgba(boardColor, 0.3),
     a35: hexToRgba(boardColor, 0.35),
     a4: hexToRgba(boardColor, 0.4),
+    a45: hexToRgba(boardColor, 0.45),
     a5: hexToRgba(boardColor, 0.5),
+    a55: hexToRgba(boardColor, 0.55),
     a6: hexToRgba(boardColor, 0.6),
     a65: hexToRgba(boardColor, 0.65),
     a7: hexToRgba(boardColor, 0.7),
@@ -47,36 +51,26 @@ export default function TaskStrip() {
     raw50: boardColor + '50',
   }), [boardColor]);
 
+  // Styles use the BOARD COLOR (not hardcoded yellow) so the task frame matches
+  // the board block color on the radial diagram.
   const styles = useMemo(() => ({
-    containerBorder: { borderBottom: '2px solid rgba(252, 238, 10, 0.2)', background: 'linear-gradient(180deg, rgba(5,10,20,0.95), rgba(8,12,24,0.98))' },
-    accentLine: { background: 'linear-gradient(90deg, rgba(252,238,10,0.5), rgba(252,238,10,0.1))', boxShadow: '0 0 8px rgba(252,238,10,0.25)' },
-    dotBg: { backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.5)' },
-    titleColor: { color: '#FCEE0A', textShadow: '0 0 8px rgba(252,238,10,0.4)', letterSpacing: '0.12em' },
-    scrollbar: { scrollbarWidth: 'thin' as const, scrollbarColor: c.a2 + ' transparent' },
+    containerBorder: { borderBottom: `2px solid ${c.a3}`, background: 'linear-gradient(180deg, rgba(5,10,20,0.95), rgba(8,12,24,0.98))' },
+    accentLine: { background: `linear-gradient(90deg, ${c.a6}, ${c.a1})`, boxShadow: `0 0 8px ${c.a35}` },
+    dotBg: { backgroundColor: c.raw, boxShadow: `0 0 8px ${c.a5}` },
+    titleColor: { color: c.raw, textShadow: `0 0 8px ${c.a35}`, letterSpacing: '0.12em' },
+    scrollbar: { scrollbarWidth: 'thin' as const, scrollbarColor: c.a3 + ' transparent' },
     cardDefault: {
       backgroundColor: 'rgba(10, 18, 32, 0.85)',
-      border: '2px solid rgba(252, 238, 10, 0.25)',
+      border: `2px solid ${c.a25}`,
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     cardSelected: {
-      backgroundColor: 'rgba(252, 238, 10, 0.12)',
-      border: '2px solid rgba(252, 238, 10, 0.55)',
-      boxShadow: '0 0 24px rgba(252, 238, 10, 0.2), inset 0 0 16px rgba(252, 238, 10, 0.05)',
+      backgroundColor: c.a12,
+      border: `2px solid ${c.a55}`,
+      boxShadow: `0 0 24px ${c.a22}, inset 0 0 16px ${c.a04}`,
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     progressBg: { backgroundColor: 'rgba(255,255,255,0.04)' },
-    btnGrad: {
-      background: 'linear-gradient(135deg, rgba(252,238,10,0.9), rgba(252,238,10,0.7))',
-      color: '#000',
-      boxShadow: '0 0 8px rgba(252,238,10,0.3)',
-      clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-    },
-    tracksBtnGrad: {
-      background: 'linear-gradient(135deg, rgba(252,238,10,0.9), rgba(0,240,255,0.7))',
-      color: '#000',
-      boxShadow: '0 0 10px rgba(252,238,10,0.3), 0 0 16px rgba(0,240,255,0.1)',
-      clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-    },
     iconActive: c.raw,
     iconDone: c.a4,
     textColor: 'rgba(226, 232, 240, 0.95)',
@@ -96,13 +90,6 @@ export default function TaskStrip() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: task.id, status: next }),
     });
-    await reloadTasks();
-  };
-
-  const handleDelete = async (e: React.MouseEvent, taskId: string) => {
-    e.stopPropagation();
-    await fetch('/api/tasks?id=' + taskId, { method: 'DELETE' });
-    if (selectedTaskId === taskId) setSelectedTaskId(null);
     await reloadTasks();
   };
 
@@ -132,25 +119,47 @@ export default function TaskStrip() {
   const showButton = !isCreating && !isTrackWizardOpen;
 
   const handleCardEnter = (el: HTMLElement) => {
-    el.style.backgroundColor = 'rgba(252, 238, 10, 0.1)';
-    el.style.borderColor = 'rgba(252, 238, 10, 0.45)';
-    el.style.boxShadow = '0 0 20px rgba(252, 238, 10, 0.15), inset 0 0 12px rgba(252, 238, 10, 0.04)';
+    el.style.backgroundColor = c.a1;
+    el.style.borderColor = c.a45;
+    el.style.boxShadow = `0 0 20px ${c.a15}, inset 0 0 12px ${c.a04}`;
   };
   const handleCardLeave = (el: HTMLElement) => {
     el.style.backgroundColor = 'rgba(10, 18, 32, 0.85)';
-    el.style.borderColor = 'rgba(252, 238, 10, 0.25)';
+    el.style.borderColor = c.a25;
     el.style.boxShadow = 'none';
   };
+
+  // When collapsed, show only the selected task (or a placeholder)
+  const selectedTask = boardTasks.find(t => t.id === selectedTaskId) || null;
+  const visibleTasks = isCollapsed
+    ? (selectedTask ? [selectedTask] : [])
+    : boardTasks;
 
   return (
     <div className="flex-shrink-0" style={styles.containerBorder}>
       <div className="h-[2px]" style={styles.accentLine} />
       <div className="flex items-center gap-1.5 px-3 py-1.5">
+        <button
+          onClick={() => setIsCollapsed(v => !v)}
+          className="flex-shrink-0 p-0.5 rounded transition-all hover:bg-white/5"
+          style={{ color: c.a6 }}
+          title={isCollapsed ? 'Развернуть список задач' : 'Свернуть (только текущая задача)'}
+        >
+          <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', isCollapsed && 'rotate-180')} />
+        </button>
         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={styles.dotBg} />
         <h3 className="text-[10px] font-semibold uppercase tracking-widest" style={styles.titleColor}>
           {selectedBoard.title}
         </h3>
         <span className="text-[9px] text-slate-600">{boardTasks.length}</span>
+        {isCollapsed && selectedTask && (
+          <span
+            className="ml-1 text-[9px] px-1.5 py-0.5 rounded font-medium"
+            style={{ color: c.raw, backgroundColor: c.a08, border: `1px solid ${c.a2}` }}
+          >
+            текущая
+          </span>
+        )}
         <div className="flex-1" />
         {showButton && (
           <button
@@ -172,22 +181,22 @@ export default function TaskStrip() {
               textTransform: 'uppercase',
               padding: '7px 16px',
               color: '#000',
-              background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
-              border: '1px solid rgba(252, 238, 10, 0.9)',
+              background: `linear-gradient(135deg, ${c.raw}, ${c.raw} 50%, ${c.raw})`,
+              border: `1px solid ${c.a8}`,
               clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-              boxShadow: '0 0 12px rgba(252, 238, 10, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+              boxShadow: `0 0 12px ${c.a4}, inset 0 1px 0 rgba(255, 255, 255, 0.4)`,
               cursor: 'pointer',
             }}
             onMouseEnter={(e) => {
               const el = e.currentTarget;
-              el.style.background = 'linear-gradient(135deg, #FCEE0A, #FFD700 50%, #FCEE0A)';
-              el.style.boxShadow = '0 0 18px rgba(252, 238, 10, 0.6), 0 0 28px rgba(252, 238, 10, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.5)';
+              el.style.filter = 'brightness(1.15)';
+              el.style.boxShadow = `0 0 18px ${c.a55}, 0 0 28px ${c.a2}, inset 0 1px 0 rgba(255, 255, 255, 0.5)`;
               el.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
               const el = e.currentTarget;
-              el.style.background = 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)';
-              el.style.boxShadow = '0 0 12px rgba(252, 238, 10, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4)';
+              el.style.filter = 'brightness(1)';
+              el.style.boxShadow = `0 0 12px ${c.a4}, inset 0 1px 0 rgba(255, 255, 255, 0.4)`;
               el.style.transform = 'translateY(0)';
             }}
           >
@@ -199,119 +208,220 @@ export default function TaskStrip() {
         )}
       </div>
 
-      <div
-        ref={scrollRef}
-        className="flex gap-2 px-3 pb-2 overflow-x-auto"
-        style={styles.scrollbar}
-      >
-        {boardTasks.length === 0 && (
-          <div className="flex items-center justify-center w-full py-2">
-            <p className="text-[10px] text-slate-700">Нет задач</p>
-          </div>
-        )}
-        {boardTasks.map((task) => {
-          const Icon = STATUS_ICON[task.status] || Circle;
-          const isSelected = selectedTaskId === task.id;
-          const isTrack = !!task.trackConfig;
-          const allLeaves = isTrack
-            ? (task.children || []).flatMap(s => s.children || [])
-            : (task.children || []);
-          const progress = isTrack ? getProgress(allLeaves) : getProgress(task.children || []);
-          const isDone = task.status === 'done';
-          return (
-            <div
-              key={task.id}
-              onClick={() => setSelectedTaskId(task.id)}
-              onDoubleClick={() => {
-                if (task.soundflowTrackId) {
-                  const kanbanState = useKanbanStore.getState();
-                  const kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
-                  const sfProjectId = kanbanProject?.soundflowProjectId;
-                  if (sfProjectId && task.soundflowTrackId) {
-                    useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId);
-                    return;
-                  }
-                }
-                setEditingTask(task);
-              }}
-              className={cn(
-                'group flex-shrink-0 rounded-lg cursor-pointer transition-all duration-200',
-                isSelected && 'animate-in fade-in duration-200',
-              )}
-              style={isSelected ? styles.cardSelected : styles.cardDefault}
-              onMouseEnter={(e) => { if (!isSelected) handleCardEnter(e.currentTarget); }}
-              onMouseLeave={(e) => { if (!isSelected) handleCardLeave(e.currentTarget); }}
-            >
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5">
-                <button
-                  onClick={(e) => cycleStatus(e, task)}
-                  className="flex-shrink-0 transition-opacity hover:opacity-60"
-                  style={{ color: isDone ? styles.iconDone : styles.iconActive }}
-                  title={'Статус: ' + task.status}
-                >
-                  <Icon className="w-3 h-3" />
-                </button>
-                <p
-                  className={cn(
-                    'text-[11px] font-medium leading-tight truncate min-w-0 flex-1',
-                    isDone ? 'line-through' : '',
-                  )}
-                  style={{ color: isDone ? styles.textDoneColor : styles.textColor }}
-                >
-                  {task.title}
-                </p>
-                {task.soundflowTrackId && (
-                  <span
-                    className="flex-shrink-0 flex items-center gap-0.5 text-[8px] font-semibold px-1 py-0.5 rounded"
-                    style={{
-                      color: '#22d3ee',
-                      backgroundColor: 'rgba(34, 211, 238, 0.12)',
-                      boxShadow: 'inset 0 0 0 1px rgba(34, 211, 238, 0.25)',
-                    }}
-                    title="Связан с аудиотреком — двойной клик откроет редактор"
-                  >
-                    <Music className="w-2 h-2" />
-                    Audio
-                  </span>
-                )}
-                {allLeaves.length > 0 && (
-                  <span className="text-[8px] flex-shrink-0 tabular-nums font-medium" style={{ color: styles.progressTextColor }}>
-                    {progress}%
-                  </span>
-                )}
-                <div className="flex items-center gap-px opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
-                    className="p-0.5 rounded hover:bg-white/10"
-                    style={{ color: styles.editColor }}
-                  >
-                    <Pencil className="w-2.5 h-2.5" />
-                  </button>
-                  <button
-                    onClick={(e) => handleDelete(e, task.id)}
-                    className="p-0.5 rounded hover:bg-rose-500/10"
-                    style={{ color: styles.deleteColor }}
-                  >
-                    <Trash2 className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              </div>
-              {allLeaves.length > 0 && (
-                <div className="h-[2px] w-full overflow-hidden rounded-b-lg" style={styles.progressBg}>
-                  <div
-                    className="h-full transition-all duration-500"
-                    style={{
-                      width: progress + '%',
-                      backgroundColor: hexToRgba(boardColor, progress === 100 ? 0.8 : 0.5),
-                    }}
-                  />
-                </div>
-              )}
+      {!isCollapsed || visibleTasks.length > 0 ? (
+        <div
+          ref={scrollRef}
+          className="flex gap-2 px-3 pb-2 overflow-x-auto"
+          style={styles.scrollbar}
+        >
+          {boardTasks.length === 0 && !isCollapsed && (
+            <div className="flex items-center justify-center w-full py-2">
+              <p className="text-[10px] text-slate-700">Нет задач</p>
             </div>
-          );
-        })}
-      </div>
+          )}
+          {isCollapsed && !selectedTask && (
+            <div className="flex items-center justify-center w-full py-2">
+              <p className="text-[10px] text-slate-700">Нет выбранной задачи</p>
+            </div>
+          )}
+          {visibleTasks.map((task) => {
+            const Icon = STATUS_ICON[task.status] || Circle;
+            const isSelected = selectedTaskId === task.id;
+            const isTrack = !!task.trackConfig;
+            const allLeaves = isTrack
+              ? (task.children || []).flatMap(s => s.children || [])
+              : (task.children || []);
+            const progress = isTrack ? getProgress(allLeaves) : getProgress(task.children || []);
+            const isDone = task.status === 'done';
+            return (
+              <div
+                key={task.id}
+                onClick={() => setSelectedTaskId(task.id)}
+                onDoubleClick={() => {
+                  if (task.soundflowTrackId) {
+                    const kanbanState = useKanbanStore.getState();
+                    const kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
+                    const sfProjectId = kanbanProject?.soundflowProjectId;
+                    if (sfProjectId && task.soundflowTrackId) {
+                      useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId);
+                      return;
+                    }
+                  }
+                  setEditingTask(task);
+                }}
+                className={cn(
+                  'group flex-shrink-0 rounded-lg cursor-pointer transition-all duration-200',
+                  isSelected && 'animate-in fade-in duration-200',
+                )}
+                style={isSelected ? styles.cardSelected : styles.cardDefault}
+                onMouseEnter={(e) => { if (!isSelected) handleCardEnter(e.currentTarget); }}
+                onMouseLeave={(e) => { if (!isSelected) handleCardLeave(e.currentTarget); }}
+              >
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+                  <button
+                    onClick={(e) => cycleStatus(e, task)}
+                    className="flex-shrink-0 transition-opacity hover:opacity-60"
+                    style={{ color: isDone ? styles.iconDone : styles.iconActive }}
+                    title={'Статус: ' + task.status}
+                  >
+                    <Icon className="w-3 h-3" />
+                  </button>
+                  <p
+                    className={cn(
+                      'text-[11px] font-medium leading-tight truncate min-w-0 flex-1',
+                      isDone ? 'line-through' : '',
+                    )}
+                    style={{ color: isDone ? styles.textDoneColor : styles.textColor }}
+                  >
+                    {task.title}
+                  </p>
+                  {task.soundflowTrackId && (
+                    <span
+                      className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded"
+                      style={{
+                        color: '#22d3ee',
+                        backgroundColor: 'rgba(34, 211, 238, 0.12)',
+                        boxShadow: 'inset 0 0 0 1px rgba(34, 211, 238, 0.25)',
+                      }}
+                      title="Связан с аудиотреком — двойной клик откроет редактор"
+                    >
+                      <Music className="w-2.5 h-2.5" />
+                    </span>
+                  )}
+                  {allLeaves.length > 0 && (
+                    <span className="text-[8px] flex-shrink-0 tabular-nums font-medium" style={{ color: styles.progressTextColor }}>
+                      {progress}%
+                    </span>
+                  )}
+                  <div className="flex items-center gap-px opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
+                      className="p-0.5 rounded hover:bg-white/10"
+                      style={{ color: styles.editColor }}
+                    >
+                      <Pencil className="w-2.5 h-2.5" />
+                    </button>
+                    <DeleteTaskButton
+                      task={task}
+                      onDelete={async () => {
+                        await fetch('/api/tasks?id=' + task.id, { method: 'DELETE' });
+                        if (selectedTaskId === task.id) setSelectedTaskId(null);
+                        await reloadTasks();
+                      }}
+                      accentColor={c.raw}
+                    />
+                  </div>
+                </div>
+                {allLeaves.length > 0 && (
+                  <div className="h-[2px] w-full overflow-hidden rounded-b-lg" style={styles.progressBg}>
+                    <div
+                      className="h-full transition-all duration-500"
+                      style={{
+                        width: progress + '%',
+                        backgroundColor: hexToRgba(boardColor, progress === 100 ? 0.8 : 0.5),
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+/* ── Delete with confirmation (popover) ─────────────────── */
+
+function DeleteTaskButton({
+  task,
+  onDelete,
+  accentColor,
+}: {
+  task: Task;
+  onDelete: () => Promise<void>;
+  accentColor: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirm = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="p-0.5 rounded hover:bg-rose-500/10"
+          style={{ color: 'rgba(244, 63, 94, 0.6)' }}
+          title="Удалить задачу"
+        >
+          <Trash2 className="w-2.5 h-2.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-60 p-3 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[70]"
+        align="end"
+        sideOffset={6}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-2 mb-2.5">
+          <div
+            className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(255, 0, 60, 0.12)', border: '1px solid rgba(255, 0, 60, 0.3)' }}
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-slate-100 leading-tight">Удалить задачу?</p>
+            <p className="text-[10px] text-slate-500 truncate mt-0.5" title={task.title}>
+              «{task.title}»
+            </p>
+          </div>
+        </div>
+        <p className="text-[9px] text-slate-500 mb-2.5 leading-relaxed">
+          Действие необратимо. Все подзадачи и этапы будут удалены вместе с задачей.
+        </p>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+            className="flex-1 text-[10px] font-medium px-2 py-1.5 rounded transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+          >
+            Отмена
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); void confirm(); }}
+            disabled={deleting}
+            className="flex-1 flex items-center justify-center gap-1 text-[10px] font-bold px-2 py-1.5 rounded transition-all disabled:opacity-50"
+            style={{
+              color: '#fff',
+              backgroundColor: '#dc2626',
+              boxShadow: '0 0 8px rgba(220, 38, 38, 0.4)',
+            }}
+          >
+            <Trash2 className="w-2.5 h-2.5" />
+            {deleting ? '...' : 'Удалить'}
+          </button>
+        </div>
+        <div
+          className="mt-2 pt-2 border-t border-slate-800 text-[8px] text-slate-600 flex items-center gap-1"
+          style={{ color: hexToRgba(accentColor, 0.5) }}
+        >
+          <span style={{ color: hexToRgba(accentColor, 0.7) }}>●</span>
+          Подтвердите удаление
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
