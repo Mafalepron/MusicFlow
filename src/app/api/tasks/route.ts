@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
             select: childSelect,
             orderBy: [
               { hexR: 'asc' as const },
+              { hexQ: 'asc' as const },
               { createdAt: 'asc' as const },
             ],
           },
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest) {
         select: childSelect,
         orderBy: [
           { hexR: 'asc' as const },
+          { hexQ: 'asc' as const },
           { createdAt: 'asc' as const },
         ],
       };
