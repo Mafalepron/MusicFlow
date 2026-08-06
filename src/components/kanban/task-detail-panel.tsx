@@ -337,32 +337,6 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
         )}
       </div>
 
-      {/* Progress */}
-      <div className="border-b border-slate-800/30 px-4 py-3">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] text-slate-400 font-medium">Общий прогресс</span>
-          <span className="text-[11px] font-bold" style={{ color: getProgressTextColor() }}>{progress}%</span>
-        </div>
-        <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${progress}%`, backgroundColor: getProgressColor() }}
-          />
-          {progress > 0 && progress < 100 && (
-            <div
-              className="absolute inset-0 rounded-full animate-pulse opacity-20"
-              style={{ background: `linear-gradient(90deg, transparent, ${getProgressColor()}, transparent)` }}
-            />
-          )}
-        </div>
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-[9px] text-slate-600">
-            {allSubtasks.filter(s => s.status === 'done').length} из {allSubtasks.length} подзадач · {stages.length} этапов
-          </span>
-          {progress === 100 && <span className="text-[9px] text-emerald-400 font-medium">✓ Завершено</span>}
-        </div>
-      </div>
-
       {/* Metadata row */}
       <div className="border-b border-slate-800/30 px-4 py-3 space-y-2">
         <span
@@ -418,43 +392,6 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
             <DeadlineBadge value={task.deadline} info={deadlineInfo} />
           </MetaRow>
         )}
-      </div>
-
-      {/* Manage stages hint */}
-      <div className="px-4 py-4 mt-auto">
-        <button
-          onClick={openManageStages}
-          className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg transition-all duration-200 group"
-          style={{
-            border: `1px solid ${hexToRgba(boardColor, 0.25)}`,
-            backgroundColor: hexToRgba(boardColor, 0.06),
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLElement;
-            el.style.borderColor = hexToRgba(boardColor, 0.5);
-            el.style.backgroundColor = hexToRgba(boardColor, 0.12);
-            el.style.boxShadow = `0 0 16px ${hexToRgba(boardColor, 0.15)}`;
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLElement;
-            el.style.borderColor = hexToRgba(boardColor, 0.25);
-            el.style.backgroundColor = hexToRgba(boardColor, 0.06);
-            el.style.boxShadow = 'none';
-          }}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <ListChecks className="w-3.5 h-3.5 flex-shrink-0" style={{ color: boardColor }} />
-            <div className="min-w-0 text-left">
-              <p className="text-[11px] font-semibold text-slate-200 truncate">Управление этапами</p>
-              <p className="text-[9px] text-slate-500 truncate">
-                {stages.length > 0
-                  ? `${stages.length} этапов · ${allSubtasks.length} подзадач`
-                  : 'Создайте и управляйте этапами'}
-              </p>
-            </div>
-          </div>
-          <ArrowRight className="w-3.5 h-3.5 flex-shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: boardColor }} />
-        </button>
       </div>
     </div>
   );

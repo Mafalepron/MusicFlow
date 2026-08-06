@@ -270,7 +270,11 @@ export default function DescriptionBottomPanel() {
   if (!shouldShow || !task) return null;
 
   const stagesCount = task.children?.length || 0;
-  const subtasksCount = (task.children || []).flatMap(s => s.children || []).length;
+  const allSubtasks = (task.children || []).flatMap(s => s.children || []);
+  const subtasksCount = allSubtasks.length;
+  const doneCount = allSubtasks.filter(s => s.status === 'done').length;
+  const progress = subtasksCount > 0 ? Math.round((doneCount / subtasksCount) * 100) : 0;
+  const progressColor = progress === 100 ? '#34d399' : progress > 50 ? boardColor : progress > 0 ? '#f59e0b' : '#334155';
 
   return (
     <div
@@ -305,6 +309,21 @@ export default function DescriptionBottomPanel() {
           <span className="cp-count-chip" style={{ borderColor: c.a4, color: c.raw, backgroundColor: c.a08 }}>
             {task.trackConfig ? `${stagesCount} ETH · ${subtasksCount} SUB` : `${stagesCount} SUB`}
           </span>
+
+          {/* Progress bar in header */}
+          {subtasksCount > 0 && (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="cp-header-progress">
+                <div
+                  className="cp-header-progress-fill"
+                  style={{ width: `${progress}%`, backgroundColor: progressColor, boxShadow: progress > 0 ? `0 0 6px ${progressColor}80` : 'none' }}
+                />
+              </div>
+              <span className="cp-header-progress-text" style={{ color: progressColor }}>
+                {progress}%
+              </span>
+            </div>
+          )}
         </button>
 
         {!isCollapsed && (
@@ -461,6 +480,32 @@ export default function DescriptionBottomPanel() {
           position: relative;
           z-index: 2;
         }
+        .cp-header-progress {
+          width: 60px;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.06);
+          overflow: hidden;
+          border: 1px solid rgba(252, 238, 10, 0.1);
+          position: relative;
+        }
+        .cp-header-progress-fill {
+          height: 100%;
+          transition: width 500ms;
+        }
+        .cp-header-progress-fill::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+          animation: cp-shimmer 2s linear infinite;
+        }
+        .cp-header-progress-text {
+          font-size: 10px;
+          font-weight: 700;
+          font-family: monospace;
+          text-shadow: 0 0 4px currentColor;
+          min-width: 28px;
+        }
         .panel-scroll::-webkit-scrollbar {
           width: 4px;
           height: 4px;
@@ -480,19 +525,21 @@ export default function DescriptionBottomPanel() {
         .cp-stage-card {
           position: relative;
           margin: 0 8px 8px;
-          background: linear-gradient(135deg, rgba(12, 12, 22, 0.95), rgba(6, 6, 14, 0.98));
-          border: 1px solid rgba(252, 238, 10, 0.08);
+          background: linear-gradient(135deg, rgba(14, 14, 26, 0.95), rgba(8, 8, 18, 0.98));
+          border: 1px solid rgba(252, 238, 10, 0.12);
           clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
           transition: all 200ms;
           overflow: hidden;
         }
         .cp-stage-card:hover {
-          border-color: rgba(252, 238, 10, 0.15);
-          background: linear-gradient(135deg, rgba(14, 14, 26, 0.95), rgba(8, 8, 16, 0.98));
+          border-color: rgba(252, 238, 10, 0.25);
+          background: linear-gradient(135deg, rgba(18, 18, 32, 0.95), rgba(10, 10, 22, 0.98));
+          box-shadow: 0 0 12px rgba(252, 238, 10, 0.06);
         }
         .cp-stage-card-selected {
-          border-color: ${c.a5};
-          box-shadow: 0 0 0 1px ${c.a4}, 0 0 20px ${c.a2}, inset 0 0 12px ${c.a04};
+          border-color: ${c.a6};
+          box-shadow: 0 0 0 1px ${c.a4}, 0 0 24px ${c.a25}, inset 0 0 16px ${c.a06 || c.a08};
+          background: linear-gradient(135deg, ${c.a08}, rgba(8, 8, 18, 0.98));
         }
         .cp-stage-card::after {
           content: '';
@@ -558,17 +605,22 @@ export default function DescriptionBottomPanel() {
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 6px 8px;
+          padding: 7px 10px;
           margin: 3px 8px 3px 16px;
           transition: all 120ms;
-          border-left: 2px solid ${c.a2};
-          background: rgba(8, 8, 14, 0.6);
+          border-left: 2px solid ${c.a3};
+          background: rgba(10, 10, 18, 0.7);
+          border-top: 1px solid rgba(252, 238, 10, 0.04);
+          border-right: 1px solid rgba(252, 238, 10, 0.04);
+          border-bottom: 1px solid rgba(252, 238, 10, 0.04);
           clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%);
         }
         .cp-subtask-row:hover {
-          background: rgba(252, 238, 10, 0.04);
+          background: rgba(252, 238, 10, 0.05);
           border-left-color: #FCEE0A;
           border-left-width: 3px;
+          border-color: rgba(252, 238, 10, 0.15);
+          box-shadow: 0 0 8px rgba(252, 238, 10, 0.06);
         }
         .cp-arrow-btn {
           padding: 3px;
@@ -616,15 +668,15 @@ export default function DescriptionBottomPanel() {
         .cp-desc-card {
           padding: 8px 10px;
           margin: 4px 8px;
-          background: rgba(0, 240, 255, 0.03);
-          border: 1px solid rgba(0, 240, 255, 0.12);
+          background: rgba(0, 240, 255, 0.04);
+          border: 1px solid rgba(0, 240, 255, 0.15);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
           transition: all 150ms;
         }
         .cp-desc-card:hover {
-          border-color: rgba(0, 240, 255, 0.3);
-          background: rgba(0, 240, 255, 0.06);
-          box-shadow: 0 0 8px rgba(0, 240, 255, 0.08);
+          border-color: rgba(0, 240, 255, 0.35);
+          background: rgba(0, 240, 255, 0.07);
+          box-shadow: 0 0 12px rgba(0, 240, 255, 0.1);
         }
       `}</style>
     </div>
