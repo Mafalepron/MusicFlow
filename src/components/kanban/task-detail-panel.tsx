@@ -180,7 +180,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
       {/* Header — title + metadata in one line */}
-      <div className="p-4" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.12)', background: 'linear-gradient(90deg, rgba(252,238,10,0.03), transparent)' }}>
+      <div className="p-4" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)', background: 'linear-gradient(90deg, rgba(252,238,10,0.03), transparent)' }}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
           <div className="flex items-center gap-1">
@@ -247,7 +247,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
 
       {/* Open in Audio Editor */}
       {task.soundflowTrackId && (
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.1)' }}>
+        <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.12)' }}>
           <button
             onClick={async () => {
               const kanbanState = useKanbanStore.getState();
@@ -291,7 +291,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       )}
 
       {/* Description (inline editable) — cyberpunk styled */}
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.1)' }}>
+      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.12)' }}>
         <div className="flex items-center justify-between mb-2">
           <span
             className="text-[9px] uppercase tracking-widest font-bold"
@@ -377,7 +377,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       </div>
 
       {/* Track cover */}
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.1)' }}>
+      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.12)' }}>
         <span
           className="text-[9px] uppercase tracking-widest font-medium block mb-2"
           style={{ color: hexToRgba(boardColor, 0.55) }}
@@ -882,26 +882,125 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>{mode === 'edit' ? 'Редактировать' : 'Новая задача'}</h3>
-          <button onClick={() => { setEditingTask(null); setIsCreating(false); }} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300"><X className="h-3.5 w-3.5" /></button>
+        {/* Header */}
+        <div className="flex items-center justify-between pb-2" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.12)' }}>
+          <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}>
+            {mode === 'edit' ? 'Редактировать' : 'Новая задача'}
+          </h3>
+          <button
+            onClick={() => { setEditingTask(null); setIsCreating(false); }}
+            className="p-1.5 rounded transition-all"
+            style={{ color: '#4a4a5e', border: '1px solid transparent' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; e.currentTarget.style.background = 'rgba(252,238,10,0.06)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5e'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
-        <div className="space-y-2.5">
-          <div className="space-y-1"><Label className="text-[11px] text-slate-500">Название</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Задача..." className="bg-slate-900/80 border-slate-700/50 text-sm text-slate-200 placeholder:text-slate-600 h-8" onFocus={(e) => { e.target.style.borderColor = color + '80'; }} onBlur={(e) => { e.target.style.borderColor = ''; }} /></div>
-          <div className="space-y-1"><Label className="text-[11px] text-slate-500">Описание</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание..." className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none" onFocus={(e) => { e.target.style.borderColor = color + '80'; }} onBlur={(e) => { e.target.style.borderColor = ''; }} /></div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Статус</Label><Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}><SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-slate-700">{STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}><span className={s.color}>{s.label}</span></SelectItem>))}</SelectContent></Select></div>
-            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Приоритет</Label><Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}><SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-slate-700">{PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value}><div className="flex items-center gap-1.5"><div className={cn('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}</div></SelectItem>))}</SelectContent></Select></div>
+
+        <div className="space-y-3">
+          {/* Title */}
+          <div className="space-y-1">
+            <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Название</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Задача..."
+              className="text-sm text-slate-100 placeholder:text-slate-600 h-9 rounded-md focus:outline-none"
+              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
+              onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
+              onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
+            />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Категория</Label><Select value={category} onValueChange={(v) => setCategory(v as TaskCategory)}><SelectTrigger className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 h-8"><SelectValue /></SelectTrigger><SelectContent className="bg-slate-900 border-slate-700">{CATEGORIES.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}</SelectContent></Select></div>
-            <div className="space-y-1"><Label className="text-[11px] text-slate-500">Ответственный</Label><Input value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="Имя..." className="bg-slate-900/80 border-slate-700/50 text-xs text-slate-200 placeholder:text-slate-600 h-8" onFocus={(e) => { e.target.style.borderColor = color + '80'; }} onBlur={(e) => { e.target.style.borderColor = ''; }} /></div>
+
+          {/* Description */}
+          <div className="space-y-1">
+            <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Описание</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Описание..."
+              className="text-xs text-slate-200 placeholder:text-slate-600 min-h-[55px] resize-none rounded-md focus:outline-none"
+              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
+              onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
+              onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
+            />
           </div>
-          <div className="space-y-1"><Label className="text-[11px] text-slate-500">Дедлайн</Label><DeadlinePicker value={deadline} onChange={setDeadline} size="md" /></div>
+
+          {/* Status + Priority */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Статус</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}><span className={s.color}>{s.label}</span></SelectItem>))}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Приоритет</Label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value}><div className="flex items-center gap-1.5"><div className={cn('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}</div></SelectItem>))}</SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Category + Assignee */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Категория</Label>
+              <Select value={category} onValueChange={(v) => setCategory(v as TaskCategory)}>
+                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{CATEGORIES.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Ответственный</Label>
+              <Input
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+                placeholder="Имя..."
+                className="text-xs text-slate-100 placeholder:text-slate-600 h-9 rounded-md focus:outline-none"
+                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}
+                onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; }}
+                onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; }}
+              />
+            </div>
+          </div>
+
+          {/* Deadline */}
+          <div className="space-y-1">
+            <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Дедлайн</Label>
+            <DeadlinePicker value={deadline} onChange={setDeadline} size="md" />
+          </div>
         </div>
-        <div className="flex gap-2 pt-1">
-          <Button onClick={() => void handleSave()} disabled={!title.trim() || saving} className="flex-1 text-white h-8 text-xs" style={{ backgroundColor: color, boxShadow: `0 4px 14px ${color}30` }}><Save className="w-3 h-3 mr-1" />{saving ? '...' : mode === 'edit' ? 'Сохранить' : 'Создать'}</Button>
-          {mode === 'edit' && <Button onClick={() => void handleDelete()} variant="destructive" disabled={saving} className="h-8 text-xs">Удалить</Button>}
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-2">
+          <button
+            onClick={() => void handleSave()}
+            disabled={!title.trim() || saving}
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold rounded-md transition-all disabled:opacity-40"
+            style={{ color: '#000', background: 'linear-gradient(135deg, #FCEE0A, #F1F100)', boxShadow: '0 0 10px rgba(252,238,10,0.3)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+          >
+            <Save className="w-3 h-3" />{saving ? '...' : mode === 'edit' ? 'Сохранить' : 'Создать'}
+          </button>
+          {mode === 'edit' && (
+            <button
+              onClick={() => void handleDelete()}
+              disabled={saving}
+              className="flex items-center justify-center gap-1.5 h-9 px-4 text-[11px] font-bold rounded-md transition-all"
+              style={{ color: '#FF003C', background: 'rgba(255,0,60,0.08)', border: '1.5px solid rgba(255,0,60,0.3)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+            >
+              <Trash2 className="w-3 h-3" /> Удалить
+            </button>
+          )}
         </div>
       </div>
     </div>
