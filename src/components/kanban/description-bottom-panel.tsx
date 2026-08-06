@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useKanbanStore, Task, TaskChild, TaskGrandchild, TaskStatus, TaskPriority } from '@/store/kanban-store';
 import { useAuthStore } from '@/lib/store';
 import {
-  X, Save, Plus, Check, Circle, Clock, Eye, Pencil, Trash2,
+  X, Save, Plus, Check, Circle, Clock, Pencil, Trash2,
   ChevronDown, ChevronRight, User, CalendarDays,
   AlertTriangle, Flame, ListChecks, Layers, ArrowUp, ArrowDown, GripVertical,
   AlignJustify,
@@ -25,7 +25,6 @@ import { hexToRgba, cn } from '@/lib/utils';
 const STATUSES: { value: TaskStatus; label: string; hex: string; icon: typeof Circle }[] = [
   { value: 'todo', label: 'К выполнению', hex: '#22d3ee', icon: Circle },
   { value: 'in-progress', label: 'В работе', hex: '#fb923c', icon: Clock },
-  { value: 'review', label: 'На проверке', hex: '#fb7185', icon: Eye },
   { value: 'done', label: 'Готово', hex: '#34d399', icon: Check },
 ];
 
@@ -38,7 +37,6 @@ const PRIORITIES: { value: TaskPriority; label: string; hex: string }[] = [
 const STATUS_HEX: Record<string, string> = {
   todo: '#22d3ee',
   'in-progress': '#fb923c',
-  review: '#fb7185',
   done: '#34d399',
 };
 
@@ -63,7 +61,6 @@ const PRIORITY_LABELS: Record<string, string> = {
 const STATUS_ICON: Record<string, typeof Circle> = {
   todo: Circle,
   'in-progress': Clock,
-  review: Eye,
   done: Check,
 };
 
@@ -482,14 +479,20 @@ export default function DescriptionBottomPanel() {
         /* Cyberpunk stage card */
         .cp-stage-card {
           position: relative;
-          margin: 0 8px 6px;
-          background: linear-gradient(135deg, rgba(10, 10, 18, 0.9), rgba(6, 6, 12, 0.95));
+          margin: 0 8px 8px;
+          background: linear-gradient(135deg, rgba(12, 12, 22, 0.95), rgba(6, 6, 14, 0.98));
+          border: 1px solid rgba(252, 238, 10, 0.08);
           clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
           transition: all 200ms;
           overflow: hidden;
         }
+        .cp-stage-card:hover {
+          border-color: rgba(252, 238, 10, 0.15);
+          background: linear-gradient(135deg, rgba(14, 14, 26, 0.95), rgba(8, 8, 16, 0.98));
+        }
         .cp-stage-card-selected {
-          box-shadow: 0 0 0 1px ${c.a5}, 0 0 16px ${c.a15};
+          border-color: ${c.a5};
+          box-shadow: 0 0 0 1px ${c.a4}, 0 0 20px ${c.a2}, inset 0 0 12px ${c.a04};
         }
         .cp-stage-card::after {
           content: '';
@@ -498,8 +501,8 @@ export default function DescriptionBottomPanel() {
           left: 0;
           width: 3px;
           height: 100%;
-          background: linear-gradient(180deg, transparent, ${c.a4} 30%, ${c.a4} 70%, transparent);
-          opacity: 0.6;
+          background: linear-gradient(180deg, transparent, ${c.a5} 30%, ${c.a5} 70%, transparent);
+          opacity: 0.7;
         }
         .cp-stage-header {
           display: flex;
@@ -509,8 +512,8 @@ export default function DescriptionBottomPanel() {
           position: relative;
         }
         .cp-stage-header-bg {
-          background: linear-gradient(90deg, ${c.a08}, transparent 80%);
-          border-bottom: 1px solid ${c.a2};
+          background: linear-gradient(90deg, ${c.a12}, transparent 80%);
+          border-bottom: 1px solid ${c.a3};
         }
         .cp-stage-title {
           font-size: 12px;
@@ -556,14 +559,16 @@ export default function DescriptionBottomPanel() {
           align-items: center;
           gap: 8px;
           padding: 6px 8px;
-          margin: 2px 8px 2px 16px;
+          margin: 3px 8px 3px 16px;
           transition: all 120ms;
-          border-left: 2px solid ${c.a15};
+          border-left: 2px solid ${c.a2};
+          background: rgba(8, 8, 14, 0.6);
           clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%);
         }
         .cp-subtask-row:hover {
-          background: rgba(252, 238, 10, 0.03);
-          border-left-color: ${c.a5};
+          background: rgba(252, 238, 10, 0.04);
+          border-left-color: #FCEE0A;
+          border-left-width: 3px;
         }
         .cp-arrow-btn {
           padding: 3px;
@@ -597,25 +602,29 @@ export default function DescriptionBottomPanel() {
           font-size: 10px;
           color: #4a4a5e;
           transition: all 150ms;
-          border: 1px dashed rgba(252, 238, 10, 0.1);
+          border: 1px dashed rgba(252, 238, 10, 0.15);
+          background: rgba(252, 238, 10, 0.01);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
         }
         .cp-add-btn:hover {
           color: #FCEE0A;
-          border-color: rgba(252, 238, 10, 0.3);
-          background: rgba(252, 238, 10, 0.04);
+          border-color: rgba(252, 238, 10, 0.4);
+          border-style: solid;
+          background: rgba(252, 238, 10, 0.06);
+          box-shadow: 0 0 8px rgba(252, 238, 10, 0.1);
         }
         .cp-desc-card {
-          padding: 6px 8px;
+          padding: 8px 10px;
           margin: 4px 8px;
-          background: rgba(0, 240, 255, 0.02);
-          border: 1px solid rgba(0, 240, 255, 0.08);
+          background: rgba(0, 240, 255, 0.03);
+          border: 1px solid rgba(0, 240, 255, 0.12);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
           transition: all 150ms;
         }
         .cp-desc-card:hover {
-          border-color: rgba(0, 240, 255, 0.2);
-          background: rgba(0, 240, 255, 0.04);
+          border-color: rgba(0, 240, 255, 0.3);
+          background: rgba(0, 240, 255, 0.06);
+          box-shadow: 0 0 8px rgba(0, 240, 255, 0.08);
         }
       `}</style>
     </div>
@@ -841,7 +850,7 @@ function StageCard({
   };
 
   const cycleStatus = async () => {
-    const order: TaskStatus[] = ['todo', 'in-progress', 'review', 'done'];
+    const order: TaskStatus[] = ['todo', 'in-progress', 'done'];
     const idx = order.indexOf(stage.status as TaskStatus);
     const next = order[(idx + 1) % order.length];
     await onUpdate({ status: next });
@@ -995,7 +1004,7 @@ function StageCard({
           {/* Description editor */}
           <div>
             {isEditingDesc ? (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Textarea
                   value={descDraft}
                   onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
@@ -1007,18 +1016,30 @@ function StageCard({
                     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
                     if (e.key === 'Escape') { setIsEditingDesc(false); setDescDraft(stage.description || ''); }
                   }}
-                  onBlur={() => void saveDesc()}
                 />
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
-                  <span className="text-[9px] text-slate-700">Ctrl+Enter — сохранить</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => { setIsEditingDesc(false); setDescDraft(stage.description || ''); }}
+                      className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      onClick={() => void saveDesc()}
+                      className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+                      style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+                    >
+                      Сохранить
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : stage.description ? (
               <button
                 onClick={() => setIsEditingDesc(true)}
-                className="w-full text-left rounded-md px-2.5 py-1.5 transition-colors hover:bg-slate-800/50"
-                style={{ border: `1px solid ${c.a2}`, backgroundColor: c.a08 }}
+                className="cp-desc-card w-full text-left"
               >
                 <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-3">
                   {stage.description}
@@ -1027,29 +1048,11 @@ function StageCard({
             ) : (
               <button
                 onClick={() => setIsEditingDesc(true)}
-                className="text-[11px] transition-colors py-1 px-2 rounded-md hover:bg-slate-800/40"
-                style={{ color: c.a5, border: `1px dashed ${c.a25}` }}
+                className="cp-add-btn"
               >
                 + описание этапа
               </button>
             )}
-          </div>
-
-          {/* Metadata controls row */}
-          <div className="cp-meta-row">
-            {/* Priority — using PrioritySelector (already in header, here as label only) */}
-            <span className="text-[10px] text-slate-500 flex items-center gap-1">
-              <PriorityBars priority={stage.priority} size="xs" />
-              {PRIORITY_LABELS[stage.priority] || stage.priority}
-            </span>
-
-            {/* Status display */}
-            <span
-              className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-              style={{ backgroundColor: hexToRgba(statusHex, 0.2), color: statusHex, border: `1px solid ${hexToRgba(statusHex, 0.3)}` }}
-            >
-              {STATUSES.find(s => s.value === stage.status)?.label || stage.status}
-            </span>
           </div>
 
           {/* Subtasks list */}
@@ -1236,7 +1239,7 @@ function SubtaskRow({
   };
 
   const cycleStatus = async () => {
-    const order: TaskStatus[] = ['todo', 'in-progress', 'review', 'done'];
+    const order: TaskStatus[] = ['todo', 'in-progress', 'done'];
     const idx = order.indexOf(subtask.status as TaskStatus);
     const next = order[(idx + 1) % order.length];
     await onUpdate({ status: next });
@@ -1342,24 +1345,42 @@ function SubtaskRow({
         <div className="ml-4 px-2 pb-1.5 space-y-1.5">
           {/* Description */}
           {isEditingDesc ? (
-            <Textarea
-              value={descDraft}
-              onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
-              placeholder="Описание подзадачи..."
-              className="bg-slate-900/90 text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[45px] resize-none focus:outline-none rounded-md"
-              style={{ border: `1.5px solid ${c.a3}` }}
-              autoFocus
-              onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
-                if (e.key === 'Escape') { setIsEditingDesc(false); setDescDraft(subtask.description || ''); }
-              }}
-              onBlur={() => void saveDesc()}
-            />
+            <div className="space-y-1.5">
+              <Textarea
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
+                placeholder="Описание подзадачи..."
+                className="bg-slate-900/90 text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[45px] resize-none focus:outline-none rounded-md"
+                style={{ border: `1.5px solid ${c.a3}` }}
+                autoFocus
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
+                  if (e.key === 'Escape') { setIsEditingDesc(false); setDescDraft(subtask.description || ''); }
+                }}
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => { setIsEditingDesc(false); setDescDraft(subtask.description || ''); }}
+                    className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={() => void saveDesc()}
+                    className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+                    style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+                  >
+                    Сохранить
+                  </button>
+                </div>
+              </div>
+            </div>
           ) : subtask.description ? (
             <button
               onClick={() => setIsEditingDesc(true)}
-              className="w-full text-left rounded-md px-2 py-1 transition-colors hover:bg-slate-800/40"
-              style={{ border: `1px solid ${c.a15}`, backgroundColor: c.a04 }}
+              className="cp-desc-card w-full text-left"
             >
               <p className="text-[10px] text-slate-400 leading-relaxed whitespace-pre-wrap line-clamp-2">
                 {subtask.description}
@@ -1368,21 +1389,11 @@ function SubtaskRow({
           ) : (
             <button
               onClick={() => setIsEditingDesc(true)}
-              className="text-[10px] transition-colors py-0.5 px-1.5 rounded"
-              style={{ color: c.a4 }}
+              className="cp-add-btn"
             >
               + описание
             </button>
           )}
-
-          {/* Metadata row */}
-          <div className="flex items-center gap-2 flex-wrap p-1 rounded-md" style={{ backgroundColor: c.a04, border: `1px solid ${c.a12}` }}>
-            {/* Priority — label only (selector is in the row header) */}
-            <span className="text-[10px] text-slate-500 flex items-center gap-1">
-              <PriorityBars priority={subtask.priority} size="xs" />
-              {PRIORITY_LABELS[subtask.priority] || subtask.priority}
-            </span>
-          </div>
         </div>
       )}
     </div>
