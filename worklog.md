@@ -578,3 +578,62 @@ Stage Summary:
 - Top panel has scanlines, grid, pulsing neon top border, angular card corners.
 - Right panel has neon left accent line, grid pattern, angular header with clip-path corners.
 - Deep fetch fix ensures stages/subtasks always load for any board containing track tasks.
+
+---
+Task ID: 13
+Agent: main (Z.ai Code)
+Task: 1) Add button: blue default → yellow hover; 2) Stage/subtask blocks use board color; 3) Small icons: yellow hover + square outline; 4) Move cover art to right after status line.
+
+Work Log:
+- Read /home/z/my-project/worklog.md (Task 12: cyberpunk top/right panels, track wizard, percentage alignment).
+- Read description-bottom-panel.tsx CSS classes (cp-add-btn, cp-stage-card, cp-subtask-row, cp-arrow-btn, cp-delete-btn, cp-icon-btn, cp-desc-card).
+- Read task-detail-panel.tsx cover section location and header structure.
+
+Changes made:
+
+### 1. Add button — blue default, yellow hover (description-bottom-panel.tsx)
+Reversed the `.cp-add-btn` colors:
+- Default: `color: #00E5FF`, `border: rgba(0,229,255,0.35)`, `background: rgba(0,229,255,0.06)`, blue glow + text-shadow
+- Hover: `color: #FCEE0A`, `border: rgba(252,238,10,0.6)`, `background: rgba(252,238,10,0.1)`, yellow glow + text-shadow, translateY(-1px)
+- Verified via computed styles: `color: rgb(0, 229, 255)` default ✓
+
+### 2. Stage/subtask blocks — board color (description-bottom-panel.tsx)
+Replaced ALL hardcoded `rgba(0, 229, 255, ...)` in the CSS classes with board-color-derived `${c.aXX}` values:
+- `.cp-stage-card` border: `rgba(0,229,255,0.22)` → `${c.a25}`
+- `.cp-stage-card::after` accent bar: `rgba(0,229,255,0.5)` → `${c.a5}`
+- `.cp-stage-header-bg` background + border: board color
+- `.cp-progress-bar` border: board color
+- `.cp-meta-row` background + border: board color
+- `.cp-subtask-row` borders (top/right/bottom + left accent): board color
+- `.cp-desc-card` background + border + hover: board color
+- `.cp-arrow-btn` / `.cp-delete-btn` color + filter: board color
+
+### 3. Small icons — yellow hover + square outline (description-bottom-panel.tsx + task-detail-panel.tsx)
+- `.cp-arrow-btn`: added `border: 1px solid transparent` default; hover adds `border-color: rgba(252,238,10,0.4)`, `background: rgba(252,238,10,0.08)` (square outline)
+- `.cp-delete-btn`: same treatment with red hover outline
+- Stage expand chevron: changed from `p-1 rounded-md hover:bg-slate-800` to `className="cp-icon-btn"` (which already has yellow hover + square border)
+- Right panel edit/delete buttons (TrackDetailView + TaskDetailView): replaced `p-1 rounded hover:bg-slate-800` with angular clip-path buttons that show yellow (edit) or red (delete) border + background on hover
+
+### 4. Cover art — moved to right after status line (task-detail-panel.tsx)
+- Removed the old cover section (was after the description section, large 160px square)
+- Added a new compact cover section right after the instruments row (before "Open in Audio Editor"):
+  - Horizontal layout: 80×80 cover square on the left + "Обложка" label + description text on the right
+  - Angular clip-path corners (6px)
+  - Yellow dashed border, dark fill
+  - Compact music note icon inside
+- This places the cover immediately under the track name/status, as requested
+
+Verification via Agent Browser + VLM:
+- VLM confirmed:
+  1. Add buttons are BLUE/cyan by default ✓
+  2. Stage cards and subtask rows have board-color (cyan) borders ✓
+  3. Cover art is right after the status/metadata line, before description ✓
+  4. Edit/delete icons have angular square outlines ✓
+- Computed style check: `.cp-add-btn` color = `rgb(0, 229, 255)` (cyan) ✓
+- No runtime errors. Lint: no new errors (2 pre-existing in other files).
+
+Stage Summary:
+- Add buttons are now blue by default with yellow on hover (reversed from previous).
+- All stage/subtask block borders, backgrounds, and accents use the board's color instead of hardcoded cyan.
+- Arrow buttons, delete buttons, and collapse icons all show a square outline with yellow (or red for delete) on hover.
+- Cover art moved to the top of the right panel, right after the status/metadata line, in a compact horizontal layout.

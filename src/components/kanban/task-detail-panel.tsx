@@ -198,14 +198,20 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
           <div className="flex items-center gap-1">
             <button
               onClick={() => setEditingTask(task)}
-              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+              className="p-1 text-slate-500 transition-all"
+              style={{ border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; e.currentTarget.style.background = 'rgba(252,238,10,0.08)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
               title="Редактировать"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => void handleDelete()}
-              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors"
+              className="p-1 text-slate-500 transition-all"
+              style={{ border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#FF003C'; e.currentTarget.style.borderColor = 'rgba(255,0,60,0.4)'; e.currentTarget.style.background = 'rgba(255,0,60,0.08)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
               title="Удалить"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -255,6 +261,36 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
             ))}
           </div>
         )}
+      </div>
+
+      {/* Track cover — moved to right after status/instruments line */}
+      <div className="px-4 py-3 flex items-start gap-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
+        <div
+          className="w-20 h-20 flex-shrink-0 border border-dashed flex items-center justify-center overflow-hidden"
+          style={{ borderColor: 'rgba(252, 238, 10, 0.4)', backgroundColor: 'rgba(10, 14, 24, 0.6)', clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
+        >
+          {task.soundflowTrackId ? (
+            <div className="w-full h-full flex items-center justify-center text-slate-700">
+              <Music className="w-6 h-6" />
+            </div>
+          ) : (
+            <div className="text-center px-1">
+              <Music className="w-4 h-4 mx-auto mb-0.5 text-slate-700" />
+              <p className="text-[8px] text-slate-600">Нет обложки</p>
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0 pt-0.5">
+          <span
+            className="text-[9px] uppercase tracking-widest font-medium block mb-1"
+            style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
+          >
+            Обложка
+          </span>
+          <p className="text-[9px] text-slate-600 leading-relaxed">
+            {task.soundflowTrackId ? 'Связана с аудиотреком' : 'Загрузите обложку для трека'}
+          </p>
+        </div>
       </div>
 
       {/* Open in Audio Editor */}
@@ -374,31 +410,6 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
             Нажмите, чтобы добавить описание...
           </button>
         )}
-      </div>
-
-      {/* Track cover */}
-      <div className="px-4 py-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
-        <span
-          className="text-[9px] uppercase tracking-widest font-medium block mb-2"
-          style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
-        >
-          Обложка
-        </span>
-        <div
-          className="aspect-square max-w-[160px] border border-dashed flex items-center justify-center overflow-hidden"
-          style={{ borderColor: 'rgba(252, 238, 10, 0.4)', backgroundColor: 'rgba(10, 14, 24, 0.6)', clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
-        >
-          {task.soundflowTrackId ? (
-            <div className="w-full h-full flex items-center justify-center text-slate-700">
-              <Music className="w-8 h-8" />
-            </div>
-          ) : (
-            <div className="text-center px-2">
-              <Music className="w-5 h-5 mx-auto mb-1 text-slate-700" />
-              <p className="text-[9px] text-slate-600">Нет обложки</p>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Track text / lyrics */}
@@ -633,14 +644,20 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
           <div className="flex items-center gap-1">
             <button
               onClick={() => setEditingTask(task)}
-              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+              className="p-1 text-slate-500 transition-all"
+              style={{ border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; e.currentTarget.style.background = 'rgba(252,238,10,0.08)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
               title="Редактировать"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => void handleDeleteTask()}
-              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors"
+              className="p-1 text-slate-500 transition-all"
+              style={{ border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#FF003C'; e.currentTarget.style.borderColor = 'rgba(255,0,60,0.4)'; e.currentTarget.style.background = 'rgba(255,0,60,0.08)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
               title="Удалить"
             >
               <Trash2 className="w-3.5 h-3.5" />

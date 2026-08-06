@@ -532,12 +532,12 @@ export default function DescriptionBottomPanel() {
           background: ${c.a5};
         }
 
-        /* Cyberpunk stage card — deep dark with blue default border, yellow on highlight */
+        /* Cyberpunk stage card — uses board color for default border, yellow on highlight */
         .cp-stage-card {
           position: relative;
           margin: 0 8px 8px;
           background: linear-gradient(135deg, rgba(10, 18, 32, 0.92), rgba(6, 10, 20, 0.96));
-          border: 2px solid rgba(0, 229, 255, 0.22);
+          border: 2px solid ${c.a25};
           clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
           transition: all 200ms;
           overflow: hidden;
@@ -572,7 +572,7 @@ export default function DescriptionBottomPanel() {
           left: 0;
           width: 4px;
           height: 100%;
-          background: linear-gradient(180deg, transparent, rgba(0, 229, 255, 0.5) 20%, rgba(0, 229, 255, 0.5) 80%, transparent);
+          background: linear-gradient(180deg, transparent, ${c.a5} 20%, ${c.a5} 80%, transparent);
           opacity: 0.8;
         }
         .cp-stage-header {
@@ -583,8 +583,8 @@ export default function DescriptionBottomPanel() {
           position: relative;
         }
         .cp-stage-header-bg {
-          background: linear-gradient(90deg, rgba(0, 229, 255, 0.06), transparent 80%);
-          border-bottom: 1px solid rgba(0, 229, 255, 0.12);
+          background: linear-gradient(90deg, ${c.a08}, transparent 80%);
+          border-bottom: 1px solid ${c.a15};
         }
         .cp-stage-title {
           font-size: 12px;
@@ -597,7 +597,7 @@ export default function DescriptionBottomPanel() {
           background: rgba(255, 255, 255, 0.04);
           overflow: hidden;
           position: relative;
-          border: 1px solid rgba(0, 229, 255, 0.08);
+          border: 1px solid ${c.a1};
         }
         .cp-progress-fill {
           height: 100%;
@@ -622,8 +622,8 @@ export default function DescriptionBottomPanel() {
           flex-wrap: wrap;
           padding: 6px 8px;
           margin: 4px 8px;
-          background: rgba(0, 229, 255, 0.03);
-          border: 1px solid rgba(0, 229, 255, 0.1);
+          background: ${c.a04};
+          border: 1px solid ${c.a1};
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
         }
         .cp-subtask-row {
@@ -633,13 +633,13 @@ export default function DescriptionBottomPanel() {
           padding: 8px 12px;
           margin: 3px 8px 3px 16px;
           transition: all 120ms;
-          border-left: 3px solid rgba(0, 229, 255, 0.5);
+          border-left: 3px solid ${c.a5};
           background: rgba(8, 14, 26, 0.8);
-          border-top: 1.5px solid rgba(0, 229, 255, 0.18);
-          border-right: 1.5px solid rgba(0, 229, 255, 0.18);
-          border-bottom: 1.5px solid rgba(0, 229, 255, 0.18);
+          border-top: 1.5px solid ${c.a18};
+          border-right: 1.5px solid ${c.a18};
+          border-bottom: 1.5px solid ${c.a18};
           clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
-          box-shadow: inset 0 0 6px rgba(0, 229, 255, 0.02);
+          box-shadow: inset 0 0 6px ${c.a04};
         }
         .cp-subtask-row:hover {
           background: rgba(252, 238, 10, 0.06);
@@ -661,13 +661,16 @@ export default function DescriptionBottomPanel() {
         }
         .cp-arrow-btn {
           padding: 4px;
-          color: #5a7a9e;
+          color: ${c.a6};
           transition: all 100ms;
           flex-shrink: 0;
-          filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.2));
+          border: 1px solid transparent;
+          filter: drop-shadow(0 0 3px ${c.a2});
         }
         .cp-arrow-btn:hover {
           color: #FCEE0A;
+          border-color: rgba(252, 238, 10, 0.4);
+          background: rgba(252, 238, 10, 0.08);
           filter: drop-shadow(0 0 5px rgba(252, 238, 10, 0.5));
         }
         .cp-arrow-btn:disabled {
@@ -676,13 +679,16 @@ export default function DescriptionBottomPanel() {
         }
         .cp-delete-btn {
           padding: 4px;
-          color: #5a7a9e;
+          color: ${c.a6};
           transition: all 100ms;
           flex-shrink: 0;
-          filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.2));
+          border: 1px solid transparent;
+          filter: drop-shadow(0 0 3px ${c.a2});
         }
         .cp-delete-btn:hover {
           color: #FF003C;
+          border-color: rgba(255, 0, 60, 0.4);
+          background: rgba(255, 0, 60, 0.08);
           filter: drop-shadow(0 0 5px rgba(255, 0, 60, 0.6));
         }
         .cp-add-btn {
@@ -694,35 +700,35 @@ export default function DescriptionBottomPanel() {
           font-weight: 700;
           letter-spacing: 0.05em;
           text-transform: uppercase;
-          color: #FCEE0A;
+          color: #00E5FF;
           transition: all 150ms;
-          border: 1.5px solid rgba(252, 238, 10, 0.4);
-          background: rgba(252, 238, 10, 0.08);
+          border: 1.5px solid rgba(0, 229, 255, 0.35);
+          background: rgba(0, 229, 255, 0.06);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-          box-shadow: 0 0 8px rgba(252, 238, 10, 0.12), inset 0 0 6px rgba(252, 238, 10, 0.03);
-          text-shadow: 0 0 6px rgba(252, 238, 10, 0.3);
+          box-shadow: 0 0 6px rgba(0, 229, 255, 0.08);
+          text-shadow: 0 0 4px rgba(0, 229, 255, 0.2);
         }
         .cp-add-btn:hover {
-          color: #00E5FF;
-          border-color: rgba(0, 229, 255, 0.7);
-          background: rgba(0, 229, 255, 0.12);
-          box-shadow: 0 0 20px rgba(0, 229, 255, 0.25), inset 0 0 12px rgba(0, 229, 255, 0.05);
-          text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+          color: #FCEE0A;
+          border-color: rgba(252, 238, 10, 0.6);
+          background: rgba(252, 238, 10, 0.1);
+          box-shadow: 0 0 16px rgba(252, 238, 10, 0.2), inset 0 0 10px rgba(252, 238, 10, 0.04);
+          text-shadow: 0 0 8px rgba(252, 238, 10, 0.4);
           transform: translateY(-1px);
         }
         .cp-desc-card {
           padding: 8px 12px;
           margin: 4px 8px;
-          background: rgba(0, 229, 255, 0.05);
-          border: 1.5px solid rgba(0, 229, 255, 0.25);
+          background: ${c.a05};
+          border: 1.5px solid ${c.a25};
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
           transition: all 150ms;
-          box-shadow: inset 0 0 8px rgba(0, 229, 255, 0.02);
+          box-shadow: inset 0 0 8px ${c.a02 || c.a04};
         }
         .cp-desc-card:hover {
-          border-color: rgba(0, 229, 255, 0.5);
-          background: rgba(0, 229, 255, 0.08);
-          box-shadow: 0 0 16px rgba(0, 229, 255, 0.15), inset 0 0 10px rgba(0, 229, 255, 0.04);
+          border-color: ${c.a5};
+          background: ${c.a08};
+          box-shadow: 0 0 16px ${c.a15}, inset 0 0 10px ${c.a04};
         }
       `}</style>
     </div>
@@ -1077,7 +1083,7 @@ function StageCard({
         {/* Expand arrow */}
         <button
           onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
-          className="p-1 rounded-md hover:bg-slate-800 text-slate-400 transition-colors flex-shrink-0"
+          className="cp-icon-btn flex-shrink-0"
         >
           {isExpanded
             ? <ChevronDown className="w-3.5 h-3.5 rotate-180" />
