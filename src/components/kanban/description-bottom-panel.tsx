@@ -277,53 +277,43 @@ export default function DescriptionBottomPanel() {
 
   return (
     <div
-      className="flex-shrink-0 flex flex-col"
+      className="flex-shrink-0 flex flex-col cp-panel"
       style={{
-        borderTop: `2px solid ${c.a4}`,
-        backgroundColor: '#0a0a14',
-        height: isCollapsed ? '40px' : '340px',
+        height: isCollapsed ? '42px' : '360px',
         transition: 'height 220ms ease',
-        boxShadow: `0 -8px 24px rgba(0,0,0,0.3), 0 -1px 0 ${c.a15}`,
       }}
     >
-      {/* Accent gradient line */}
-      <div
-        className="h-[3px] flex-shrink-0"
-        style={{ background: `linear-gradient(90deg, ${c.raw}, ${c.a3} 50%, transparent)` }}
-      />
+      {/* Scan line overlay */}
+      <div className="cp-scanlines" />
+
+      {/* Top neon border with glitch */}
+      <div className="cp-neon-top" style={{ background: `linear-gradient(90deg, transparent, ${c.raw} 20%, #FCEE0A 50%, ${c.raw} 80%, transparent)` }} />
 
       {/* Header */}
-      <div
-        className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
-        style={{ borderBottom: isCollapsed ? 'none' : `1px solid ${c.a25}`, backgroundColor: c.a04 }}
-      >
+      <div className="cp-header" style={{ borderBottom: isCollapsed ? 'none' : `1px solid ${c.a3}` }}>
         <button
           onClick={() => setIsCollapsed(v => !v)}
-          className="flex items-center gap-1.5 min-w-0 flex-1 text-left group"
+          className="flex items-center gap-2 min-w-0 flex-1 text-left group"
           title={isCollapsed ? 'Развернуть' : 'Свернуть'}
         >
-          <Layers className="w-3.5 h-3.5 flex-shrink-0" style={{ color: c.a6 }} />
-          <span
-            className="text-[11px] font-semibold text-slate-200 truncate"
-            style={{ color: c.raw }}
-          >
-            {task.trackConfig ? 'Этапы и подзадачи' : 'Подзадачи'}
+          <div className="cp-header-icon" style={{ borderColor: c.a5, backgroundColor: c.a12 }}>
+            <Layers className="w-3.5 h-3.5" style={{ color: c.raw }} />
+          </div>
+          <span className="cp-header-title" style={{ color: c.raw }}>
+            {task.trackConfig ? 'ЭТАПЫ' : 'ПОДЗАДАЧИ'}
           </span>
-          <span className="text-[9px] text-slate-500 truncate hidden sm:inline">
-            · {task.title}
+          <span className="cp-header-sub truncate hidden sm:inline">
+            // {task.title}
           </span>
-          <span
-            className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0"
-            style={{ backgroundColor: c.a12, color: c.raw }}
-          >
-            {task.trackConfig ? `${stagesCount} эт. · ${subtasksCount} подзад.` : `${stagesCount} подзад.`}
+          <span className="cp-count-chip" style={{ borderColor: c.a4, color: c.raw, backgroundColor: c.a08 }}>
+            {task.trackConfig ? `${stagesCount} ETH · ${subtasksCount} SUB` : `${stagesCount} SUB`}
           </span>
         </button>
 
         {!isCollapsed && (
           <button
             onClick={() => setSelectedStageForPanel(null)}
-            className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0"
+            className="cp-icon-btn"
             title="Закрыть"
           >
             <X className="w-3 h-3" />
@@ -331,7 +321,7 @@ export default function DescriptionBottomPanel() {
         )}
         <button
           onClick={() => setIsCollapsed(v => !v)}
-          className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0"
+          className="cp-icon-btn"
           title={isCollapsed ? 'Развернуть' : 'Свернуть'}
         >
           {isCollapsed
@@ -342,7 +332,7 @@ export default function DescriptionBottomPanel() {
       </div>
 
       {!isCollapsed && (
-        <div className="flex-1 overflow-y-auto min-h-0 panel-scroll">
+        <div className="flex-1 overflow-y-auto min-h-0 panel-scroll cp-content">
           {task.trackConfig ? (
             <StagesList
               key={task.id}
@@ -368,19 +358,264 @@ export default function DescriptionBottomPanel() {
       )}
 
       <style jsx global>{`
+        .cp-panel {
+          position: relative;
+          background: linear-gradient(180deg, rgba(5, 5, 10, 0.98), rgba(8, 8, 16, 0.99));
+          border-top: 1px solid rgba(252, 238, 10, 0.15);
+          box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5), 0 -1px 0 rgba(252, 238, 10, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+          overflow: hidden;
+        }
+        .cp-panel::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(252, 238, 10, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(252, 238, 10, 0.02) 1px, transparent 1px);
+          background-size: 20px 20px;
+          pointer-events: none;
+          z-index: 0;
+        }
+        .cp-scanlines {
+          position: absolute;
+          inset: 0;
+          background: repeating-linear-gradient(
+            0deg,
+            transparent 0px,
+            transparent 2px,
+            rgba(252, 238, 10, 0.015) 2px,
+            rgba(252, 238, 10, 0.015) 3px
+          );
+          pointer-events: none;
+          z-index: 1;
+          animation: cp-scan 8s linear infinite;
+        }
+        @keyframes cp-scan {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(3px); }
+        }
+        .cp-neon-top {
+          height: 2px;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 2;
+          box-shadow: 0 0 8px rgba(252, 238, 10, 0.4);
+          animation: cp-pulse-neon 3s ease-in-out infinite;
+        }
+        @keyframes cp-pulse-neon {
+          0%, 100% { opacity: 0.7; box-shadow: 0 0 6px rgba(252, 238, 10, 0.3); }
+          50% { opacity: 1; box-shadow: 0 0 12px rgba(252, 238, 10, 0.6); }
+        }
+        .cp-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 2;
+          background: linear-gradient(90deg, rgba(252, 238, 10, 0.03), transparent 60%);
+        }
+        .cp-header-icon {
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid;
+          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+          flex-shrink: 0;
+        }
+        .cp-header-title {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          text-shadow: 0 0 8px currentColor;
+        }
+        .cp-header-sub {
+          font-size: 10px;
+          color: #5a5a6e;
+          font-family: monospace;
+        }
+        .cp-count-chip {
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          padding: 2px 8px;
+          border: 1px solid;
+          clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
+          flex-shrink: 0;
+        }
+        .cp-icon-btn {
+          padding: 4px;
+          border-radius: 2px;
+          color: #4a4a5e;
+          transition: all 120ms;
+          flex-shrink: 0;
+          border: 1px solid transparent;
+        }
+        .cp-icon-btn:hover {
+          color: #FCEE0A;
+          border-color: rgba(252, 238, 10, 0.3);
+          background: rgba(252, 238, 10, 0.08);
+        }
+        .cp-content {
+          position: relative;
+          z-index: 2;
+        }
         .panel-scroll::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
+          width: 4px;
+          height: 4px;
         }
         .panel-scroll::-webkit-scrollbar-track {
-          background: transparent;
+          background: rgba(252, 238, 10, 0.03);
         }
         .panel-scroll::-webkit-scrollbar-thumb {
-          background: ${c.a25};
-          border-radius: 3px;
+          background: ${c.a3};
+          border-radius: 0;
         }
         .panel-scroll::-webkit-scrollbar-thumb:hover {
-          background: ${c.a4};
+          background: ${c.a5};
+        }
+
+        /* Cyberpunk stage card */
+        .cp-stage-card {
+          position: relative;
+          margin: 0 8px 6px;
+          background: linear-gradient(135deg, rgba(10, 10, 18, 0.9), rgba(6, 6, 12, 0.95));
+          clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+          transition: all 200ms;
+          overflow: hidden;
+        }
+        .cp-stage-card-selected {
+          box-shadow: 0 0 0 1px ${c.a5}, 0 0 16px ${c.a15};
+        }
+        .cp-stage-card::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 3px;
+          height: 100%;
+          background: linear-gradient(180deg, transparent, ${c.a4} 30%, ${c.a4} 70%, transparent);
+          opacity: 0.6;
+        }
+        .cp-stage-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 10px;
+          position: relative;
+        }
+        .cp-stage-header-bg {
+          background: linear-gradient(90deg, ${c.a08}, transparent 80%);
+          border-bottom: 1px solid ${c.a2};
+        }
+        .cp-stage-title {
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.03em;
+          text-shadow: 0 0 6px rgba(255, 255, 255, 0.1);
+        }
+        .cp-progress-bar {
+          height: 3px;
+          background: rgba(255, 255, 255, 0.04);
+          overflow: hidden;
+          position: relative;
+        }
+        .cp-progress-fill {
+          height: 100%;
+          transition: width 500ms;
+          position: relative;
+        }
+        .cp-progress-fill::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+          animation: cp-shimmer 2s linear infinite;
+        }
+        @keyframes cp-shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        .cp-meta-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          padding: 6px 8px;
+          margin: 4px 8px;
+          background: rgba(252, 238, 10, 0.02);
+          border: 1px solid rgba(252, 238, 10, 0.06);
+          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+        }
+        .cp-subtask-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 8px;
+          margin: 2px 8px 2px 16px;
+          transition: all 120ms;
+          border-left: 2px solid ${c.a15};
+          clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%);
+        }
+        .cp-subtask-row:hover {
+          background: rgba(252, 238, 10, 0.03);
+          border-left-color: ${c.a5};
+        }
+        .cp-arrow-btn {
+          padding: 3px;
+          color: #3a3a4e;
+          transition: all 100ms;
+          flex-shrink: 0;
+        }
+        .cp-arrow-btn:hover {
+          color: #FCEE0A;
+          filter: drop-shadow(0 0 3px rgba(252, 238, 10, 0.4));
+        }
+        .cp-arrow-btn:disabled {
+          opacity: 0.15;
+          cursor: not-allowed;
+        }
+        .cp-delete-btn {
+          padding: 3px;
+          color: #3a3a4e;
+          transition: all 100ms;
+          flex-shrink: 0;
+        }
+        .cp-delete-btn:hover {
+          color: #FF003C;
+          filter: drop-shadow(0 0 4px rgba(255, 0, 60, 0.5));
+        }
+        .cp-add-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          font-size: 10px;
+          color: #4a4a5e;
+          transition: all 150ms;
+          border: 1px dashed rgba(252, 238, 10, 0.1);
+          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+        }
+        .cp-add-btn:hover {
+          color: #FCEE0A;
+          border-color: rgba(252, 238, 10, 0.3);
+          background: rgba(252, 238, 10, 0.04);
+        }
+        .cp-desc-card {
+          padding: 6px 8px;
+          margin: 4px 8px;
+          background: rgba(0, 240, 255, 0.02);
+          border: 1px solid rgba(0, 240, 255, 0.08);
+          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+          transition: all 150ms;
+        }
+        .cp-desc-card:hover {
+          border-color: rgba(0, 240, 255, 0.2);
+          background: rgba(0, 240, 255, 0.04);
         }
       `}</style>
     </div>
@@ -536,16 +771,7 @@ function StagesList({
       ) : (
         <button
           onClick={() => setAddingStage(true)}
-          className="w-full mx-2 flex items-center justify-center gap-1.5 py-2 text-[10px] text-slate-500 transition-all"
-          style={{ width: 'calc(100% - 1rem)' }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLElement;
-            el.style.color = c.raw;
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLElement;
-            el.style.color = '';
-          }}
+          className="cp-add-btn mx-2 w-[calc(100%-1rem)] justify-center"
         >
           <Plus className="w-3 h-3" /> Добавить этап
         </button>
@@ -627,20 +853,11 @@ function StageCard({
 
   return (
     <div
-      className="mx-2 rounded-xl overflow-hidden transition-all"
-      style={{
-        border: `1.5px solid ${isSelected ? c.a6 : c.a25}`,
-        backgroundColor: isSelected ? c.a12 : '#0f0f1a',
-        boxShadow: isSelected ? `0 0 0 1px ${c.a3}, 0 4px 12px ${c.a15}` : '0 2px 8px rgba(0,0,0,0.2)',
-      }}
+      className={cn('cp-stage-card', isSelected && 'cp-stage-card-selected')}
     >
       {/* Stage header */}
       <div
-        className="flex items-center gap-2 px-3 py-2"
-        style={{
-          backgroundColor: isSelected ? c.a08 : c.a04,
-          borderBottom: isExpanded ? `1px solid ${c.a2}` : 'none',
-        }}
+        className={cn('cp-stage-header', isExpanded && 'cp-stage-header-bg')}
       >
         {/* Drag handle (visual) */}
         <GripVertical className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
@@ -648,8 +865,9 @@ function StageCard({
         {/* Status cycle */}
         <button
           onClick={(e) => { e.stopPropagation(); void cycleStatus(); }}
-          className="flex-shrink-0 p-1 rounded-md transition-all hover:bg-slate-800/60"
+          className="flex-shrink-0 p-1 transition-all hover:opacity-70"
           title="Сменить статус"
+          style={{ filter: `drop-shadow(0 0 4px ${statusHex}60)` }}
         >
           <StatusIcon className="w-4 h-4" style={{ color: statusHex }} />
         </button>
@@ -680,8 +898,8 @@ function StageCard({
             onDoubleClick={() => setIsEditingTitle(true)}
             onClick={() => { onSelect(); onToggleExpand(); }}
             className={cn(
-              'flex-1 min-w-0 text-left text-[12px] font-semibold truncate transition-colors',
-              stage.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-100'
+              'cp-stage-title flex-1 min-w-0 text-left truncate transition-colors',
+              stage.status === 'done' ? 'text-slate-600 line-through' : 'text-slate-100'
             )}
             title="Двойной клик — переименовать"
           >
@@ -720,11 +938,11 @@ function StageCard({
         />
 
         {/* Move up/down */}
-        <div className="flex items-center transition-opacity flex-shrink-0" style={{ opacity: 1 }}>
+        <div className="flex items-center flex-shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
             disabled={index === 0}
-            className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-slate-200 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+            className="cp-arrow-btn"
             title="Выше"
           >
             <ArrowUp className="w-3.5 h-3.5" />
@@ -732,7 +950,7 @@ function StageCard({
           <button
             onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
             disabled={index === total - 1}
-            className="p-1 rounded-md hover:bg-slate-800 text-slate-500 hover:text-slate-200 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+            className="cp-arrow-btn"
             title="Ниже"
           >
             <ArrowDown className="w-3.5 h-3.5" />
@@ -742,7 +960,7 @@ function StageCard({
         {/* Delete */}
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="p-1 rounded-md hover:bg-rose-500/15 text-slate-600 hover:text-rose-400 transition-all flex-shrink-0"
+          className="cp-delete-btn"
           title="Удалить этап"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -765,17 +983,15 @@ function StageCard({
         <div className="px-3 py-2 space-y-2">
           {/* Progress bar */}
           {subtasks.length > 0 && (
-            <div>
-              <div className="h-1.5 bg-slate-800/80 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${stageProgress}%`,
-                    backgroundColor: stageProgress === 100 ? '#10b981' : stageProgress > 50 ? boardColor : stageProgress > 0 ? '#f59e0b' : '#334155',
-                    boxShadow: stageProgress > 0 ? `0 0 6px ${stageProgress === 100 ? '#10b981' : boardColor}80` : 'none',
-                  }}
-                />
-              </div>
+            <div className="cp-progress-bar mx-2 my-1">
+              <div
+                className="cp-progress-fill"
+                style={{
+                  width: `${stageProgress}%`,
+                  backgroundColor: stageProgress === 100 ? '#10b981' : stageProgress > 50 ? boardColor : stageProgress > 0 ? '#f59e0b' : '#334155',
+                  boxShadow: stageProgress > 0 ? `0 0 6px ${stageProgress === 100 ? '#10b981' : boardColor}80` : 'none',
+                }}
+              />
             </div>
           )}
 
@@ -823,7 +1039,7 @@ function StageCard({
           </div>
 
           {/* Metadata controls row */}
-          <div className="flex items-center gap-2 flex-wrap p-1.5 rounded-md" style={{ backgroundColor: c.a04, border: `1px solid ${c.a15}` }}>
+          <div className="cp-meta-row">
             {/* Priority — using PrioritySelector (already in header, here as label only) */}
             <span className="text-[10px] text-slate-500 flex items-center gap-1">
               <PriorityBars priority={stage.priority} size="xs" />
@@ -899,12 +1115,10 @@ function SubtasksList({
 
   if (subtasks.length === 0 && !addingSub) {
     return (
-      <div className="ml-3 pl-2 border-l border-slate-800/60 py-1">
+      <div className="ml-3 pl-2 py-1">
         <button
           onClick={() => setAddingSub(true)}
-          className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = c.raw; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ''; }}
+          className="cp-add-btn"
         >
           <Plus className="w-2.5 h-2.5" /> Добавить подзадачу
         </button>
@@ -913,7 +1127,7 @@ function SubtasksList({
   }
 
   return (
-    <div className="ml-3 pl-2 border-l border-slate-800/60 space-y-0.5">
+    <div className="ml-3 pl-2 space-y-0.5">
       {subtasks.map((sub, idx) => (
         <SubtaskRow
           key={sub.id}
@@ -1043,10 +1257,7 @@ function SubtaskRow({
 
   return (
     <div>
-      <div
-        className="flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors group/sub"
-        style={{ backgroundColor: subDone ? 'transparent' : c.a04 }}
-      >
+      <div className="cp-subtask-row group/sub">
         {/* Status cycle */}
         <button
           onClick={(e) => { e.stopPropagation(); void cycleStatus(); }}
@@ -1114,7 +1325,7 @@ function SubtaskRow({
         <button
           onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
           disabled={index === 0}
-          className="p-0.5 rounded hover:bg-slate-700 text-slate-600 hover:text-slate-300 transition-colors disabled:opacity-20 disabled:cursor-not-allowed flex-shrink-0"
+          className="cp-arrow-btn"
           title="Выше"
         >
           <ArrowUp className="w-3 h-3" />
@@ -1122,7 +1333,7 @@ function SubtaskRow({
         <button
           onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
           disabled={index === total - 1}
-          className="p-0.5 rounded hover:bg-slate-700 text-slate-600 hover:text-slate-300 transition-colors disabled:opacity-20 disabled:cursor-not-allowed flex-shrink-0"
+          className="cp-arrow-btn"
           title="Ниже"
         >
           <ArrowDown className="w-3 h-3" />
@@ -1131,7 +1342,7 @@ function SubtaskRow({
         {/* Delete */}
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="p-0.5 rounded hover:bg-rose-500/10 text-slate-700 hover:text-rose-400 transition-all opacity-0 group-hover/sub:opacity-100 flex-shrink-0"
+          className="cp-delete-btn opacity-0 group-hover/sub:opacity-100"
           title="Удалить"
         >
           <Trash2 className="w-3 h-3" />
