@@ -11,6 +11,7 @@ import {
   Sparkles, X, Loader2, Plus, Trash2, FileText,
 } from 'lucide-react';
 import { cn, boardColorStyles } from '@/lib/utils';
+import DeadlinePicker from '@/components/kanban/deadline-picker';
 
 interface WizardData {
   instruments: string[];
@@ -64,6 +65,7 @@ export default function TrackWizard() {
 
   const [trackName, setTrackName] = useState('');
   const [trackDescription, setTrackDescription] = useState('');
+  const [trackDeadline, setTrackDeadline] = useState<string | null>(null);
   const [selectedInstruments, setSelectedInstruments] = useState<string[]>([]);
   const [customInstrument, setCustomInstrument] = useState('');
   const [wizardData, setWizardData] = useState<WizardData | null>(null);
@@ -245,6 +247,7 @@ export default function TrackWizard() {
         body: JSON.stringify({
           title: trackName.trim(),
           description: trackDescription.trim(),
+          deadline: trackDeadline,
           instruments: selectedInstruments,
           boardId: selectedBoardId,
           userId: user?.id,
@@ -279,20 +282,22 @@ export default function TrackWizard() {
   const STEPS = ['Название', 'Инструменты', 'Этапы'];
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0" style={{ background: 'linear-gradient(180deg, rgba(6,6,12,0.95), rgba(10,10,18,0.98))' }}>
       {/* Header */}
-      <div className="border-b border-slate-800/50 p-4 shrink-0">
+      <div className="p-4 shrink-0" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)', background: 'linear-gradient(90deg, rgba(252,238,10,0.03), transparent)' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: bc.gradient }}>
-              <Music className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FCEE0A, #F1F100)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}>
+              <Music className="w-4 h-4 text-black" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Конструктор трека</h3>
-              <p className="text-[10px] text-slate-500">Мастер создания пайплайна</p>
+              <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}>Конструктор трека</h3>
+              <p className="text-[9px] text-slate-600 font-mono">// мастер создания пайплайна</p>
             </div>
           </div>
-          <button onClick={handleClose} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors">
+          <button onClick={handleClose} className="p-1.5 rounded transition-all" style={{ color: '#4a4a5e', border: '1px solid transparent' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; e.currentTarget.style.background = 'rgba(252,238,10,0.06)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5e'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -304,19 +309,19 @@ export default function TrackWizard() {
               <button
                 onClick={() => i < step && setStep(i)}
                 className={cn(
-                  'flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-md transition-all duration-200',
-                  i < step && 'text-slate-400 hover:bg-slate-800/60 cursor-pointer',
+                  'flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 transition-all duration-200',
+                  i < step && 'text-slate-400 cursor-pointer',
                   i > step && 'text-slate-600',
                 )}
-                style={i === step ? { backgroundColor: bc.bg15, color: bc.text } : undefined}
+                style={i === step ? { color: '#FCEE0A', textShadow: '0 0 4px rgba(252,238,10,0.3)' } : undefined}
               >
                 {i < step ? <Check className="w-3 h-3" /> : <span className="w-4 h-4 rounded-full border text-center text-[9px] flex items-center justify-center" style={{
-                  borderColor: i === step ? bc.text : i < step ? bc.text : '#334155',
+                  borderColor: i === step ? '#FCEE0A' : i < step ? '#FCEE0A' : '#334155',
                 }}>{i + 1}</span>}
-                <span className="hidden lg:inline">{s}</span>
+                <span className="hidden lg:inline uppercase tracking-wider">{s}</span>
               </button>
               {i < STEPS.length - 1 && (
-                <div className="flex-1 h-px mx-1" style={{ backgroundColor: i < step ? bc.bg30 : '#1e293b' }} />
+                <div className="flex-1 h-px mx-1" style={{ backgroundColor: i < step ? 'rgba(252,238,10,0.3)' : '#1e293b' }} />
               )}
             </div>
           ))}
@@ -325,39 +330,44 @@ export default function TrackWizard() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {/* Step 0: Name */}
+        {/* Step 0: Name + Description + Deadline */}
         {step === 0 && (
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-[11px] text-slate-400 font-medium">Название трека</label>
+              <label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Название трека</label>
               <Input
                 value={trackName}
                 onChange={(e) => setTrackName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && canProceed() && setStep(1)}
                 placeholder="Лирика, Эксперимент..."
                 autoFocus
-                className="bg-slate-900/80 border-slate-700/50 text-sm text-slate-200 placeholder:text-slate-600 h-10"
-                style={{ '--focus-border-color': bc.bg80 } as React.CSSProperties}
-                onFocus={(e) => e.currentTarget.style.borderColor = bc.bg80}
-                onBlur={(e) => e.currentTarget.style.borderColor = ''}
+                className="text-sm text-slate-100 placeholder:text-slate-600 h-10 rounded-md focus:outline-none"
+                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; e.currentTarget.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.15)'; e.currentTarget.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] text-slate-400 font-medium">Описание</label>
+              <label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Описание</label>
               <Textarea
                 value={trackDescription}
                 onChange={(e) => setTrackDescription(e.target.value)}
                 placeholder="Краткое описание идеи трека, настроение, жанр..."
                 rows={3}
-                className="bg-slate-900/80 border-slate-700/50 text-sm text-slate-200 placeholder:text-slate-600 resize-none"
-                onFocus={(e) => e.currentTarget.style.borderColor = bc.bg80}
-                onBlur={(e) => e.currentTarget.style.borderColor = ''}
+                className="text-sm text-slate-200 placeholder:text-slate-600 resize-none rounded-md focus:outline-none"
+                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.15)'; }}
               />
             </div>
-            <div className="rounded-lg bg-slate-900/40 border border-slate-800/30 p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-3.5 h-3.5" style={{ color: bc.text }} />
-                <span className="text-[11px] font-medium" style={{ color: bc.text }}>Подсказка</span>
+            <div className="space-y-1.5">
+              <label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Дедлайн</label>
+              <DeadlinePicker value={trackDeadline} onChange={setTrackDeadline} size="md" />
+            </div>
+            <div className="rounded-md p-3" style={{ background: 'rgba(0,240,255,0.03)', border: '1px solid rgba(0,240,255,0.12)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}>
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="w-3.5 h-3.5" style={{ color: '#FCEE0A' }} />
+                <span className="text-[11px] font-medium" style={{ color: '#FCEE0A' }}>Подсказка</span>
               </div>
               <p className="text-[10px] text-slate-500 leading-relaxed">
                 После ввода названия и описания вы выберете инструменты и этапы производства.
@@ -794,39 +804,38 @@ export default function TrackWizard() {
       </div>
 
       {/* Footer navigation */}
-      <div className="border-t border-slate-800/50 px-4 py-3 flex items-center justify-between shrink-0">
+      <div className="px-4 py-3 flex items-center justify-between shrink-0" style={{ borderTop: '2px solid rgba(252, 238, 10, 0.12)' }}>
         <button
           onClick={() => step > 0 ? setStep(step - 1) : handleClose()}
-          className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+          className="flex items-center gap-1 text-[11px] font-medium transition-all"
+          style={{ color: '#4a4a5e', padding: '4px 10px', border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; e.currentTarget.style.background = 'rgba(252,238,10,0.06)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5e'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
         >
           <ChevronLeft className="w-3.5 h-3.5" />
           {step === 0 ? 'Отмена' : 'Назад'}
         </button>
 
         {step < 2 ? (
-          <Button
+          <button
             onClick={() => step === 1 ? goToStep2() : setStep(step + 1)}
             disabled={!canProceed()}
-            className="disabled:opacity-40 text-white h-8 text-xs gap-1"
-            style={{ backgroundColor: bc.bg }}
-            onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.15)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.filter = ''; }}
+            className="flex items-center gap-1.5 text-[11px] font-bold h-8 px-4 transition-all disabled:opacity-40"
+            style={{ color: '#000', background: 'linear-gradient(135deg, #FCEE0A, #F1F100)', boxShadow: '0 0 10px rgba(252,238,10,0.3)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
           >
             Далее
             <ChevronRight className="w-3.5 h-3.5" />
-          </Button>
+          </button>
         ) : (
-          <Button
+          <button
             onClick={handleCreate}
             disabled={loading || editableStages.length === 0}
-            className="disabled:opacity-40 text-white h-8 text-xs gap-1.5"
-            style={{ background: bc.gradientFull, boxShadow: bc.shadowGlow }}
-            onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.15)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.filter = ''; }}
+            className="flex items-center gap-1.5 text-[11px] font-bold h-8 px-5 transition-all disabled:opacity-40"
+            style={{ color: '#000', background: 'linear-gradient(135deg, #FCEE0A, #FFD700)', boxShadow: '0 0 12px rgba(252,238,10,0.4)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
             Создать
-          </Button>
+          </button>
         )}
       </div>
     </div>

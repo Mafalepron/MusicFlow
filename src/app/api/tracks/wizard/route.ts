@@ -56,7 +56,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { title, description, instruments, stages, boardId, customStages, userId } = body;
+  const { title, description, deadline, instruments, stages, boardId, customStages, userId } = body;
 
   if (!title?.trim() || !boardId) {
     return NextResponse.json({ error: 'title and boardId required' }, { status: 400 });
@@ -151,6 +151,7 @@ export async function POST(req: NextRequest) {
       trackConfig: JSON.stringify({ instruments: safeInstruments, stages: stageData.map(s => s.label) }),
       hexQ: 0,
       hexR: 0,
+      ...(deadline ? { deadline: new Date(deadline) } : {}),
       ...(soundflowTrackId ? { soundflowTrackId } : {}),
     },
   });

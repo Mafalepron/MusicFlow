@@ -949,31 +949,6 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
             </div>
           </div>
 
-          {/* Category + Assignee */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Категория</Label>
-              <Select value={category} onValueChange={(v) => setCategory(v as TaskCategory)}>
-                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{CATEGORIES.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Ответственный</Label>
-              <Input
-                value={assignee}
-                onChange={(e) => setAssignee(e.target.value)}
-                placeholder="Имя..."
-                className="text-xs text-slate-100 placeholder:text-slate-600 h-9 rounded-md focus:outline-none"
-                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}
-                onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; }}
-                onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; }}
-              />
-            </div>
-          </div>
-
           {/* Deadline */}
           <div className="space-y-1">
             <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Дедлайн</Label>
