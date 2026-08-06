@@ -612,39 +612,42 @@ export default function DescriptionBottomPanel() {
           padding: 8px 12px;
           margin: 3px 8px 3px 16px;
           transition: all 120ms;
-          border-left: 3px solid rgba(0, 229, 255, 0.3);
+          border-left: 3px solid rgba(0, 229, 255, 0.5);
           background: rgba(8, 14, 26, 0.8);
-          border-top: 1px solid rgba(252, 238, 10, 0.12);
-          border-right: 1px solid rgba(252, 238, 10, 0.12);
-          border-bottom: 1px solid rgba(252, 238, 10, 0.12);
+          border-top: 1.5px solid rgba(252, 238, 10, 0.22);
+          border-right: 1.5px solid rgba(252, 238, 10, 0.22);
+          border-bottom: 1.5px solid rgba(252, 238, 10, 0.22);
           clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
+          box-shadow: inset 0 0 6px rgba(0, 229, 255, 0.02);
         }
         .cp-subtask-row:hover {
           background: rgba(252, 238, 10, 0.06);
           border-left-color: #FCEE0A;
           border-left-width: 4px;
-          border-color: rgba(252, 238, 10, 0.3);
+          border-color: rgba(252, 238, 10, 0.35);
           box-shadow: 0 0 20px rgba(252, 238, 10, 0.12), inset 0 0 10px rgba(252, 238, 10, 0.03);
         }
         .cp-arrow-btn {
           padding: 4px;
-          color: #3a4a5e;
+          color: #5a7a9e;
           transition: all 100ms;
           flex-shrink: 0;
+          filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.2));
         }
         .cp-arrow-btn:hover {
           color: #FCEE0A;
-          filter: drop-shadow(0 0 4px rgba(252, 238, 10, 0.5));
+          filter: drop-shadow(0 0 5px rgba(252, 238, 10, 0.5));
         }
         .cp-arrow-btn:disabled {
-          opacity: 0.15;
+          opacity: 0.2;
           cursor: not-allowed;
         }
         .cp-delete-btn {
           padding: 4px;
-          color: #3a4a5e;
+          color: #5a7a9e;
           transition: all 100ms;
           flex-shrink: 0;
+          filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.2));
         }
         .cp-delete-btn:hover {
           color: #FF003C;
@@ -661,9 +664,10 @@ export default function DescriptionBottomPanel() {
           text-transform: uppercase;
           color: #FCEE0A;
           transition: all 150ms;
-          border: 1px solid rgba(252, 238, 10, 0.35);
+          border: 1.5px solid rgba(252, 238, 10, 0.4);
           background: rgba(252, 238, 10, 0.08);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+          box-shadow: 0 0 6px rgba(252, 238, 10, 0.08);
         }
         .cp-add-btn:hover {
           color: #fff;
@@ -675,15 +679,16 @@ export default function DescriptionBottomPanel() {
         .cp-desc-card {
           padding: 8px 12px;
           margin: 4px 8px;
-          background: rgba(0, 229, 255, 0.04);
-          border: 1px solid rgba(0, 229, 255, 0.18);
+          background: rgba(0, 229, 255, 0.05);
+          border: 1.5px solid rgba(0, 229, 255, 0.25);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
           transition: all 150ms;
+          box-shadow: inset 0 0 8px rgba(0, 229, 255, 0.02);
         }
         .cp-desc-card:hover {
-          border-color: rgba(0, 229, 255, 0.4);
-          background: rgba(0, 229, 255, 0.07);
-          box-shadow: 0 0 16px rgba(0, 229, 255, 0.12), inset 0 0 8px rgba(0, 229, 255, 0.03);
+          border-color: rgba(0, 229, 255, 0.5);
+          background: rgba(0, 229, 255, 0.08);
+          box-shadow: 0 0 16px rgba(0, 229, 255, 0.15), inset 0 0 10px rgba(0, 229, 255, 0.04);
         }
       `}</style>
     </div>

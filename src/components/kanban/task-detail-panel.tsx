@@ -180,7 +180,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
       {/* Header — title + metadata in one line */}
-      <div className="p-4" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)', background: 'linear-gradient(90deg, rgba(252,238,10,0.03), transparent)' }}>
+      <div className="p-4" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.2)', background: 'linear-gradient(90deg, rgba(252,238,10,0.04), transparent)' }}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
           <div className="flex items-center gap-1">
@@ -247,7 +247,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
 
       {/* Open in Audio Editor */}
       {task.soundflowTrackId && (
-        <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.12)' }}>
+        <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
           <button
             onClick={async () => {
               const kanbanState = useKanbanStore.getState();
@@ -291,7 +291,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       )}
 
       {/* Description (inline editable) — cyberpunk styled */}
-      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.12)' }}>
+      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
         <div className="flex items-center justify-between mb-2">
           <span
             className="text-[9px] uppercase tracking-widest font-bold"
@@ -356,9 +356,10 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
           <div
             className="rounded-md px-3 py-2 transition-all cursor-pointer"
             style={{
-              background: 'rgba(0, 240, 255, 0.03)',
-              border: '1px solid rgba(0, 240, 255, 0.12)',
+              background: 'rgba(0, 229, 255, 0.05)',
+              border: '1.5px solid rgba(0, 229, 255, 0.25)',
               clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+              boxShadow: 'inset 0 0 8px rgba(0, 229, 255, 0.02)',
             }}
             onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
           >
@@ -377,7 +378,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       </div>
 
       {/* Track cover */}
-      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.12)' }}>
+      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
         <span
           className="text-[9px] uppercase tracking-widest font-medium block mb-2"
           style={{ color: hexToRgba(boardColor, 0.55) }}
@@ -883,7 +884,7 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
     <div className="flex-1 overflow-y-auto">
       <div className="p-4 space-y-3">
         {/* Header */}
-        <div className="flex items-center justify-between pb-2" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.12)' }}>
+        <div className="flex items-center justify-between pb-2" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
           <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}>
             {mode === 'edit' ? 'Редактировать' : 'Новая задача'}
           </h3>
@@ -907,7 +908,7 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Задача..."
               className="text-sm text-slate-100 placeholder:text-slate-600 h-9 rounded-md focus:outline-none"
-              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
+              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
               onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
               onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
             />
@@ -921,7 +922,7 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Описание..."
               className="text-xs text-slate-200 placeholder:text-slate-600 min-h-[55px] resize-none rounded-md focus:outline-none"
-              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
+              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
               onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
               onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
             />
@@ -932,7 +933,7 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
             <div className="space-y-1">
               <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Статус</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}>
+                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}><span className={s.color}>{s.label}</span></SelectItem>))}</SelectContent>
@@ -941,7 +942,7 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
             <div className="space-y-1">
               <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Приоритет</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}>
+                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value}><div className="flex items-center gap-1.5"><div className={cn('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}</div></SelectItem>))}</SelectContent>

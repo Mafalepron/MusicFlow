@@ -342,7 +342,7 @@ export default function TrackWizard() {
                 placeholder="Лирика, Эксперимент..."
                 autoFocus
                 className="text-sm text-slate-100 placeholder:text-slate-600 h-10 rounded-md focus:outline-none"
-                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
+                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; e.currentTarget.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.15)'; e.currentTarget.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
               />
@@ -355,7 +355,7 @@ export default function TrackWizard() {
                 placeholder="Краткое описание идеи трека, настроение, жанр..."
                 rows={3}
                 className="text-sm text-slate-200 placeholder:text-slate-600 resize-none rounded-md focus:outline-none"
-                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.15)' }}
+                style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(252,238,10,0.15)'; }}
               />

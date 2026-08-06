@@ -48,20 +48,20 @@ export default function TaskStrip() {
   }), [boardColor]);
 
   const styles = useMemo(() => ({
-    containerBorder: { borderBottom: '2px solid rgba(252, 238, 10, 0.15)', background: 'linear-gradient(180deg, rgba(6,6,12,0.95), rgba(10,10,18,0.98))' },
-    accentLine: { background: 'linear-gradient(90deg, rgba(252,238,10,0.5), rgba(252,238,10,0.08))', boxShadow: '0 0 8px rgba(252,238,10,0.2)' },
+    containerBorder: { borderBottom: '2px solid rgba(252, 238, 10, 0.2)', background: 'linear-gradient(180deg, rgba(5,10,20,0.95), rgba(8,12,24,0.98))' },
+    accentLine: { background: 'linear-gradient(90deg, rgba(252,238,10,0.5), rgba(252,238,10,0.1))', boxShadow: '0 0 8px rgba(252,238,10,0.25)' },
     dotBg: { backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.5)' },
     titleColor: { color: '#FCEE0A', textShadow: '0 0 8px rgba(252,238,10,0.4)', letterSpacing: '0.12em' },
     scrollbar: { scrollbarWidth: 'thin' as const, scrollbarColor: c.a2 + ' transparent' },
     cardDefault: {
-      backgroundColor: 'rgba(22, 22, 38, 0.85)',
-      border: '1.5px solid rgba(252, 238, 10, 0.2)',
+      backgroundColor: 'rgba(10, 18, 32, 0.85)',
+      border: '2px solid rgba(252, 238, 10, 0.25)',
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     cardSelected: {
       backgroundColor: 'rgba(252, 238, 10, 0.12)',
-      border: '2px solid rgba(252, 238, 10, 0.5)',
-      boxShadow: '0 0 20px rgba(252, 238, 10, 0.2), inset 0 0 16px rgba(252, 238, 10, 0.05)',
+      border: '2px solid rgba(252, 238, 10, 0.55)',
+      boxShadow: '0 0 24px rgba(252, 238, 10, 0.2), inset 0 0 16px rgba(252, 238, 10, 0.05)',
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     progressBg: { backgroundColor: 'rgba(255,255,255,0.04)' },
@@ -133,12 +133,12 @@ export default function TaskStrip() {
 
   const handleCardEnter = (el: HTMLElement) => {
     el.style.backgroundColor = 'rgba(252, 238, 10, 0.1)';
-    el.style.borderColor = 'rgba(252, 238, 10, 0.4)';
-    el.style.boxShadow = '0 0 18px rgba(252, 238, 10, 0.15), inset 0 0 10px rgba(252, 238, 10, 0.04)';
+    el.style.borderColor = 'rgba(252, 238, 10, 0.45)';
+    el.style.boxShadow = '0 0 20px rgba(252, 238, 10, 0.15), inset 0 0 12px rgba(252, 238, 10, 0.04)';
   };
   const handleCardLeave = (el: HTMLElement) => {
-    el.style.backgroundColor = 'rgba(22, 22, 38, 0.85)';
-    el.style.borderColor = 'rgba(252, 238, 10, 0.2)';
+    el.style.backgroundColor = 'rgba(10, 18, 32, 0.85)';
+    el.style.borderColor = 'rgba(252, 238, 10, 0.25)';
     el.style.boxShadow = 'none';
   };
 

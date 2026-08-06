@@ -478,9 +478,9 @@ function KanbanWorkspace() {
           <DescriptionBottomPanel />
         </div>
         <div className="w-[360px] flex flex-col min-h-0" style={{
-          borderLeft: '2px solid rgba(252, 238, 10, 0.2)',
-          background: 'linear-gradient(180deg, rgba(6, 6, 12, 0.95), rgba(10, 10, 18, 0.98))',
-          boxShadow: 'inset 1px 0 0 rgba(252, 238, 10, 0.08), -4px 0 24px rgba(0, 0, 0, 0.5)',
+          borderLeft: '2px solid rgba(252, 238, 10, 0.25)',
+          background: 'linear-gradient(180deg, rgba(5, 10, 20, 0.95), rgba(8, 12, 24, 0.98))',
+          boxShadow: 'inset 1px 0 0 rgba(252, 238, 10, 0.1), -4px 0 24px rgba(0, 0, 0, 0.5)',
         }}>
           {isTrackWizardOpen ? (
             <TrackWizard />
