@@ -1,0 +1,992 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { useKanbanStore, Task, TaskStatus, TaskPriority, TaskCategory, TaskChild } from '@/store/kanban-store';
+     5→import { useNavigationStore } from '@/lib/store';
+     6→import { Button } from '@/components/ui/button';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Textarea } from '@/components/ui/textarea';
+     9→import { Label } from '@/components/ui/label';
+    10→import {
+    11→  Select,
+    12→  SelectContent,
+    13→  SelectItem,
+    14→  SelectTrigger,
+    15→  SelectValue,
+    16→} from '@/components/ui/select';
+    17→import {
+    18→  Check, Circle, Clock, Eye, Plus, Trash2, Pencil,
+    19→  ChevronRight, X, Save, Music, AudioWaveform,
+    20→  ArrowRight, AlertTriangle, Flame, CalendarDays, User, ListChecks,
+    21→} from 'lucide-react';
+    22→import DeadlinePicker, { getDeadlineInfo } from '@/components/kanban/deadline-picker';
+    23→import { cn, boardColorStyles, hexToRgba } from '@/lib/utils';
+    24→
+    25→const STATUSES: { value: TaskStatus; label: string; color: string; dot: string }[] = [
+    26→  { value: 'todo', label: 'К выполнению', color: 'text-cyan-400', dot: '#22d3ee' },
+    27→  { value: 'in-progress', label: 'В работе', color: 'text-orange-400', dot: '#fb923c' },
+    28→  { value: 'review', label: 'На проверке', color: 'text-rose-400', dot: '#fb7185' },
+    29→  { value: 'done', label: 'Готово', color: 'text-emerald-400', dot: '#34d399' },
+    30→];
+    31→
+    32→const PRIORITIES: { value: TaskPriority; label: string; dot: string; text: string }[] = [
+    33→  { value: 'low', label: 'Низкий', dot: 'bg-slate-500', text: 'text-slate-400' },
+    34→  { value: 'medium', label: 'Средний', dot: 'bg-amber-500', text: 'text-amber-400' },
+    35→  { value: 'high', label: 'Высокий', dot: 'bg-rose-500', text: 'text-rose-400' },
+    36→];
+    37→
+    38→const CATEGORIES: { value: TaskCategory; label: string }[] = [
+    39→  { value: 'rehearsal', label: '🎤 Репетиция' },
+    40→  { value: 'recording', label: '🎵 Запись' },
+    41→  { value: 'performance', label: '🎪 Выступление' },
+    42→  { value: 'marketing', label: '📢 Маркетинг' },
+    43→  { value: 'social', label: '📱 Соцсети' },
+    44→  { value: 'general', label: '📋 Общее' },
+    45→];
+    46→
+    47→const PRIORITY_DOT_HEX: Record<string, string> = {
+    48→  low: '#64748b',
+    49→  medium: '#f59e0b',
+    50→  high: '#f43f5e',
+    51→};
+    52→
+    53→const STATUS_DOT_HEX: Record<string, string> = {
+    54→  todo: '#22d3ee',
+    55→  'in-progress': '#fb923c',
+    56→  review: '#fb7185',
+    57→  done: '#34d399',
+    58→};
+    59→
+    60→const DESC_LIMIT = 600;
+    61→
+    62→export default function TaskDetailPanel() {
+    63→  const {
+    64→    boardTasks, selectedTaskId, setBoardTasks,
+    65→    selectedBoardId, boards,
+    66→    editingTask, isCreating, setEditingTask, setIsCreating,
+    67→  } = useKanbanStore();
+    68→
+    69→  const selectedTask = boardTasks.find(t => t.id === selectedTaskId);
+    70→  const selectedBoard = boards.find(b => b.id === selectedBoardId);
+    71→
+    72→  const boardColor = selectedBoard?.color || '#00d9ff';
+    73→
+    74→  if (isCreating) return <TaskForm mode="create" boardColor={boardColor} />;
+    75→  if (editingTask) return <TaskForm mode="edit" task={editingTask} boardColor={boardColor} />;
+    76→
+    77→  if (!selectedTask) {
+    78→    return (
+    79→      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+    80→        <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800/50 flex items-center justify-center mb-3">
+    81→          <Pencil className="w-5 h-5 text-slate-700" />
+    82→        </div>
+    83→        <p className="text-xs text-slate-600 leading-relaxed">
+    84→          Выберите задачу в панели<br />сверху для просмотра и редактирования
+    85→        </p>
+    86→      </div>
+    87→    );
+    88→  }
+    89→
+    90→  // Track detail view for tracks with 3-level hierarchy
+    91→  if (selectedTask.trackConfig) {
+    92→    return <TrackDetailView task={selectedTask} board={selectedBoard} />;
+    93→  }
+    94→
+    95→  return <TaskDetailView task={selectedTask} board={selectedBoard} />;
+    96→}
+    97→
+    98→/* ── Track Detail View (info-only — stages/subtasks moved to bottom panel) ──── */
+    99→
+   100→function TrackDetailView({ task, board }: { task: Task; board?: { title: string; color: string } }) {
+   101→  const { setBoardTasks, selectedBoardId, setEditingTask, setSelectedTaskId, setSelectedStageForPanel } = useKanbanStore();
+   102→  const [descDraft, setDescDraft] = useState(task.description || '');
+   103→  const [isEditingDesc, setIsEditingDesc] = useState(false);
+   104→  const [savingDesc, setSavingDesc] = useState(false);
+   105→
+   106→  const config = task.trackConfig ? JSON.parse(task.trackConfig) : null;
+   107→  const stages = task.children || [];
+   108→  const allSubtasks = stages.flatMap(s => s.children || []);
+   109→  const progress = getProgress(allSubtasks);
+   110→  const boardColor = board?.color || '#00d9ff';
+   111→  const bc = boardColorStyles(boardColor);
+   112→
+   113→  const getProgressColor = () => {
+   114→    if (progress === 100) return '#10b981';
+   115→    if (progress > 50) return boardColor;
+   116→    if (progress > 0) return '#f59e0b';
+   117→    return '#334155';
+   118→  };
+   119→  const getProgressTextColor = () => {
+   120→    if (progress === 100) return '#34d399';
+   121→    if (progress > 50) return boardColor;
+   122→    if (progress > 0) return '#f59e0b';
+   123→    return '#475569';
+   124→  };
+   125→
+   126→  const reloadTasks = useCallback(async () => {
+   127→    if (!selectedBoardId) return;
+   128→    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+   129→    const data = await res.json();
+   130→    setBoardTasks(data.tasks);
+   131→  }, [selectedBoardId, setBoardTasks]);
+   132→
+   133→  const saveDesc = useCallback(async () => {
+   134→    if (savingDesc) return;
+   135→    setSavingDesc(true);
+   136→    try {
+   137→      await fetch('/api/tasks', {
+   138→        method: 'PUT',
+   139→        headers: { 'Content-Type': 'application/json' },
+   140→        body: JSON.stringify({ id: task.id, description: descDraft.trim() || null }),
+   141→      });
+   142→      setIsEditingDesc(false);
+   143→      await reloadTasks();
+   144→    } finally {
+   145→      setSavingDesc(false);
+   146→    }
+   147→  }, [task.id, descDraft, savingDesc, reloadTasks]);
+   148→
+   149→  // Sync descDraft when task changes (prev-tracker pattern avoids useEffect-setState)
+   150→  const [prevTaskDesc, setPrevTaskDesc] = useState<string | null>(task.description);
+   151→  if (task.description !== prevTaskDesc) {
+   152→    setPrevTaskDesc(task.description);
+   153→    if (!isEditingDesc) setDescDraft(task.description || '');
+   154→  }
+   155→
+   156→  const handleDelete = async () => {
+   157→    await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   158→    setSelectedTaskId(null);
+   159→    setSelectedStageForPanel(null);
+   160→    if (selectedBoardId) {
+   161→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+   162→      const data = await res.json();
+   163→      setBoardTasks(data.tasks);
+   164→    }
+   165→  };
+   166→
+   167→  const openManageStages = () => {
+   168→    if (stages.length > 0) {
+   169→      setSelectedStageForPanel({ taskId: task.id, stageId: stages[0].id });
+   170→    } else {
+   171→      // Still open so user can add stages
+   172→      setSelectedStageForPanel({ taskId: task.id, stageId: '' });
+   173→    }
+   174→  };
+   175→
+   176→  const deadlineInfo = getDeadlineInfo(task.deadline || null);
+   177→  const priorityHex = PRIORITY_DOT_HEX[task.priority] || '#64748b';
+   178→  const statusHex = STATUS_DOT_HEX[task.status] || '#22d3ee';
+   179→
+   180→  return (
+   181→    <div className="flex-1 overflow-y-auto flex flex-col">
+   182→      {/* Header — title + metadata in one line */}
+   183→      <div className="p-4" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.2)', background: 'linear-gradient(90deg, rgba(252,238,10,0.04), transparent)' }}>
+   184→        <div className="flex items-center justify-between mb-2">
+   185→          <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
+   186→          <div className="flex items-center gap-1">
+   187→            <button
+   188→              onClick={() => setEditingTask(task)}
+   189→              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+   190→              title="Редактировать"
+   191→            >
+   192→              <Pencil className="w-3.5 h-3.5" />
+   193→            </button>
+   194→            <button
+   195→              onClick={() => void handleDelete()}
+   196→              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors"
+   197→              title="Удалить"
+   198→            >
+   199→              <Trash2 className="w-3.5 h-3.5" />
+   200→            </button>
+   201→          </div>
+   202→        </div>
+   203→
+   204→        {/* Metadata in one line */}
+   205→        <div className="flex items-center gap-3 flex-wrap text-[10px]">
+   206→          {/* Status */}
+   207→          <span className="flex items-center gap-1">
+   208→            <Circle className="w-2 h-2" style={{ color: statusHex }} />
+   209→            <span style={{ color: statusHex }}>{STATUSES.find(s => s.value === task.status)?.label || task.status}</span>
+   210→          </span>
+   211→          {/* Priority */}
+   212→          <span className="flex items-center gap-1 text-slate-400">
+   213→            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: priorityHex }} />
+   214→            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
+   215→          </span>
+   216→          {/* Assignee */}
+   217→          {task.assignee && (
+   218→            <span className="flex items-center gap-1 text-slate-400">
+   219→              <User className="w-2.5 h-2.5" />
+   220→              {task.assignee}
+   221→            </span>
+   222→          )}
+   223→          {/* Deadline */}
+   224→          {task.deadline && (
+   225→            <span className="flex items-center gap-1" style={{ color: deadlineInfo.status === 'overdue' ? '#fb7185' : deadlineInfo.status === 'urgent' ? '#f59e0b' : '#64748b' }}>
+   226→              <CalendarDays className="w-2.5 h-2.5" />
+   227→              <DeadlineBadge value={task.deadline} info={deadlineInfo} />
+   228→            </span>
+   229→          )}
+   230→        </div>
+   231→
+   232→        {/* Instruments */}
+   233→        {config?.instruments?.length > 0 && (
+   234→          <div className="flex flex-wrap gap-1 mt-2">
+   235→            {config.instruments.map((inst: string) => (
+   236→              <span
+   237→                key={inst}
+   238→                className="text-[9px] px-1.5 py-0.5 rounded transition-colors"
+   239→                style={{ backgroundColor: hexToRgba(boardColor, 0.1), color: boardColor }}
+   240→              >
+   241→                {inst}
+   242→              </span>
+   243→            ))}
+   244→          </div>
+   245→        )}
+   246→      </div>
+   247→
+   248→      {/* Open in Audio Editor */}
+   249→      {task.soundflowTrackId && (
+   250→        <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+   251→          <button
+   252→            onClick={async () => {
+   253→              const kanbanState = useKanbanStore.getState();
+   254→              let kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
+   255→              let sfProjectId = kanbanProject?.soundflowProjectId;
+   256→
+   257→              if (!sfProjectId && kanbanState.selectedProjectId) {
+   258→                try {
+   259→                  const res = await fetch(`/api/tasks?parentId=${kanbanState.selectedProjectId}`);
+   260→                  const data = await res.json();
+   261→                  if (data.tasks && data.tasks.length > 0) {
+   262→                    sfProjectId = data.tasks[0].soundflowProjectId;
+   263→                  }
+   264→                } catch { /* ignore */ }
+   265→              }
+   266→
+   267→              if (!sfProjectId && task.soundflowTrackId) {
+   268→                try {
+   269→                  const res = await fetch(`/api/tracks/${task.soundflowTrackId}`);
+   270→                  if (res.ok) {
+   271→                    const track = await res.json();
+   272→                    sfProjectId = track.projectId || track.project?.id;
+   273→                  }
+   274→                } catch { /* ignore */ }
+   275→              }
+   276→
+   277→              if (sfProjectId && task.soundflowTrackId) {
+   278→                useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId);
+   279→              }
+   280→            }}
+   281→            className="w-full flex items-center justify-center gap-2 text-[11px] font-semibold text-white px-3 py-2 rounded-md transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+   282→            style={{
+   283→              background: 'linear-gradient(135deg, #06b6d4 0%, #14b8a6 100%)',
+   284→              boxShadow: '0 2px 10px rgba(6, 182, 212, 0.35), 0 0 18px rgba(20, 184, 166, 0.18)',
+   285→            }}
+   286→          >
+   287→            <AudioWaveform className="w-3.5 h-3.5" />
+   288→            Открыть в аудиоредакторе
+   289→          </button>
+   290→        </div>
+   291→      )}
+   292→
+   293→      {/* Description (inline editable) — cyberpunk styled */}
+   294→      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+   295→        <div className="flex items-center justify-between mb-2">
+   296→          <span
+   297→            className="text-[9px] uppercase tracking-widest font-bold"
+   298→            style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
+   299→          >
+   300→            Описание
+   301→          </span>
+   302→          {!isEditingDesc && (
+   303→            <button
+   304→              onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+   305→              className="text-[9px] px-2 py-0.5 rounded transition-all flex items-center gap-1 font-medium"
+   306→              style={{ color: '#FCEE0A', border: '1px solid rgba(252,238,10,0.2)', background: 'rgba(252,238,10,0.04)', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+   307→            >
+   308→              <Pencil className="w-2.5 h-2.5" /> Изменить
+   309→            </button>
+   310→          )}
+   311→        </div>
+   312→        {isEditingDesc ? (
+   313→          <div className="space-y-2">
+   314→            <Textarea
+   315→              value={descDraft}
+   316→              onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
+   317→              placeholder="Опишите трек..."
+   318→              className="text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none rounded-md"
+   319→              style={{
+   320→                background: 'rgba(8, 8, 16, 0.9)',
+   321→                border: '1px solid rgba(252, 238, 10, 0.2)',
+   322→                boxShadow: 'inset 0 0 8px rgba(252, 238, 10, 0.03)',
+   323→              }}
+   324→              autoFocus
+   325→              onKeyDown={(e) => {
+   326→                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+   327→                  e.preventDefault();
+   328→                  void saveDesc();
+   329→                }
+   330→                if (e.key === 'Escape') {
+   331→                  setIsEditingDesc(false);
+   332→                  setDescDraft(task.description || '');
+   333→                }
+   334→              }}
+   335→            />
+   336→            <div className="flex items-center justify-between">
+   337→              <span className="text-[8px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
+   338→              <div className="flex items-center gap-1.5">
+   339→                <button
+   340→                  onClick={() => { setIsEditingDesc(false); setDescDraft(task.description || ''); }}
+   341→                  className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+   342→                >
+   343→                  Отмена
+   344→                </button>
+   345→                <button
+   346→                  onClick={() => void saveDesc()}
+   347→                  className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+   348→                  style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+   349→                >
+   350→                  Сохранить
+   351→                </button>
+   352→              </div>
+   353→            </div>
+   354→          </div>
+   355→        ) : task.description ? (
+   356→          <div
+   357→            className="rounded-md px-3 py-2 transition-all cursor-pointer"
+   358→            style={{
+   359→              background: 'rgba(0, 229, 255, 0.05)',
+   360→              border: '1.5px solid rgba(0, 229, 255, 0.25)',
+   361→              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+   362→              boxShadow: 'inset 0 0 8px rgba(0, 229, 255, 0.02)',
+   363→            }}
+   364→            onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+   365→          >
+   366→            <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">
+   367→              {task.description}
+   368→            </p>
+   369→          </div>
+   370→        ) : (
+   371→          <button
+   372→            onClick={() => { setDescDraft(''); setIsEditingDesc(true); }}
+   373→            className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors"
+   374→          >
+   375→            Нажмите, чтобы добавить описание...
+   376→          </button>
+   377→        )}
+   378→      </div>
+   379→
+   380→      {/* Track cover */}
+   381→      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+   382→        <span
+   383→          className="text-[9px] uppercase tracking-widest font-medium block mb-2"
+   384→          style={{ color: hexToRgba(boardColor, 0.55) }}
+   385→        >
+   386→          Обложка
+   387→        </span>
+   388→        <div
+   389→          className="aspect-square max-w-[160px] rounded-lg border border-dashed flex items-center justify-center overflow-hidden"
+   390→          style={{ borderColor: hexToRgba(boardColor, 0.2), backgroundColor: hexToRgba(boardColor, 0.03) }}
+   391→        >
+   392→          {task.soundflowTrackId ? (
+   393→            <div className="w-full h-full flex items-center justify-center text-slate-700">
+   394→              <Music className="w-8 h-8" />
+   395→            </div>
+   396→          ) : (
+   397→            <div className="text-center px-2">
+   398→              <Music className="w-5 h-5 mx-auto mb-1 text-slate-700" />
+   399→              <p className="text-[9px] text-slate-600">Нет обложки</p>
+   400→            </div>
+   401→          )}
+   402→        </div>
+   403→      </div>
+   404→
+   405→      {/* Track text / lyrics */}
+   406→      <TrackTextSection task={task} boardColor={boardColor} onUpdate={async (patch) => {
+   407→        await fetch('/api/tasks', {
+   408→          method: 'PUT',
+   409→          headers: { 'Content-Type': 'application/json' },
+   410→          body: JSON.stringify({ id: task.id, ...patch }),
+   411→        });
+   412→        if (selectedBoardId) {
+   413→          const res = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+   414→          const data = await res.json();
+   415→          setBoardTasks(data.tasks);
+   416→        }
+   417→      }} />
+   418→    </div>
+   419→  );
+   420→}
+   421→
+   422→/* ── Track Text / Lyrics Section ──────────────────────── */
+   423→
+   424→function TrackTextSection({
+   425→  task,
+   426→  boardColor,
+   427→  onUpdate,
+   428→}: {
+   429→  task: Task;
+   430→  boardColor: string;
+   431→  onUpdate: (patch: Record<string, unknown>) => Promise<void>;
+   432→}) {
+   433→  const config = task.trackConfig ? JSON.parse(task.trackConfig) : null;
+   434→  const trackText: string = config?.text || '';
+   435→  const [isEditing, setIsEditing] = useState(false);
+   436→  const [isExpanded, setIsExpanded] = useState(false);
+   437→  const [draft, setDraft] = useState(trackText);
+   438→
+   439→  const save = async () => {
+   440→    const newConfig = { ...config, text: draft.trim() };
+   441→    await onUpdate({ trackConfig: JSON.stringify(newConfig) });
+   442→    setIsEditing(false);
+   443→  };
+   444→
+   445→  const cancel = () => {
+   446→    setDraft(trackText);
+   447→    setIsEditing(false);
+   448→  };
+   449→
+   450→  return (
+   451→    <div className="px-4 py-3">
+   452→      <div className="flex items-center justify-between mb-2">
+   453→        <span
+   454→          className="text-[9px] uppercase tracking-widest font-medium"
+   455→          style={{ color: hexToRgba(boardColor, 0.55) }}
+   456→        >
+   457→          Текст трека
+   458→        </span>
+   459→        <div className="flex items-center gap-1">
+   460→          {!isEditing && trackText && (
+   461→            <button
+   462→              onClick={() => setIsExpanded(v => !v)}
+   463→              className="text-[9px] px-1.5 py-0.5 rounded transition-colors text-slate-500 hover:text-slate-300"
+   464→            >
+   465→              {isExpanded ? 'Свернуть' : 'Читать'}
+   466→            </button>
+   467→          )}
+   468→          {!isEditing && (
+   469→            <button
+   470→              onClick={() => { setDraft(trackText); setIsEditing(true); }}
+   471→              className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1"
+   472→              style={{ color: hexToRgba(boardColor, 0.5) }}
+   473→            >
+   474→              <Pencil className="w-2.5 h-2.5" /> Изменить
+   475→            </button>
+   476→          )}
+   477→        </div>
+   478→      </div>
+   479→
+   480→      {isEditing ? (
+   481→        <div className="space-y-2">
+   482→          <Textarea
+   483→            value={draft}
+   484→            onChange={(e) => setDraft(e.target.value)}
+   485→            placeholder="Введите текст трека или лирику..."
+   486→            className="bg-slate-900/80 text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[120px] resize-none focus:outline-none rounded-md"
+   487→            style={{ borderColor: hexToRgba(boardColor, 0.3) }}
+   488→            autoFocus
+   489→            onKeyDown={(e) => {
+   490→              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void save(); }
+   491→              if (e.key === 'Escape') cancel();
+   492→            }}
+   493→          />
+   494→          <div className="flex items-center justify-end gap-2">
+   495→            <button
+   496→              onClick={cancel}
+   497→              className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+   498→            >
+   499→              Отмена
+   500→            </button>
+   501→            <button
+   502→              onClick={() => void save()}
+   503→              className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+   504→              style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+   505→            >
+   506→              Сохранить
+   507→            </button>
+   508→          </div>
+   509→        </div>
+   510→      ) : trackText ? (
+   511→        <div
+   512→          className={`text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap ${isExpanded ? '' : 'line-clamp-3'}`}
+   513→        >
+   514→          {trackText}
+   515→        </div>
+   516→      ) : (
+   517→        <button
+   518→          onClick={() => { setDraft(''); setIsEditing(true); }}
+   519→          className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors"
+   520→        >
+   521→          Нажмите, чтобы добавить текст трека...
+   522→        </button>
+   523→      )}
+   524→    </div>
+   525→  );
+   526→}
+   527→
+   528→/* ── Meta row helper ──────────────────────────────────── */
+   529→
+   530→function MetaRow({
+   531→  icon, label, children,
+   532→}: {
+   533→  icon: React.ReactNode;
+   534→  label: string;
+   535→  children: React.ReactNode;
+   536→}) {
+   537→  return (
+   538→    <div className="flex items-center gap-2 min-w-0">
+   539→      <div className="flex-shrink-0 w-4 flex items-center justify-center">{icon}</div>
+   540→      <span className="text-[10px] text-slate-600 flex-shrink-0 w-20">{label}</span>
+   541→      <div className="flex-1 min-w-0 truncate">{children}</div>
+   542→    </div>
+   543→  );
+   544→}
+   545→
+   546→function DeadlineBadge({
+   547→  value, info,
+   548→}: {
+   549→  value: string;
+   550→  info: { daysLeft: number; status: string };
+   551→}) {
+   552→  const d = new Date(value);
+   553→  const day = String(d.getDate()).padStart(2, '0');
+   554→  const month = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getMonth()];
+   555→  const color = info.status === 'overdue' ? '#fb7185' :
+   556→    info.status === 'urgent' ? '#f59e0b' :
+   557→    info.status === 'soon' ? '#22d3ee' : '#94a3b8';
+   558→
+   559→  return (
+   560→    <div className="flex items-center gap-1.5">
+   561→      <span className="text-[11px] font-medium" style={{ color }}>{day} {month}</span>
+   562→      {info.status === 'overdue' && (
+   563→        <span className="flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 px-1.5 py-0.5 rounded-full">
+   564→          <AlertTriangle className="w-2.5 h-2.5" />{Math.abs(info.daysLeft)}д
+   565→        </span>
+   566→      )}
+   567→      {info.status === 'urgent' && (
+   568→        <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-full">
+   569→          <Flame className="w-2.5 h-2.5" />{info.daysLeft}д
+   570→        </span>
+   571→      )}
+   572→    </div>
+   573→  );
+   574→}
+   575→
+   576→/* ── Regular Task Detail View (simplified — subtasks summary + manage hint) ──── */
+   577→
+   578→function TaskDetailView({ task, board }: { task: Task; board?: { title: string; color: string } }) {
+   579→  const { setBoardTasks, selectedBoardId, setEditingTask, setSelectedTaskId, setSelectedStageForPanel } = useKanbanStore();
+   580→  const [descDraft, setDescDraft] = useState(task.description || '');
+   581→  const [isEditingDesc, setIsEditingDesc] = useState(false);
+   582→  const [savingDesc, setSavingDesc] = useState(false);
+   583→
+   584→  const boardColor = board?.color || '#00d9ff';
+   585→  const subtasks = task.children || [];
+   586→  const progress = getProgress(subtasks);
+   587→
+   588→  const getProgressColor = () => {
+   589→    if (progress === 100) return '#10b981';
+   590→    if (progress > 50) return boardColor;
+   591→    if (progress > 0) return '#f59e0b';
+   592→    return '#334155';
+   593→  };
+   594→  const getProgressTextColor = () => {
+   595→    if (progress === 100) return '#34d399';
+   596→    if (progress > 50) return boardColor;
+   597→    if (progress > 0) return '#f59e0b';
+   598→    return '#475569';
+   599→  };
+   600→
+   601→  const reloadTasks = useCallback(async () => {
+   602→    if (!selectedBoardId) return;
+   603→    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   604→    const data = await res.json();
+   605→    setBoardTasks(data.tasks);
+   606→  }, [selectedBoardId, setBoardTasks]);
+   607→
+   608→  const saveDesc = useCallback(async () => {
+   609→    if (savingDesc) return;
+   610→    setSavingDesc(true);
+   611→    try {
+   612→      await fetch('/api/tasks', {
+   613→        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+   614→        body: JSON.stringify({ id: task.id, description: descDraft.trim() || null }),
+   615→      });
+   616→      setIsEditingDesc(false);
+   617→      await reloadTasks();
+   618→    } finally {
+   619→      setSavingDesc(false);
+   620→    }
+   621→  }, [task.id, descDraft, savingDesc, reloadTasks]);
+   622→
+   623→  // Sync descDraft when task changes (prev-tracker pattern)
+   624→  const [prevTaskDesc, setPrevTaskDesc] = useState<string | null>(task.description);
+   625→  if (task.description !== prevTaskDesc) {
+   626→    setPrevTaskDesc(task.description);
+   627→    if (!isEditingDesc) setDescDraft(task.description || '');
+   628→  }
+   629→
+   630→  const updateTaskDeadline = async (deadline: string | null) => {
+   631→    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, deadline }) });
+   632→    await reloadTasks();
+   633→  };
+   634→
+   635→  const handleDeleteTask = async () => {
+   636→    await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   637→    setSelectedTaskId(null);
+   638→    setSelectedStageForPanel(null);
+   639→    if (selectedBoardId) {
+   640→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   641→      const data = await res.json();
+   642→      setBoardTasks(data.tasks);
+   643→    }
+   644→  };
+   645→
+   646→  const openManageSubtasks = () => {
+   647→    setSelectedStageForPanel({ taskId: task.id, stageId: '' });
+   648→  };
+   649→
+   650→  const deadlineInfo = getDeadlineInfo(task.deadline || null);
+   651→  const priorityHex = PRIORITY_DOT_HEX[task.priority] || '#64748b';
+   652→  const statusHex = STATUS_DOT_HEX[task.status] || '#22d3ee';
+   653→  const doneCount = subtasks.filter(s => s.status === 'done').length;
+   654→
+   655→  return (
+   656→    <div className="flex-1 overflow-y-auto flex flex-col">
+   657→      {/* Header */}
+   658→      <div className="border-b border-slate-800/50 p-4">
+   659→        <div className="flex items-center gap-1.5 mb-2.5">
+   660→          {board && (
+   661→            <span
+   662→              className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium"
+   663→              style={{ color: boardColor, backgroundColor: hexToRgba(boardColor, 0.12) }}
+   664→            >
+   665→              {board.title}
+   666→            </span>
+   667→          )}
+   668→          <span
+   669→            className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+   670→            style={{ color: statusHex, backgroundColor: hexToRgba(statusHex, 0.12) }}
+   671→          >
+   672→            {STATUSES.find(s => s.value === task.status)?.label || task.status}
+   673→          </span>
+   674→          <div className="flex-1" />
+   675→          <button onClick={() => setEditingTask(task)} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors">
+   676→            <Pencil className="w-3.5 h-3.5" />
+   677→          </button>
+   678→          <button onClick={() => void handleDeleteTask()} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors">
+   679→            <Trash2 className="w-3.5 h-3.5" />
+   680→          </button>
+   681→        </div>
+   682→        <h3 className={cn('text-sm font-semibold leading-tight mb-1', task.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-100')}>
+   683→          {task.title}
+   684→        </h3>
+   685→        {/* Metadata summary line */}
+   686→        <div className="flex items-center gap-3 flex-wrap text-[10px] text-slate-500">
+   687→          {task.assignee && (
+   688→            <span className="flex items-center gap-1">
+   689→              <span
+   690→                className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white"
+   691→                style={{ backgroundColor: hexToRgba(boardColor, 0.6) }}
+   692→              >
+   693→                {task.assignee.charAt(0).toUpperCase()}
+   694→              </span>
+   695→              {task.assignee}
+   696→            </span>
+   697→          )}
+   698→          <span className="flex items-center gap-1" style={{ color: priorityHex }}>
+   699→            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: priorityHex }} />
+   700→            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
+   701→          </span>
+   702→        </div>
+   703→      </div>
+   704→
+   705→      {/* Description (inline editable) */}
+   706→      <div className="border-b border-slate-800/30 px-4 py-3">
+   707→        <div className="flex items-center justify-between mb-1.5">
+   708→          <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: hexToRgba(boardColor, 0.55) }}>
+   709→            Описание
+   710→          </span>
+   711→          {!isEditingDesc && (
+   712→            <button
+   713→              onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+   714→              className="text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1"
+   715→              style={{ color: hexToRgba(boardColor, 0.5) }}
+   716→              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = boardColor; }}
+   717→              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = hexToRgba(boardColor, 0.5); }}
+   718→            >
+   719→              <Pencil className="w-2.5 h-2.5" /> Изменить
+   720→            </button>
+   721→          )}
+   722→        </div>
+   723→        {isEditingDesc ? (
+   724→          <Textarea
+   725→            value={descDraft}
+   726→            onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
+   727→            placeholder="Описание задачи..."
+   728→            className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none"
+   729→            style={{ borderColor: hexToRgba(boardColor, 0.3) }}
+   730→            autoFocus
+   731→            onKeyDown={(e) => {
+   732→              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
+   733→              if (e.key === 'Escape') { setIsEditingDesc(false); setDescDraft(task.description || ''); }
+   734→            }}
+   735→            onBlur={() => {
+   736→              if (descDraft.trim() !== (task.description || '').trim()) void saveDesc();
+   737→              else setIsEditingDesc(false);
+   738→            }}
+   739→          />
+   740→        ) : task.description ? (
+   741→          <p className="text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap">{task.description}</p>
+   742→        ) : (
+   743→          <button
+   744→            onClick={() => { setDescDraft(''); setIsEditingDesc(true); }}
+   745→            className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors"
+   746→          >
+   747→            Добавить описание...
+   748→          </button>
+   749→        )}
+   750→      </div>
+   751→
+   752→      {/* Deadline */}
+   753→      <div className="border-b border-slate-800/30 px-4 py-3">
+   754→        <span className="text-[9px] uppercase tracking-widest font-medium block mb-1.5" style={{ color: hexToRgba(boardColor, 0.55) }}>
+   755→          Дедлайн
+   756→        </span>
+   757→        <DeadlinePicker value={task.deadline || null} onChange={(d) => void updateTaskDeadline(d)} isDone={task.status === 'done'} size="md" />
+   758→        {task.deadline && deadlineInfo.status !== 'ok' && deadlineInfo.status !== 'done' && (
+   759→          <p className="text-[9px] mt-1" style={{ color: deadlineInfo.status === 'overdue' ? '#fb7185' : deadlineInfo.status === 'urgent' ? '#f59e0b' : '#22d3ee' }}>
+   760→            {deadlineInfo.status === 'overdue' ? `Просрочен на ${Math.abs(deadlineInfo.daysLeft)} дн.` : `Осталось ${deadlineInfo.daysLeft} дн.`}
+   761→          </p>
+   762→        )}
+   763→      </div>
+   764→
+   765→      {/* Progress */}
+   766→      {subtasks.length > 0 && (
+   767→        <div className="border-b border-slate-800/30 px-4 py-3">
+   768→          <div className="flex items-center justify-between mb-1.5">
+   769→            <span className="text-[11px] text-slate-400 font-medium">Прогресс</span>
+   770→            <span className="text-[11px] font-bold" style={{ color: getProgressTextColor() }}>{progress}%</span>
+   771→          </div>
+   772→          <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
+   773→            <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, backgroundColor: getProgressColor() }} />
+   774→            {progress > 0 && progress < 100 && (
+   775→              <div
+   776→                className="absolute inset-0 rounded-full animate-pulse opacity-20"
+   777→                style={{ background: `linear-gradient(90deg, transparent, ${getProgressColor()}, transparent)` }}
+   778→              />
+   779→            )}
+   780→          </div>
+   781→          <p className="text-[9px] text-slate-600 mt-1">{doneCount} из {subtasks.length} подзадач выполнено</p>
+   782→        </div>
+   783→      )}
+   784→
+   785→      {/* Manage subtasks hint */}
+   786→      <div className="px-4 py-4 mt-auto">
+   787→        <button
+   788→          onClick={openManageSubtasks}
+   789→          className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg transition-all duration-200 group"
+   790→          style={{
+   791→            border: `1px solid ${hexToRgba(boardColor, 0.25)}`,
+   792→            backgroundColor: hexToRgba(boardColor, 0.06),
+   793→          }}
+   794→          onMouseEnter={(e) => {
+   795→            const el = e.currentTarget as HTMLElement;
+   796→            el.style.borderColor = hexToRgba(boardColor, 0.5);
+   797→            el.style.backgroundColor = hexToRgba(boardColor, 0.12);
+   798→            el.style.boxShadow = `0 0 16px ${hexToRgba(boardColor, 0.15)}`;
+   799→          }}
+   800→          onMouseLeave={(e) => {
+   801→            const el = e.currentTarget as HTMLElement;
+   802→            el.style.borderColor = hexToRgba(boardColor, 0.25);
+   803→            el.style.backgroundColor = hexToRgba(boardColor, 0.06);
+   804→            el.style.boxShadow = 'none';
+   805→          }}
+   806→        >
+   807→          <div className="flex items-center gap-2 min-w-0">
+   808→            <ListChecks className="w-3.5 h-3.5 flex-shrink-0" style={{ color: boardColor }} />
+   809→            <div className="min-w-0 text-left">
+   810→              <p className="text-[11px] font-semibold text-slate-200 truncate">Управление подзадачами</p>
+   811→              <p className="text-[9px] text-slate-500 truncate">
+   812→                {subtasks.length > 0 ? `${subtasks.length} подзадач · ${doneCount} выполнено` : 'Создайте и управляйте подзадачами'}
+   813→              </p>
+   814→            </div>
+   815→          </div>
+   816→          <ArrowRight className="w-3.5 h-3.5 flex-shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: boardColor }} />
+   817→        </button>
+   818→      </div>
+   819→    </div>
+   820→  );
+   821→}
+   822→
+   823→/* ── Task Form (create / edit) ──────────── */
+   824→
+   825→function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: Task; boardColor?: string }) {
+   826→  const { selectedBoardId, setBoardTasks, selectedProjectId, setEditingTask, setIsCreating, setSelectedTaskId } = useKanbanStore();
+   827→  const color = boardColor || '#00d9ff';
+   828→  const [title, setTitle] = useState('');
+   829→  const [description, setDescription] = useState('');
+   830→  const [status, setStatus] = useState<TaskStatus>('todo');
+   831→  const [priority, setPriority] = useState<TaskPriority>('medium');
+   832→  const [assignee, setAssignee] = useState('');
+   833→  const [category, setCategory] = useState<TaskCategory>('general');
+   834→  const [deadline, setDeadline] = useState<string | null>(null);
+   835→  const [saving, setSaving] = useState(false);
+   836→
+   837→  useEffect(() => {
+   838→    if (mode === 'edit' && task) {
+   839→      setTitle(task.title); setDescription(task.description || ''); setStatus(task.status);
+   840→      setPriority(task.priority); setAssignee(task.assignee || ''); setCategory(task.category);
+   841→      setDeadline(task.deadline || null);
+   842→    }
+   843→  }, [mode, task]);
+   844→
+   845→  const reloadTasks = useCallback(async () => {
+   846→    if (selectedBoardId) {
+   847→      const isTracks = useKanbanStore.getState().boards.find(b => b.id === selectedBoardId)?.boardType === 'tracks';
+   848→      const url = `/api/tasks?boardId=${selectedBoardId}${isTracks ? '&deep=true' : ''}`;
+   849→      const res = await fetch(url);
+   850→      const data = await res.json();
+   851→      setBoardTasks(data.tasks);
+   852→    }
+   853→    if (selectedProjectId) {
+   854→      const bRes = await fetch(`/api/boards?projectId=${selectedProjectId}`);
+   855→      const bData = await bRes.json();
+   856→      useKanbanStore.getState().setBoards(bData.boards);
+   857→    }
+   858→  }, [selectedBoardId, selectedProjectId, setBoardTasks]);
+   859→
+   860→  const handleSave = async () => {
+   861→    if (!title.trim()) return;
+   862→    setSaving(true);
+   863→    try {
+   864→      if (mode === 'edit' && task) {
+   865→        await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, title, description: description || null, status, priority, assignee: assignee || null, category, boardId: selectedBoardId, deadline }) });
+   866→      } else {
+   867→        await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description: description || null, status, priority, assignee: assignee || null, category, parentId: null, boardId: selectedBoardId, deadline }) });
+   868→      }
+   869→      await reloadTasks(); setEditingTask(null); setIsCreating(false);
+   870→      if (mode === 'edit' && task) setSelectedTaskId(task.id);
+   871→    } finally { setSaving(false); }
+   872→  };
+   873→
+   874→  const handleDelete = async () => {
+   875→    if (!task) return;
+   876→    setSaving(true);
+   877→    try {
+   878→      await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   879→      await reloadTasks(); setEditingTask(null); setSelectedTaskId(null);
+   880→    } finally { setSaving(false); }
+   881→  };
+   882→
+   883→  return (
+   884→    <div className="flex-1 overflow-y-auto">
+   885→      <div className="p-4 space-y-3">
+   886→        {/* Header */}
+   887→        <div className="flex items-center justify-between pb-2" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+   888→          <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}>
+   889→            {mode === 'edit' ? 'Редактировать' : 'Новая задача'}
+   890→          </h3>
+   891→          <button
+   892→            onClick={() => { setEditingTask(null); setIsCreating(false); }}
+   893→            className="p-1.5 rounded transition-all"
+   894→            style={{ color: '#4a4a5e', border: '1px solid transparent' }}
+   895→            onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; e.currentTarget.style.background = 'rgba(252,238,10,0.06)'; }}
+   896→            onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5e'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+   897→          >
+   898→            <X className="h-3.5 w-3.5" />
+   899→          </button>
+   900→        </div>
+   901→
+   902→        <div className="space-y-3">
+   903→          {/* Title */}
+   904→          <div className="space-y-1">
+   905→            <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Название</Label>
+   906→            <Input
+   907→              value={title}
+   908→              onChange={(e) => setTitle(e.target.value)}
+   909→              placeholder="Задача..."
+   910→              className="text-sm text-slate-100 placeholder:text-slate-600 h-9 rounded-md focus:outline-none"
+   911→              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
+   912→              onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
+   913→              onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
+   914→            />
+   915→          </div>
+   916→
+   917→          {/* Description */}
+   918→          <div className="space-y-1">
+   919→            <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Описание</Label>
+   920→            <Textarea
+   921→              value={description}
+   922→              onChange={(e) => setDescription(e.target.value)}
+   923→              placeholder="Описание..."
+   924→              className="text-xs text-slate-200 placeholder:text-slate-600 min-h-[55px] resize-none rounded-md focus:outline-none"
+   925→              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
+   926→              onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
+   927→              onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
+   928→            />
+   929→          </div>
+   930→
+   931→          {/* Status + Priority */}
+   932→          <div className="grid grid-cols-2 gap-2">
+   933→            <div className="space-y-1">
+   934→              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Статус</Label>
+   935→              <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+   936→                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}>
+   937→                  <SelectValue />
+   938→                </SelectTrigger>
+   939→                <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}><span className={s.color}>{s.label}</span></SelectItem>))}</SelectContent>
+   940→              </Select>
+   941→            </div>
+   942→            <div className="space-y-1">
+   943→              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Приоритет</Label>
+   944→              <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+   945→                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}>
+   946→                  <SelectValue />
+   947→                </SelectTrigger>
+   948→                <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value}><div className="flex items-center gap-1.5"><div className={cn('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}</div></SelectItem>))}</SelectContent>
+   949→              </Select>
+   950→            </div>
+   951→          </div>
+   952→
+   953→          {/* Deadline */}
+   954→          <div className="space-y-1">
+   955→            <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Дедлайн</Label>
+   956→            <DeadlinePicker value={deadline} onChange={setDeadline} size="md" />
+   957→          </div>
+   958→        </div>
+   959→
+   960→        {/* Actions */}
+   961→        <div className="flex gap-2 pt-2">
+   962→          <button
+   963→            onClick={() => void handleSave()}
+   964→            disabled={!title.trim() || saving}
+   965→            className="flex-1 flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold rounded-md transition-all disabled:opacity-40"
+   966→            style={{ color: '#000', background: 'linear-gradient(135deg, #FCEE0A, #F1F100)', boxShadow: '0 0 10px rgba(252,238,10,0.3)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+   967→          >
+   968→            <Save className="w-3 h-3" />{saving ? '...' : mode === 'edit' ? 'Сохранить' : 'Создать'}
+   969→          </button>
+   970→          {mode === 'edit' && (
+   971→            <button
+   972→              onClick={() => void handleDelete()}
+   973→              disabled={saving}
+   974→              className="flex items-center justify-center gap-1.5 h-9 px-4 text-[11px] font-bold rounded-md transition-all"
+   975→              style={{ color: '#FF003C', background: 'rgba(255,0,60,0.08)', border: '1.5px solid rgba(255,0,60,0.3)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+   976→            >
+   977→              <Trash2 className="w-3 h-3" /> Удалить
+   978→            </button>
+   979→          )}
+   980→        </div>
+   981→      </div>
+   982→    </div>
+   983→  );
+   984→}
+   985→
+   986→/* ── Helpers ──────────────────────────────────────────── */
+   987→
+   988→function getProgress(children: { status: string }[]): number {
+   989→  if (children.length === 0) return 0;
+   990→  return Math.round((children.filter(c => c.status === 'done').length / children.length) * 100);
+   991→}
+   992→

@@ -205,18 +205,11 @@ export default function DescriptionBottomPanel() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [members, setMembers] = useState<GroupMember[]>([]);
 
-  // The selected track task (auto-show panel when a track is selected)
-  const selectedTask = boardTasks.find(t => t.id === selectedTaskId);
-  const isTrackTask = !!selectedTask?.trackConfig;
-
-  // Also handle "Manage subtasks" hint for non-track tasks
-  const stagePanelTaskId = selectedStageForPanel?.taskId;
-  const stagePanelTask = boardTasks.find(t => t.id === stagePanelTaskId);
-  const isNonTrackManage = !!(selectedStageForPanel && stagePanelTask && !stagePanelTask.trackConfig);
-
-  const shouldShow = isTrackTask || isNonTrackManage;
-  const task = isTrackTask ? selectedTask : stagePanelTask;
+  // Bottom panel is ALWAYS pinned when a task is selected at the top.
+  // For track tasks → renders StagesList; for regular tasks → renders FlatSubtasksList.
+  const task = boardTasks.find(t => t.id === selectedTaskId) || null;
   const taskId = task?.id || null;
+  const shouldShow = !!task;
 
   const selectedBoard = boards.find(b => b.id === selectedBoardId);
   const boardColor = selectedBoard?.color || '#00d9ff';
@@ -306,7 +299,7 @@ export default function DescriptionBottomPanel() {
             {task.trackConfig ? 'ЭТАПЫ' : 'ПОДЗАДАЧИ'}
           </span>
           <span className="cp-header-sub truncate hidden sm:inline">
-            // {task.title}
+            {'// '}{task.title}
           </span>
           <span className="cp-count-chip" style={{ borderColor: c.a4, color: c.raw, backgroundColor: c.a08 }}>
             {task.trackConfig ? `${doneStages}/${stagesCount} ETH · ${subtasksCount} SUB` : `${stagesCount} SUB`}

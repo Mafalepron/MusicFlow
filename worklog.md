@@ -177,3 +177,49 @@ Stage Summary:
 - The PUT /api/tasks route now accepts hexQ and hexR fields; GET /api/tasks?deep=true now returns priority/assignee/hexQ/hexR for both children and grandchildren, and orders children by hexR asc + createdAt asc so reorder swaps are visible. POST /api/tasks allocates linear hexR (= siblingCount) for child tasks so new stages/subtasks appear at the end in order, while top-level tasks keep spiral allocation for radial-board positioning.
 - TaskChild and TaskGrandchild TypeScript interfaces in kanban-store.ts now include priority/assignee/hexQ/hexR for proper typing in the new panel.
 - Lint passes for all changed files (the only 2 remaining errors are pre-existing in unrelated files). TypeScript compiles cleanly. Dev server compiles and serves the page with HTTP 200.
+
+---
+Task ID: 6
+Agent: main (Z.ai Code)
+Task: 1) Right window on non-tracks autoboards should match the tracks cyberpunk style (status & priority under name in one line); 2) Remove redundant "Управление подзадачами" hint; 3) Bottom panel with subtasks always pinned by default when a task is selected at the top.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand previous work (Task 5-a: added "Open in Audio Editor" navigation).
+- Read /home/z/my-project/src/components/kanban/description-bottom-panel.tsx (1798 lines) — found the visibility condition `shouldShow = isTrackTask || isNonTrackManage` where `isNonTrackManage` required `selectedStageForPanel` to be explicitly set for non-track tasks.
+- Read /home/z/my-project/src/components/kanban/task-detail-panel.tsx (992 lines) — found `TaskDetailView` (non-track) used old slate/gray styling (`border-b border-slate-800/50`) and had a prominent "Управление подзадачами" hint button at the bottom that called `setSelectedStageForPanel({ taskId, stageId: '' })`.
+- Read /home/z/my-project/src/components/kanban/kanban-view.tsx — confirmed the right panel container already has cyberpunk yellow border styling.
+- Read /home/z/my-project/src/components/board/task-strip.tsx — confirmed task selection via `setSelectedTaskId(task.id)`.
+
+Changes made:
+
+1. **description-bottom-panel.tsx** — Made bottom panel ALWAYS pinned when a task is selected:
+   - Replaced the conditional logic (`isTrackTask || isNonTrackManage` with `selectedStageForPanel` lookups) with a simple `const task = boardTasks.find(t => t.id === selectedTaskId) || null; const shouldShow = !!task;`
+   - The panel now renders for ANY selected task: `StagesList` for track tasks (`task.trackConfig`), `FlatSubtasksList` for regular tasks.
+   - `selectedStageForPanel` is still used internally for highlighting a specific stage within tracks (via `onSelectStage`), but is no longer required to make the panel appear.
+   - Fixed a pre-existing JSX lint error: changed `// {task.title}` (parsed as comment) to `{'// '}{task.title}` in the header sub-text.
+
+2. **task-detail-panel.tsx** — Restyled `TaskDetailView` to cyberpunk (matching `TrackDetailView`) and removed "Управление подзадачами" hint:
+   - Header now uses `borderBottom: '2px solid rgba(252, 238, 10, 0.2)'` with a yellow gradient background — identical to `TrackDetailView`.
+   - Title is `text-base font-semibold text-white`.
+   - Metadata row: status (colored Circle + label) · priority (colored dot + label) · assignee (User icon + name) · deadline (CalendarDays + DeadlineBadge) — ALL in one `flex items-center gap-3 flex-wrap text-[10px]` line under the title.
+   - Added a yellow subtask-count chip (`0/2` style with clip-path) at the end of the metadata row.
+   - Description section now uses the cyberpunk yellow "ОПИСАНИЕ" label with glow, a cyan-bordered description card with clip-path corners, and a yellow "Изменить" button with clip-path.
+   - Removed: the separate "Deadline" section, the "Progress" section (now in bottom panel), and the "Управление подзадачами" hint button.
+   - Replaced the hint button with a subtle cyan info bar at the bottom: "Подзадачи доступны в панели снизу — X/Y выполнено" (or "Создавайте подзадачи в панели снизу" if none).
+   - Removed unused `MetaRow` helper function, unused `ArrowRight` import, unused `updateTaskDeadline` and `openManageSubtasks` functions, and unused `getProgressColor`/`getProgressTextColor` helpers.
+
+3. Verified via Agent Browser:
+   - Registered a test account, created a group, navigated to the "ж.бююбюб" Kanban project.
+   - Created a test board "Тестовая доска" via API with a parent task "Тестовая задача с подзадачами" (status=in-progress, priority=high, assignee=Test User, deadline=2026-08-15) and 2 subtasks.
+   - Selected the test task → confirmed:
+     * Right panel shows cyberpunk styling with title + one-line metadata (В работе · Высокий · Test User · 15 авг · 0/2 chip) + yellow ОПИСАНИЕ section + cyan description card + subtle cyan hint bar.
+     * "Управление подзадачами" button is GONE (`hasManageHint: false`).
+     * Bottom panel "ПОДЗАДАЧИ" is pinned and visible with the 2 subtasks listed (`hasBottomPanel: true`).
+   - No runtime errors in console (only a pre-existing AnimatePresence warning).
+   - Lint: no new errors in the two modified files (pre-existing errors in project-chat.tsx, app-header.tsx, track-wizard.tsx remain unchanged).
+
+Stage Summary:
+- Bottom panel is now always pinned when selecting any task (track or non-track) — no more need to click "Управление подзадачами" to reveal it.
+- The non-track right window (`TaskDetailView`) now matches the tracks cyberpunk style: yellow border, glow, clip-path corners, one-line metadata under the title.
+- "Управление подзадачами" redundant hint button removed; replaced with a subtle pointer to the bottom panel.
+- `selectedStageForPanel` is still used for stage highlighting within tracks but no longer gates panel visibility.

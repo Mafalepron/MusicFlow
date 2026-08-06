@@ -1,0 +1,1805 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback, useMemo } from 'react';
+     4→     4→import { useKanbanStore, Task, TaskChild, TaskGrandchild, TaskStatus, TaskPriority } from '@/store/kanban-store';
+     5→     5→import { useAuthStore } from '@/lib/store';
+     6→     6→import {
+     7→     7→  X, Save, Plus, Check, Circle, Clock, Pencil, Trash2,
+     8→     8→  ChevronDown, ChevronRight, User, CalendarDays,
+     9→     9→  AlertTriangle, Flame, ListChecks, Layers, ArrowUp, ArrowDown, GripVertical,
+    10→    10→  AlignJustify,
+    11→    11→} from 'lucide-react';
+    12→    12→import DeadlinePicker, { getDeadlineInfo } from '@/components/kanban/deadline-picker';
+    13→    13→import {
+    14→    14→  Popover, PopoverTrigger, PopoverContent,
+    15→    15→} from '@/components/ui/popover';
+    16→    16→import {
+    17→    17→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    18→    18→} from '@/components/ui/select';
+    19→    19→import { Input } from '@/components/ui/input';
+    20→    20→import { Textarea } from '@/components/ui/textarea';
+    21→    21→import { hexToRgba, cn } from '@/lib/utils';
+    22→    22→
+    23→    23→/* ── Constants ────────────────────────────────────────── */
+    24→    24→
+    25→    25→const STATUSES: { value: TaskStatus; label: string; hex: string; icon: typeof Circle }[] = [
+    26→    26→  { value: 'todo', label: 'К выполнению', hex: '#22d3ee', icon: Circle },
+    27→    27→  { value: 'in-progress', label: 'В работе', hex: '#fb923c', icon: Clock },
+    28→    28→  { value: 'done', label: 'Готово', hex: '#34d399', icon: Check },
+    29→    29→];
+    30→    30→
+    31→    31→const PRIORITIES: { value: TaskPriority; label: string; hex: string }[] = [
+    32→    32→  { value: 'low', label: 'Низкий', hex: '#64748b' },
+    33→    33→  { value: 'medium', label: 'Средний', hex: '#f59e0b' },
+    34→    34→  { value: 'high', label: 'Высокий', hex: '#f43f5e' },
+    35→    35→];
+    36→    36→
+    37→    37→const STATUS_HEX: Record<string, string> = {
+    38→    38→  todo: '#22d3ee',
+    39→    39→  'in-progress': '#fb923c',
+    40→    40→  done: '#34d399',
+    41→    41→};
+    42→    42→
+    43→    43→const PRIORITY_HEX: Record<string, string> = {
+    44→    44→  low: '#64748b',
+    45→    45→  medium: '#f59e0b',
+    46→    46→  high: '#f43f5e',
+    47→    47→};
+    48→    48→
+    49→    49→const PRIORITY_LEVELS: Record<string, number> = {
+    50→    50→  low: 1,
+    51→    51→  medium: 2,
+    52→    52→  high: 3,
+    53→    53→};
+    54→    54→
+    55→    55→const PRIORITY_LABELS: Record<string, string> = {
+    56→    56→  low: 'Низкий',
+    57→    57→  medium: 'Средний',
+    58→    58→  high: 'Высокий',
+    59→    59→};
+    60→    60→
+    61→    61→const STATUS_ICON: Record<string, typeof Circle> = {
+    62→    62→  todo: Circle,
+    63→    63→  'in-progress': Clock,
+    64→    64→  done: Check,
+    65→    65→};
+    66→    66→
+    67→    67→const DESC_LIMIT = 1500;
+    68→    68→
+    69→    69→interface GroupMember {
+    70→    70→  userId: string;
+    71→    71→  displayName: string;
+    72→    72→  email: string | null;
+    73→    73→  avatarUrl: string | null;
+    74→    74→  role: string;
+    75→    75→  instrument: string | null;
+    76→    76→}
+    77→    77→
+    78→    78→interface ColorSet {
+    79→    79→  raw: string;
+    80→    80→  a04: string;
+    81→    81→  a08: string;
+    82→    82→  a1: string;
+    83→    83→  a12: string;
+    84→    84→  a15: string;
+    85→    85→  a2: string;
+    86→    86→  a25: string;
+    87→    87→  a3: string;
+    88→    88→  a4: string;
+    89→    89→  a5: string;
+    90→    90→  a6: string;
+    91→    91→  a7: string;
+    92→    92→}
+    93→    93→
+    94→    94→/* ── Priority Bars (visual indicator) ──────────────────── */
+    95→    95→
+    96→    96→function PriorityBars({ priority, size = 'sm' }: { priority: string; size?: 'sm' | 'xs' }) {
+    97→    97→  const level = PRIORITY_LEVELS[priority] || 2;
+    98→    98→  const hex = PRIORITY_HEX[priority] || '#64748b';
+    99→    99→  const barW = size === 'xs' ? 'w-[2.5px]' : 'w-[3px]';
+   100→   100→  const gap = size === 'xs' ? 'gap-[1.5px]' : 'gap-[2px]';
+   101→   101→
+   102→   102→  return (
+   103→   103→    <div className={cn('flex items-end', gap)} style={{ height: size === 'xs' ? '10px' : '12px' }}>
+   104→   104→      {[1, 2, 3].map(i => (
+   105→   105→        <div
+   106→   106→          key={i}
+   107→   107→          className={cn(barW, 'rounded-sm transition-all duration-200')}
+   108→   108→          style={{
+   109→   109→            height: i === 1 ? '30%' : i === 2 ? '65%' : '100%',
+   110→   110→            backgroundColor: i <= level ? hex : hexToRgba(hex, 0.15),
+   111→   111→            boxShadow: i <= level ? `0 0 3px ${hex}60` : 'none',
+   112→   112→          }}
+   113→   113→        />
+   114→   114→      ))}
+   115→   115→    </div>
+   116→   116→  );
+   117→   117→}
+   118→   118→
+   119→   119→/* ── Priority Selector (popover) ──────────────────────── */
+   120→   120→
+   121→   121→function PrioritySelector({
+   122→   122→  priority,
+   123→   123→  onChange,
+   124→   124→  size = 'sm',
+   125→   125→}: {
+   126→   126→  priority: string;
+   127→   127→  onChange: (v: string) => void;
+   128→   128→  size?: 'sm' | 'xs';
+   129→   129→}) {
+   130→   130→  const [open, setOpen] = useState(false);
+   131→   131→  const level = PRIORITY_LEVELS[priority] || 2;
+   132→   132→
+   133→   133→  return (
+   134→   134→    <Popover open={open} onOpenChange={setOpen}>
+   135→   135→      <PopoverTrigger asChild>
+   136→   136→        <button
+   137→   137→          type="button"
+   138→   138→          onClick={(e) => e.stopPropagation()}
+   139→   139→          className={cn(
+   140→   140→            'flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-all cursor-pointer border border-transparent hover:bg-slate-800/60',
+   141→   141→            size === 'xs' ? 'h-5' : 'h-6',
+   142→   142→          )}
+   143→   143→          title={`Приоритет: ${PRIORITY_LABELS[priority] || priority}`}
+   144→   144→        >
+   145→   145→          <PriorityBars priority={priority} size={size} />
+   146→   146→          <span
+   147→   147→            className={cn('font-medium', size === 'xs' ? 'text-[9px]' : 'text-[10px]')}
+   148→   148→            style={{ color: PRIORITY_HEX[priority] || '#64748b' }}
+   149→   149→          >
+   150→   150→            {level === 1 ? 'P1' : level === 2 ? 'P2' : 'P3'}
+   151→   151→          </span>
+   152→   152→        </button>
+   153→   153→      </PopoverTrigger>
+   154→   154→      <PopoverContent
+   155→   155→        className="w-44 p-2 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[70]"
+   156→   156→        align="start"
+   157→   157→        sideOffset={6}
+   158→   158→        onClick={(e) => e.stopPropagation()}
+   159→   159→      >
+   160→   160→        <p className="text-[9px] uppercase tracking-wider text-slate-600 font-semibold mb-1.5 px-1">Приоритет</p>
+   161→   161→        <div className="space-y-1">
+   162→   162→          {PRIORITIES.map(p => {
+   163→   163→            const isActive = priority === p.value;
+   164→   164→            const pLevel = PRIORITY_LEVELS[p.value];
+   165→   165→            return (
+   166→   166→              <button
+   167→   167→                key={p.value}
+   168→   168→                onClick={(e) => {
+   169→   169→                  e.stopPropagation();
+   170→   170→                  onChange(p.value);
+   171→   171→                  setOpen(false);
+   172→   172→                }}
+   173→   173→                className={cn(
+   174→   174→                  'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition-all',
+   175→   175→                  isActive ? 'bg-slate-800' : 'hover:bg-slate-800/60',
+   176→   176→                )}
+   177→   177→                style={isActive ? { boxShadow: `inset 2px 0 0 ${p.hex}` } : undefined}
+   178→   178→              >
+   179→   179→                <PriorityBars priority={p.value} size="sm" />
+   180→   180→                <div className="flex-1 text-left">
+   181→   181→                  <span className={cn('text-[11px] font-medium', isActive ? 'text-slate-100' : 'text-slate-300')}>
+   182→   182→                    {p.label}
+   183→   183→                  </span>
+   184→   184→                  <span className="text-[9px] text-slate-600 ml-1">P{pLevel}</span>
+   185→   185→                </div>
+   186→   186→                {isActive && <Check className="w-3 h-3" style={{ color: p.hex }} />}
+   187→   187→              </button>
+   188→   188→            );
+   189→   189→          })}
+   190→   190→        </div>
+   191→   191→      </PopoverContent>
+   192→   192→    </Popover>
+   193→   193→  );
+   194→   194→}
+   195→   195→
+   196→   196→/* ── Main Panel ────────────────────────────────────────── */
+   197→   197→
+   198→   198→export default function DescriptionBottomPanel() {
+   199→   199→  const {
+   200→   200→    boardTasks, selectedTaskId, selectedBoardId,
+   201→   201→    selectedStageForPanel, setSelectedStageForPanel,
+   202→   202→    setBoardTasks, boards,
+   203→   203→  } = useKanbanStore();
+   204→   204→
+   205→   205→  const [isCollapsed, setIsCollapsed] = useState(false);
+   206→   206→  const [members, setMembers] = useState<GroupMember[]>([]);
+   207→   207→
+   208→   208→  // The selected track task (auto-show panel when a track is selected)
+   209→   209→  const selectedTask = boardTasks.find(t => t.id === selectedTaskId);
+   210→   210→  const isTrackTask = !!selectedTask?.trackConfig;
+   211→   211→
+   212→   212→  // Also handle "Manage subtasks" hint for non-track tasks
+   213→   213→  const stagePanelTaskId = selectedStageForPanel?.taskId;
+   214→   214→  const stagePanelTask = boardTasks.find(t => t.id === stagePanelTaskId);
+   215→   215→  const isNonTrackManage = !!(selectedStageForPanel && stagePanelTask && !stagePanelTask.trackConfig);
+   216→   216→
+   217→   217→  const shouldShow = isTrackTask || isNonTrackManage;
+   218→   218→  const task = isTrackTask ? selectedTask : stagePanelTask;
+   219→   219→  const taskId = task?.id || null;
+   220→   220→
+   221→   221→  const selectedBoard = boards.find(b => b.id === selectedBoardId);
+   222→   222→  const boardColor = selectedBoard?.color || '#00d9ff';
+   223→   223→
+   224→   224→  // Fetch group members for assignee dropdowns
+   225→   225→  useEffect(() => {
+   226→   226→    const gid = useAuthStore.getState().currentGroupId;
+   227→   227→    if (!gid) return;
+   228→   228→    let cancelled = false;
+   229→   229→    fetch(`/api/groups/${gid}/members`)
+   230→   230→      .then(r => r.json())
+   231→   231→      .then(d => {
+   232→   232→        if (!cancelled && Array.isArray(d)) setMembers(d);
+   233→   233→      })
+   234→   234→      .catch(() => {});
+   235→   235→    return () => { cancelled = true; };
+   236→   236→  }, []);
+   237→   237→
+   238→   238→  // Reset collapse state when switching tasks (prev-tracker pattern avoids useEffect-setState)
+   239→   239→  const [prevTaskId, setPrevTaskId] = useState<string | null>(taskId);
+   240→   240→  if (taskId !== prevTaskId) {
+   241→   241→    setPrevTaskId(taskId);
+   242→   242→    setIsCollapsed(false);
+   243→   243→  }
+   244→   244→
+   245→   245→  const reloadTasks = useCallback(async () => {
+   246→   246→    if (!selectedBoardId) return;
+   247→   247→    const isTracks = useKanbanStore.getState().boards.find(b => b.id === selectedBoardId)?.boardType === 'tracks';
+   248→   248→    const url = `/api/tasks?boardId=${selectedBoardId}${isTracks ? '&deep=true' : ''}`;
+   249→   249→    const res = await fetch(url);
+   250→   250→    const data = await res.json();
+   251→   251→    setBoardTasks(data.tasks);
+   252→   252→  }, [selectedBoardId, setBoardTasks]);
+   253→   253→
+   254→   254→  const c = useMemo<ColorSet>(() => ({
+   255→   255→    raw: boardColor,
+   256→   256→    a04: hexToRgba(boardColor, 0.04),
+   257→   257→    a08: hexToRgba(boardColor, 0.08),
+   258→   258→    a1: hexToRgba(boardColor, 0.1),
+   259→   259→    a12: hexToRgba(boardColor, 0.12),
+   260→   260→    a15: hexToRgba(boardColor, 0.15),
+   261→   261→    a2: hexToRgba(boardColor, 0.2),
+   262→   262→    a25: hexToRgba(boardColor, 0.25),
+   263→   263→    a3: hexToRgba(boardColor, 0.3),
+   264→   264→    a4: hexToRgba(boardColor, 0.4),
+   265→   265→    a5: hexToRgba(boardColor, 0.5),
+   266→   266→    a6: hexToRgba(boardColor, 0.6),
+   267→   267→    a7: hexToRgba(boardColor, 0.7),
+   268→   268→  }), [boardColor]);
+   269→   269→
+   270→   270→  if (!shouldShow || !task) return null;
+   271→   271→
+   272→   272→  const stages = task.children || [];
+   273→   273→  const stagesCount = stages.length;
+   274→   274→  const allSubtasks = stages.flatMap(s => s.children || []);
+   275→   275→  const subtasksCount = allSubtasks.length;
+   276→   276→  // Progress is based on STAGE completion, not subtask completion
+   277→   277→  const doneStages = stages.filter(s => s.status === 'done').length;
+   278→   278→  const progress = stagesCount > 0 ? Math.round((doneStages / stagesCount) * 100) : 0;
+   279→   279→  const progressColor = progress === 100 ? '#34d399' : progress > 50 ? boardColor : progress > 0 ? '#f59e0b' : '#334155';
+   280→   280→
+   281→   281→  return (
+   282→   282→    <div
+   283→   283→      className="flex-shrink-0 flex flex-col cp-panel"
+   284→   284→      style={{
+   285→   285→        height: isCollapsed ? '42px' : '360px',
+   286→   286→        transition: 'height 220ms ease',
+   287→   287→      }}
+   288→   288→    >
+   289→   289→      {/* Scan line overlay */}
+   290→   290→      <div className="cp-scanlines" />
+   291→   291→
+   292→   292→      {/* Top neon border with glitch */}
+   293→   293→      <div className="cp-neon-top" style={{ background: `linear-gradient(90deg, transparent, ${c.raw} 20%, #FCEE0A 50%, ${c.raw} 80%, transparent)` }} />
+   294→   294→
+   295→   295→      {/* Header */}
+   296→   296→      <div className="cp-header" style={{ borderBottom: isCollapsed ? 'none' : `1px solid ${c.a3}` }}>
+   297→   297→        <button
+   298→   298→          onClick={() => setIsCollapsed(v => !v)}
+   299→   299→          className="flex items-center gap-2 min-w-0 flex-1 text-left group"
+   300→   300→          title={isCollapsed ? 'Развернуть' : 'Свернуть'}
+   301→   301→        >
+   302→   302→          <div className="cp-header-icon" style={{ borderColor: c.a5, backgroundColor: c.a12 }}>
+   303→   303→            <Layers className="w-3.5 h-3.5" style={{ color: c.raw }} />
+   304→   304→          </div>
+   305→   305→          <span className="cp-header-title" style={{ color: c.raw }}>
+   306→   306→            {task.trackConfig ? 'ЭТАПЫ' : 'ПОДЗАДАЧИ'}
+   307→   307→          </span>
+   308→   308→          <span className="cp-header-sub truncate hidden sm:inline">
+   309→   309→            // {task.title}
+   310→   310→          </span>
+   311→   311→          <span className="cp-count-chip" style={{ borderColor: c.a4, color: c.raw, backgroundColor: c.a08 }}>
+   312→   312→            {task.trackConfig ? `${doneStages}/${stagesCount} ETH · ${subtasksCount} SUB` : `${stagesCount} SUB`}
+   313→   313→          </span>
+   314→   314→
+   315→   315→          {/* Progress bar in header — always show */}
+   316→   316→          <div className="flex items-center gap-1.5 flex-shrink-0">
+   317→   317→            <div className="cp-header-progress">
+   318→   318→              <div
+   319→   319→                className="cp-header-progress-fill"
+   320→   320→                style={{ width: `${progress}%`, backgroundColor: progressColor, boxShadow: progress > 0 ? `0 0 6px ${progressColor}80` : 'none' }}
+   321→   321→              />
+   322→   322→            </div>
+   323→   323→            <span className="cp-header-progress-text" style={{ color: progressColor }}>
+   324→   324→              {progress}%
+   325→   325→            </span>
+   326→   326→          </div>
+   327→   327→        </button>
+   328→   328→
+   329→   329→        {!isCollapsed && false && (
+   330→   330→          <button
+   331→   331→            onClick={() => setSelectedStageForPanel(null)}
+   332→   332→            className="cp-icon-btn"
+   333→   333→            title="Закрыть"
+   334→   334→          >
+   335→   335→            <X className="w-3 h-3" />
+   336→   336→          </button>
+   337→   337→        )}
+   338→   338→        <button
+   339→   339→          onClick={() => setIsCollapsed(v => !v)}
+   340→   340→          className="cp-icon-btn"
+   341→   341→          title={isCollapsed ? 'Развернуть' : 'Свернуть'}
+   342→   342→        >
+   343→   343→          {isCollapsed
+   344→   344→            ? <ChevronDown className="w-3 h-3" />
+   345→   345→            : <ChevronDown className="w-3 h-3 rotate-180" />
+   346→   346→          }
+   347→   347→        </button>
+   348→   348→      </div>
+   349→   349→
+   350→   350→      {!isCollapsed && (
+   351→   351→        <div className="flex-1 overflow-y-auto min-h-0 panel-scroll cp-content">
+   352→   352→          {task.trackConfig ? (
+   353→   353→            <StagesList
+   354→   354→              key={task.id}
+   355→   355→              task={task}
+   356→   356→              boardColor={boardColor}
+   357→   357→              c={c}
+   358→   358→              members={members}
+   359→   359→              selectedStageId={selectedStageForPanel?.stageId || null}
+   360→   360→              onSelectStage={(stageId) => setSelectedStageForPanel({ taskId: task.id, stageId })}
+   361→   361→              reloadTasks={reloadTasks}
+   362→   362→            />
+   363→   363→          ) : (
+   364→   364→            <FlatSubtasksList
+   365→   365→              key={task.id}
+   366→   366→              task={task}
+   367→   367→              boardColor={boardColor}
+   368→   368→              c={c}
+   369→   369→              members={members}
+   370→   370→              reloadTasks={reloadTasks}
+   371→   371→            />
+   372→   372→          )}
+   373→   373→        </div>
+   374→   374→      )}
+   375→   375→
+   376→   376→      <style jsx global>{`
+   377→   377→        .cp-panel {
+   378→   378→          position: relative;
+   379→   379→          background: linear-gradient(180deg, rgba(5, 10, 20, 0.98), rgba(8, 12, 24, 0.99));
+   380→   380→          border-top: 2px solid rgba(0, 229, 255, 0.2);
+   381→   381→          box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6), 0 -2px 0 rgba(0, 229, 255, 0.08), 0 -4px 16px rgba(0, 229, 255, 0.06), inset 0 1px 0 rgba(0, 229, 255, 0.04);
+   382→   382→          overflow: hidden;
+   383→   383→        }
+   384→   384→        .cp-panel::before {
+   385→   385→          content: '';
+   386→   386→          position: absolute;
+   387→   387→          inset: 0;
+   388→   388→          background-image:
+   389→   389→            linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
+   390→   390→            linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
+   391→   391→          background-size: 24px 24px;
+   392→   392→          pointer-events: none;
+   393→   393→          z-index: 0;
+   394→   394→        }
+   395→   395→        .cp-scanlines {
+   396→   396→          position: absolute;
+   397→   397→          inset: 0;
+   398→   398→          background: repeating-linear-gradient(
+   399→   399→            0deg,
+   400→   400→            transparent 0px,
+   401→   401→            transparent 2px,
+   402→   402→            rgba(0, 229, 255, 0.02) 2px,
+   403→   403→            rgba(0, 229, 255, 0.02) 3px
+   404→   404→          );
+   405→   405→          pointer-events: none;
+   406→   406→          z-index: 1;
+   407→   407→          animation: cp-scan 8s linear infinite;
+   408→   408→        }
+   409→   409→        @keyframes cp-scan {
+   410→   410→          0% { transform: translateY(0); }
+   411→   411→          100% { transform: translateY(3px); }
+   412→   412→        }
+   413→   413→        .cp-neon-top {
+   414→   414→          height: 3px;
+   415→   415→          flex-shrink: 0;
+   416→   416→          position: relative;
+   417→   417→          z-index: 2;
+   418→   418→          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
+   419→   419→          animation: cp-pulse-neon 3s ease-in-out infinite;
+   420→   420→        }
+   421→   421→        @keyframes cp-pulse-neon {
+   422→   422→          0%, 100% { opacity: 0.8; box-shadow: 0 0 8px rgba(252, 238, 10, 0.4), 0 0 16px rgba(252, 238, 10, 0.15); }
+   423→   423→          50% { opacity: 1; box-shadow: 0 0 16px rgba(252, 238, 10, 0.7), 0 0 32px rgba(252, 238, 10, 0.3); }
+   424→   424→        }
+   425→   425→        .cp-header {
+   426→   426→          display: flex;
+   427→   427→          align-items: center;
+   428→   428→          gap: 8px;
+   429→   429→          padding: 8px 12px;
+   430→   430→          flex-shrink: 0;
+   431→   431→          position: relative;
+   432→   432→          z-index: 2;
+   433→   433→          background: linear-gradient(90deg, rgba(0, 229, 255, 0.04), transparent 70%);
+   434→   434→          border-bottom: 1px solid rgba(0, 229, 255, 0.12);
+   435→   435→        }
+   436→   436→        .cp-header-icon {
+   437→   437→          width: 28px;
+   438→   438→          height: 28px;
+   439→   439→          display: flex;
+   440→   440→          align-items: center;
+   441→   441→          justify-content: center;
+   442→   442→          border: 1.5px solid;
+   443→   443→          clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+   444→   444→          flex-shrink: 0;
+   445→   445→        }
+   446→   446→        .cp-header-title {
+   447→   447→          font-size: 11px;
+   448→   448→          font-weight: 800;
+   449→   449→          letter-spacing: 0.18em;
+   450→   450→          text-transform: uppercase;
+   451→   451→          text-shadow: 0 0 10px currentColor, 0 0 4px currentColor;
+   452→   452→        }
+   453→   453→        .cp-header-sub {
+   454→   454→          font-size: 10px;
+   455→   455→          color: #4a5a6e;
+   456→   456→          font-family: monospace;
+   457→   457→        }
+   458→   458→        .cp-count-chip {
+   459→   459→          font-size: 9px;
+   460→   460→          font-weight: 700;
+   461→   461→          letter-spacing: 0.1em;
+   462→   462→          padding: 3px 8px;
+   463→   463→          border: 1px solid;
+   464→   464→          clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
+   465→   465→          flex-shrink: 0;
+   466→   466→        }
+   467→   467→        .cp-icon-btn {
+   468→   468→          padding: 4px;
+   469→   469→          border-radius: 2px;
+   470→   470→          color: #4a4a5e;
+   471→   471→          transition: all 120ms;
+   472→   472→          flex-shrink: 0;
+   473→   473→          border: 1px solid transparent;
+   474→   474→        }
+   475→   475→        .cp-icon-btn:hover {
+   476→   476→          color: #FCEE0A;
+   477→   477→          border-color: rgba(252, 238, 10, 0.4);
+   478→   478→          background: rgba(252, 238, 10, 0.1);
+   479→   479→          box-shadow: 0 0 8px rgba(252, 238, 10, 0.15);
+   480→   480→        }
+   481→   481→        .cp-content {
+   482→   482→          position: relative;
+   483→   483→          z-index: 2;
+   484→   484→        }
+   485→   485→        .cp-header-progress {
+   486→   486→          width: 64px;
+   487→   487→          height: 5px;
+   488→   488→          background: rgba(255, 255, 255, 0.05);
+   489→   489→          overflow: hidden;
+   490→   490→          border: 1px solid rgba(252, 238, 10, 0.15);
+   491→   491→          position: relative;
+   492→   492→        }
+   493→   493→        .cp-header-progress-fill {
+   494→   494→          height: 100%;
+   495→   495→          transition: width 500ms;
+   496→   496→        }
+   497→   497→        .cp-header-progress-fill::after {
+   498→   498→          content: '';
+   499→   499→          position: absolute;
+   500→   500→          inset: 0;
+   501→   501→          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+   502→   502→          animation: cp-shimmer 2s linear infinite;
+   503→   503→        }
+   504→   504→        .cp-header-progress-text {
+   505→   505→          font-size: 10px;
+   506→   506→          font-weight: 700;
+   507→   507→          font-family: monospace;
+   508→   508→          text-shadow: 0 0 6px currentColor;
+   509→   509→          min-width: 30px;
+   510→   510→        }
+   511→   511→        .panel-scroll::-webkit-scrollbar {
+   512→   512→          width: 4px;
+   513→   513→          height: 4px;
+   514→   514→        }
+   515→   515→        .panel-scroll::-webkit-scrollbar-track {
+   516→   516→          background: rgba(252, 238, 10, 0.03);
+   517→   517→        }
+   518→   518→        .panel-scroll::-webkit-scrollbar-thumb {
+   519→   519→          background: ${c.a3};
+   520→   520→          border-radius: 0;
+   521→   521→        }
+   522→   522→        .panel-scroll::-webkit-scrollbar-thumb:hover {
+   523→   523→          background: ${c.a5};
+   524→   524→        }
+   525→   525→
+   526→   526→        /* Cyberpunk stage card — deep dark with blue default border, yellow on highlight */
+   527→   527→        .cp-stage-card {
+   528→   528→          position: relative;
+   529→   529→          margin: 0 8px 8px;
+   530→   530→          background: linear-gradient(135deg, rgba(10, 18, 32, 0.92), rgba(6, 10, 20, 0.96));
+   531→   531→          border: 2px solid rgba(0, 229, 255, 0.22);
+   532→   532→          clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+   533→   533→          transition: all 200ms;
+   534→   534→          overflow: hidden;
+   535→   535→        }
+   536→   536→        .cp-stage-card:hover {
+   537→   537→          border-color: rgba(252, 238, 10, 0.5);
+   538→   538→          background: linear-gradient(135deg, rgba(14, 24, 42, 0.92), rgba(8, 14, 26, 0.96));
+   539→   539→          box-shadow: 0 0 24px rgba(252, 238, 10, 0.12), inset 0 0 12px rgba(252, 238, 10, 0.03);
+   540→   540→        }
+   541→   541→        .cp-stage-card-selected {
+   542→   542→          border-color: rgba(252, 238, 10, 0.6);
+   543→   543→          border-width: 2px;
+   544→   544→          box-shadow: 0 0 0 1px rgba(252, 238, 10, 0.3), 0 0 32px rgba(252, 238, 10, 0.15), inset 0 0 24px rgba(252, 238, 10, 0.05);
+   545→   545→          background: linear-gradient(135deg, rgba(252, 238, 10, 0.08), rgba(6, 10, 20, 0.96));
+   546→   546→        }
+   547→   547→        .cp-stage-card::after {
+   548→   548→          content: '';
+   549→   549→          position: absolute;
+   550→   550→          top: 0;
+   551→   551→          left: 0;
+   552→   552→          width: 4px;
+   553→   553→          height: 100%;
+   554→   554→          background: linear-gradient(180deg, transparent, rgba(0, 229, 255, 0.5) 20%, rgba(0, 229, 255, 0.5) 80%, transparent);
+   555→   555→          opacity: 0.8;
+   556→   556→        }
+   557→   557→        .cp-stage-header {
+   558→   558→          display: flex;
+   559→   559→          align-items: center;
+   560→   560→          gap: 8px;
+   561→   561→          padding: 8px 12px;
+   562→   562→          position: relative;
+   563→   563→        }
+   564→   564→        .cp-stage-header-bg {
+   565→   565→          background: linear-gradient(90deg, rgba(0, 229, 255, 0.06), transparent 80%);
+   566→   566→          border-bottom: 1px solid rgba(0, 229, 255, 0.12);
+   567→   567→        }
+   568→   568→        .cp-stage-title {
+   569→   569→          font-size: 12px;
+   570→   570→          font-weight: 700;
+   571→   571→          letter-spacing: 0.05em;
+   572→   572→          text-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
+   573→   573→        }
+   574→   574→        .cp-progress-bar {
+   575→   575→          height: 4px;
+   576→   576→          background: rgba(255, 255, 255, 0.04);
+   577→   577→          overflow: hidden;
+   578→   578→          position: relative;
+   579→   579→          border: 1px solid rgba(0, 229, 255, 0.08);
+   580→   580→        }
+   581→   581→        .cp-progress-fill {
+   582→   582→          height: 100%;
+   583→   583→          transition: width 500ms;
+   584→   584→          position: relative;
+   585→   585→        }
+   586→   586→        .cp-progress-fill::after {
+   587→   587→          content: '';
+   588→   588→          position: absolute;
+   589→   589→          inset: 0;
+   590→   590→          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+   591→   591→          animation: cp-shimmer 2s linear infinite;
+   592→   592→        }
+   593→   593→        @keyframes cp-shimmer {
+   594→   594→          0% { transform: translateX(-100%); }
+   595→   595→          100% { transform: translateX(100%); }
+   596→   596→        }
+   597→   597→        .cp-meta-row {
+   598→   598→          display: flex;
+   599→   599→          align-items: center;
+   600→   600→          gap: 8px;
+   601→   601→          flex-wrap: wrap;
+   602→   602→          padding: 6px 8px;
+   603→   603→          margin: 4px 8px;
+   604→   604→          background: rgba(0, 229, 255, 0.03);
+   605→   605→          border: 1px solid rgba(0, 229, 255, 0.1);
+   606→   606→          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+   607→   607→        }
+   608→   608→        .cp-subtask-row {
+   609→   609→          display: flex;
+   610→   610→          align-items: center;
+   611→   611→          gap: 8px;
+   612→   612→          padding: 8px 12px;
+   613→   613→          margin: 3px 8px 3px 16px;
+   614→   614→          transition: all 120ms;
+   615→   615→          border-left: 3px solid rgba(0, 229, 255, 0.5);
+   616→   616→          background: rgba(8, 14, 26, 0.8);
+   617→   617→          border-top: 1.5px solid rgba(0, 229, 255, 0.18);
+   618→   618→          border-right: 1.5px solid rgba(0, 229, 255, 0.18);
+   619→   619→          border-bottom: 1.5px solid rgba(0, 229, 255, 0.18);
+   620→   620→          clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
+   621→   621→          box-shadow: inset 0 0 6px rgba(0, 229, 255, 0.02);
+   622→   622→        }
+   623→   623→        .cp-subtask-row:hover {
+   624→   624→          background: rgba(252, 238, 10, 0.06);
+   625→   625→          border-left-color: #FCEE0A;
+   626→   626→          border-left-width: 4px;
+   627→   627→          border-color: rgba(252, 238, 10, 0.35);
+   628→   628→          box-shadow: 0 0 20px rgba(252, 238, 10, 0.12), inset 0 0 10px rgba(252, 238, 10, 0.03);
+   629→   629→        }
+   630→   630→        .cp-arrow-btn {
+   631→   631→          padding: 4px;
+   632→   632→          color: #5a7a9e;
+   633→   633→          transition: all 100ms;
+   634→   634→          flex-shrink: 0;
+   635→   635→          filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.2));
+   636→   636→        }
+   637→   637→        .cp-arrow-btn:hover {
+   638→   638→          color: #FCEE0A;
+   639→   639→          filter: drop-shadow(0 0 5px rgba(252, 238, 10, 0.5));
+   640→   640→        }
+   641→   641→        .cp-arrow-btn:disabled {
+   642→   642→          opacity: 0.2;
+   643→   643→          cursor: not-allowed;
+   644→   644→        }
+   645→   645→        .cp-delete-btn {
+   646→   646→          padding: 4px;
+   647→   647→          color: #5a7a9e;
+   648→   648→          transition: all 100ms;
+   649→   649→          flex-shrink: 0;
+   650→   650→          filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.2));
+   651→   651→        }
+   652→   652→        .cp-delete-btn:hover {
+   653→   653→          color: #FF003C;
+   654→   654→          filter: drop-shadow(0 0 5px rgba(255, 0, 60, 0.6));
+   655→   655→        }
+   656→   656→        .cp-add-btn {
+   657→   657→          display: flex;
+   658→   658→          align-items: center;
+   659→   659→          gap: 6px;
+   660→   660→          padding: 7px 12px;
+   661→   661→          font-size: 10px;
+   662→   662→          font-weight: 700;
+   663→   663→          letter-spacing: 0.05em;
+   664→   664→          text-transform: uppercase;
+   665→   665→          color: #00E5FF;
+   666→   666→          transition: all 150ms;
+   667→   667→          border: 1.5px solid rgba(0, 229, 255, 0.3);
+   668→   668→          background: rgba(0, 229, 255, 0.06);
+   669→   669→          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+   670→   670→          box-shadow: 0 0 6px rgba(0, 229, 255, 0.06);
+   671→   671→        }
+   672→   672→        .cp-add-btn:hover {
+   673→   673→          color: #FCEE0A;
+   674→   674→          border-color: rgba(252, 238, 10, 0.6);
+   675→   675→          background: rgba(252, 238, 10, 0.1);
+   676→   676→          box-shadow: 0 0 16px rgba(252, 238, 10, 0.2), inset 0 0 10px rgba(252, 238, 10, 0.04);
+   677→   677→          text-shadow: 0 0 8px rgba(252, 238, 10, 0.4);
+   678→   678→        }
+   679→   679→        .cp-desc-card {
+   680→   680→          padding: 8px 12px;
+   681→   681→          margin: 4px 8px;
+   682→   682→          background: rgba(0, 229, 255, 0.05);
+   683→   683→          border: 1.5px solid rgba(0, 229, 255, 0.25);
+   684→   684→          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+   685→   685→          transition: all 150ms;
+   686→   686→          box-shadow: inset 0 0 8px rgba(0, 229, 255, 0.02);
+   687→   687→        }
+   688→   688→        .cp-desc-card:hover {
+   689→   689→          border-color: rgba(0, 229, 255, 0.5);
+   690→   690→          background: rgba(0, 229, 255, 0.08);
+   691→   691→          box-shadow: 0 0 16px rgba(0, 229, 255, 0.15), inset 0 0 10px rgba(0, 229, 255, 0.04);
+   692→   692→        }
+   693→   693→      `}</style>
+   694→   694→    </div>
+   695→   695→  );
+   696→   696→}
+   697→   697→
+   698→   698→/* ── Stages List (for track tasks) ──────────────────────── */
+   699→   699→
+   700→   700→function StagesList({
+   701→   701→  task, boardColor, c, members, selectedStageId, onSelectStage, reloadTasks,
+   702→   702→}: {
+   703→   703→  task: Task;
+   704→   704→  boardColor: string;
+   705→   705→  c: ColorSet;
+   706→   706→  members: GroupMember[];
+   707→   707→  selectedStageId: string | null;
+   708→   708→  onSelectStage: (stageId: string) => void;
+   709→   709→  reloadTasks: () => Promise<void>;
+   710→   710→}) {
+   711→   711→  const stages = task.children || [];
+   712→   712→  const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>(() => {
+   713→   713→    // Auto-expand first stage or the selected one
+   714→   714→    const initial: Record<string, boolean> = {};
+   715→   715→    if (stages.length > 0) {
+   716→   716→      initial[stages[0].id] = true;
+   717→   717→    }
+   718→   718→    if (selectedStageId && stages.find(s => s.id === selectedStageId)) {
+   719→   719→      initial[selectedStageId] = true;
+   720→   720→    }
+   721→   721→    return initial;
+   722→   722→  });
+   723→   723→  const [addingStage, setAddingStage] = useState(false);
+   724→   724→  const [newStageTitle, setNewStageTitle] = useState('');
+   725→   725→
+   726→   726→  // If selectedStageId changes, ensure that stage is expanded (prev-tracker pattern avoids useEffect-setState)
+   727→   727→  const [prevSelectedStageId, setPrevSelectedStageId] = useState<string | null>(selectedStageId);
+   728→   728→  if (selectedStageId !== prevSelectedStageId) {
+   729→   729→    setPrevSelectedStageId(selectedStageId);
+   730→   730→    if (selectedStageId && stages.find(s => s.id === selectedStageId) && !expandedStages[selectedStageId]) {
+   731→   731→      setExpandedStages(prev => ({ ...prev, [selectedStageId]: true }));
+   732→   732→    }
+   733→   733→  }
+   734→   734→
+   735→   735→  const toggleExpand = (stageId: string) => {
+   736→   736→    setExpandedStages(prev => ({ ...prev, [stageId]: !prev[stageId] }));
+   737→   737→  };
+   738→   738→
+   739→   739→  const addStage = async () => {
+   740→   740→    if (!newStageTitle.trim()) return;
+   741→   741→    await fetch('/api/tasks', {
+   742→   742→      method: 'POST',
+   743→   743→      headers: { 'Content-Type': 'application/json' },
+   744→   744→      body: JSON.stringify({ title: newStageTitle.trim(), parentId: task.id, boardId: task.boardId }),
+   745→   745→    });
+   746→   746→    setNewStageTitle('');
+   747→   747→    setAddingStage(false);
+   748→   748→    await reloadTasks();
+   749→   749→  };
+   750→   750→
+   751→   751→  const moveStage = async (index: number, direction: -1 | 1) => {
+   752→   752→    const target = index + direction;
+   753→   753→    if (target < 0 || target >= stages.length) return;
+   754→   754→    const a = stages[index];
+   755→   755→    const b = stages[target];
+   756→   756→    // Swap hexR values
+   757→   757→    await Promise.all([
+   758→   758→      fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: a.id, hexR: b.hexR, hexQ: b.hexQ }) }),
+   759→   759→      fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: b.id, hexR: a.hexR, hexQ: a.hexQ }) }),
+   760→   760→    ]);
+   761→   761→    await reloadTasks();
+   762→   762→  };
+   763→   763→
+   764→   764→  const deleteStage = async (stageId: string) => {
+   765→   765→    await fetch(`/api/tasks?id=${stageId}`, { method: 'DELETE' });
+   766→   766→    await reloadTasks();
+   767→   767→  };
+   768→   768→
+   769→   769→  const updateStage = async (stageId: string, patch: Record<string, unknown>) => {
+   770→   770→    await fetch('/api/tasks', {
+   771→   771→      method: 'PUT',
+   772→   772→      headers: { 'Content-Type': 'application/json' },
+   773→   773→      body: JSON.stringify({ id: stageId, ...patch }),
+   774→   774→    });
+   775→   775→    await reloadTasks();
+   776→   776→  };
+   777→   777→
+   778→   778→  return (
+   779→   779→    <div className="py-2 space-y-1.5">
+   780→   780→      {stages.length === 0 && !addingStage && (
+   781→   781→        <div className="text-center py-6 px-4">
+   782→   782→          <ListChecks className="w-6 h-6 mx-auto mb-2 text-slate-700" />
+   783→   783→          <p className="text-[11px] text-slate-500 mb-1">Этапов пока нет</p>
+   784→   784→          <p className="text-[10px] text-slate-600 mb-3">Создайте первый этап производства трека</p>
+   785→   785→        </div>
+   786→   786→      )}
+   787→   787→
+   788→   788→      {stages.map((stage, idx) => (
+   789→   789→        <StageCard
+   790→   790→          key={stage.id}
+   791→   791→          stage={stage}
+   792→   792→          index={idx}
+   793→   793→          total={stages.length}
+   794→   794→          boardColor={boardColor}
+   795→   795→          c={c}
+   796→   796→          members={members}
+   797→   797→          isExpanded={!!expandedStages[stage.id]}
+   798→   798→          isSelected={selectedStageId === stage.id}
+   799→   799→          onToggleExpand={() => toggleExpand(stage.id)}
+   800→   800→          onSelect={() => onSelectStage(stage.id)}
+   801→   801→          onMoveUp={() => moveStage(idx, -1)}
+   802→   802→          onMoveDown={() => moveStage(idx, 1)}
+   803→   803→          onDelete={() => deleteStage(stage.id)}
+   804→   804→          onUpdate={(patch) => updateStage(stage.id, patch)}
+   805→   805→          reloadTasks={reloadTasks}
+   806→   806→        />
+   807→   807→      ))}
+   808→   808→
+   809→   809→      {/* Add stage form */}
+   810→   810→      {addingStage ? (
+   811→   811→        <div
+   812→   812→          className="mx-2 rounded-lg p-2.5 space-y-1.5"
+   813→   813→          style={{ border: `1px dashed ${c.a3}`, backgroundColor: c.a04 }}
+   814→   814→        >
+   815→   815→          <Input
+   816→   816→            value={newStageTitle}
+   817→   817→            onChange={(e) => setNewStageTitle(e.target.value)}
+   818→   818→            onKeyDown={(e) => {
+   819→   819→              if (e.key === 'Enter') void addStage();
+   820→   820→              if (e.key === 'Escape') { setAddingStage(false); setNewStageTitle(''); }
+   821→   821→            }}
+   822→   822→            placeholder="Название этапа..."
+   823→   823→            className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-200 placeholder:text-slate-600 h-7"
+   824→   824→            style={{ borderColor: c.a3 }}
+   825→   825→            autoFocus
+   826→   826→          />
+   827→   827→          <div className="flex items-center gap-1.5">
+   828→   828→            <button
+   829→   829→              onClick={() => void addStage()}
+   830→   830→              disabled={!newStageTitle.trim()}
+   831→   831→              className="text-[10px] px-2 py-1 rounded font-medium transition-all disabled:opacity-40"
+   832→   832→              style={{ color: '#fff', backgroundColor: c.a5 }}
+   833→   833→            >
+   834→   834→              + Добавить этап
+   835→   835→            </button>
+   836→   836→            <button
+   837→   837→              onClick={() => { setAddingStage(false); setNewStageTitle(''); }}
+   838→   838→              className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1"
+   839→   839→            >
+   840→   840→              Отмена
+   841→   841→            </button>
+   842→   842→          </div>
+   843→   843→        </div>
+   844→   844→      ) : (
+   845→   845→        <button
+   846→   846→          onClick={() => setAddingStage(true)}
+   847→   847→          className="cp-add-btn mx-2 w-[calc(100%-1rem)] justify-center"
+   848→   848→        >
+   849→   849→          <Plus className="w-3 h-3" /> Добавить этап
+   850→   850→        </button>
+   851→   851→      )}
+   852→   852→    </div>
+   853→   853→  );
+   854→   854→}
+   855→   855→
+   856→   856→/* ── Stage Card ─────────────────────────────────────────── */
+   857→   857→
+   858→   858→function StageCard({
+   859→   859→  stage, index, total, boardColor, c, members,
+   860→   860→  isExpanded, isSelected,
+   861→   861→  onToggleExpand, onSelect, onMoveUp, onMoveDown, onDelete, onUpdate, reloadTasks,
+   862→   862→}: {
+   863→   863→  stage: TaskChild;
+   864→   864→  index: number;
+   865→   865→  total: number;
+   866→   866→  boardColor: string;
+   867→   867→  c: ColorSet;
+   868→   868→  members: GroupMember[];
+   869→   869→  isExpanded: boolean;
+   870→   870→  isSelected: boolean;
+   871→   871→  onToggleExpand: () => void;
+   872→   872→  onSelect: () => void;
+   873→   873→  onMoveUp: () => void;
+   874→   874→  onMoveDown: () => void;
+   875→   875→  onDelete: () => void;
+   876→   876→  onUpdate: (patch: Record<string, unknown>) => Promise<void>;
+   877→   877→  reloadTasks: () => Promise<void>;
+   878→   878→}) {
+   879→   879→  const [isEditingTitle, setIsEditingTitle] = useState(false);
+   880→   880→  const [titleDraft, setTitleDraft] = useState(stage.title);
+   881→   881→  const [descDraft, setDescDraft] = useState(stage.description || '');
+   882→   882→  const [isEditingDesc, setIsEditingDesc] = useState(false);
+   883→   883→
+   884→   884→  const subtasks = stage.children || [];
+   885→   885→  const stageProgress = getProgress(subtasks);
+   886→   886→  const StatusIcon = STATUS_ICON[stage.status] || Circle;
+   887→   887→  const statusHex = STATUS_HEX[stage.status] || '#64748b';
+   888→   888→  const priorityHex = PRIORITY_HEX[stage.priority] || '#64748b';
+   889→   889→
+   890→   890→  // Sync local draft state with prop changes when not actively editing (prev-tracker pattern)
+   891→   891→  const [prevStageTitle, setPrevStageTitle] = useState(stage.title);
+   892→   892→  if (stage.title !== prevStageTitle) {
+   893→   893→    setPrevStageTitle(stage.title);
+   894→   894→    if (!isEditingTitle) setTitleDraft(stage.title);
+   895→   895→  }
+   896→   896→  const [prevStageDesc, setPrevStageDesc] = useState(stage.description);
+   897→   897→  if (stage.description !== prevStageDesc) {
+   898→   898→    setPrevStageDesc(stage.description);
+   899→   899→    if (!isEditingDesc) setDescDraft(stage.description || '');
+   900→   900→  }
+   901→   901→
+   902→   902→  const saveTitle = async () => {
+   903→   903→    if (titleDraft.trim() && titleDraft !== stage.title) {
+   904→   904→      await onUpdate({ title: titleDraft.trim() });
+   905→   905→    }
+   906→   906→    setIsEditingTitle(false);
+   907→   907→  };
+   908→   908→
+   909→   909→  const saveDesc = async () => {
+   910→   910→    if (descDraft.trim() !== (stage.description || '').trim()) {
+   911→   911→      await onUpdate({ description: descDraft.trim() || null });
+   912→   912→    }
+   913→   913→    setIsEditingDesc(false);
+   914→   914→  };
+   915→   915→
+   916→   916→  const cycleStatus = async () => {
+   917→   917→    const order: TaskStatus[] = ['todo', 'in-progress', 'done'];
+   918→   918→    const idx = order.indexOf(stage.status as TaskStatus);
+   919→   919→    const next = order[(idx + 1) % order.length];
+   920→   920→    await onUpdate({ status: next });
+   921→   921→  };
+   922→   922→
+   923→   923→  const deadlineInfo = getDeadlineInfo(stage.deadline || null);
+   924→   924→
+   925→   925→  return (
+   926→   926→    <div
+   927→   927→      className={cn('cp-stage-card', isSelected && 'cp-stage-card-selected')}
+   928→   928→    >
+   929→   929→      {/* Stage header */}
+   930→   930→      <div
+   931→   931→        className={cn('cp-stage-header', isExpanded && 'cp-stage-header-bg')}
+   932→   932→      >
+   933→   933→        {/* Drag handle (visual) */}
+   934→   934→        <GripVertical className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+   935→   935→
+   936→   936→        {/* Status cycle */}
+   937→   937→        <button
+   938→   938→          onClick={(e) => { e.stopPropagation(); void cycleStatus(); }}
+   939→   939→          className="flex-shrink-0 p-1 transition-all hover:opacity-70"
+   940→   940→          title="Сменить статус"
+   941→   941→          style={{ filter: `drop-shadow(0 0 4px ${statusHex}60)` }}
+   942→   942→        >
+   943→   943→          <StatusIcon className="w-4 h-4" style={{ color: statusHex }} />
+   944→   944→        </button>
+   945→   945→
+   946→   946→        {/* Priority selector (interactive bars) */}
+   947→   947→        <PrioritySelector
+   948→   948→          priority={stage.priority}
+   949→   949→          onChange={(v) => void onUpdate({ priority: v })}
+   950→   950→          size="sm"
+   951→   951→        />
+   952→   952→
+   953→   953→        {/* Title (inline editable) */}
+   954→   954→        {isEditingTitle ? (
+   955→   955→          <input
+   956→   956→            value={titleDraft}
+   957→   957→            onChange={(e) => setTitleDraft(e.target.value)}
+   958→   958→            onKeyDown={(e) => {
+   959→   959→              if (e.key === 'Enter') { e.preventDefault(); void saveTitle(); }
+   960→   960→              if (e.key === 'Escape') { setIsEditingTitle(false); setTitleDraft(stage.title); }
+   961→   961→            }}
+   962→   962→            onBlur={() => void saveTitle()}
+   963→   963→            className="flex-1 min-w-0 bg-slate-900/90 rounded-md px-2 py-1 text-[12px] text-slate-100 font-medium focus:outline-none"
+   964→   964→            style={{ border: `1.5px solid ${c.a5}` }}
+   965→   965→            autoFocus
+   966→   966→          />
+   967→   967→        ) : (
+   968→   968→          <button
+   969→   969→            onDoubleClick={() => setIsEditingTitle(true)}
+   970→   970→            onClick={() => { onSelect(); onToggleExpand(); }}
+   971→   971→            className={cn(
+   972→   972→              'cp-stage-title flex-1 min-w-0 text-left truncate transition-colors',
+   973→   973→              stage.status === 'done' ? 'text-slate-600 line-through' : 'text-slate-100'
+   974→   974→            )}
+   975→   975→            title="Двойной клик — переименовать"
+   976→   976→          >
+   977→   977→            {stage.title}
+   978→   978→          </button>
+   979→   979→        )}
+   980→   980→
+   981→   981→        {/* Subtask count badge */}
+   982→   982→        {subtasks.length > 0 && (
+   983→   983→          <span
+   984→   984→            className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 tabular-nums font-bold text-right"
+   985→   985→            style={{ backgroundColor: c.a2, color: c.raw, border: `1px solid ${c.a3}`, minWidth: '38px' }}
+   986→   986→            title={`${subtasks.length} подзадач · ${stageProgress}%`}
+   987→   987→          >
+   988→   988→            {stageProgress}%
+   989→   989→          </span>
+   990→   990→        )}
+   991→   991→
+   992→   992→        {/* Assignee picker (multi-select popover) */}
+   993→   993→        <AssigneePicker
+   994→   994→          assigneeRaw={stage.assignee}
+   995→   995→          members={members}
+   996→   996→          onChange={(v) => void onUpdate({ assignee: v })}
+   997→   997→          boardColor={boardColor}
+   998→   998→          size="sm"
+   999→   999→        />
+  1000→  1000→
+  1001→  1001→        {/* Deadline */}
+  1002→  1002→        <DeadlinePicker
+  1003→  1003→          value={stage.deadline || null}
+  1004→  1004→          onChange={(d) => void onUpdate({ deadline: d })}
+  1005→  1005→          isDone={stage.status === 'done'}
+  1006→  1006→          size="sm"
+  1007→  1007→          inline
+  1008→  1008→        />
+  1009→  1009→
+  1010→  1010→        {/* Move up/down */}
+  1011→  1011→        <div className="flex items-center flex-shrink-0">
+  1012→  1012→          <button
+  1013→  1013→            onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+  1014→  1014→            disabled={index === 0}
+  1015→  1015→            className="cp-arrow-btn"
+  1016→  1016→            title="Выше"
+  1017→  1017→          >
+  1018→  1018→            <ArrowUp className="w-3.5 h-3.5" />
+  1019→  1019→          </button>
+  1020→  1020→          <button
+  1021→  1021→            onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+  1022→  1022→            disabled={index === total - 1}
+  1023→  1023→            className="cp-arrow-btn"
+  1024→  1024→            title="Ниже"
+  1025→  1025→          >
+  1026→  1026→            <ArrowDown className="w-3.5 h-3.5" />
+  1027→  1027→          </button>
+  1028→  1028→        </div>
+  1029→  1029→
+  1030→  1030→        {/* Delete */}
+  1031→  1031→        <button
+  1032→  1032→          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+  1033→  1033→          className="cp-delete-btn"
+  1034→  1034→          title="Удалить этап"
+  1035→  1035→        >
+  1036→  1036→          <Trash2 className="w-3.5 h-3.5" />
+  1037→  1037→        </button>
+  1038→  1038→
+  1039→  1039→        {/* Expand arrow */}
+  1040→  1040→        <button
+  1041→  1041→          onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+  1042→  1042→          className="p-1 rounded-md hover:bg-slate-800 text-slate-400 transition-colors flex-shrink-0"
+  1043→  1043→        >
+  1044→  1044→          {isExpanded
+  1045→  1045→            ? <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+  1046→  1046→            : <ChevronDown className="w-3.5 h-3.5" />
+  1047→  1047→          }
+  1048→  1048→        </button>
+  1049→  1049→      </div>
+  1050→  1050→
+  1051→  1051→      {/* Expanded content */}
+  1052→  1052→      {isExpanded && (
+  1053→  1053→        <div className="px-3 py-2 space-y-2">
+  1054→  1054→          {/* Progress bar */}
+  1055→  1055→          {subtasks.length > 0 && (
+  1056→  1056→            <div className="cp-progress-bar mx-2 my-1">
+  1057→  1057→              <div
+  1058→  1058→                className="cp-progress-fill"
+  1059→  1059→                style={{
+  1060→  1060→                  width: `${stageProgress}%`,
+  1061→  1061→                  backgroundColor: stageProgress === 100 ? '#10b981' : stageProgress > 50 ? boardColor : stageProgress > 0 ? '#f59e0b' : '#334155',
+  1062→  1062→                  boxShadow: stageProgress > 0 ? `0 0 6px ${stageProgress === 100 ? '#10b981' : boardColor}80` : 'none',
+  1063→  1063→                }}
+  1064→  1064→              />
+  1065→  1065→            </div>
+  1066→  1066→          )}
+  1067→  1067→
+  1068→  1068→          {/* Description editor */}
+  1069→  1069→          <div>
+  1070→  1070→            {isEditingDesc ? (
+  1071→  1071→              <div className="space-y-1.5">
+  1072→  1072→                <Textarea
+  1073→  1073→                  value={descDraft}
+  1074→  1074→                  onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
+  1075→  1075→                  placeholder="Описание этапа..."
+  1076→  1076→                  className="bg-slate-900/90 text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[55px] resize-none focus:outline-none rounded-md"
+  1077→  1077→                  style={{ border: `1.5px solid ${c.a4}` }}
+  1078→  1078→                  autoFocus
+  1079→  1079→                  onKeyDown={(e) => {
+  1080→  1080→                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
+  1081→  1081→                    if (e.key === 'Escape') { setIsEditingDesc(false); setDescDraft(stage.description || ''); }
+  1082→  1082→                  }}
+  1083→  1083→                />
+  1084→  1084→                <div className="flex items-center justify-between">
+  1085→  1085→                  <span className="text-[9px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
+  1086→  1086→                  <div className="flex items-center gap-1.5">
+  1087→  1087→                    <button
+  1088→  1088→                      onClick={() => { setIsEditingDesc(false); setDescDraft(stage.description || ''); }}
+  1089→  1089→                      className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+  1090→  1090→                    >
+  1091→  1091→                      Отмена
+  1092→  1092→                    </button>
+  1093→  1093→                    <button
+  1094→  1094→                      onClick={() => void saveDesc()}
+  1095→  1095→                      className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+  1096→  1096→                      style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+  1097→  1097→                    >
+  1098→  1098→                      Сохранить
+  1099→  1099→                    </button>
+  1100→  1100→                  </div>
+  1101→  1101→                </div>
+  1102→  1102→              </div>
+  1103→  1103→            ) : stage.description ? (
+  1104→  1104→              <button
+  1105→  1105→                onClick={() => setIsEditingDesc(true)}
+  1106→  1106→                className="cp-desc-card w-full text-left"
+  1107→  1107→              >
+  1108→  1108→                <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-3">
+  1109→  1109→                  {stage.description}
+  1110→  1110→                </p>
+  1111→  1111→              </button>
+  1112→  1112→            ) : (
+  1113→  1113→              <button
+  1114→  1114→                onClick={() => setIsEditingDesc(true)}
+  1115→  1115→                className="cp-add-btn"
+  1116→  1116→              >
+  1117→  1117→                + описание этапа
+  1118→  1118→              </button>
+  1119→  1119→            )}
+  1120→  1120→          </div>
+  1121→  1121→
+  1122→  1122→          {/* Subtasks list */}
+  1123→  1123→          <SubtasksList
+  1124→  1124→            stage={stage}
+  1125→  1125→            boardColor={boardColor}
+  1126→  1126→            c={c}
+  1127→  1127→            members={members}
+  1128→  1128→            onUpdate={(subId, patch) => updateSubtask(subId, patch, reloadTasks)}
+  1129→  1129→            onDelete={async (subId) => { await fetch(`/api/tasks?id=${subId}`, { method: 'DELETE' }); await reloadTasks(); }}
+  1130→  1130→            onMove={async (idx, dir) => moveSubtask(stage, idx, dir, reloadTasks)}
+  1131→  1131→            reloadTasks={reloadTasks}
+  1132→  1132→          />
+  1133→  1133→        </div>
+  1134→  1134→      )}
+  1135→  1135→    </div>
+  1136→  1136→  );
+  1137→  1137→}
+  1138→  1138→
+  1139→  1139→/* ── Subtasks List ──────────────────────────────────────── */
+  1140→  1140→
+  1141→  1141→function SubtasksList({
+  1142→  1142→  stage, boardColor, c, members, onUpdate, onDelete, onMove, reloadTasks,
+  1143→  1143→}: {
+  1144→  1144→  stage: TaskChild;
+  1145→  1145→  boardColor: string;
+  1146→  1146→  c: ColorSet;
+  1147→  1147→  members: GroupMember[];
+  1148→  1148→  onUpdate: (subId: string, patch: Record<string, unknown>) => Promise<void>;
+  1149→  1149→  onDelete: (subId: string) => Promise<void>;
+  1150→  1150→  onMove: (idx: number, dir: -1 | 1) => Promise<void>;
+  1151→  1151→  reloadTasks: () => Promise<void>;
+  1152→  1152→}) {
+  1153→  1153→  const subtasks = stage.children || [];
+  1154→  1154→  const [expandedSubs, setExpandedSubs] = useState<Record<string, boolean>>({});
+  1155→  1155→  const [addingSub, setAddingSub] = useState(false);
+  1156→  1156→  const [newSubTitle, setNewSubTitle] = useState('');
+  1157→  1157→
+  1158→  1158→  const toggleExpand = (id: string) => setExpandedSubs(prev => ({ ...prev, [id]: !prev[id] }));
+  1159→  1159→
+  1160→  1160→  const addSub = async () => {
+  1161→  1161→    if (!newSubTitle.trim()) return;
+  1162→  1162→    await fetch('/api/tasks', {
+  1163→  1163→      method: 'POST',
+  1164→  1164→      headers: { 'Content-Type': 'application/json' },
+  1165→  1165→      body: JSON.stringify({ title: newSubTitle.trim(), parentId: stage.id }),
+  1166→  1166→    });
+  1167→  1167→    setNewSubTitle('');
+  1168→  1168→    setAddingSub(false);
+  1169→  1169→    await reloadTasks();
+  1170→  1170→  };
+  1171→  1171→
+  1172→  1172→  if (subtasks.length === 0 && !addingSub) {
+  1173→  1173→    return (
+  1174→  1174→      <div className="ml-3 pl-2 py-1">
+  1175→  1175→        <button
+  1176→  1176→          onClick={() => setAddingSub(true)}
+  1177→  1177→          className="cp-add-btn"
+  1178→  1178→        >
+  1179→  1179→          <Plus className="w-2.5 h-2.5" /> Добавить подзадачу
+  1180→  1180→        </button>
+  1181→  1181→      </div>
+  1182→  1182→    );
+  1183→  1183→  }
+  1184→  1184→
+  1185→  1185→  return (
+  1186→  1186→    <div className="ml-3 pl-2 space-y-0.5">
+  1187→  1187→      {subtasks.map((sub, idx) => (
+  1188→  1188→        <SubtaskRow
+  1189→  1189→          key={sub.id}
+  1190→  1190→          subtask={sub}
+  1191→  1191→          index={idx}
+  1192→  1192→          total={subtasks.length}
+  1193→  1193→          boardColor={boardColor}
+  1194→  1194→          c={c}
+  1195→  1195→          members={members}
+  1196→  1196→          isExpanded={!!expandedSubs[sub.id]}
+  1197→  1197→          onToggleExpand={() => toggleExpand(sub.id)}
+  1198→  1198→          onMoveUp={() => onMove(idx, -1)}
+  1199→  1199→          onMoveDown={() => onMove(idx, 1)}
+  1200→  1200→          onDelete={() => onDelete(sub.id)}
+  1201→  1201→          onUpdate={(patch) => onUpdate(sub.id, patch)}
+  1202→  1202→        />
+  1203→  1203→      ))}
+  1204→  1204→
+  1205→  1205→      {addingSub ? (
+  1206→  1206→        <div className="pt-1">
+  1207→  1207→          <Input
+  1208→  1208→            value={newSubTitle}
+  1209→  1209→            onChange={(e) => setNewSubTitle(e.target.value)}
+  1210→  1210→            onKeyDown={(e) => {
+  1211→  1211→              if (e.key === 'Enter') void addSub();
+  1212→  1212→              if (e.key === 'Escape') { setAddingSub(false); setNewSubTitle(''); }
+  1213→  1213→            }}
+  1214→  1214→            placeholder="Название подзадачи..."
+  1215→  1215→            className="bg-slate-900/80 border-slate-700/50 text-[10px] text-slate-300 placeholder:text-slate-600 h-6"
+  1216→  1216→            style={{ borderColor: c.a25 }}
+  1217→  1217→            autoFocus
+  1218→  1218→          />
+  1219→  1219→          <div className="flex items-center gap-1.5 mt-1">
+  1220→  1220→            <button
+  1221→  1221→              onClick={() => void addSub()}
+  1222→  1222→              disabled={!newSubTitle.trim()}
+  1223→  1223→              className="text-[9px] px-1.5 py-0.5 rounded font-medium transition-all disabled:opacity-40"
+  1224→  1224→              style={{ color: '#fff', backgroundColor: c.a5 }}
+  1225→  1225→            >
+  1226→  1226→              + Добавить
+  1227→  1227→            </button>
+  1228→  1228→            <button
+  1229→  1229→              onClick={() => { setAddingSub(false); setNewSubTitle(''); }}
+  1230→  1230→              className="text-[9px] text-slate-500 hover:text-slate-300"
+  1231→  1231→            >
+  1232→  1232→              Отмена
+  1233→  1233→            </button>
+  1234→  1234→          </div>
+  1235→  1235→        </div>
+  1236→  1236→      ) : (
+  1237→  1237→        <button
+  1238→  1238→          onClick={() => setAddingSub(true)}
+  1239→  1239→          className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-slate-400 transition-colors py-0.5"
+  1240→  1240→          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = c.raw; }}
+  1241→  1241→          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ''; }}
+  1242→  1242→        >
+  1243→  1243→          <Plus className="w-2.5 h-2.5" /> Добавить подзадачу
+  1244→  1244→        </button>
+  1245→  1245→      )}
+  1246→  1246→    </div>
+  1247→  1247→  );
+  1248→  1248→}
+  1249→  1249→
+  1250→  1250→/* ── Subtask Row ────────────────────────────────────────── */
+  1251→  1251→
+  1252→  1252→function SubtaskRow({
+  1253→  1253→  subtask, index, total, boardColor, c, members,
+  1254→  1254→  isExpanded, onToggleExpand, onMoveUp, onMoveDown, onDelete, onUpdate,
+  1255→  1255→}: {
+  1256→  1256→  subtask: TaskGrandchild;
+  1257→  1257→  index: number;
+  1258→  1258→  total: number;
+  1259→  1259→  boardColor: string;
+  1260→  1260→  c: ColorSet;
+  1261→  1261→  members: GroupMember[];
+  1262→  1262→  isExpanded: boolean;
+  1263→  1263→  onToggleExpand: () => void;
+  1264→  1264→  onMoveUp: () => void;
+  1265→  1265→  onMoveDown: () => void;
+  1266→  1266→  onDelete: () => void;
+  1267→  1267→  onUpdate: (patch: Record<string, unknown>) => Promise<void>;
+  1268→  1268→}) {
+  1269→  1269→  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  1270→  1270→  const [titleDraft, setTitleDraft] = useState(subtask.title);
+  1271→  1271→  const [descDraft, setDescDraft] = useState(subtask.description || '');
+  1272→  1272→  const [isEditingDesc, setIsEditingDesc] = useState(false);
+  1273→  1273→
+  1274→  1274→  const StatusIcon = STATUS_ICON[subtask.status] || Circle;
+  1275→  1275→  const statusHex = STATUS_HEX[subtask.status] || '#64748b';
+  1276→  1276→  const priorityHex = PRIORITY_HEX[subtask.priority] || '#64748b';
+  1277→  1277→  const subDone = subtask.status === 'done';
+  1278→  1278→
+  1279→  1279→  // Sync local draft state with prop changes when not actively editing (prev-tracker pattern)
+  1280→  1280→  const [prevSubTitle, setPrevSubTitle] = useState(subtask.title);
+  1281→  1281→  if (subtask.title !== prevSubTitle) {
+  1282→  1282→    setPrevSubTitle(subtask.title);
+  1283→  1283→    if (!isEditingTitle) setTitleDraft(subtask.title);
+  1284→  1284→  }
+  1285→  1285→  const [prevSubDesc, setPrevSubDesc] = useState(subtask.description);
+  1286→  1286→  if (subtask.description !== prevSubDesc) {
+  1287→  1287→    setPrevSubDesc(subtask.description);
+  1288→  1288→    if (!isEditingDesc) setDescDraft(subtask.description || '');
+  1289→  1289→  }
+  1290→  1290→
+  1291→  1291→  const saveTitle = async () => {
+  1292→  1292→    if (titleDraft.trim() && titleDraft !== subtask.title) {
+  1293→  1293→      await onUpdate({ title: titleDraft.trim() });
+  1294→  1294→    }
+  1295→  1295→    setIsEditingTitle(false);
+  1296→  1296→  };
+  1297→  1297→
+  1298→  1298→  const saveDesc = async () => {
+  1299→  1299→    if (descDraft.trim() !== (subtask.description || '').trim()) {
+  1300→  1300→      await onUpdate({ description: descDraft.trim() || null });
+  1301→  1301→    }
+  1302→  1302→    setIsEditingDesc(false);
+  1303→  1303→  };
+  1304→  1304→
+  1305→  1305→  const cycleStatus = async () => {
+  1306→  1306→    const order: TaskStatus[] = ['todo', 'in-progress', 'done'];
+  1307→  1307→    const idx = order.indexOf(subtask.status as TaskStatus);
+  1308→  1308→    const next = order[(idx + 1) % order.length];
+  1309→  1309→    await onUpdate({ status: next });
+  1310→  1310→  };
+  1311→  1311→
+  1312→  1312→  const assigneeMember = null; // unused — AssigneePicker handles display
+  1313→  1313→
+  1314→  1314→  return (
+  1315→  1315→    <div>
+  1316→  1316→      <div className="cp-subtask-row group/sub">
+  1317→  1317→        {/* Status cycle */}
+  1318→  1318→        <button
+  1319→  1319→          onClick={(e) => { e.stopPropagation(); void cycleStatus(); }}
+  1320→  1320→          className="flex-shrink-0 p-0.5 rounded transition-opacity hover:opacity-70"
+  1321→  1321→          title="Сменить статус"
+  1322→  1322→        >
+  1323→  1323→          <StatusIcon className="w-3.5 h-3.5" style={{ color: statusHex }} />
+  1324→  1324→        </button>
+  1325→  1325→
+  1326→  1326→        {/* Priority selector (interactive bars) */}
+  1327→  1327→        <PrioritySelector
+  1328→  1328→          priority={subtask.priority}
+  1329→  1329→          onChange={(v) => void onUpdate({ priority: v })}
+  1330→  1330→          size="xs"
+  1331→  1331→        />
+  1332→  1332→
+  1333→  1333→        {/* Title (inline editable) */}
+  1334→  1334→        {isEditingTitle ? (
+  1335→  1335→          <input
+  1336→  1336→            value={titleDraft}
+  1337→  1337→            onChange={(e) => setTitleDraft(e.target.value)}
+  1338→  1338→            onKeyDown={(e) => {
+  1339→  1339→              if (e.key === 'Enter') { e.preventDefault(); void saveTitle(); }
+  1340→  1340→              if (e.key === 'Escape') { setIsEditingTitle(false); setTitleDraft(subtask.title); }
+  1341→  1341→            }}
+  1342→  1342→            onBlur={() => void saveTitle()}
+  1343→  1343→            className="flex-1 min-w-0 bg-slate-900/90 rounded px-2 py-0.5 text-[11px] text-slate-100 focus:outline-none"
+  1344→  1344→            style={{ border: `1.5px solid ${c.a4}` }}
+  1345→  1345→            autoFocus
+  1346→  1346→          />
+  1347→  1347→        ) : (
+  1348→  1348→          <button
+  1349→  1349→            onDoubleClick={() => setIsEditingTitle(true)}
+  1350→  1350→            onClick={onToggleExpand}
+  1351→  1351→            className={cn(
+  1352→  1352→              'flex-1 min-w-0 text-left text-[11px] font-medium truncate transition-colors',
+  1353→  1353→              subDone ? 'text-slate-600 line-through' : 'text-slate-200'
+  1354→  1354→            )}
+  1355→  1355→            title="Двойной клик — переименовать"
+  1356→  1356→          >
+  1357→  1357→            {subtask.title}
+  1358→  1358→          </button>
+  1359→  1359→        )}
+  1360→  1360→
+  1361→  1361→        {/* Assignee picker (multi-select popover) */}
+  1362→  1362→        <AssigneePicker
+  1363→  1363→          assigneeRaw={subtask.assignee}
+  1364→  1364→          members={members}
+  1365→  1365→          onChange={(v) => void onUpdate({ assignee: v })}
+  1366→  1366→          boardColor={boardColor}
+  1367→  1367→          size="xs"
+  1368→  1368→        />
+  1369→  1369→
+  1370→  1370→        {/* Deadline */}
+  1371→  1371→        <DeadlinePicker
+  1372→  1372→          value={subtask.deadline || null}
+  1373→  1373→          onChange={(d) => void onUpdate({ deadline: d })}
+  1374→  1374→          isDone={subDone}
+  1375→  1375→          size="sm"
+  1376→  1376→          inline
+  1377→  1377→        />
+  1378→  1378→
+  1379→  1379→        {/* Move up/down */}
+  1380→  1380→        <button
+  1381→  1381→          onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+  1382→  1382→          disabled={index === 0}
+  1383→  1383→          className="cp-arrow-btn"
+  1384→  1384→          title="Выше"
+  1385→  1385→        >
+  1386→  1386→          <ArrowUp className="w-3 h-3" />
+  1387→  1387→        </button>
+  1388→  1388→        <button
+  1389→  1389→          onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+  1390→  1390→          disabled={index === total - 1}
+  1391→  1391→          className="cp-arrow-btn"
+  1392→  1392→          title="Ниже"
+  1393→  1393→        >
+  1394→  1394→          <ArrowDown className="w-3 h-3" />
+  1395→  1395→        </button>
+  1396→  1396→
+  1397→  1397→        {/* Delete */}
+  1398→  1398→        <button
+  1399→  1399→          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+  1400→  1400→          className="cp-delete-btn opacity-0 group-hover/sub:opacity-100"
+  1401→  1401→          title="Удалить"
+  1402→  1402→        >
+  1403→  1403→          <Trash2 className="w-3 h-3" />
+  1404→  1404→        </button>
+  1405→  1405→      </div>
+  1406→  1406→
+  1407→  1407→      {/* Expanded subtask content */}
+  1408→  1408→      {isExpanded && (
+  1409→  1409→        <div className="ml-4 px-2 pb-1.5 space-y-1.5">
+  1410→  1410→          {/* Description */}
+  1411→  1411→          {isEditingDesc ? (
+  1412→  1412→            <div className="space-y-1.5">
+  1413→  1413→              <Textarea
+  1414→  1414→                value={descDraft}
+  1415→  1415→                onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
+  1416→  1416→                placeholder="Описание подзадачи..."
+  1417→  1417→                className="bg-slate-900/90 text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[45px] resize-none focus:outline-none rounded-md"
+  1418→  1418→                style={{ border: `1.5px solid ${c.a3}` }}
+  1419→  1419→                autoFocus
+  1420→  1420→                onKeyDown={(e) => {
+  1421→  1421→                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
+  1422→  1422→                  if (e.key === 'Escape') { setIsEditingDesc(false); setDescDraft(subtask.description || ''); }
+  1423→  1423→                }}
+  1424→  1424→              />
+  1425→  1425→              <div className="flex items-center justify-between">
+  1426→  1426→                <span className="text-[9px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
+  1427→  1427→                <div className="flex items-center gap-1.5">
+  1428→  1428→                  <button
+  1429→  1429→                    onClick={() => { setIsEditingDesc(false); setDescDraft(subtask.description || ''); }}
+  1430→  1430→                    className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+  1431→  1431→                  >
+  1432→  1432→                    Отмена
+  1433→  1433→                  </button>
+  1434→  1434→                  <button
+  1435→  1435→                    onClick={() => void saveDesc()}
+  1436→  1436→                    className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+  1437→  1437→                    style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+  1438→  1438→                  >
+  1439→  1439→                    Сохранить
+  1440→  1440→                  </button>
+  1441→  1441→                </div>
+  1442→  1442→              </div>
+  1443→  1443→            </div>
+  1444→  1444→          ) : subtask.description ? (
+  1445→  1445→            <button
+  1446→  1446→              onClick={() => setIsEditingDesc(true)}
+  1447→  1447→              className="cp-desc-card w-full text-left"
+  1448→  1448→            >
+  1449→  1449→              <p className="text-[10px] text-slate-400 leading-relaxed whitespace-pre-wrap line-clamp-2">
+  1450→  1450→                {subtask.description}
+  1451→  1451→              </p>
+  1452→  1452→            </button>
+  1453→  1453→          ) : (
+  1454→  1454→            <button
+  1455→  1455→              onClick={() => setIsEditingDesc(true)}
+  1456→  1456→              className="cp-add-btn"
+  1457→  1457→            >
+  1458→  1458→              + описание
+  1459→  1459→            </button>
+  1460→  1460→          )}
+  1461→  1461→        </div>
+  1462→  1462→      )}
+  1463→  1463→    </div>
+  1464→  1464→  );
+  1465→  1465→}
+  1466→  1466→
+  1467→  1467→/* ── Flat Subtasks List (for non-track tasks) ──────────── */
+  1468→  1468→
+  1469→  1469→function FlatSubtasksList({
+  1470→  1470→  task, boardColor, c, members, reloadTasks,
+  1471→  1471→}: {
+  1472→  1472→  task: Task;
+  1473→  1473→  boardColor: string;
+  1474→  1474→  c: ColorSet;
+  1475→  1475→  members: GroupMember[];
+  1476→  1476→  reloadTasks: () => Promise<void>;
+  1477→  1477→}) {
+  1478→  1478→  const subtasks = task.children || [];
+  1479→  1479→  const [expandedSubs, setExpandedSubs] = useState<Record<string, boolean>>({});
+  1480→  1480→  const [addingSub, setAddingSub] = useState(false);
+  1481→  1481→  const [newSubTitle, setNewSubTitle] = useState('');
+  1482→  1482→
+  1483→  1483→  const toggleExpand = (id: string) => setExpandedSubs(prev => ({ ...prev, [id]: !prev[id] }));
+  1484→  1484→
+  1485→  1485→  const updateSubtask = async (subId: string, patch: Record<string, unknown>) => {
+  1486→  1486→    await fetch('/api/tasks', {
+  1487→  1487→      method: 'PUT',
+  1488→  1488→      headers: { 'Content-Type': 'application/json' },
+  1489→  1489→      body: JSON.stringify({ id: subId, ...patch }),
+  1490→  1490→    });
+  1491→  1491→    await reloadTasks();
+  1492→  1492→  };
+  1493→  1493→
+  1494→  1494→  const moveSubtask = async (idx: number, dir: -1 | 1) => {
+  1495→  1495→    const target = idx + dir;
+  1496→  1496→    if (target < 0 || target >= subtasks.length) return;
+  1497→  1497→    const a = subtasks[idx];
+  1498→  1498→    const b = subtasks[target];
+  1499→  1499→    await Promise.all([
+  1500→  1500→      fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: a.id, hexR: b.hexR, hexQ: b.hexQ }) }),
+  1501→  1501→      fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: b.id, hexR: a.hexR, hexQ: a.hexQ }) }),
+  1502→  1502→    ]);
+  1503→  1503→    await reloadTasks();
+  1504→  1504→  };
+  1505→  1505→
+  1506→  1506→  const deleteSubtask = async (subId: string) => {
+  1507→  1507→    await fetch(`/api/tasks?id=${subId}`, { method: 'DELETE' });
+  1508→  1508→    await reloadTasks();
+  1509→  1509→  };
+  1510→  1510→
+  1511→  1511→  const addSub = async () => {
+  1512→  1512→    if (!newSubTitle.trim()) return;
+  1513→  1513→    await fetch('/api/tasks', {
+  1514→  1514→      method: 'POST',
+  1515→  1515→      headers: { 'Content-Type': 'application/json' },
+  1516→  1516→      body: JSON.stringify({ title: newSubTitle.trim(), parentId: task.id, boardId: task.boardId }),
+  1517→  1517→    });
+  1518→  1518→    setNewSubTitle('');
+  1519→  1519→    setAddingSub(false);
+  1520→  1520→    await reloadTasks();
+  1521→  1521→  };
+  1522→  1522→
+  1523→  1523→  return (
+  1524→  1524→    <div className="py-2 space-y-0.5">
+  1525→  1525→      {subtasks.length === 0 && !addingSub && (
+  1526→  1526→        <div className="text-center py-6 px-4">
+  1527→  1527→          <AlignJustify className="w-6 h-6 mx-auto mb-2 text-slate-700" />
+  1528→  1528→          <p className="text-[11px] text-slate-500 mb-1">Подзадач пока нет</p>
+  1529→  1529→          <p className="text-[10px] text-slate-600 mb-3">Создайте первую подзадачу</p>
+  1530→  1530→        </div>
+  1531→  1531→      )}
+  1532→  1532→
+  1533→  1533→      {subtasks.map((sub, idx) => (
+  1534→  1534→        <SubtaskRow
+  1535→  1535→          key={sub.id}
+  1536→  1536→          subtask={sub as unknown as TaskGrandchild}
+  1537→  1537→          index={idx}
+  1538→  1538→          total={subtasks.length}
+  1539→  1539→          boardColor={boardColor}
+  1540→  1540→          c={c}
+  1541→  1541→          members={members}
+  1542→  1542→          isExpanded={!!expandedSubs[sub.id]}
+  1543→  1543→          onToggleExpand={() => toggleExpand(sub.id)}
+  1544→  1544→          onMoveUp={() => moveSubtask(idx, -1)}
+  1545→  1545→          onMoveDown={() => moveSubtask(idx, 1)}
+  1546→  1546→          onDelete={() => deleteSubtask(sub.id)}
+  1547→  1547→          onUpdate={(patch) => updateSubtask(sub.id, patch)}
+  1548→  1548→        />
+  1549→  1549→      ))}
+  1550→  1550→
+  1551→  1551→      {addingSub ? (
+  1552→  1552→        <div className="mx-2 mt-1.5 rounded-lg p-2 space-y-1" style={{ border: `1px dashed ${c.a3}`, backgroundColor: c.a04 }}>
+  1553→  1553→          <Input
+  1554→  1554→            value={newSubTitle}
+  1555→  1555→            onChange={(e) => setNewSubTitle(e.target.value)}
+  1556→  1556→            onKeyDown={(e) => {
+  1557→  1557→              if (e.key === 'Enter') void addSub();
+  1558→  1558→              if (e.key === 'Escape') { setAddingSub(false); setNewSubTitle(''); }
+  1559→  1559→            }}
+  1560→  1560→            placeholder="Название подзадачи..."
+  1561→  1561→            className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-200 placeholder:text-slate-600 h-7"
+  1562→  1562→            style={{ borderColor: c.a3 }}
+  1563→  1563→            autoFocus
+  1564→  1564→          />
+  1565→  1565→          <div className="flex items-center gap-1.5">
+  1566→  1566→            <button
+  1567→  1567→              onClick={() => void addSub()}
+  1568→  1568→              disabled={!newSubTitle.trim()}
+  1569→  1569→              className="text-[10px] px-2 py-1 rounded font-medium transition-all disabled:opacity-40"
+  1570→  1570→              style={{ color: '#fff', backgroundColor: c.a5 }}
+  1571→  1571→            >
+  1572→  1572→              + Добавить
+  1573→  1573→            </button>
+  1574→  1574→            <button
+  1575→  1575→              onClick={() => { setAddingSub(false); setNewSubTitle(''); }}
+  1576→  1576→              className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1"
+  1577→  1577→            >
+  1578→  1578→              Отмена
+  1579→  1579→            </button>
+  1580→  1580→          </div>
+  1581→  1581→        </div>
+  1582→  1582→      ) : (
+  1583→  1583→        <button
+  1584→  1584→          onClick={() => setAddingSub(true)}
+  1585→  1585→          className="w-full flex items-center justify-center gap-1.5 py-2 text-[10px] text-slate-500 transition-colors"
+  1586→  1586→          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = c.raw; }}
+  1587→  1587→          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ''; }}
+  1588→  1588→        >
+  1589→  1589→          <Plus className="w-3 h-3" /> Добавить подзадачу
+  1590→  1590→        </button>
+  1591→  1591→      )}
+  1592→  1592→    </div>
+  1593→  1593→  );
+  1594→  1594→}
+  1595→  1595→
+  1596→  1596→/* ── Assignee helpers ─────────────────────────────────── */
+  1597→  1597→
+  1598→  1598→function parseAssignees(raw: string | null): string[] {
+  1599→  1599→  if (!raw) return [];
+  1600→  1600→  try {
+  1601→  1601→    const parsed = JSON.parse(raw);
+  1602→  1602→    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+  1603→  1603→    return [raw];
+  1604→  1604→  } catch {
+  1605→  1605→    return [raw];
+  1606→  1606→  }
+  1607→  1607→}
+  1608→  1608→
+  1609→  1609→function serializeAssignees(ids: string[]): string | null {
+  1610→  1610→  if (ids.length === 0) return null;
+  1611→  1611→  return JSON.stringify(ids);
+  1612→  1612→}
+  1613→  1613→
+  1614→  1614→/* ── Assignee Picker (popover with multi-select) ──────── */
+  1615→  1615→
+  1616→  1616→function AssigneePicker({
+  1617→  1617→  assigneeRaw,
+  1618→  1618→  members,
+  1619→  1619→  onChange,
+  1620→  1620→  boardColor,
+  1621→  1621→  size = 'sm',
+  1622→  1622→}: {
+  1623→  1623→  assigneeRaw: string | null;
+  1624→  1624→  members: GroupMember[];
+  1625→  1625→  onChange: (raw: string | null) => void;
+  1626→  1626→  boardColor: string;
+  1627→  1627→  size?: 'xs' | 'sm';
+  1628→  1628→}) {
+  1629→  1629→  const [open, setOpen] = useState(false);
+  1630→  1630→  const selectedIds = parseAssignees(assigneeRaw);
+  1631→  1631→
+  1632→  1632→  const toggleMember = (userId: string) => {
+  1633→  1633→    const next = selectedIds.includes(userId)
+  1634→  1634→      ? selectedIds.filter(id => id !== userId)
+  1635→  1635→      : [...selectedIds, userId];
+  1636→  1636→    onChange(serializeAssignees(next));
+  1637→  1637→  };
+  1638→  1638→
+  1639→  1639→  const selectedMembers = selectedIds
+  1640→  1640→    .map(id => members.find(m => m.userId === id || m.displayName === id))
+  1641→  1641→    .filter(Boolean) as GroupMember[];
+  1642→  1642→  const isSmall = size === 'xs';
+  1643→  1643→
+  1644→  1644→  return (
+  1645→  1645→    <Popover open={open} onOpenChange={setOpen}>
+  1646→  1646→      <PopoverTrigger asChild>
+  1647→  1647→        <button
+  1648→  1648→          type="button"
+  1649→  1649→          onClick={(e) => e.stopPropagation()}
+  1650→  1650→          className={cn(
+  1651→  1651→            'flex items-center gap-0.5 rounded-full transition-all cursor-pointer flex-shrink-0',
+  1652→  1652→            isSmall ? 'h-5' : 'h-6',
+  1653→  1653→          )}
+  1654→  1654→          title={selectedMembers.length > 0
+  1655→  1655→            ? selectedMembers.map(m => m.displayName).join(', ')
+  1656→  1656→            : 'Назначить ответственных'
+  1657→  1657→          }
+  1658→  1658→        >
+  1659→  1659→          {selectedMembers.length === 0 ? (
+  1660→  1660→            <div
+  1661→  1661→              className={cn(
+  1662→  1662→                'rounded-full flex items-center justify-center border border-dashed',
+  1663→  1663→                isSmall ? 'w-4 h-4' : 'w-5 h-5'
+  1664→  1664→              )}
+  1665→  1665→              style={{ borderColor: hexToRgba(boardColor, 0.4) }}
+  1666→  1666→            >
+  1667→  1667→              <User className={isSmall ? 'w-2 h-2' : 'w-2.5 h-2.5'} style={{ color: hexToRgba(boardColor, 0.5) }} />
+  1668→  1668→            </div>
+  1669→  1669→          ) : (
+  1670→  1670→            <>
+  1671→  1671→              {selectedMembers.slice(0, 2).map((m, i) => (
+  1672→  1672→                <div
+  1673→  1673→                  key={m.userId}
+  1674→  1674→                  className={cn('rounded-full overflow-hidden flex-shrink-0', isSmall ? 'w-4 h-4' : 'w-5 h-5')}
+  1675→  1675→                  style={{
+  1676→  1676→                    backgroundColor: hexToRgba(boardColor, 0.5),
+  1677→  1677→                    border: `1px solid ${hexToRgba(boardColor, 0.7)}`,
+  1678→  1678→                    marginLeft: i > 0 ? '-4px' : 0,
+  1679→  1679→                    zIndex: 10 - i,
+  1680→  1680→                  }}
+  1681→  1681→                >
+  1682→  1682→                  {m.avatarUrl ? (
+  1683→  1683→                    <img src={m.avatarUrl} alt={m.displayName} className="w-full h-full object-cover" />
+  1684→  1684→                  ) : (
+  1685→  1685→                    <div className="w-full h-full flex items-center justify-center">
+  1686→  1686→                      <span className={cn('font-bold text-white', isSmall ? 'text-[7px]' : 'text-[8px]')}>
+  1687→  1687→                        {(m.displayName || '?').charAt(0).toUpperCase()}
+  1688→  1688→                      </span>
+  1689→  1689→                    </div>
+  1690→  1690→                  )}
+  1691→  1691→                </div>
+  1692→  1692→              ))}
+  1693→  1693→              {selectedMembers.length > 2 && (
+  1694→  1694→                <div
+  1695→  1695→                  className={cn('rounded-full flex items-center justify-center flex-shrink-0 font-bold text-white', isSmall ? 'w-4 h-4 text-[7px]' : 'w-5 h-5 text-[8px]')}
+  1696→  1696→                  style={{
+  1697→  1697→                    backgroundColor: hexToRgba(boardColor, 0.6),
+  1698→  1698→                    border: `1px solid ${hexToRgba(boardColor, 0.8)}`,
+  1699→  1699→                    marginLeft: '-4px',
+  1700→  1700→                    zIndex: 7,
+  1701→  1701→                  }}
+  1702→  1702→                >
+  1703→  1703→                  +{selectedMembers.length - 2}
+  1704→  1704→                </div>
+  1705→  1705→              )}
+  1706→  1706→            </>
+  1707→  1707→          )}
+  1708→  1708→        </button>
+  1709→  1709→      </PopoverTrigger>
+  1710→  1710→      <PopoverContent
+  1711→  1711→        className="w-56 p-2 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[70]"
+  1712→  1712→        align="center"
+  1713→  1713→        sideOffset={6}
+  1714→  1714→        onClick={(e) => e.stopPropagation()}
+  1715→  1715→      >
+  1716→  1716→        <p className="text-[9px] uppercase tracking-wider text-slate-600 font-semibold mb-1.5 px-1">Ответственные</p>
+  1717→  1717→        {members.length === 0 ? (
+  1718→  1718→          <p className="text-[10px] text-slate-600 py-2 text-center">Нет участников группы</p>
+  1719→  1719→        ) : (
+  1720→  1720→          <div className="space-y-0.5 max-h-48 overflow-y-auto">
+  1721→  1721→            {members.map(m => {
+  1722→  1722→              const isSelected = selectedIds.includes(m.userId) || selectedIds.includes(m.displayName);
+  1723→  1723→              return (
+  1724→  1724→                <button
+  1725→  1725→                  key={m.userId}
+  1726→  1726→                  onClick={(e) => { e.stopPropagation(); toggleMember(m.userId); }}
+  1727→  1727→                  className={cn(
+  1728→  1728→                    'w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-all',
+  1729→  1729→                    isSelected ? 'bg-slate-800' : 'hover:bg-slate-800/60',
+  1730→  1730→                  )}
+  1731→  1731→                >
+  1732→  1732→                  <div
+  1733→  1733→                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
+  1734→  1734→                    style={{
+  1735→  1735→                      backgroundColor: hexToRgba(boardColor, 0.5),
+  1736→  1736→                      border: `1px solid ${isSelected ? boardColor : hexToRgba(boardColor, 0.3)}`,
+  1737→  1737→                    }}
+  1738→  1738→                  >
+  1739→  1739→                    {m.avatarUrl ? (
+  1740→  1740→                      <img src={m.avatarUrl} alt={m.displayName} className="w-full h-full object-cover" />
+  1741→  1741→                    ) : (
+  1742→  1742→                      <span className="text-[8px] font-bold text-white">
+  1743→  1743→                        {(m.displayName || '?').charAt(0).toUpperCase()}
+  1744→  1744→                      </span>
+  1745→  1745→                    )}
+  1746→  1746→                  </div>
+  1747→  1747→                  <div className="flex-1 text-left min-w-0">
+  1748→  1748→                    <span className={cn('text-[11px] font-medium truncate block', isSelected ? 'text-slate-100' : 'text-slate-300')}>
+  1749→  1749→                      {m.displayName || m.email}
+  1750→  1750→                    </span>
+  1751→  1751→                    {m.instrument && (
+  1752→  1752→                      <span className="text-[9px] text-slate-600">{m.instrument}</span>
+  1753→  1753→                    )}
+  1754→  1754→                  </div>
+  1755→  1755→                  {isSelected && (
+  1756→  1756→                    <Check className="w-3.5 h-3.5 flex-shrink-0" style={{ color: boardColor }} />
+  1757→  1757→                  )}
+  1758→  1758→                </button>
+  1759→  1759→              );
+  1760→  1760→            })}
+  1761→  1761→          </div>
+  1762→  1762→        )}
+  1763→  1763→        {selectedIds.length > 0 && (
+  1764→  1764→          <button
+  1765→  1765→            onClick={(e) => { e.stopPropagation(); onChange(null); }}
+  1766→  1766→            className="w-full mt-1.5 text-[10px] text-slate-600 hover:text-rose-400 transition-colors py-1 border-t border-slate-800"
+  1767→  1767→          >
+  1768→  1768→            Сбросить всех
+  1769→  1769→          </button>
+  1770→  1770→        )}
+  1771→  1771→      </PopoverContent>
+  1772→  1772→    </Popover>
+  1773→  1773→  );
+  1774→  1774→}
+  1775→  1775→
+  1776→  1776→/* ── Helpers ───────────────────────────────────────────── */
+  1777→  1777→
+  1778→  1778→async function updateSubtask(subId: string, patch: Record<string, unknown>, reloadTasks: () => Promise<void>) {
+  1779→  1779→  await fetch('/api/tasks', {
+  1780→  1780→    method: 'PUT',
+  1781→  1781→    headers: { 'Content-Type': 'application/json' },
+  1782→  1782→    body: JSON.stringify({ id: subId, ...patch }),
+  1783→  1783→  });
+  1784→  1784→  await reloadTasks();
+  1785→  1785→}
+  1786→  1786→
+  1787→  1787→async function moveSubtask(stage: TaskChild, idx: number, dir: -1 | 1, reloadTasks: () => Promise<void>) {
+  1788→  1788→  const subtasks = stage.children || [];
+  1789→  1789→  const target = idx + dir;
+  1790→  1790→  if (target < 0 || target >= subtasks.length) return;
+  1791→  1791→  const a = subtasks[idx];
+  1792→  1792→  const b = subtasks[target];
+  1793→  1793→  await Promise.all([
+  1794→  1794→    fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: a.id, hexR: b.hexR, hexQ: b.hexQ }) }),
+  1795→  1795→    fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: b.id, hexR: a.hexR, hexQ: a.hexQ }) }),
+  1796→  1796→  ]);
+  1797→  1797→  await reloadTasks();
+  1798→  1798→}
+  1799→  1799→
+  1800→  1800→function getProgress(children: { status: string }[]): number {
+  1801→  1801→  if (children.length === 0) return 0;
+  1802→  1802→  const done = children.filter(c => c.status === 'done').length;
+  1803→  1803→  return Math.round((done / children.length) * 100);
+  1804→  1804→}
+  1805→  1805→

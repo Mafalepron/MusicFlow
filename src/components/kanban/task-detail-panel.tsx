@@ -17,7 +17,7 @@ import {
 import {
   Check, Circle, Clock, Eye, Plus, Trash2, Pencil,
   ChevronRight, X, Save, Music, AudioWaveform,
-  ArrowRight, AlertTriangle, Flame, CalendarDays, User, ListChecks,
+  AlertTriangle, Flame, CalendarDays, User, ListChecks,
 } from 'lucide-react';
 import DeadlinePicker, { getDeadlineInfo } from '@/components/kanban/deadline-picker';
 import { cn, boardColorStyles, hexToRgba } from '@/lib/utils';
@@ -525,23 +525,7 @@ function TrackTextSection({
   );
 }
 
-/* ── Meta row helper ──────────────────────────────────── */
-
-function MetaRow({
-  icon, label, children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center gap-2 min-w-0">
-      <div className="flex-shrink-0 w-4 flex items-center justify-center">{icon}</div>
-      <span className="text-[10px] text-slate-600 flex-shrink-0 w-20">{label}</span>
-      <div className="flex-1 min-w-0 truncate">{children}</div>
-    </div>
-  );
-}
+/* ── Deadline badge helper ─────────────────────────────── */
 
 function DeadlineBadge({
   value, info,
@@ -573,7 +557,7 @@ function DeadlineBadge({
   );
 }
 
-/* ── Regular Task Detail View (simplified — subtasks summary + manage hint) ──── */
+/* ── Regular Task Detail View (cyberpunk styled — matches TrackDetailView) ──── */
 
 function TaskDetailView({ task, board }: { task: Task; board?: { title: string; color: string } }) {
   const { setBoardTasks, selectedBoardId, setEditingTask, setSelectedTaskId, setSelectedStageForPanel } = useKanbanStore();
@@ -583,24 +567,12 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
 
   const boardColor = board?.color || '#00d9ff';
   const subtasks = task.children || [];
-  const progress = getProgress(subtasks);
-
-  const getProgressColor = () => {
-    if (progress === 100) return '#10b981';
-    if (progress > 50) return boardColor;
-    if (progress > 0) return '#f59e0b';
-    return '#334155';
-  };
-  const getProgressTextColor = () => {
-    if (progress === 100) return '#34d399';
-    if (progress > 50) return boardColor;
-    if (progress > 0) return '#f59e0b';
-    return '#475569';
-  };
+  const doneCount = subtasks.filter(s => s.status === 'done').length;
 
   const reloadTasks = useCallback(async () => {
     if (!selectedBoardId) return;
-    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+    const isTracks = useKanbanStore.getState().boards.find(b => b.id === selectedBoardId)?.boardType === 'tracks';
+    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}${isTracks ? '&deep=true' : ''}`);
     const data = await res.json();
     setBoardTasks(data.tasks);
   }, [selectedBoardId, setBoardTasks]);
@@ -627,11 +599,6 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
     if (!isEditingDesc) setDescDraft(task.description || '');
   }
 
-  const updateTaskDeadline = async (deadline: string | null) => {
-    await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, deadline }) });
-    await reloadTasks();
-  };
-
   const handleDeleteTask = async () => {
     await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
     setSelectedTaskId(null);
@@ -643,178 +610,185 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
     }
   };
 
-  const openManageSubtasks = () => {
-    setSelectedStageForPanel({ taskId: task.id, stageId: '' });
-  };
-
   const deadlineInfo = getDeadlineInfo(task.deadline || null);
   const priorityHex = PRIORITY_DOT_HEX[task.priority] || '#64748b';
   const statusHex = STATUS_DOT_HEX[task.status] || '#22d3ee';
-  const doneCount = subtasks.filter(s => s.status === 'done').length;
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
-      {/* Header */}
-      <div className="border-b border-slate-800/50 p-4">
-        <div className="flex items-center gap-1.5 mb-2.5">
-          {board && (
-            <span
-              className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium"
-              style={{ color: boardColor, backgroundColor: hexToRgba(boardColor, 0.12) }}
+      {/* Header — title + metadata in one line (cyberpunk, matches TrackDetailView) */}
+      <div className="p-4" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.2)', background: 'linear-gradient(90deg, rgba(252,238,10,0.04), transparent)' }}>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setEditingTask(task)}
+              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+              title="Редактировать"
             >
-              {board.title}
-            </span>
-          )}
-          <span
-            className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-            style={{ color: statusHex, backgroundColor: hexToRgba(statusHex, 0.12) }}
-          >
-            {STATUSES.find(s => s.value === task.status)?.label || task.status}
-          </span>
-          <div className="flex-1" />
-          <button onClick={() => setEditingTask(task)} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors">
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={() => void handleDeleteTask()} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => void handleDeleteTask()}
+              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors"
+              title="Удалить"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-        <h3 className={cn('text-sm font-semibold leading-tight mb-1', task.status === 'done' ? 'text-slate-500 line-through' : 'text-slate-100')}>
-          {task.title}
-        </h3>
-        {/* Metadata summary line */}
-        <div className="flex items-center gap-3 flex-wrap text-[10px] text-slate-500">
+
+        {/* Metadata in one line: status · priority · assignee · deadline */}
+        <div className="flex items-center gap-3 flex-wrap text-[10px]">
+          {/* Status */}
+          <span className="flex items-center gap-1">
+            <Circle className="w-2 h-2" style={{ color: statusHex }} />
+            <span style={{ color: statusHex }}>{STATUSES.find(s => s.value === task.status)?.label || task.status}</span>
+          </span>
+          {/* Priority */}
+          <span className="flex items-center gap-1 text-slate-400">
+            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: priorityHex }} />
+            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
+          </span>
+          {/* Assignee */}
           {task.assignee && (
-            <span className="flex items-center gap-1">
-              <span
-                className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold text-white"
-                style={{ backgroundColor: hexToRgba(boardColor, 0.6) }}
-              >
-                {task.assignee.charAt(0).toUpperCase()}
-              </span>
+            <span className="flex items-center gap-1 text-slate-400">
+              <User className="w-2.5 h-2.5" />
               {task.assignee}
             </span>
           )}
-          <span className="flex items-center gap-1" style={{ color: priorityHex }}>
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: priorityHex }} />
-            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
-          </span>
+          {/* Deadline */}
+          {task.deadline && (
+            <span className="flex items-center gap-1" style={{ color: deadlineInfo.status === 'overdue' ? '#fb7185' : deadlineInfo.status === 'urgent' ? '#f59e0b' : '#64748b' }}>
+              <CalendarDays className="w-2.5 h-2.5" />
+              <DeadlineBadge value={task.deadline} info={deadlineInfo} />
+            </span>
+          )}
+          {/* Subtasks count chip */}
+          {subtasks.length > 0 && (
+            <span
+              className="flex items-center gap-1 ml-auto px-1.5 py-0.5 text-[9px] font-bold"
+              style={{
+                color: '#FCEE0A',
+                border: '1px solid rgba(252, 238, 10, 0.3)',
+                backgroundColor: 'rgba(252, 238, 10, 0.06)',
+                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+              }}
+              title={`${doneCount} из ${subtasks.length} подзадач выполнено`}
+            >
+              <ListChecks className="w-2.5 h-2.5" />
+              {doneCount}/{subtasks.length}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Description (inline editable) */}
-      <div className="border-b border-slate-800/30 px-4 py-3">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[9px] uppercase tracking-widest font-medium" style={{ color: hexToRgba(boardColor, 0.55) }}>
+      {/* Description (inline editable) — cyberpunk styled, matches TrackDetailView */}
+      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+        <div className="flex items-center justify-between mb-2">
+          <span
+            className="text-[9px] uppercase tracking-widest font-bold"
+            style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
+          >
             Описание
           </span>
           {!isEditingDesc && (
             <button
               onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
-              className="text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1"
-              style={{ color: hexToRgba(boardColor, 0.5) }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = boardColor; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = hexToRgba(boardColor, 0.5); }}
+              className="text-[9px] px-2 py-0.5 rounded transition-all flex items-center gap-1 font-medium"
+              style={{ color: '#FCEE0A', border: '1px solid rgba(252,238,10,0.2)', background: 'rgba(252,238,10,0.04)', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
             >
               <Pencil className="w-2.5 h-2.5" /> Изменить
             </button>
           )}
         </div>
         {isEditingDesc ? (
-          <Textarea
-            value={descDraft}
-            onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
-            placeholder="Описание задачи..."
-            className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none"
-            style={{ borderColor: hexToRgba(boardColor, 0.3) }}
-            autoFocus
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
-              if (e.key === 'Escape') { setIsEditingDesc(false); setDescDraft(task.description || ''); }
-            }}
-            onBlur={() => {
-              if (descDraft.trim() !== (task.description || '').trim()) void saveDesc();
-              else setIsEditingDesc(false);
-            }}
-          />
+          <div className="space-y-2">
+            <Textarea
+              value={descDraft}
+              onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
+              placeholder="Описание задачи..."
+              className="text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none rounded-md"
+              style={{
+                background: 'rgba(8, 8, 16, 0.9)',
+                border: '1px solid rgba(252, 238, 10, 0.2)',
+                boxShadow: 'inset 0 0 8px rgba(252, 238, 10, 0.03)',
+              }}
+              autoFocus
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  void saveDesc();
+                }
+                if (e.key === 'Escape') {
+                  setIsEditingDesc(false);
+                  setDescDraft(task.description || '');
+                }
+              }}
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-[8px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => { setIsEditingDesc(false); setDescDraft(task.description || ''); }}
+                  className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => void saveDesc()}
+                  disabled={savingDesc}
+                  className="text-[10px] font-bold px-3 py-1 rounded transition-all disabled:opacity-50"
+                  style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+                >
+                  {savingDesc ? '...' : 'Сохранить'}
+                </button>
+              </div>
+            </div>
+          </div>
         ) : task.description ? (
-          <p className="text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap">{task.description}</p>
+          <div
+            className="rounded-md px-3 py-2 transition-all cursor-pointer"
+            style={{
+              background: 'rgba(0, 229, 255, 0.05)',
+              border: '1.5px solid rgba(0, 229, 255, 0.25)',
+              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+              boxShadow: 'inset 0 0 8px rgba(0, 229, 255, 0.02)',
+            }}
+            onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+          >
+            <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">
+              {task.description}
+            </p>
+          </div>
         ) : (
           <button
             onClick={() => { setDescDraft(''); setIsEditingDesc(true); }}
             className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors"
           >
-            Добавить описание...
+            Нажмите, чтобы добавить описание...
           </button>
         )}
       </div>
 
-      {/* Deadline */}
-      <div className="border-b border-slate-800/30 px-4 py-3">
-        <span className="text-[9px] uppercase tracking-widest font-medium block mb-1.5" style={{ color: hexToRgba(boardColor, 0.55) }}>
-          Дедлайн
-        </span>
-        <DeadlinePicker value={task.deadline || null} onChange={(d) => void updateTaskDeadline(d)} isDone={task.status === 'done'} size="md" />
-        {task.deadline && deadlineInfo.status !== 'ok' && deadlineInfo.status !== 'done' && (
-          <p className="text-[9px] mt-1" style={{ color: deadlineInfo.status === 'overdue' ? '#fb7185' : deadlineInfo.status === 'urgent' ? '#f59e0b' : '#22d3ee' }}>
-            {deadlineInfo.status === 'overdue' ? `Просрочен на ${Math.abs(deadlineInfo.daysLeft)} дн.` : `Осталось ${deadlineInfo.daysLeft} дн.`}
-          </p>
-        )}
-      </div>
-
-      {/* Progress */}
-      {subtasks.length > 0 && (
-        <div className="border-b border-slate-800/30 px-4 py-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] text-slate-400 font-medium">Прогресс</span>
-            <span className="text-[11px] font-bold" style={{ color: getProgressTextColor() }}>{progress}%</span>
-          </div>
-          <div className="relative h-2 bg-slate-800/80 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, backgroundColor: getProgressColor() }} />
-            {progress > 0 && progress < 100 && (
-              <div
-                className="absolute inset-0 rounded-full animate-pulse opacity-20"
-                style={{ background: `linear-gradient(90deg, transparent, ${getProgressColor()}, transparent)` }}
-              />
-            )}
-          </div>
-          <p className="text-[9px] text-slate-600 mt-1">{doneCount} из {subtasks.length} подзадач выполнено</p>
-        </div>
-      )}
-
-      {/* Manage subtasks hint */}
-      <div className="px-4 py-4 mt-auto">
-        <button
-          onClick={openManageSubtasks}
-          className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg transition-all duration-200 group"
+      {/* Hint — subtasks are managed in the bottom panel (always pinned) */}
+      <div className="px-4 py-3 mt-auto">
+        <div
+          className="flex items-center gap-2 px-3 py-2 text-[10px]"
           style={{
-            border: `1px solid ${hexToRgba(boardColor, 0.25)}`,
-            backgroundColor: hexToRgba(boardColor, 0.06),
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLElement;
-            el.style.borderColor = hexToRgba(boardColor, 0.5);
-            el.style.backgroundColor = hexToRgba(boardColor, 0.12);
-            el.style.boxShadow = `0 0 16px ${hexToRgba(boardColor, 0.15)}`;
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLElement;
-            el.style.borderColor = hexToRgba(boardColor, 0.25);
-            el.style.backgroundColor = hexToRgba(boardColor, 0.06);
-            el.style.boxShadow = 'none';
+            color: 'rgba(0, 229, 255, 0.7)',
+            border: '1px solid rgba(0, 229, 255, 0.15)',
+            backgroundColor: 'rgba(0, 229, 255, 0.04)',
+            clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
           }}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <ListChecks className="w-3.5 h-3.5 flex-shrink-0" style={{ color: boardColor }} />
-            <div className="min-w-0 text-left">
-              <p className="text-[11px] font-semibold text-slate-200 truncate">Управление подзадачами</p>
-              <p className="text-[9px] text-slate-500 truncate">
-                {subtasks.length > 0 ? `${subtasks.length} подзадач · ${doneCount} выполнено` : 'Создайте и управляйте подзадачами'}
-              </p>
-            </div>
-          </div>
-          <ArrowRight className="w-3.5 h-3.5 flex-shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: boardColor }} />
-        </button>
+          <ListChecks className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate">
+            {subtasks.length > 0
+              ? `Подзадачи доступны в панели снизу — ${doneCount}/${subtasks.length} выполнено`
+              : 'Создавайте подзадачи в панели снизу'}
+          </span>
+        </div>
       </div>
     </div>
   );
