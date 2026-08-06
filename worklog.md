@@ -706,3 +706,24 @@ Stage Summary:
 - Descriptions now have a clear label ("ОПИСАНИЕ ЭТАПА" / "ОПИСАНИЕ ПОДЗАДАЧИ") with a file icon in board color, making it obvious which object they belong to.
 - All add buttons (description, stage, subtask) use the board's color by default with yellow on hover.
 - The redundant subtasks hint box has been removed from non-tracks boards.
+
+---
+Task ID: 16
+Agent: main (Z.ai Code)
+Task: "Добавить подзадачу" button should match "Добавить этап" style, using board color.
+
+Work Log:
+- Found 3 "Добавить подзадачу" buttons in description-bottom-panel.tsx:
+  1. Line 1227 (SubtasksList when 0 subtasks): already used `cp-add-btn` ✓
+  2. Line 1291 (SubtasksList with items): used `text-slate-600 hover:text-slate-400` plain link style
+  3. Line 1648 (FlatSubtasksList): used `text-slate-500` full-width plain link style
+- Changed buttons 2 and 3 to use `className="cp-add-btn"` (button 3 with `mx-2 w-[calc(100%-1rem)] justify-center` for full-width centering like the add-stage button).
+- The `cp-add-btn` CSS class already uses board color values (`${c.a7}`, `${c.a3}`, `${c.a08}`) with yellow hover — applied from Task 15.
+- Removed the inline `onMouseEnter`/`onMouseLeave` color overrides that are no longer needed.
+
+Verification via VLM:
+- Confirmed: "Добавить подзадачу" button has the same style as "Добавить этап" — board color border, board color text, angular clip-path, not a plain gray link anymore.
+- No runtime errors. Lint: no new errors.
+
+Stage Summary:
+- All 3 "Добавить подзадачу" buttons now use the unified `cp-add-btn` class, matching the "Добавить этап" button style with board color by default and yellow on hover.

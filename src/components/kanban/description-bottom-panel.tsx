@@ -1290,9 +1290,7 @@ function SubtasksList({
       ) : (
         <button
           onClick={() => setAddingSub(true)}
-          className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-slate-400 transition-colors py-0.5"
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = c.raw; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ''; }}
+          className="cp-add-btn"
         >
           <Plus className="w-2.5 h-2.5" /> Добавить подзадачу
         </button>
@@ -1646,9 +1644,7 @@ function FlatSubtasksList({
       ) : (
         <button
           onClick={() => setAddingSub(true)}
-          className="w-full flex items-center justify-center gap-1.5 py-2 text-[10px] text-slate-500 transition-colors"
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = c.raw; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = ''; }}
+          className="cp-add-btn mx-2 w-[calc(100%-1rem)] justify-center"
         >
           <Plus className="w-3 h-3" /> Добавить подзадачу
         </button>
