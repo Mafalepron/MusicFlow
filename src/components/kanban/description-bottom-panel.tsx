@@ -310,23 +310,21 @@ export default function DescriptionBottomPanel() {
             {task.trackConfig ? `${stagesCount} ETH · ${subtasksCount} SUB` : `${stagesCount} SUB`}
           </span>
 
-          {/* Progress bar in header */}
-          {subtasksCount > 0 && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <div className="cp-header-progress">
-                <div
-                  className="cp-header-progress-fill"
-                  style={{ width: `${progress}%`, backgroundColor: progressColor, boxShadow: progress > 0 ? `0 0 6px ${progressColor}80` : 'none' }}
-                />
-              </div>
-              <span className="cp-header-progress-text" style={{ color: progressColor }}>
-                {progress}%
-              </span>
+          {/* Progress bar in header — always show */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="cp-header-progress">
+              <div
+                className="cp-header-progress-fill"
+                style={{ width: `${progress}%`, backgroundColor: progressColor, boxShadow: progress > 0 ? `0 0 6px ${progressColor}80` : 'none' }}
+              />
             </div>
-          )}
+            <span className="cp-header-progress-text" style={{ color: progressColor }}>
+              {progress}%
+            </span>
+          </div>
         </button>
 
-        {!isCollapsed && (
+        {!isCollapsed && false && (
           <button
             onClick={() => setSelectedStageForPanel(null)}
             className="cp-icon-btn"
@@ -525,21 +523,21 @@ export default function DescriptionBottomPanel() {
         .cp-stage-card {
           position: relative;
           margin: 0 8px 8px;
-          background: linear-gradient(135deg, rgba(14, 14, 26, 0.95), rgba(8, 8, 18, 0.98));
-          border: 1px solid rgba(252, 238, 10, 0.12);
+          background: linear-gradient(135deg, rgba(20, 20, 36, 0.85), rgba(14, 14, 26, 0.9));
+          border: 1px solid rgba(252, 238, 10, 0.15);
           clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
           transition: all 200ms;
           overflow: hidden;
         }
         .cp-stage-card:hover {
-          border-color: rgba(252, 238, 10, 0.25);
-          background: linear-gradient(135deg, rgba(18, 18, 32, 0.95), rgba(10, 10, 22, 0.98));
-          box-shadow: 0 0 12px rgba(252, 238, 10, 0.06);
+          border-color: rgba(252, 238, 10, 0.3);
+          background: linear-gradient(135deg, rgba(26, 26, 44, 0.85), rgba(18, 18, 34, 0.9));
+          box-shadow: 0 0 16px rgba(252, 238, 10, 0.08);
         }
         .cp-stage-card-selected {
           border-color: ${c.a6};
-          box-shadow: 0 0 0 1px ${c.a4}, 0 0 24px ${c.a25}, inset 0 0 16px ${c.a06 || c.a08};
-          background: linear-gradient(135deg, ${c.a08}, rgba(8, 8, 18, 0.98));
+          box-shadow: 0 0 0 1px ${c.a4}, 0 0 24px ${c.a25}, inset 0 0 16px ${c.a08};
+          background: linear-gradient(135deg, ${c.a12}, rgba(14, 14, 26, 0.9));
         }
         .cp-stage-card::after {
           content: '';
@@ -609,18 +607,18 @@ export default function DescriptionBottomPanel() {
           margin: 3px 8px 3px 16px;
           transition: all 120ms;
           border-left: 2px solid ${c.a3};
-          background: rgba(10, 10, 18, 0.7);
-          border-top: 1px solid rgba(252, 238, 10, 0.04);
-          border-right: 1px solid rgba(252, 238, 10, 0.04);
-          border-bottom: 1px solid rgba(252, 238, 10, 0.04);
+          background: rgba(16, 16, 28, 0.6);
+          border-top: 1px solid rgba(252, 238, 10, 0.06);
+          border-right: 1px solid rgba(252, 238, 10, 0.06);
+          border-bottom: 1px solid rgba(252, 238, 10, 0.06);
           clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%);
         }
         .cp-subtask-row:hover {
-          background: rgba(252, 238, 10, 0.05);
+          background: rgba(252, 238, 10, 0.06);
           border-left-color: #FCEE0A;
           border-left-width: 3px;
-          border-color: rgba(252, 238, 10, 0.15);
-          box-shadow: 0 0 8px rgba(252, 238, 10, 0.06);
+          border-color: rgba(252, 238, 10, 0.2);
+          box-shadow: 0 0 12px rgba(252, 238, 10, 0.08);
         }
         .cp-arrow-btn {
           padding: 3px;

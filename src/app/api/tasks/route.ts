@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const { id, title, description, status, priority, assignee, category, isProject, boardId, deadline, hexQ, hexR } = body;
+  const { id, title, description, status, priority, assignee, category, isProject, boardId, deadline, hexQ, hexR, trackConfig } = body;
 
   if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
@@ -141,6 +141,7 @@ export async function PUT(req: NextRequest) {
       ...(deadline !== undefined && { deadline: deadline ? new Date(deadline) : null }),
       ...(hexQ !== undefined && { hexQ }),
       ...(hexR !== undefined && { hexR }),
+      ...(trackConfig !== undefined && { trackConfig }),
     },
     include: {
       children: {

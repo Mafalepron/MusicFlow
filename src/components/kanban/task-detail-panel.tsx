@@ -179,39 +179,59 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
-      {/* Header */}
+      {/* Header — title + metadata in one line */}
       <div className="border-b border-slate-800/50 p-4">
-        <div className="flex items-center gap-1.5 mb-2.5">
-          <span
-            className="text-[9px] px-1.5 py-0.5 rounded font-medium uppercase tracking-wider"
-            style={{ color: boardColor, backgroundColor: hexToRgba(boardColor, 0.12) }}
-          >
-            Трек
-          </span>
-          <div className="flex-1" />
-          <button
-            onClick={() => setEditingTask(task)}
-            className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
-            title="Редактировать"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => void handleDelete()}
-            className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors"
-            title="Удалить"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setEditingTask(task)}
+              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+              title="Редактировать"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => void handleDelete()}
+              className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-rose-400 transition-colors"
+              title="Удалить"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-        <h3 className="text-base font-semibold text-white leading-tight mb-1">{task.title}</h3>
-        {task.assignee && (
-          <p className="text-[11px] text-slate-500 flex items-center gap-1 mb-1">
-            <User className="w-3 h-3" /> {task.assignee}
-          </p>
-        )}
+
+        {/* Metadata in one line */}
+        <div className="flex items-center gap-3 flex-wrap text-[10px]">
+          {/* Status */}
+          <span className="flex items-center gap-1">
+            <Circle className="w-2 h-2" style={{ color: statusHex }} />
+            <span style={{ color: statusHex }}>{STATUSES.find(s => s.value === task.status)?.label || task.status}</span>
+          </span>
+          {/* Priority */}
+          <span className="flex items-center gap-1 text-slate-400">
+            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: priorityHex }} />
+            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
+          </span>
+          {/* Assignee */}
+          {task.assignee && (
+            <span className="flex items-center gap-1 text-slate-400">
+              <User className="w-2.5 h-2.5" />
+              {task.assignee}
+            </span>
+          )}
+          {/* Deadline */}
+          {task.deadline && (
+            <span className="flex items-center gap-1" style={{ color: deadlineInfo.status === 'overdue' ? '#fb7185' : deadlineInfo.status === 'urgent' ? '#f59e0b' : '#64748b' }}>
+              <CalendarDays className="w-2.5 h-2.5" />
+              <DeadlineBadge value={task.deadline} info={deadlineInfo} />
+            </span>
+          )}
+        </div>
+
+        {/* Instruments */}
         {config?.instruments?.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
+          <div className="flex flex-wrap gap-1 mt-2">
             {config.instruments.map((inst: string) => (
               <span
                 key={inst}
@@ -337,62 +357,150 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
         )}
       </div>
 
-      {/* Metadata row */}
-      <div className="border-b border-slate-800/30 px-4 py-3 space-y-2">
+      {/* Track cover */}
+      <div className="border-b border-slate-800/30 px-4 py-3">
         <span
-          className="text-[9px] uppercase tracking-widest font-medium block mb-1"
+          className="text-[9px] uppercase tracking-widest font-medium block mb-2"
           style={{ color: hexToRgba(boardColor, 0.55) }}
         >
-          Метаданные
+          Обложка
         </span>
-
-        {/* Status */}
-        <MetaRow icon={<Circle className="w-2.5 h-2.5" style={{ color: statusHex }} />} label="Статус">
-          <span className="text-[11px] font-medium" style={{ color: statusHex }}>
-            {STATUSES.find(s => s.value === task.status)?.label || task.status}
-          </span>
-        </MetaRow>
-
-        {/* Priority */}
-        <MetaRow icon={<span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: priorityHex }} />} label="Приоритет">
-          <span className={cn('text-[11px] font-medium', PRIORITIES.find(p => p.value === task.priority)?.text)}>
-            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
-          </span>
-        </MetaRow>
-
-        {/* Assignee */}
-        {task.assignee && (
-          <MetaRow
-            icon={
-              <span
-                className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
-                style={{ backgroundColor: hexToRgba(boardColor, 0.6) }}
-              >
-                {task.assignee.charAt(0).toUpperCase()}
-              </span>
-            }
-            label="Ответственный"
-          >
-            <span className="text-[11px] text-slate-300">{task.assignee}</span>
-          </MetaRow>
-        )}
-
-        {/* Deadline */}
-        {task.deadline && (
-          <MetaRow
-            icon={<CalendarDays className="w-3 h-3"
-              style={{
-                color: deadlineInfo.status === 'overdue' ? '#fb7185' :
-                  deadlineInfo.status === 'urgent' ? '#f59e0b' :
-                  deadlineInfo.status === 'soon' ? '#22d3ee' : '#64748b'
-              }}
-            />}
-            label="Дедлайн"
-          >
-            <DeadlineBadge value={task.deadline} info={deadlineInfo} />
-          </MetaRow>
-        )}
+        <div
+          className="aspect-square max-w-[160px] rounded-lg border border-dashed flex items-center justify-center overflow-hidden"
+          style={{ borderColor: hexToRgba(boardColor, 0.2), backgroundColor: hexToRgba(boardColor, 0.03) }}
+        >
+          {task.soundflowTrackId ? (
+            <div className="w-full h-full flex items-center justify-center text-slate-700">
+              <Music className="w-8 h-8" />
+            </div>
+          ) : (
+            <div className="text-center px-2">
+              <Music className="w-5 h-5 mx-auto mb-1 text-slate-700" />
+              <p className="text-[9px] text-slate-600">Нет обложки</p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Track text / lyrics */}
+      <TrackTextSection task={task} boardColor={boardColor} onUpdate={async (patch) => {
+        await fetch('/api/tasks', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: task.id, ...patch }),
+        });
+        if (selectedBoardId) {
+          const res = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+          const data = await res.json();
+          setBoardTasks(data.tasks);
+        }
+      }} />
+    </div>
+  );
+}
+
+/* ── Track Text / Lyrics Section ──────────────────────── */
+
+function TrackTextSection({
+  task,
+  boardColor,
+  onUpdate,
+}: {
+  task: Task;
+  boardColor: string;
+  onUpdate: (patch: Record<string, unknown>) => Promise<void>;
+}) {
+  const config = task.trackConfig ? JSON.parse(task.trackConfig) : null;
+  const trackText: string = config?.text || '';
+  const [isEditing, setIsEditing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [draft, setDraft] = useState(trackText);
+
+  const save = async () => {
+    const newConfig = { ...config, text: draft.trim() };
+    await onUpdate({ trackConfig: JSON.stringify(newConfig) });
+    setIsEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(trackText);
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center justify-between mb-2">
+        <span
+          className="text-[9px] uppercase tracking-widest font-medium"
+          style={{ color: hexToRgba(boardColor, 0.55) }}
+        >
+          Текст трека
+        </span>
+        <div className="flex items-center gap-1">
+          {!isEditing && trackText && (
+            <button
+              onClick={() => setIsExpanded(v => !v)}
+              className="text-[9px] px-1.5 py-0.5 rounded transition-colors text-slate-500 hover:text-slate-300"
+            >
+              {isExpanded ? 'Свернуть' : 'Читать'}
+            </button>
+          )}
+          {!isEditing && (
+            <button
+              onClick={() => { setDraft(trackText); setIsEditing(true); }}
+              className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1"
+              style={{ color: hexToRgba(boardColor, 0.5) }}
+            >
+              <Pencil className="w-2.5 h-2.5" /> Изменить
+            </button>
+          )}
+        </div>
+      </div>
+
+      {isEditing ? (
+        <div className="space-y-2">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Введите текст трека или лирику..."
+            className="bg-slate-900/80 text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[120px] resize-none focus:outline-none rounded-md"
+            style={{ borderColor: hexToRgba(boardColor, 0.3) }}
+            autoFocus
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void save(); }
+              if (e.key === 'Escape') cancel();
+            }}
+          />
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={cancel}
+              className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+            >
+              Отмена
+            </button>
+            <button
+              onClick={() => void save()}
+              className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+              style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+            >
+              Сохранить
+            </button>
+          </div>
+        </div>
+      ) : trackText ? (
+        <div
+          className={`text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap ${isExpanded ? '' : 'line-clamp-3'}`}
+        >
+          {trackText}
+        </div>
+      ) : (
+        <button
+          onClick={() => { setDraft(''); setIsEditing(true); }}
+          className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors"
+        >
+          Нажмите, чтобы добавить текст трека...
+        </button>
+      )}
     </div>
   );
 }
