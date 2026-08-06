@@ -400,3 +400,71 @@ Stage Summary:
 - All progress bars (top card, bottom panel header, stage progress) are now always yellow (green only at 100% completion).
 - Stage and subtask titles in the bottom panel are now yellow (slate only when done/struck-through).
 - Right panel section labels ("ОБЛОЖКА", "ТЕКСТ ТРЕКА") and their "Изменить" buttons are now yellow with glow.
+
+---
+Task ID: 10
+Agent: main (Z.ai Code)
+Task: 1) Stage completion percentage number → yellow; 2) Done stage/subtask block fully crossed-out + muted color; 3) Description edit textarea: no purple focus ring, smaller text, thin yellow border; 4) Description "Изменить" button: remove border/frame, match track lyrics style; 5) Cover border outlines → yellow; 6) "New Track" button hover: text + outline turn yellow.
+
+Work Log:
+- Read /home/z/my-project/worklog.md (Task 9: yellow active card outline, yellow progress bars, yellow stage/subtask names, yellow labels).
+- Read all relevant files: task-strip.tsx, task-detail-panel.tsx (TrackDetailView, TaskDetailView, TrackTextSection), description-bottom-panel.tsx (StageCard, SubtaskRow, CSS classes).
+- Found the Textarea component (src/components/ui/textarea.tsx) has default `focus-visible:ring-ring/50` and `focus-visible:border-ring` which produces a purple/violet focus ring — needs override.
+
+Changes made:
+
+### 1. Stage progress percentage → yellow (description-bottom-panel.tsx line 978)
+- Changed `color: c.raw` → `color: '#FCEE0A'` in the stage progress badge span.
+
+### 2. Done stage/subtask — muted crossed-out block (description-bottom-panel.tsx)
+- Added new CSS classes:
+  - `.cp-stage-card-done`: green-tinted border (`rgba(52, 211, 153, 0.3)`), dark green gradient background, `opacity: 0.72`; overrides the `::after` accent bar to green; hover restores opacity to 0.85.
+  - `.cp-subtask-row-done`: green left border + green borders, dark green background, `opacity: 0.65`; hover restores to 0.85.
+- Applied `stageDone && 'cp-stage-card-done'` to the StageCard div (added `const stageDone = stage.status === 'done'`).
+- Applied `subDone && 'cp-subtask-row-done'` to the SubtaskRow div.
+- Stage/subtask titles already had `text-slate-600 line-through` for done state (from Task 9).
+
+### 3. Description edit Textarea — clean yellow border, no purple ring (all 5 locations)
+Replaced all description Textarea components with a consistent cyberpunk style:
+- className: `bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[...] resize-none focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] rounded-md border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5`
+- Key: `focus-visible:ring-0` removes the purple ring; `focus-visible:border-[#FCEE0A]` makes the border turn bright yellow on focus; `text-[10px]` (down from 11px) for smaller letters; `border-[rgba(252,238,10,0.35)]` is the thin yellow default border.
+- Removed inline `style={{ border: ... }}` that used board color.
+- Applied to: stage description, subtask description, TrackDetailView description, TaskDetailView description, TrackTextSection lyrics editor.
+
+### 4. Description "Изменить" button — borderless (task-detail-panel.tsx)
+- TrackDetailView "Изменить": removed `border`, `background`, `clipPath` from inline style; changed className from `px-2 py-0.5 ... transition-all` to `px-1.5 py-0.5 ... transition-colors`; kept `color: '#FCEE0A'`.
+- TaskDetailView "Изменить": same treatment — now matches the TrackTextSection "Изменить" style (plain yellow text + pencil icon, no frame).
+
+### 5. Cover border → yellow (task-detail-panel.tsx)
+- Changed cover div `borderColor` from `hexToRgba(boardColor, 0.2)` → `rgba(252, 238, 10, 0.4)`.
+- Changed `backgroundColor` from `hexToRgba(boardColor, 0.03)` → `rgba(252, 238, 10, 0.03)`.
+- Added `boxShadow: '0 0 12px rgba(252, 238, 10, 0.06)'` for a subtle yellow glow.
+- Verified via computed styles: `border: rgba(252, 238, 10, 0.4)`.
+
+### 6. "New Track" button hover → yellow text + yellow outline (task-strip.tsx)
+- Replaced the old hover (brightness filter + board-color glow) with:
+  - `color: '#FCEE0A'` (text turns yellow)
+  - `border: '1px solid #FCEE0A'` (outline turns yellow)
+  - `boxShadow: '0 0 18px rgba(252, 238, 10, 0.5), 0 0 28px rgba(252, 238, 10, 0.2)...'` (yellow glow)
+  - `textShadow: '0 0 8px rgba(252, 238, 10, 0.6)'` (yellow text glow)
+- On mouse leave: reverts to `color: '#000'`, `border: ${c.a8}`, board-color boxShadow, no textShadow.
+- Added `transition: 'all 180ms ease'` to the base style for smooth hover.
+
+Verification via Agent Browser + VLM:
+- Navigated to the track task with a done stage (set via API).
+- VLM confirmed:
+  1. Stage progress "50%" number = YELLOW ✓
+  2. Done stage = muted/dimmed block with green checkmark ✓
+  3. Description textarea = thin yellow border, NO purple ring, clean and pleasing ✓
+  4. "Изменить" button = plain yellow text, no border/frame ✓
+  5. Cover border computed color = `rgba(252, 238, 10, 0.4)` = yellow ✓
+  6. "New Track" button hover = YELLOW text + YELLOW border + YELLOW glow ✓
+- No runtime errors. Lint: no new errors (3 pre-existing in other files).
+
+Stage Summary:
+- Stage completion percentage numbers are now yellow.
+- Completed stages and subtasks display as muted green-tinted blocks with reduced opacity, clearly indicating closed state.
+- All description/lyrics textareas now have a clean thin yellow border, no purple focus ring, and smaller (10px) text.
+- Description "Изменить" buttons are now borderless yellow text links (matching the track lyrics style).
+- The cover area has a yellow dashed border with a subtle yellow glow.
+- The "New Track"/"New Task" button turns yellow (text + border + glow) on hover.

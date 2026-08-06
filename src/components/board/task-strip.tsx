@@ -229,17 +229,24 @@ export default function TaskStrip() {
               clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
               boxShadow: `0 0 12px ${c.a4}, inset 0 1px 0 rgba(255, 255, 255, 0.4)`,
               cursor: 'pointer',
+              transition: 'all 180ms ease',
             }}
             onMouseEnter={(e) => {
               const el = e.currentTarget;
-              el.style.filter = 'brightness(1.15)';
-              el.style.boxShadow = `0 0 18px ${c.a55}, 0 0 28px ${c.a2}, inset 0 1px 0 rgba(255, 255, 255, 0.5)`;
+              el.style.background = `linear-gradient(135deg, ${c.raw}, ${c.raw} 50%, ${c.raw})`;
+              el.style.color = '#FCEE0A';
+              el.style.border = '1px solid #FCEE0A';
+              el.style.boxShadow = '0 0 18px rgba(252, 238, 10, 0.5), 0 0 28px rgba(252, 238, 10, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3)';
+              el.style.textShadow = '0 0 8px rgba(252, 238, 10, 0.6)';
               el.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
               const el = e.currentTarget;
-              el.style.filter = 'brightness(1)';
+              el.style.background = `linear-gradient(135deg, ${c.raw}, ${c.raw} 50%, ${c.raw})`;
+              el.style.color = '#000';
+              el.style.border = `1px solid ${c.a8}`;
               el.style.boxShadow = `0 0 12px ${c.a4}, inset 0 1px 0 rgba(255, 255, 255, 0.4)`;
+              el.style.textShadow = 'none';
               el.style.transform = 'translateY(0)';
             }}
           >

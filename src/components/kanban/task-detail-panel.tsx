@@ -302,8 +302,8 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
           {!isEditingDesc && (
             <button
               onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
-              className="text-[9px] px-2 py-0.5 rounded transition-all flex items-center gap-1 font-medium"
-              style={{ color: '#FCEE0A', border: '1px solid rgba(252,238,10,0.2)', background: 'rgba(252,238,10,0.04)', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+              className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 font-medium"
+              style={{ color: '#FCEE0A' }}
             >
               <Pencil className="w-2.5 h-2.5" /> Изменить
             </button>
@@ -315,12 +315,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
               value={descDraft}
               onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
               placeholder="Опишите трек..."
-              className="text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none rounded-md"
-              style={{
-                background: 'rgba(8, 8, 16, 0.9)',
-                border: `1px solid ${hexToRgba(boardColor, 0.3)}`,
-                boxShadow: `inset 0 0 8px ${hexToRgba(boardColor, 0.04)}`,
-              }}
+              className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[64px] resize-none focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] rounded-md border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
               autoFocus
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -389,7 +384,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
         </span>
         <div
           className="aspect-square max-w-[160px] rounded-lg border border-dashed flex items-center justify-center overflow-hidden"
-          style={{ borderColor: hexToRgba(boardColor, 0.2), backgroundColor: hexToRgba(boardColor, 0.03) }}
+          style={{ borderColor: 'rgba(252, 238, 10, 0.4)', backgroundColor: 'rgba(252, 238, 10, 0.03)', boxShadow: '0 0 12px rgba(252, 238, 10, 0.06)' }}
         >
           {task.soundflowTrackId ? (
             <div className="w-full h-full flex items-center justify-center text-slate-700">
@@ -485,8 +480,7 @@ function TrackTextSection({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Введите текст трека или лирику..."
-            className="bg-slate-900/80 text-[11px] text-slate-300 placeholder:text-slate-600 min-h-[120px] resize-none focus:outline-none rounded-md"
-            style={{ borderColor: hexToRgba(boardColor, 0.3) }}
+            className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[110px] resize-none focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] rounded-md border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
             autoFocus
             onKeyDown={(e) => {
               if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void save(); }
@@ -697,8 +691,8 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
           {!isEditingDesc && (
             <button
               onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
-              className="text-[9px] px-2 py-0.5 rounded transition-all flex items-center gap-1 font-medium"
-              style={{ color: '#FCEE0A', border: '1px solid rgba(252,238,10,0.2)', background: 'rgba(252,238,10,0.04)', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+              className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 font-medium"
+              style={{ color: '#FCEE0A' }}
             >
               <Pencil className="w-2.5 h-2.5" /> Изменить
             </button>
@@ -710,12 +704,7 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
               value={descDraft}
               onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
               placeholder="Описание задачи..."
-              className="text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none rounded-md"
-              style={{
-                background: 'rgba(8, 8, 16, 0.9)',
-                border: `1px solid ${hexToRgba(boardColor, 0.3)}`,
-                boxShadow: `inset 0 0 8px ${hexToRgba(boardColor, 0.04)}`,
-              }}
+              className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[64px] resize-none focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] rounded-md border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
               autoFocus
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {

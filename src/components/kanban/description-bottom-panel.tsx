@@ -537,6 +537,19 @@ export default function DescriptionBottomPanel() {
           box-shadow: 0 0 0 1px rgba(252, 238, 10, 0.3), 0 0 32px rgba(252, 238, 10, 0.15), inset 0 0 24px rgba(252, 238, 10, 0.05);
           background: linear-gradient(135deg, rgba(252, 238, 10, 0.08), rgba(6, 10, 20, 0.96));
         }
+        /* Done state — muted green-tinted block with strikethrough overlay */
+        .cp-stage-card-done {
+          border-color: rgba(52, 211, 153, 0.3) !important;
+          background: linear-gradient(135deg, rgba(16, 32, 24, 0.85), rgba(8, 18, 14, 0.92)) !important;
+          opacity: 0.72;
+        }
+        .cp-stage-card-done::after {
+          background: linear-gradient(180deg, transparent, rgba(52, 211, 153, 0.5) 20%, rgba(52, 211, 153, 0.5) 80%, transparent) !important;
+        }
+        .cp-stage-card-done:hover {
+          border-color: rgba(52, 211, 153, 0.45) !important;
+          opacity: 0.85;
+        }
         .cp-stage-card::after {
           content: '';
           position: absolute;
@@ -619,6 +632,17 @@ export default function DescriptionBottomPanel() {
           border-left-width: 4px;
           border-color: rgba(252, 238, 10, 0.35);
           box-shadow: 0 0 20px rgba(252, 238, 10, 0.12), inset 0 0 10px rgba(252, 238, 10, 0.03);
+        }
+        /* Done subtask — muted green-tinted block */
+        .cp-subtask-row-done {
+          border-left-color: rgba(52, 211, 153, 0.4) !important;
+          border-color: rgba(52, 211, 153, 0.18) !important;
+          background: rgba(12, 24, 18, 0.7) !important;
+          opacity: 0.65;
+        }
+        .cp-subtask-row-done:hover {
+          opacity: 0.85;
+          border-left-color: rgba(52, 211, 153, 0.55) !important;
         }
         .cp-arrow-btn {
           padding: 4px;
@@ -915,9 +939,11 @@ function StageCard({
 
   const deadlineInfo = getDeadlineInfo(stage.deadline || null);
 
+  const stageDone = stage.status === 'done';
+
   return (
     <div
-      className={cn('cp-stage-card', isSelected && 'cp-stage-card-selected')}
+      className={cn('cp-stage-card', isSelected && 'cp-stage-card-selected', stageDone && 'cp-stage-card-done')}
     >
       {/* Stage header */}
       <div
@@ -975,7 +1001,7 @@ function StageCard({
         {subtasks.length > 0 && (
           <span
             className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 tabular-nums font-bold text-right"
-            style={{ backgroundColor: c.a2, color: c.raw, border: `1px solid ${c.a3}`, minWidth: '38px' }}
+            style={{ backgroundColor: c.a2, color: '#FCEE0A', border: `1px solid ${c.a3}`, minWidth: '38px' }}
             title={`${subtasks.length} подзадач · ${stageProgress}%`}
           >
             {stageProgress}%
@@ -1066,8 +1092,7 @@ function StageCard({
                   value={descDraft}
                   onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
                   placeholder="Описание этапа..."
-                  className="bg-slate-900/90 text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[55px] resize-none focus:outline-none rounded-md"
-                  style={{ border: `1.5px solid ${c.a4}` }}
+                  className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[50px] resize-none focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] rounded-md border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
                   autoFocus
                   onKeyDown={(e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
@@ -1306,7 +1331,7 @@ function SubtaskRow({
 
   return (
     <div>
-      <div className="cp-subtask-row group/sub">
+      <div className={cn('cp-subtask-row group/sub', subDone && 'cp-subtask-row-done')}>
         {/* Status cycle */}
         <button
           onClick={(e) => { e.stopPropagation(); void cycleStatus(); }}
@@ -1407,8 +1432,7 @@ function SubtaskRow({
                 value={descDraft}
                 onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
                 placeholder="Описание подзадачи..."
-                className="bg-slate-900/90 text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[45px] resize-none focus:outline-none rounded-md"
-                style={{ border: `1.5px solid ${c.a3}` }}
+                className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[42px] resize-none focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] rounded-md border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
                 autoFocus
                 onKeyDown={(e) => {
                   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveDesc(); }
