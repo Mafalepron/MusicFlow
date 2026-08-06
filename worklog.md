@@ -659,3 +659,50 @@ Verification via Agent Browser + VLM:
 
 Stage Summary:
 - All input fields in the bottom panel (add stage, add subtask, inline title editing) now have a clean dark background with a yellow border on focus — no purple/violet ring.
+
+---
+Task ID: 15
+Agent: main (Z.ai Code)
+Task: 1) Make description clearly belong to its parent object; 2) Add description button styled with board color; 3) Add stage button same style as add description; 4) Remove subtasks hint from non-tracks boards.
+
+Work Log:
+- Read /home/z/my-project/worklog.md (Task 14: fixed purple focus ring on subtask inputs).
+- Found 3 `<Input>` and 2 raw `<input>` elements with purple focus — all fixed.
+- Found description display in StageCard (line 1149) and SubtaskRow (line 1494) — both showed description text without any label indicating what it belonged to.
+- Found `.cp-add-btn` CSS used hardcoded cyan (`#00E5FF`) instead of board color.
+- Found the subtasks hint box in TaskDetailView (line 788-806) — shown on all non-track boards.
+
+Changes made:
+
+### 1. Description clarity — added labels (description-bottom-panel.tsx)
+- **Stage description display**: added a label row above the description text with a `FileText` icon + "ОПИСАНИЕ ЭТАПА" text in board color, making it clear the description belongs to the stage.
+- **Subtask description display**: same treatment with "ОПИСАНИЕ ПОДЗАДАЧИ" label.
+- Added `FileText` to the lucide-react imports.
+- Changed the "+ описание" button text to include a `Plus` icon component for consistency.
+
+### 2 & 3. Add buttons styled with board color (description-bottom-panel.tsx)
+- Updated `.cp-add-btn` CSS to use board color values instead of hardcoded cyan:
+  - `color: ${c.a7}` (board color at 70% opacity)
+  - `border: 1.5px solid ${c.a3}` (board color at 30%)
+  - `background: ${c.a08}` (board color at 8%)
+  - `box-shadow: 0 0 6px ${c.a12}` (board color glow)
+  - `text-shadow: 0 0 4px ${c.a25}`
+- Hover remains yellow (`#FCEE0A`) for the cyberpunk highlight effect.
+- This applies to ALL `.cp-add-btn` elements: "+ описание этапа", "+ описание", "+ Добавить этап", "+ Добавить подзадачу" — they all now match the board color by default and turn yellow on hover.
+
+### 4. Removed subtasks hint from non-tracks boards (task-detail-panel.tsx)
+- Removed the entire hint box (lines 788-806) from `TaskDetailView` that showed "Подзадачи доступны в панели снизу — X/Y выполнено" or "Создавайте подзадачи в панели снизу".
+- The bottom panel is always pinned (from Task 6), so the hint is redundant on non-tracks boards.
+- Verified: the text no longer appears in the page content for non-track tasks.
+
+Verification via Agent Browser + VLM:
+- VLM confirmed: "ОПИСАНИЕ ЭТАПА" label with file icon is visible above description ✓
+- VLM confirmed: add buttons are board color (cyan) by default ✓
+- VLM confirmed: "Добавить этап" button uses the same style as description buttons ✓
+- Text content check: "Подзадачи доступны в панели снизу" is gone from non-track task view ✓
+- No runtime errors. Lint: no new errors (2 pre-existing in other files).
+
+Stage Summary:
+- Descriptions now have a clear label ("ОПИСАНИЕ ЭТАПА" / "ОПИСАНИЕ ПОДЗАДАЧИ") with a file icon in board color, making it obvious which object they belong to.
+- All add buttons (description, stage, subtask) use the board's color by default with yellow on hover.
+- The redundant subtasks hint box has been removed from non-tracks boards.

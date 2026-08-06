@@ -7,7 +7,7 @@ import {
   X, Save, Plus, Check, Circle, Clock, Pencil, Trash2,
   ChevronDown, ChevronRight, User, CalendarDays,
   AlertTriangle, Flame, ListChecks, Layers, ArrowUp, ArrowDown, GripVertical,
-  AlignJustify,
+  AlignJustify, FileText,
 } from 'lucide-react';
 import DeadlinePicker, { getDeadlineInfo } from '@/components/kanban/deadline-picker';
 import {
@@ -700,13 +700,13 @@ export default function DescriptionBottomPanel() {
           font-weight: 700;
           letter-spacing: 0.05em;
           text-transform: uppercase;
-          color: #00E5FF;
+          color: ${c.a7};
           transition: all 150ms;
-          border: 1.5px solid rgba(0, 229, 255, 0.35);
-          background: rgba(0, 229, 255, 0.06);
+          border: 1.5px solid ${c.a3};
+          background: ${c.a08};
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-          box-shadow: 0 0 6px rgba(0, 229, 255, 0.08);
-          text-shadow: 0 0 4px rgba(0, 229, 255, 0.2);
+          box-shadow: 0 0 6px ${c.a12};
+          text-shadow: 0 0 4px ${c.a25};
         }
         .cp-add-btn:hover {
           color: #FCEE0A;
@@ -1151,6 +1151,12 @@ function StageCard({
                 onClick={() => setIsEditingDesc(true)}
                 className="cp-desc-card w-full text-left"
               >
+                <div className="flex items-center gap-1.5 mb-1" style={{ opacity: 0.6 }}>
+                  <FileText className="w-2.5 h-2.5" style={{ color: c.a6 }} />
+                  <span className="text-[8px] uppercase tracking-wider font-bold" style={{ color: c.a6 }}>
+                    Описание этапа
+                  </span>
+                </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-3">
                   {stage.description}
                 </p>
@@ -1160,7 +1166,7 @@ function StageCard({
                 onClick={() => setIsEditingDesc(true)}
                 className="cp-add-btn"
               >
-                + описание этапа
+                <Plus className="w-2.5 h-2.5" /> описание этапа
               </button>
             )}
           </div>
@@ -1496,6 +1502,12 @@ function SubtaskRow({
               onClick={() => setIsEditingDesc(true)}
               className="cp-desc-card w-full text-left"
             >
+              <div className="flex items-center gap-1.5 mb-0.5" style={{ opacity: 0.6 }}>
+                <FileText className="w-2.5 h-2.5" style={{ color: c.a6 }} />
+                <span className="text-[8px] uppercase tracking-wider font-bold" style={{ color: c.a6 }}>
+                  Описание подзадачи
+                </span>
+              </div>
               <p className="text-[10px] text-slate-400 leading-relaxed whitespace-pre-wrap line-clamp-2">
                 {subtask.description}
               </p>
@@ -1505,7 +1517,7 @@ function SubtaskRow({
               onClick={() => setIsEditingDesc(true)}
               className="cp-add-btn"
             >
-              + описание
+              <Plus className="w-2.5 h-2.5" /> описание
             </button>
           )}
         </div>

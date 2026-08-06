@@ -784,26 +784,6 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
           </button>
         )}
       </div>
-
-      {/* Hint — subtasks are managed in the bottom panel (always pinned) */}
-      <div className="px-4 py-3 mt-auto">
-        <div
-          className="flex items-center gap-2 px-3 py-2 text-[10px]"
-          style={{
-            color: 'rgba(0, 229, 255, 0.7)',
-            border: '1px solid rgba(0, 229, 255, 0.15)',
-            backgroundColor: 'rgba(0, 229, 255, 0.04)',
-            clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-          }}
-        >
-          <ListChecks className="w-3 h-3 flex-shrink-0" />
-          <span className="truncate">
-            {subtasks.length > 0
-              ? `Подзадачи доступны в панели снизу — ${doneCount}/${subtasks.length} выполнено`
-              : 'Создавайте подзадачи в панели снизу'}
-          </span>
-        </div>
-      </div>
     </div>
   );
 }
