@@ -848,8 +848,6 @@ function StageCard({
   };
 
   const deadlineInfo = getDeadlineInfo(stage.deadline || null);
-  const assigneeMember = stage.assignee ? members.find(m => m.userId === stage.assignee || m.displayName === stage.assignee) : null;
-  const assigneeLabel = stage.assignee || null;
 
   return (
     <div
@@ -918,15 +916,14 @@ function StageCard({
           </span>
         )}
 
-        {/* Assignee avatar */}
-        {assigneeLabel && (
-          <AssigneeAvatar
-            label={assigneeLabel}
-            member={assigneeMember}
-            boardColor={boardColor}
-            size="sm"
-          />
-        )}
+        {/* Assignee picker (multi-select popover) */}
+        <AssigneePicker
+          assigneeRaw={stage.assignee}
+          members={members}
+          onChange={(v) => void onUpdate({ assignee: v })}
+          boardColor={boardColor}
+          size="sm"
+        />
 
         {/* Deadline */}
         <DeadlinePicker
@@ -1045,14 +1042,6 @@ function StageCard({
               <PriorityBars priority={stage.priority} size="xs" />
               {PRIORITY_LABELS[stage.priority] || stage.priority}
             </span>
-
-            {/* Assignee select */}
-            <AssigneeSelect
-              value={stage.assignee}
-              members={members}
-              onChange={(v) => void onUpdate({ assignee: v })}
-              boardColor={boardColor}
-            />
 
             {/* Status display */}
             <span
@@ -1253,7 +1242,7 @@ function SubtaskRow({
     await onUpdate({ status: next });
   };
 
-  const assigneeMember = subtask.assignee ? members.find(m => m.userId === subtask.assignee || m.displayName === subtask.assignee) : null;
+  const assigneeMember = null; // unused — AssigneePicker handles display
 
   return (
     <div>
@@ -1302,15 +1291,14 @@ function SubtaskRow({
           </button>
         )}
 
-        {/* Assignee avatar */}
-        {subtask.assignee && (
-          <AssigneeAvatar
-            label={subtask.assignee}
-            member={assigneeMember}
-            boardColor={boardColor}
-            size="xs"
-          />
-        )}
+        {/* Assignee picker (multi-select popover) */}
+        <AssigneePicker
+          assigneeRaw={subtask.assignee}
+          members={members}
+          onChange={(v) => void onUpdate({ assignee: v })}
+          boardColor={boardColor}
+          size="xs"
+        />
 
         {/* Deadline */}
         <DeadlinePicker
@@ -1394,15 +1382,6 @@ function SubtaskRow({
               <PriorityBars priority={subtask.priority} size="xs" />
               {PRIORITY_LABELS[subtask.priority] || subtask.priority}
             </span>
-
-            {/* Assignee */}
-            <AssigneeSelect
-              value={subtask.assignee}
-              members={members}
-              onChange={(v) => void onUpdate({ assignee: v })}
-              boardColor={boardColor}
-              compact
-            />
           </div>
         </div>
       )}
@@ -1539,113 +1518,183 @@ function FlatSubtasksList({
   );
 }
 
-/* ── Assignee Avatar ───────────────────────────────────── */
+/* ── Assignee helpers ─────────────────────────────────── */
 
-function AssigneeAvatar({
-  label, member, boardColor, size = 'sm',
+function parseAssignees(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    return [raw];
+  } catch {
+    return [raw];
+  }
+}
+
+function serializeAssignees(ids: string[]): string | null {
+  if (ids.length === 0) return null;
+  return JSON.stringify(ids);
+}
+
+/* ── Assignee Picker (popover with multi-select) ──────── */
+
+function AssigneePicker({
+  assigneeRaw,
+  members,
+  onChange,
+  boardColor,
+  size = 'sm',
 }: {
-  label: string;
-  member: GroupMember | null | undefined;
+  assigneeRaw: string | null;
+  members: GroupMember[];
+  onChange: (raw: string | null) => void;
   boardColor: string;
   size?: 'xs' | 'sm';
 }) {
-  const initial = label.charAt(0).toUpperCase();
-  const avatarUrl = member?.avatarUrl;
+  const [open, setOpen] = useState(false);
+  const selectedIds = parseAssignees(assigneeRaw);
+
+  const toggleMember = (userId: string) => {
+    const next = selectedIds.includes(userId)
+      ? selectedIds.filter(id => id !== userId)
+      : [...selectedIds, userId];
+    onChange(serializeAssignees(next));
+  };
+
+  const selectedMembers = selectedIds
+    .map(id => members.find(m => m.userId === id || m.displayName === id))
+    .filter(Boolean) as GroupMember[];
   const isSmall = size === 'xs';
-  return (
-    <div
-      className={cn(
-        'rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden',
-        isSmall ? 'w-4 h-4' : 'w-5 h-5'
-      )}
-      style={{
-        backgroundColor: hexToRgba(boardColor, 0.5),
-        border: `1px solid ${hexToRgba(boardColor, 0.7)}`,
-      }}
-      title={label + (member?.instrument ? ` · ${member.instrument}` : '')}
-    >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt={label} className="w-full h-full object-cover" />
-      ) : (
-        <span className={cn('font-bold text-white', isSmall ? 'text-[7px]' : 'text-[8px]')}>
-          {initial}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/* ── Assignee Select ───────────────────────────────────── */
-
-function AssigneeSelect({
-  value, members, onChange, boardColor, compact = false,
-}: {
-  value: string | null;
-  members: GroupMember[];
-  onChange: (v: string | null) => void;
-  boardColor: string;
-  compact?: boolean;
-}) {
-  // If value is set but not in members list (e.g., legacy assignee name), include it as an option
-  const isInMembers = value && members.find(m => m.userId === value || m.displayName === value);
-  const displayValue = value || '';
 
   return (
-    <Select
-      value={displayValue || '__none__'}
-      onValueChange={(v) => onChange(v === '__none__' ? null : v)}
-    >
-      <SelectTrigger
-        className={cn(
-          'bg-slate-900/90 text-slate-200 px-2 py-0 w-auto min-w-[120px] rounded-md font-medium',
-          compact ? 'h-6 text-[10px]' : 'h-7 text-[11px]'
-        )}
-        style={{ border: `1px solid ${hexToRgba(boardColor, 0.3)}` }}
-      >
-        <span className="flex items-center gap-1 truncate">
-          <User className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} style={{ color: hexToRgba(boardColor, 0.7) }} />
-          <SelectValue placeholder="Не назначен" />
-        </span>
-      </SelectTrigger>
-      <SelectContent className="bg-slate-900 border-slate-700 max-h-60 overflow-y-auto z-[60]">
-        <SelectItem value="__none__">
-          <span className="text-slate-500">— Не назначен —</span>
-        </SelectItem>
-        {value && !isInMembers && (
-          <SelectItem value={value}>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white"
-                style={{ backgroundColor: hexToRgba(boardColor, 0.5) }}
-              >
-                {value.charAt(0).toUpperCase()}
-              </span>
-              {value}
-            </span>
-          </SelectItem>
-        )}
-        {members.map(m => (
-          <SelectItem key={m.userId} value={m.userId}>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold text-white overflow-hidden flex-shrink-0"
-                style={{ backgroundColor: hexToRgba(boardColor, 0.5) }}
-              >
-                {m.avatarUrl ? (
-                  <img src={m.avatarUrl} alt={m.displayName || ''} className="w-full h-full object-cover" />
-                ) : (
-                  (m.displayName || '?').charAt(0).toUpperCase()
-                )}
-              </span>
-              <span className="truncate">{m.displayName || m.email || m.userId}</span>
-              {m.instrument && (
-                <span className="text-[8px] text-slate-600">· {m.instrument}</span>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            'flex items-center gap-0.5 rounded-full transition-all cursor-pointer flex-shrink-0',
+            isSmall ? 'h-5' : 'h-6',
+          )}
+          title={selectedMembers.length > 0
+            ? selectedMembers.map(m => m.displayName).join(', ')
+            : 'Назначить ответственных'
+          }
+        >
+          {selectedMembers.length === 0 ? (
+            <div
+              className={cn(
+                'rounded-full flex items-center justify-center border border-dashed',
+                isSmall ? 'w-4 h-4' : 'w-5 h-5'
               )}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+              style={{ borderColor: hexToRgba(boardColor, 0.4) }}
+            >
+              <User className={isSmall ? 'w-2 h-2' : 'w-2.5 h-2.5'} style={{ color: hexToRgba(boardColor, 0.5) }} />
+            </div>
+          ) : (
+            <>
+              {selectedMembers.slice(0, 2).map((m, i) => (
+                <div
+                  key={m.userId}
+                  className={cn('rounded-full overflow-hidden flex-shrink-0', isSmall ? 'w-4 h-4' : 'w-5 h-5')}
+                  style={{
+                    backgroundColor: hexToRgba(boardColor, 0.5),
+                    border: `1px solid ${hexToRgba(boardColor, 0.7)}`,
+                    marginLeft: i > 0 ? '-4px' : 0,
+                    zIndex: 10 - i,
+                  }}
+                >
+                  {m.avatarUrl ? (
+                    <img src={m.avatarUrl} alt={m.displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className={cn('font-bold text-white', isSmall ? 'text-[7px]' : 'text-[8px]')}>
+                        {(m.displayName || '?').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {selectedMembers.length > 2 && (
+                <div
+                  className={cn('rounded-full flex items-center justify-center flex-shrink-0 font-bold text-white', isSmall ? 'w-4 h-4 text-[7px]' : 'w-5 h-5 text-[8px]')}
+                  style={{
+                    backgroundColor: hexToRgba(boardColor, 0.6),
+                    border: `1px solid ${hexToRgba(boardColor, 0.8)}`,
+                    marginLeft: '-4px',
+                    zIndex: 7,
+                  }}
+                >
+                  +{selectedMembers.length - 2}
+                </div>
+              )}
+            </>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-56 p-2 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[70]"
+        align="center"
+        sideOffset={6}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-[9px] uppercase tracking-wider text-slate-600 font-semibold mb-1.5 px-1">Ответственные</p>
+        {members.length === 0 ? (
+          <p className="text-[10px] text-slate-600 py-2 text-center">Нет участников группы</p>
+        ) : (
+          <div className="space-y-0.5 max-h-48 overflow-y-auto">
+            {members.map(m => {
+              const isSelected = selectedIds.includes(m.userId) || selectedIds.includes(m.displayName);
+              return (
+                <button
+                  key={m.userId}
+                  onClick={(e) => { e.stopPropagation(); toggleMember(m.userId); }}
+                  className={cn(
+                    'w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-all',
+                    isSelected ? 'bg-slate-800' : 'hover:bg-slate-800/60',
+                  )}
+                >
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
+                    style={{
+                      backgroundColor: hexToRgba(boardColor, 0.5),
+                      border: `1px solid ${isSelected ? boardColor : hexToRgba(boardColor, 0.3)}`,
+                    }}
+                  >
+                    {m.avatarUrl ? (
+                      <img src={m.avatarUrl} alt={m.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[8px] font-bold text-white">
+                        {(m.displayName || '?').charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <span className={cn('text-[11px] font-medium truncate block', isSelected ? 'text-slate-100' : 'text-slate-300')}>
+                      {m.displayName || m.email}
+                    </span>
+                    {m.instrument && (
+                      <span className="text-[9px] text-slate-600">{m.instrument}</span>
+                    )}
+                  </div>
+                  {isSelected && (
+                    <Check className="w-3.5 h-3.5 flex-shrink-0" style={{ color: boardColor }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {selectedIds.length > 0 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onChange(null); }}
+            className="w-full mt-1.5 text-[10px] text-slate-600 hover:text-rose-400 transition-colors py-1 border-t border-slate-800"
+          >
+            Сбросить всех
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
