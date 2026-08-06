@@ -180,7 +180,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
       {/* Header — title + metadata in one line */}
-      <div className="p-4" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.08)', background: 'linear-gradient(90deg, rgba(252,238,10,0.02), transparent)' }}>
+      <div className="p-4" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.12)', background: 'linear-gradient(90deg, rgba(252,238,10,0.03), transparent)' }}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
           <div className="flex items-center gap-1">
@@ -247,7 +247,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
 
       {/* Open in Audio Editor */}
       {task.soundflowTrackId && (
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.06)' }}>
+        <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.1)' }}>
           <button
             onClick={async () => {
               const kanbanState = useKanbanStore.getState();
@@ -291,7 +291,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       )}
 
       {/* Description (inline editable) — cyberpunk styled */}
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.06)' }}>
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.1)' }}>
         <div className="flex items-center justify-between mb-2">
           <span
             className="text-[9px] uppercase tracking-widest font-bold"
@@ -377,7 +377,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       </div>
 
       {/* Track cover */}
-      <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.06)' }}>
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(252, 238, 10, 0.1)' }}>
         <span
           className="text-[9px] uppercase tracking-widest font-medium block mb-2"
           style={{ color: hexToRgba(boardColor, 0.55) }}

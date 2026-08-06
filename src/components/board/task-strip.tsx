@@ -48,20 +48,20 @@ export default function TaskStrip() {
   }), [boardColor]);
 
   const styles = useMemo(() => ({
-    containerBorder: { borderBottom: '1px solid rgba(252, 238, 10, 0.08)', background: 'linear-gradient(180deg, rgba(6,6,12,0.95), rgba(10,10,18,0.98))' },
+    containerBorder: { borderBottom: '1px solid rgba(252, 238, 10, 0.12)', background: 'linear-gradient(180deg, rgba(6,6,12,0.95), rgba(10,10,18,0.98))' },
     accentLine: { background: 'linear-gradient(90deg, rgba(252,238,10,0.4), rgba(252,238,10,0.05))', boxShadow: '0 0 6px rgba(252,238,10,0.15)' },
     dotBg: { backgroundColor: '#FCEE0A', boxShadow: '0 0 6px rgba(252,238,10,0.4)' },
     titleColor: { color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)', letterSpacing: '0.12em' },
     scrollbar: { scrollbarWidth: 'thin' as const, scrollbarColor: c.a2 + ' transparent' },
     cardDefault: {
-      backgroundColor: 'rgba(20, 20, 36, 0.7)',
-      border: '1px solid rgba(252, 238, 10, 0.1)',
+      backgroundColor: 'rgba(20, 20, 36, 0.8)',
+      border: '1px solid rgba(252, 238, 10, 0.15)',
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     cardSelected: {
-      backgroundColor: 'rgba(252, 238, 10, 0.08)',
-      border: '1px solid rgba(252, 238, 10, 0.3)',
-      boxShadow: '0 0 12px rgba(252, 238, 10, 0.1), inset 0 0 8px rgba(252, 238, 10, 0.03)',
+      backgroundColor: 'rgba(252, 238, 10, 0.1)',
+      border: '1px solid rgba(252, 238, 10, 0.4)',
+      boxShadow: '0 0 16px rgba(252, 238, 10, 0.15), inset 0 0 12px rgba(252, 238, 10, 0.04)',
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     progressBg: { backgroundColor: 'rgba(255,255,255,0.04)' },
@@ -132,13 +132,13 @@ export default function TaskStrip() {
   const showButton = !isCreating && !isTrackWizardOpen;
 
   const handleCardEnter = (el: HTMLElement) => {
-    el.style.backgroundColor = 'rgba(252, 238, 10, 0.06)';
-    el.style.borderColor = 'rgba(252, 238, 10, 0.2)';
-    el.style.boxShadow = '0 0 10px rgba(252, 238, 10, 0.08)';
+    el.style.backgroundColor = 'rgba(252, 238, 10, 0.08)';
+    el.style.borderColor = 'rgba(252, 238, 10, 0.3)';
+    el.style.boxShadow = '0 0 14px rgba(252, 238, 10, 0.12), inset 0 0 8px rgba(252, 238, 10, 0.03)';
   };
   const handleCardLeave = (el: HTMLElement) => {
-    el.style.backgroundColor = 'rgba(20, 20, 36, 0.7)';
-    el.style.borderColor = 'rgba(252, 238, 10, 0.1)';
+    el.style.backgroundColor = 'rgba(20, 20, 36, 0.8)';
+    el.style.borderColor = 'rgba(252, 238, 10, 0.15)';
     el.style.boxShadow = 'none';
   };
 
@@ -162,17 +162,56 @@ export default function TaskStrip() {
               }
             }}
             className={cn(
-              'flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 transition-all duration-200',
+              'cp-strip-btn',
               isTracksBoard && boardTasks.length === 0 && 'animate-pulse',
             )}
-            style={isTracksBoard ? styles.tracksBtnGrad : styles.btnGrad}
           >
             {isTracksBoard
-              ? <><Music className="w-3 h-3" /> Новый трек</>
-              : <><Plus className="w-3 h-3" /> Новая задача</>
+              ? <><Music className="w-3 h-3" /><span>Новый трек</span></>
+              : <><Plus className="w-3 h-3" /><span>Новая задача</span></>
             }
           </button>
         )}
+        <style jsx>{`
+          .cp-strip-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            color: #000;
+            background: linear-gradient(135deg, #FCEE0A 0%, #FIF100 50%, #FCEE0A 100%);
+            border: 1px solid rgba(252, 238, 10, 0.8);
+            clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+            box-shadow: 0 0 10px rgba(252, 238, 10, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            transition: all 180ms;
+            cursor: pointer;
+            position: relative;
+          }
+          .cp-strip-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transform: translateX(-100%);
+            transition: transform 400ms;
+            clip-path: inherit;
+          }
+          .cp-strip-btn:hover {
+            background: linear-gradient(135deg, #FCEE0A 0%, #FFD700 50%, #FCEE0A 100%);
+            box-shadow: 0 0 16px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
+          }
+          .cp-strip-btn:hover::before {
+            transform: translateX(100%);
+          }
+          .cp-strip-btn:active {
+            transform: translateY(0);
+          }
+        `}</style>
       </div>
 
       <div

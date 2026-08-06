@@ -269,11 +269,13 @@ export default function DescriptionBottomPanel() {
 
   if (!shouldShow || !task) return null;
 
-  const stagesCount = task.children?.length || 0;
-  const allSubtasks = (task.children || []).flatMap(s => s.children || []);
+  const stages = task.children || [];
+  const stagesCount = stages.length;
+  const allSubtasks = stages.flatMap(s => s.children || []);
   const subtasksCount = allSubtasks.length;
-  const doneCount = allSubtasks.filter(s => s.status === 'done').length;
-  const progress = subtasksCount > 0 ? Math.round((doneCount / subtasksCount) * 100) : 0;
+  // Progress is based on STAGE completion, not subtask completion
+  const doneStages = stages.filter(s => s.status === 'done').length;
+  const progress = stagesCount > 0 ? Math.round((doneStages / stagesCount) * 100) : 0;
   const progressColor = progress === 100 ? '#34d399' : progress > 50 ? boardColor : progress > 0 ? '#f59e0b' : '#334155';
 
   return (
@@ -307,7 +309,7 @@ export default function DescriptionBottomPanel() {
             // {task.title}
           </span>
           <span className="cp-count-chip" style={{ borderColor: c.a4, color: c.raw, backgroundColor: c.a08 }}>
-            {task.trackConfig ? `${stagesCount} ETH · ${subtasksCount} SUB` : `${stagesCount} SUB`}
+            {task.trackConfig ? `${doneStages}/${stagesCount} ETH · ${subtasksCount} SUB` : `${stagesCount} SUB`}
           </span>
 
           {/* Progress bar in header — always show */}
