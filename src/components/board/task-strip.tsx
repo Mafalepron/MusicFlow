@@ -65,9 +65,9 @@ export default function TaskStrip() {
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     cardSelected: {
-      backgroundColor: 'rgba(252, 238, 10, 0.12)',
+      backgroundColor: 'rgba(10, 18, 32, 0.85)',
       border: '2px solid rgba(252, 238, 10, 0.55)',
-      boxShadow: '0 0 24px rgba(252, 238, 10, 0.22), inset 0 0 16px rgba(252, 238, 10, 0.05)',
+      boxShadow: '0 0 24px rgba(252, 238, 10, 0.22)',
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     progressBg: { backgroundColor: 'rgba(255,255,255,0.04)' },
@@ -233,16 +233,14 @@ export default function TaskStrip() {
             }}
             onMouseEnter={(e) => {
               const el = e.currentTarget;
-              el.style.background = `linear-gradient(135deg, ${c.raw}, ${c.raw} 50%, ${c.raw})`;
               el.style.color = '#FCEE0A';
               el.style.border = '1px solid #FCEE0A';
-              el.style.boxShadow = '0 0 18px rgba(252, 238, 10, 0.5), 0 0 28px rgba(252, 238, 10, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3)';
+              el.style.boxShadow = '0 0 0 1px rgba(252, 238, 10, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4)';
               el.style.textShadow = '0 0 8px rgba(252, 238, 10, 0.6)';
               el.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
               const el = e.currentTarget;
-              el.style.background = `linear-gradient(135deg, ${c.raw}, ${c.raw} 50%, ${c.raw})`;
               el.style.color = '#000';
               el.style.border = `1px solid ${c.a8}`;
               el.style.boxShadow = `0 0 12px ${c.a4}, inset 0 1px 0 rgba(255, 255, 255, 0.4)`;
@@ -414,7 +412,13 @@ function DeleteTaskButton({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-60 p-3 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[70]"
+        className="w-60 p-3 shadow-2xl shadow-black/40 z-[70] border-0 rounded-none"
+        style={{
+          background: 'rgba(8, 10, 18, 0.97)',
+          border: `1.5px solid ${hexToRgba(accentColor, 0.4)}`,
+          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+          boxShadow: `0 0 24px ${hexToRgba(accentColor, 0.15)}, 0 8px 32px rgba(0,0,0,0.6)`,
+        }}
         align="end"
         sideOffset={6}
         onClick={(e) => e.stopPropagation()}

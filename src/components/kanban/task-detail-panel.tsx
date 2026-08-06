@@ -348,22 +348,12 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
             </div>
           </div>
         ) : task.description ? (
-          <div
-            className="rounded-md px-3 py-2 transition-all cursor-pointer"
-            style={{
-              background: hexToRgba(boardColor, 0.06),
-              border: `1.5px solid ${hexToRgba(boardColor, 0.3)}`,
-              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-              boxShadow: `inset 0 0 8px ${hexToRgba(boardColor, 0.03)}`,
-            }}
+          <p
+            className="text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap cursor-pointer hover:text-slate-300 transition-colors"
             onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FCEE0A'; e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.15), inset 0 0 8px rgba(252,238,10,0.04)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(boardColor, 0.3); e.currentTarget.style.boxShadow = `inset 0 0 8px ${hexToRgba(boardColor, 0.03)}`; }}
           >
-            <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">
-              {task.description}
-            </p>
-          </div>
+            {task.description}
+          </p>
         ) : (
           <button
             onClick={() => { setDescDraft(''); setIsEditingDesc(true); }}
@@ -384,7 +374,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
         </span>
         <div
           className="aspect-square max-w-[160px] rounded-lg border border-dashed flex items-center justify-center overflow-hidden"
-          style={{ borderColor: 'rgba(252, 238, 10, 0.4)', backgroundColor: 'rgba(252, 238, 10, 0.03)', boxShadow: '0 0 12px rgba(252, 238, 10, 0.06)' }}
+          style={{ borderColor: 'rgba(252, 238, 10, 0.4)', backgroundColor: 'rgba(10, 14, 24, 0.6)' }}
         >
           {task.soundflowTrackId ? (
             <div className="w-full h-full flex items-center justify-center text-slate-700">
@@ -738,22 +728,12 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
             </div>
           </div>
         ) : task.description ? (
-          <div
-            className="rounded-md px-3 py-2 transition-all cursor-pointer"
-            style={{
-              background: hexToRgba(boardColor, 0.06),
-              border: `1.5px solid ${hexToRgba(boardColor, 0.3)}`,
-              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-              boxShadow: `inset 0 0 8px ${hexToRgba(boardColor, 0.03)}`,
-            }}
+          <p
+            className="text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap cursor-pointer hover:text-slate-300 transition-colors"
             onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FCEE0A'; e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.15), inset 0 0 8px rgba(252,238,10,0.04)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(boardColor, 0.3); e.currentTarget.style.boxShadow = `inset 0 0 8px ${hexToRgba(boardColor, 0.03)}`; }}
           >
-            <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">
-              {task.description}
-            </p>
-          </div>
+            {task.description}
+          </p>
         ) : (
           <button
             onClick={() => { setDescDraft(''); setIsEditingDesc(true); }}
@@ -920,7 +900,7 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
           {/* Deadline */}
           <div className="space-y-1">
             <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Дедлайн</Label>
-            <DeadlinePicker value={deadline} onChange={setDeadline} size="md" />
+            <DeadlinePicker value={deadline} onChange={setDeadline} size="md" boardColor={color} />
           </div>
         </div>
 

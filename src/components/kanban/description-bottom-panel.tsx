@@ -122,10 +122,12 @@ function PrioritySelector({
   priority,
   onChange,
   size = 'sm',
+  boardColor = '#00d9ff',
 }: {
   priority: string;
   onChange: (v: string) => void;
   size?: 'sm' | 'xs';
+  boardColor?: string;
 }) {
   const [open, setOpen] = useState(false);
   const level = PRIORITY_LEVELS[priority] || 2;
@@ -152,12 +154,23 @@ function PrioritySelector({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-44 p-2 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[70]"
+        className="w-44 p-2 shadow-2xl shadow-black/40 z-[70] border-0 rounded-none"
+        style={{
+          background: 'rgba(8, 10, 18, 0.97)',
+          border: `1.5px solid ${hexToRgba(boardColor, 0.4)}`,
+          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+          boxShadow: `0 0 24px ${hexToRgba(boardColor, 0.15)}, 0 8px 32px rgba(0,0,0,0.6)`,
+        }}
         align="start"
         sideOffset={6}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-[9px] uppercase tracking-wider text-slate-600 font-semibold mb-1.5 px-1">Приоритет</p>
+        <p
+          className="text-[9px] uppercase tracking-wider font-bold mb-1.5 px-1"
+          style={{ color: '#FCEE0A', textShadow: '0 0 4px rgba(252,238,10,0.3)' }}
+        >
+          Приоритет
+        </p>
         <div className="space-y-1">
           {PRIORITIES.map(p => {
             const isActive = priority === p.value;
@@ -171,10 +184,13 @@ function PrioritySelector({
                   setOpen(false);
                 }}
                 className={cn(
-                  'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition-all',
-                  isActive ? 'bg-slate-800' : 'hover:bg-slate-800/60',
+                  'w-full flex items-center gap-2.5 px-2 py-1.5 transition-all',
+                  isActive ? '' : 'hover:bg-white/5',
                 )}
-                style={isActive ? { boxShadow: `inset 2px 0 0 ${p.hex}` } : undefined}
+                style={isActive ? {
+                  background: hexToRgba(boardColor, 0.12),
+                  boxShadow: `inset 2px 0 0 ${p.hex}`,
+                } : undefined}
               >
                 <PriorityBars priority={p.value} size="sm" />
                 <div className="flex-1 text-left">
@@ -183,7 +199,7 @@ function PrioritySelector({
                   </span>
                   <span className="text-[9px] text-slate-600 ml-1">P{pLevel}</span>
                 </div>
-                {isActive && <Check className="w-3 h-3" style={{ color: p.hex }} />}
+                {isActive && <Check className="w-3 h-3" style={{ color: '#FCEE0A' }} />}
               </button>
             );
           })}
@@ -534,8 +550,7 @@ export default function DescriptionBottomPanel() {
         .cp-stage-card-selected {
           border-color: rgba(252, 238, 10, 0.6);
           border-width: 2px;
-          box-shadow: 0 0 0 1px rgba(252, 238, 10, 0.3), 0 0 32px rgba(252, 238, 10, 0.15), inset 0 0 24px rgba(252, 238, 10, 0.05);
-          background: linear-gradient(135deg, rgba(252, 238, 10, 0.08), rgba(6, 10, 20, 0.96));
+          box-shadow: 0 0 0 1px rgba(252, 238, 10, 0.3), 0 0 32px rgba(252, 238, 10, 0.15);
         }
         /* Done state — muted green-tinted block with strikethrough overlay */
         .cp-stage-card-done {
@@ -967,6 +982,7 @@ function StageCard({
           priority={stage.priority}
           onChange={(v) => void onUpdate({ priority: v })}
           size="sm"
+          boardColor={boardColor}
         />
 
         {/* Title (inline editable) */}
@@ -1024,6 +1040,7 @@ function StageCard({
           isDone={stage.status === 'done'}
           size="sm"
           inline
+          boardColor={boardColor}
         />
 
         {/* Move up/down */}
@@ -1346,6 +1363,7 @@ function SubtaskRow({
           priority={subtask.priority}
           onChange={(v) => void onUpdate({ priority: v })}
           size="xs"
+          boardColor={boardColor}
         />
 
         {/* Title (inline editable) */}
@@ -1392,6 +1410,7 @@ function SubtaskRow({
           isDone={subDone}
           size="sm"
           inline
+          boardColor={boardColor}
         />
 
         {/* Move up/down */}
@@ -1725,12 +1744,23 @@ function AssigneePicker({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-56 p-2 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[70]"
+        className="w-56 p-2 shadow-2xl shadow-black/40 z-[70] border-0 rounded-none"
+        style={{
+          background: 'rgba(8, 10, 18, 0.97)',
+          border: `1.5px solid ${hexToRgba(boardColor, 0.4)}`,
+          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+          boxShadow: `0 0 24px ${hexToRgba(boardColor, 0.15)}, 0 8px 32px rgba(0,0,0,0.6)`,
+        }}
         align="center"
         sideOffset={6}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-[9px] uppercase tracking-wider text-slate-600 font-semibold mb-1.5 px-1">Ответственные</p>
+        <p
+          className="text-[9px] uppercase tracking-wider font-bold mb-1.5 px-1"
+          style={{ color: '#FCEE0A', textShadow: '0 0 4px rgba(252,238,10,0.3)' }}
+        >
+          Ответственные
+        </p>
         {members.length === 0 ? (
           <p className="text-[10px] text-slate-600 py-2 text-center">Нет участников группы</p>
         ) : (
@@ -1742,9 +1772,13 @@ function AssigneePicker({
                   key={m.userId}
                   onClick={(e) => { e.stopPropagation(); toggleMember(m.userId); }}
                   className={cn(
-                    'w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-all',
-                    isSelected ? 'bg-slate-800' : 'hover:bg-slate-800/60',
+                    'w-full flex items-center gap-2 px-2 py-1.5 transition-all',
+                    isSelected ? '' : 'hover:bg-white/5',
                   )}
+                  style={isSelected ? {
+                    background: hexToRgba(boardColor, 0.12),
+                    boxShadow: `inset 2px 0 0 ${boardColor}`,
+                  } : undefined}
                 >
                   <div
                     className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"

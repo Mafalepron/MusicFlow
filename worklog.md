@@ -468,3 +468,59 @@ Stage Summary:
 - Description "Изменить" buttons are now borderless yellow text links (matching the track lyrics style).
 - The cover area has a yellow dashed border with a subtle yellow glow.
 - The "New Track"/"New Task" button turns yellow (text + border + glow) on hover.
+
+---
+Task ID: 11
+Agent: main (Z.ai Code)
+Task: 1) Remove description text frame in right menu — plain text like track lyrics; 2) Cover fill should not be yellow; 3) Selected blocks (bottom panel + top task) should not have yellow fill, only yellow border outline; 4) New Track button hover should not change the blue shade; 5) All popup windows styled with board color (blue+yellow for tracks, angular clip-path).
+
+Work Log:
+- Read /home/z/my-project/worklog.md (Task 10: yellow percentage, done state, textarea styling, borderless edit button, yellow cover border, yellow new track hover).
+- Read all relevant files: task-strip.tsx, task-detail-panel.tsx, description-bottom-panel.tsx, deadline-picker.tsx.
+
+Changes made:
+
+### 1. Description display — plain text, no frame (task-detail-panel.tsx)
+- TrackDetailView: replaced the bordered/clip-pathed display card with a simple `<p>` tag: `text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap cursor-pointer hover:text-slate-300` — matches the TrackTextSection lyrics display style.
+- TaskDetailView: same replacement — plain text, no border/background/clipPath.
+
+### 2. Cover fill — not yellow (task-detail-panel.tsx)
+- Changed cover div `backgroundColor` from `rgba(252, 238, 10, 0.03)` → `rgba(10, 14, 24, 0.6)` (dark neutral).
+- Removed the yellow `boxShadow` glow.
+- Kept the yellow dashed border.
+
+### 3. Selected blocks — border only, no yellow fill
+- **task-strip.tsx** `cardSelected`: changed `backgroundColor` from `rgba(252, 238, 10, 0.12)` → `rgba(10, 18, 32, 0.85)` (same as default); removed `inset 0 0 16px rgba(252, 238, 10, 0.05)` from boxShadow; kept the yellow border + outer yellow glow.
+- **description-bottom-panel.tsx** `.cp-stage-card-selected`: removed `background: linear-gradient(...)` and `inset 0 0 24px rgba(252, 238, 10, 0.05)`; kept the yellow border + outer glow ring.
+
+### 4. New Track button hover — blue shade unchanged (task-strip.tsx)
+- Removed the `el.style.background = ...` override on hover (was setting same gradient, but the yellow glow was tinting the blue).
+- Changed hover boxShadow from `0 0 18px rgba(252,238,10,0.5)...` (yellow glow that bled onto button) → `0 0 0 1px rgba(252, 238, 10, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4)` (subtle ring + dark drop shadow, no yellow bleeding).
+- Kept: `color: '#FCEE0A'`, `border: '1px solid #FCEE0A'`, `textShadow: '0 0 8px rgba(252, 238, 10, 0.6)'`.
+- Result: blue background stays exactly the same shade; only text + border turn yellow.
+
+### 5. All popups styled with board color (cyberpunk clip-path)
+Created a consistent popup style across all 4 popover components:
+- **PrioritySelector** (description-bottom-panel.tsx): Added `boardColor` prop; PopoverContent now uses `background: rgba(8, 10, 18, 0.97)`, `border: 1.5px solid ${hexToRgba(boardColor, 0.4)}`, `clipPath: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))`, `boxShadow: 0 0 24px ${hexToRgba(boardColor, 0.15)}, 0 8px 32px rgba(0,0,0,0.6)`; title "ПРИОРИТЕТ" in yellow; active items use board-color tint background.
+- **AssigneePicker** (description-bottom-panel.tsx): Same popup style; title "ОТВЕТСТВЕННЫЕ" in yellow; selected members use board-color tint + board-color left border.
+- **DeleteTaskButton** (task-strip.tsx): Same popup style using `accentColor` (board color); warning icon stays red.
+- **DeadlinePicker** (deadline-picker.tsx): Added `boardColor` prop + `hexToRgba` import; both PopoverContent instances (inline + md variants) use the same cyberpunk style.
+- Passed `boardColor` to all PrioritySelector and DeadlinePicker calls in StageCard, SubtaskRow, and TaskForm.
+
+Verification via Agent Browser + VLM:
+- Navigated to the track task on the test board (cyan).
+- VLM confirmed:
+  1. Description = plain text, no border/frame ✓
+  2. Cover fill = dark/neutral, NOT yellow ✓
+  3. Selected task card + selected stage = yellow border only, dark fill inside ✓
+  4. New Track button hover = yellow text + yellow border, blue background unchanged ✓
+  5. Priority popup = angular clip-path corners, blue/cyan border, yellow "ПРИОРИТЕТ" title, dark background ✓
+  6. Delete popup = angular corners, cyan border, dark background ✓
+- No runtime errors. Lint: no new errors (3 pre-existing in other files).
+
+Stage Summary:
+- Description text is now plain (no frame), matching track lyrics style.
+- Cover area has a yellow dashed border but dark neutral fill inside.
+- Selected task cards and stage cards show only a yellow border outline — no yellow background fill.
+- New Track button hover: blue background stays the same shade; only text and border turn yellow.
+- All popups (priority, assignee, deadline, delete) now use the board color for borders with angular cyberpunk clip-path corners, dark backgrounds, and yellow section titles.

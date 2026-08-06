@@ -8,7 +8,7 @@ import {
 import {
   CalendarDays, Clock, AlertTriangle, Check, X, Zap, Flame,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, hexToRgba } from '@/lib/utils';
 
 interface DeadlinePickerProps {
   value: string | null; // ISO string or null
@@ -17,6 +17,7 @@ interface DeadlinePickerProps {
   isDone?: boolean;
   inline?: boolean;
   className?: string;
+  boardColor?: string;
 }
 
 const MONTHS_RU = [
@@ -71,7 +72,7 @@ const PRESETS: { key: string; label: string; icon: typeof Zap }[] = [
 ];
 
 export default function DeadlinePicker({
-  value, onChange, size = 'sm', isDone = false, inline = false, className,
+  value, onChange, size = 'sm', isDone = false, inline = false, className, boardColor = '#00d9ff',
 }: DeadlinePickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -145,7 +146,13 @@ export default function DeadlinePicker({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-auto p-0 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40 z-[60]"
+          className="w-auto p-0 shadow-2xl shadow-black/40 z-[60] border-0 rounded-none"
+          style={{
+            background: 'rgba(8, 10, 18, 0.97)',
+            border: `1.5px solid ${hexToRgba(boardColor, 0.4)}`,
+            clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+            boxShadow: `0 0 24px ${hexToRgba(boardColor, 0.15)}, 0 8px 32px rgba(0,0,0,0.6)`,
+          }}
           align="start"
           sideOffset={8}
           onOpenAutoFocus={(e) => e.preventDefault()}
@@ -267,7 +274,13 @@ export default function DeadlinePicker({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 bg-slate-900 border-slate-700/80 shadow-2xl shadow-black/40"
+        className="w-auto p-0 shadow-2xl shadow-black/40 border-0 rounded-none"
+        style={{
+          background: 'rgba(8, 10, 18, 0.97)',
+          border: `1.5px solid ${hexToRgba(boardColor, 0.4)}`,
+          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+          boxShadow: `0 0 24px ${hexToRgba(boardColor, 0.15)}, 0 8px 32px rgba(0,0,0,0.6)`,
+        }}
         align="start"
         sideOffset={8}
       >
