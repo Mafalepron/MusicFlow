@@ -351,3 +351,52 @@ Verification via Agent Browser + VLM:
 Stage Summary:
 - Collapsed top panel is now a true compact single line: `BOARD_TITLE // SelectedTask` with no "New Task" button and no "текущая" badge; clicking anywhere on the line expands it.
 - Right panel section dividers, container border, and card frames now use the board's color (green/orange/cyan) instead of hardcoded yellow. Yellow remains only for subheading titles, the "Изменить"/"Сохранить" accent buttons, the subtask chip frame, and hover states on the description card.
+
+---
+Task ID: 9
+Agent: main (Z.ai Code)
+Task: 1) Active/selected task card outline should be yellow; 2) Progress bars (top + bottom) always yellow; 3) Stage and subtask names in bottom panel should be yellow; 4) Right panel "Cover" and "Track Lyrics" labels + "Edit" buttons should be yellow.
+
+Work Log:
+- Read /home/z/my-project/worklog.md (Task 8: compact collapsed panel + board-color right panel borders).
+- Read /home/z/my-project/src/components/board/task-strip.tsx — found `cardSelected` used board color (`c.a55`) for border; progress bar fill used `hexToRgba(boardColor, ...)`; progress text used `c.a6`.
+- Read /home/z/my-project/src/components/kanban/description-bottom-panel.tsx — found `progressColor` used board color (line 272); stage progress bar used board color (line 1054); stage titles used `text-slate-100` (line 966); subtask titles used `text-slate-200` (line 1346).
+- Read /home/z/my-project/src/components/kanban/task-detail-panel.tsx — found "Обложка" label (line 386) and "Текст трека" label (line 457) used `hexToRgba(boardColor, 0.55)`; the track text "Изменить" button (line 474) used `hexToRgba(boardColor, 0.5)`.
+
+Changes made:
+
+### 1. task-strip.tsx — Selected card outline → yellow
+- `cardSelected.border`: `2px solid ${c.a55}` → `2px solid rgba(252, 238, 10, 0.55)`
+- `cardSelected.backgroundColor`: `c.a12` → `rgba(252, 238, 10, 0.12)`
+- `cardSelected.boxShadow`: board color → `rgba(252, 238, 10, 0.22)` glow + `rgba(252, 238, 10, 0.05)` inset
+- `progressTextColor`: `c.a6` → `#FCEE0A`
+
+### 2. Progress bars → always yellow
+- **task-strip.tsx** (top card progress bar fill): `hexToRgba(boardColor, ...)` → `progress === 100 ? '#34d399' : '#FCEE0A'` with yellow glow boxShadow
+- **description-bottom-panel.tsx** (header progress bar): `progressColor` simplified from multi-condition board-color logic to `progress === 100 ? '#34d399' : '#FCEE0A'`
+- **description-bottom-panel.tsx** (stage progress bar): same simplification — yellow fill with yellow glow (green only at 100%)
+
+### 3. Stage & subtask names → yellow
+- **Stage titles** (line 966): `text-slate-100` → `text-[#FCEE0A]` (kept `text-slate-600 line-through` for done stages)
+- **Subtask titles** (line 1346): `text-slate-200` → `text-[#FCEE0A]` (kept `text-slate-600 line-through` for done subtasks)
+
+### 4. Right panel labels + Edit buttons → yellow
+- **"Обложка" label** (line 386): `color: hexToRgba(boardColor, 0.55)` → `color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)'`
+- **"Текст трека" label** (line 457): same → yellow with glow
+- **Track text "Изменить" button** (line 474): `color: hexToRgba(boardColor, 0.5)` → `color: '#FCEE0A'`
+
+Verification via Agent Browser + VLM:
+- Created a track task with 2 stages (Сонграйтинг, Аранжировка) and subtasks via API; set trackConfig via PUT.
+- VLM confirmed all 4 changes:
+  1. Active task card border = YELLOW ✓
+  2. Progress bar in top card = YELLOW ✓
+  3. Stage names (Сонграйтинг, Аранжировка) in bottom panel = YELLOW ✓
+  4. ОБЛОЖКА and ТЕКСТ ТРЕКА labels + Изменить buttons = YELLOW ✓
+- Also verified via computed styles: `rgb(252, 238, 10)` for all target elements.
+- No runtime errors. Lint: no new errors (3 pre-existing in other files).
+
+Stage Summary:
+- The selected/active task card now has a yellow outline + yellow glow (overriding the board color).
+- All progress bars (top card, bottom panel header, stage progress) are now always yellow (green only at 100% completion).
+- Stage and subtask titles in the bottom panel are now yellow (slate only when done/struck-through).
+- Right panel section labels ("ОБЛОЖКА", "ТЕКСТ ТРЕКА") and their "Изменить" buttons are now yellow with glow.

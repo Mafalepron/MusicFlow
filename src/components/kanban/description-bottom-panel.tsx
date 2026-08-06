@@ -269,7 +269,7 @@ export default function DescriptionBottomPanel() {
   // Progress is based on STAGE completion, not subtask completion
   const doneStages = stages.filter(s => s.status === 'done').length;
   const progress = stagesCount > 0 ? Math.round((doneStages / stagesCount) * 100) : 0;
-  const progressColor = progress === 100 ? '#34d399' : progress > 50 ? boardColor : progress > 0 ? '#f59e0b' : '#334155';
+  const progressColor = progress === 100 ? '#34d399' : '#FCEE0A';
 
   return (
     <div
@@ -963,7 +963,7 @@ function StageCard({
             onClick={() => { onSelect(); onToggleExpand(); }}
             className={cn(
               'cp-stage-title flex-1 min-w-0 text-left truncate transition-colors',
-              stage.status === 'done' ? 'text-slate-600 line-through' : 'text-slate-100'
+              stage.status === 'done' ? 'text-slate-600 line-through' : 'text-[#FCEE0A]'
             )}
             title="Двойной клик — переименовать"
           >
@@ -1051,8 +1051,8 @@ function StageCard({
                 className="cp-progress-fill"
                 style={{
                   width: `${stageProgress}%`,
-                  backgroundColor: stageProgress === 100 ? '#10b981' : stageProgress > 50 ? boardColor : stageProgress > 0 ? '#f59e0b' : '#334155',
-                  boxShadow: stageProgress > 0 ? `0 0 6px ${stageProgress === 100 ? '#10b981' : boardColor}80` : 'none',
+                  backgroundColor: stageProgress === 100 ? '#10b981' : '#FCEE0A',
+                  boxShadow: stageProgress > 0 ? `0 0 6px ${stageProgress === 100 ? '#10b981' : '#FCEE0A'}80` : 'none',
                 }}
               />
             </div>
@@ -1343,7 +1343,7 @@ function SubtaskRow({
             onClick={onToggleExpand}
             className={cn(
               'flex-1 min-w-0 text-left text-[11px] font-medium truncate transition-colors',
-              subDone ? 'text-slate-600 line-through' : 'text-slate-200'
+              subDone ? 'text-slate-600 line-through' : 'text-[#FCEE0A]'
             )}
             title="Двойной клик — переименовать"
           >

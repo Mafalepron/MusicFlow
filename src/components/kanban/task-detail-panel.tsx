@@ -383,7 +383,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       <div className="px-4 py-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
         <span
           className="text-[9px] uppercase tracking-widest font-medium block mb-2"
-          style={{ color: hexToRgba(boardColor, 0.55) }}
+          style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
         >
           Обложка
         </span>
@@ -454,7 +454,7 @@ function TrackTextSection({
       <div className="flex items-center justify-between mb-2">
         <span
           className="text-[9px] uppercase tracking-widest font-medium"
-          style={{ color: hexToRgba(boardColor, 0.55) }}
+          style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
         >
           Текст трека
         </span>
@@ -471,7 +471,7 @@ function TrackTextSection({
             <button
               onClick={() => { setDraft(trackText); setIsEditing(true); }}
               className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1"
-              style={{ color: hexToRgba(boardColor, 0.5) }}
+              style={{ color: '#FCEE0A' }}
             >
               <Pencil className="w-2.5 h-2.5" /> Изменить
             </button>

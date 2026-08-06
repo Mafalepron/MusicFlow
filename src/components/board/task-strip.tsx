@@ -65,9 +65,9 @@ export default function TaskStrip() {
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     cardSelected: {
-      backgroundColor: c.a12,
-      border: `2px solid ${c.a55}`,
-      boxShadow: `0 0 24px ${c.a22}, inset 0 0 16px ${c.a04}`,
+      backgroundColor: 'rgba(252, 238, 10, 0.12)',
+      border: '2px solid rgba(252, 238, 10, 0.55)',
+      boxShadow: '0 0 24px rgba(252, 238, 10, 0.22), inset 0 0 16px rgba(252, 238, 10, 0.05)',
       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
     },
     progressBg: { backgroundColor: 'rgba(255,255,255,0.04)' },
@@ -75,7 +75,7 @@ export default function TaskStrip() {
     iconDone: c.a4,
     textColor: 'rgba(226, 232, 240, 0.95)',
     textDoneColor: c.a4,
-    progressTextColor: c.a6,
+    progressTextColor: '#FCEE0A',
     editColor: c.a5,
     deleteColor: 'rgba(244, 63, 94, 0.6)',
   }), [c]);
@@ -355,7 +355,8 @@ export default function TaskStrip() {
                     className="h-full transition-all duration-500"
                     style={{
                       width: progress + '%',
-                      backgroundColor: hexToRgba(boardColor, progress === 100 ? 0.8 : 0.5),
+                      backgroundColor: progress === 100 ? '#34d399' : '#FCEE0A',
+                      boxShadow: progress > 0 ? `0 0 6px ${progress === 100 ? '#34d399' : '#FCEE0A'}80` : 'none',
                     }}
                   />
                 </div>
