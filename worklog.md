@@ -637,3 +637,25 @@ Stage Summary:
 - All stage/subtask block borders, backgrounds, and accents use the board's color instead of hardcoded cyan.
 - Arrow buttons, delete buttons, and collapse icons all show a square outline with yellow (or red for delete) on hover.
 - Cover art moved to the top of the right panel, right after the status/metadata line, in a compact horizontal layout.
+
+---
+Task ID: 14
+Agent: main (Z.ai Code)
+Task: Fix purple focus ring on subtask input fields in the bottom panel.
+
+Work Log:
+- Read /home/z/my-project/worklog.md (Task 13: blue add buttons, board-color blocks, square icon outlines, cover moved).
+- Found 3 `<Input>` components in description-bottom-panel.tsx (lines 855, 1250, 1597) using `bg-slate-900/80 border-slate-700/50` classes — the underlying `<Input>` component (src/components/ui/input.tsx) has `focus-visible:ring-ring/50 focus-visible:ring-[3px]` which produces a purple/violet focus ring.
+- Also found 2 raw `<input>` elements for inline title editing (lines 1000, 1383) using `bg-slate-900/90` with `focus:outline-none` but no ring override.
+
+Changes made (description-bottom-panel.tsx):
+- All 3 `<Input>` components: replaced `bg-slate-900/80 border-slate-700/50` with `bg-[rgba(8,8,16,0.92)] ... focus:outline-none focus-visible:ring-0 transition-colors`. Added `onFocus`/`onBlur` handlers to change `borderColor` from board color → `#FCEE0A` (yellow) on focus, and revert on blur. This was necessary because inline `style={{ borderColor: ... }}` has higher specificity than Tailwind's `focus-visible:border-[#FCEE0A]` class.
+- Both `<input>` inline title editors: replaced `bg-slate-900/90` with `bg-[rgba(8,8,16,0.92)]`, added `focus-visible:ring-0` and `onFocus` handler to turn border yellow on focus.
+
+Verification via Agent Browser + VLM:
+- Opened the add-subtask form in the bottom panel.
+- VLM confirmed: "NO purple or violet color on or around the input field", "border is YELLOW (indicating focus)", "clean and cyberpunk-styled".
+- No runtime errors. Lint: no new errors (2 pre-existing in other files).
+
+Stage Summary:
+- All input fields in the bottom panel (add stage, add subtask, inline title editing) now have a clean dark background with a yellow border on focus — no purple/violet ring.

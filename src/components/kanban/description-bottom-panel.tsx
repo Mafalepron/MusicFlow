@@ -860,8 +860,10 @@ function StagesList({
               if (e.key === 'Escape') { setAddingStage(false); setNewStageTitle(''); }
             }}
             placeholder="Название этапа..."
-            className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-200 placeholder:text-slate-600 h-7"
+            className="bg-[rgba(8,8,16,0.92)] text-[11px] text-slate-200 placeholder:text-slate-600 h-7 rounded-md border focus:outline-none focus-visible:ring-0 transition-colors px-2"
             style={{ borderColor: c.a3 }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#FCEE0A'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = c.a3; }}
             autoFocus
           />
           <div className="flex items-center gap-1.5">
@@ -1003,8 +1005,9 @@ function StageCard({
               if (e.key === 'Escape') { setIsEditingTitle(false); setTitleDraft(stage.title); }
             }}
             onBlur={() => void saveTitle()}
-            className="flex-1 min-w-0 bg-slate-900/90 rounded-md px-2 py-1 text-[12px] text-slate-100 font-medium focus:outline-none"
+            className="flex-1 min-w-0 bg-[rgba(8,8,16,0.92)] rounded-md px-2 py-1 text-[12px] text-slate-100 font-medium focus:outline-none focus-visible:ring-0 transition-colors"
             style={{ border: `1.5px solid ${c.a5}` }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#FCEE0A'; }}
             autoFocus
           />
         ) : (
@@ -1255,8 +1258,10 @@ function SubtasksList({
               if (e.key === 'Escape') { setAddingSub(false); setNewSubTitle(''); }
             }}
             placeholder="Название подзадачи..."
-            className="bg-slate-900/80 border-slate-700/50 text-[10px] text-slate-300 placeholder:text-slate-600 h-6"
+            className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 h-6 rounded-md border focus:outline-none focus-visible:ring-0 transition-colors px-2"
             style={{ borderColor: c.a25 }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#FCEE0A'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = c.a25; }}
             autoFocus
           />
           <div className="flex items-center gap-1.5 mt-1">
@@ -1384,8 +1389,9 @@ function SubtaskRow({
               if (e.key === 'Escape') { setIsEditingTitle(false); setTitleDraft(subtask.title); }
             }}
             onBlur={() => void saveTitle()}
-            className="flex-1 min-w-0 bg-slate-900/90 rounded px-2 py-0.5 text-[11px] text-slate-100 focus:outline-none"
+            className="flex-1 min-w-0 bg-[rgba(8,8,16,0.92)] rounded px-2 py-0.5 text-[11px] text-slate-100 focus:outline-none focus-visible:ring-0 transition-colors"
             style={{ border: `1.5px solid ${c.a4}` }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#FCEE0A'; }}
             autoFocus
           />
         ) : (
@@ -1602,8 +1608,10 @@ function FlatSubtasksList({
               if (e.key === 'Escape') { setAddingSub(false); setNewSubTitle(''); }
             }}
             placeholder="Название подзадачи..."
-            className="bg-slate-900/80 border-slate-700/50 text-[11px] text-slate-200 placeholder:text-slate-600 h-7"
+            className="bg-[rgba(8,8,16,0.92)] text-[11px] text-slate-200 placeholder:text-slate-600 h-7 rounded-md border focus:outline-none focus-visible:ring-0 transition-colors px-2"
             style={{ borderColor: c.a3 }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = '#FCEE0A'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = c.a3; }}
             autoFocus
           />
           <div className="flex items-center gap-1.5">
