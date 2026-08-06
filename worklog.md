@@ -293,3 +293,61 @@ Stage Summary:
 - The audio badge is now a compact icon-only square (no "Audio" text).
 - Deleting a task now requires explicit confirmation via a styled popover with the task name and irreversibility warning.
 - The top panel can be collapsed via a chevron toggle; when collapsed, only the currently selected task is shown (with a "текущая" badge), saving vertical space.
+
+---
+Task ID: 8
+Agent: main (Z.ai Code)
+Task: 1) Collapsed top panel should be a compact single line with the selected task shown as a description (not a "текущая" badge), "New Task" button hidden, and clicking anywhere on the line expands it; 2) Right panel borders should match the board color — yellow only for subheading titles, area frames, and hover.
+
+Work Log:
+- Read /home/z/my-project/worklog.md (Task 7: board-color task strip, icon-only audio badge, delete confirmation, collapse toggle).
+- Read /home/z/my-project/src/components/board/task-strip.tsx — found the collapsed state still showed a separate task card and a "текущая" badge; the "New Task" button was still visible when collapsed; only the chevron button could toggle.
+- Read /home/z/my-project/src/components/kanban/task-detail-panel.tsx — found 15+ hardcoded yellow (`rgba(252,238,10,...)`) references for section borders, description card frames, and input borders that should use the board color.
+- Read /home/z/my-project/src/components/kanban/kanban-view.tsx — found the right panel container had a hardcoded yellow left border.
+
+Changes made:
+
+### 1. task-strip.tsx — Reworked collapsed state
+- When `isCollapsed` is true, the component now returns a **compact single-line div** (early return) instead of rendering the full header + task list.
+- The collapsed line shows: `[chevron] [dot] BOARD_TITLE [count] // [status_icon] SelectedTaskTitle [music_icon]`
+  - The selected task is shown inline as a description after a `//` separator (like the bottom panel's `// task.title` pattern).
+  - No "текущая" badge.
+  - No "New Task" button.
+  - If no task is selected, shows "— задача не выбрана".
+- The entire collapsed line has `cursor-pointer`, `onClick={() => setIsCollapsed(false)}`, and `title="Развернуть список задач"` — clicking ANYWHERE on the line expands it.
+- Fixed a JSX lint error: `>//</span>` → `>{'// '}</span>` (the `//` was parsed as a JSX comment).
+
+### 2. task-detail-panel.tsx — Board-color borders, yellow only for titles/hover
+Replaced all hardcoded yellow **section divider borders** and **card frames** with `hexToRgba(boardColor, ...)`:
+
+- **TrackDetailView header**: `borderBottom: 2px solid rgba(252,238,10,0.2)` → `hexToRgba(boardColor, 0.3)`; gradient `rgba(252,238,10,0.04)` → `hexToRgba(boardColor, 0.06)`
+- **"Open in Audio Editor" section border**: `0.15` yellow → `hexToRgba(boardColor, 0.2)`
+- **Description section border** (both TrackDetailView and TaskDetailView): `0.15` yellow → `hexToRgba(boardColor, 0.2)`
+- **Track cover section border**: same replacement
+- **Description textarea borders** (edit mode, both views): `1px solid rgba(252,238,10,0.2)` → `hexToRgba(boardColor, 0.3)`; boxShadow → `hexToRgba(boardColor, 0.04)`
+- **Description display card** (both views): Changed from hardcoded cyan (`rgba(0,229,255,...)`) to `hexToRgba(boardColor, ...)` for background/border/boxShadow, AND added `onMouseEnter`/`onMouseLeave` to turn the border **yellow on hover** (`#FCEE0A`) and revert to board color on leave.
+- **TaskDetailView header**: Same board-color border + gradient as TrackDetailView.
+- **TaskForm header border**: `0.15` yellow → `hexToRgba('#00d9ff', 0.2)` (cyan, since the form doesn't have a board context).
+
+**Kept yellow** (per user request "yellow only in subheading titles, area frames and on hover"):
+- Subheading titles ("ОПИСАНИЕ") — `color: #FCEE0A` with glow.
+- "Изменить" and "Сохранить" buttons — yellow accent CTAs.
+- Subtask count chip — yellow frame element.
+- Hover states on the description card — border turns yellow on hover.
+
+### 3. kanban-view.tsx — Right panel container border
+- `borderLeft: '2px solid rgba(252,238,10,0.25)'` → `hexToRgba(boardColor, 0.3)`
+- `boxShadow: 'inset 1px 0 0 rgba(252,238,10,0.1)...'` → `hexToRgba(boardColor, 0.1)`
+- Added `hexToRgba` to the import from `@/lib/utils`.
+
+Verification via Agent Browser + VLM:
+- Logged in, navigated to the Kanban project, selected the **green board** (#00ff88).
+- VLM confirmed for the green board right panel: horizontal divider borders = GREEN, left panel border = GREEN, "ОПИСАНИЕ" subheading = YELLOW.
+- Tested collapse: clicked the chevron → panel became a compact single line showing `ЗЕЛЁНАЯ ДОСКА 1 // ○ Зелёная задача`. VLM confirmed: compact single line ✓, selected task inline after `//` ✓, "New Task" button hidden ✓, no "текущая" badge ✓.
+- Tested expand: clicked on the collapsed line title → panel expanded back to full view with "НОВАЯ ЗАДАЧА" button and task cards visible.
+- Switched to the **orange board** (#ff8c00) → VLM confirmed: right panel borders = ORANGE, matching the board color.
+- No runtime errors in console. Lint: no new errors (3 pre-existing in other files).
+
+Stage Summary:
+- Collapsed top panel is now a true compact single line: `BOARD_TITLE // SelectedTask` with no "New Task" button and no "текущая" badge; clicking anywhere on the line expands it.
+- Right panel section dividers, container border, and card frames now use the board's color (green/orange/cyan) instead of hardcoded yellow. Yellow remains only for subheading titles, the "Изменить"/"Сохранить" accent buttons, the subtask chip frame, and hover states on the description card.

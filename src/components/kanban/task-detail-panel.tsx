@@ -180,7 +180,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
       {/* Header — title + metadata in one line */}
-      <div className="p-4" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.2)', background: 'linear-gradient(90deg, rgba(252,238,10,0.04), transparent)' }}>
+      <div className="p-4" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.3)}`, background: `linear-gradient(90deg, ${hexToRgba(boardColor, 0.06)}, transparent)` }}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
           <div className="flex items-center gap-1">
@@ -247,7 +247,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
 
       {/* Open in Audio Editor */}
       {task.soundflowTrackId && (
-        <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+        <div className="px-4 py-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
           <button
             onClick={async () => {
               const kanbanState = useKanbanStore.getState();
@@ -291,7 +291,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       )}
 
       {/* Description (inline editable) — cyberpunk styled */}
-      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+      <div className="px-4 py-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
         <div className="flex items-center justify-between mb-2">
           <span
             className="text-[9px] uppercase tracking-widest font-bold"
@@ -318,8 +318,8 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
               className="text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none rounded-md"
               style={{
                 background: 'rgba(8, 8, 16, 0.9)',
-                border: '1px solid rgba(252, 238, 10, 0.2)',
-                boxShadow: 'inset 0 0 8px rgba(252, 238, 10, 0.03)',
+                border: `1px solid ${hexToRgba(boardColor, 0.3)}`,
+                boxShadow: `inset 0 0 8px ${hexToRgba(boardColor, 0.04)}`,
               }}
               autoFocus
               onKeyDown={(e) => {
@@ -356,12 +356,14 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
           <div
             className="rounded-md px-3 py-2 transition-all cursor-pointer"
             style={{
-              background: 'rgba(0, 229, 255, 0.05)',
-              border: '1.5px solid rgba(0, 229, 255, 0.25)',
+              background: hexToRgba(boardColor, 0.06),
+              border: `1.5px solid ${hexToRgba(boardColor, 0.3)}`,
               clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-              boxShadow: 'inset 0 0 8px rgba(0, 229, 255, 0.02)',
+              boxShadow: `inset 0 0 8px ${hexToRgba(boardColor, 0.03)}`,
             }}
             onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FCEE0A'; e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.15), inset 0 0 8px rgba(252,238,10,0.04)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(boardColor, 0.3); e.currentTarget.style.boxShadow = `inset 0 0 8px ${hexToRgba(boardColor, 0.03)}`; }}
           >
             <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">
               {task.description}
@@ -378,7 +380,7 @@ function TrackDetailView({ task, board }: { task: Task; board?: { title: string;
       </div>
 
       {/* Track cover */}
-      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+      <div className="px-4 py-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
         <span
           className="text-[9px] uppercase tracking-widest font-medium block mb-2"
           style={{ color: hexToRgba(boardColor, 0.55) }}
@@ -617,7 +619,7 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
       {/* Header — title + metadata in one line (cyberpunk, matches TrackDetailView) */}
-      <div className="p-4" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.2)', background: 'linear-gradient(90deg, rgba(252,238,10,0.04), transparent)' }}>
+      <div className="p-4" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.3)}`, background: `linear-gradient(90deg, ${hexToRgba(boardColor, 0.06)}, transparent)` }}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
           <div className="flex items-center gap-1">
@@ -684,7 +686,7 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
       </div>
 
       {/* Description (inline editable) — cyberpunk styled, matches TrackDetailView */}
-      <div className="px-4 py-3" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+      <div className="px-4 py-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
         <div className="flex items-center justify-between mb-2">
           <span
             className="text-[9px] uppercase tracking-widest font-bold"
@@ -711,8 +713,8 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
               className="text-[11px] text-slate-200 placeholder:text-slate-600 min-h-[70px] resize-none focus:outline-none rounded-md"
               style={{
                 background: 'rgba(8, 8, 16, 0.9)',
-                border: '1px solid rgba(252, 238, 10, 0.2)',
-                boxShadow: 'inset 0 0 8px rgba(252, 238, 10, 0.03)',
+                border: `1px solid ${hexToRgba(boardColor, 0.3)}`,
+                boxShadow: `inset 0 0 8px ${hexToRgba(boardColor, 0.04)}`,
               }}
               autoFocus
               onKeyDown={(e) => {
@@ -750,12 +752,14 @@ function TaskDetailView({ task, board }: { task: Task; board?: { title: string; 
           <div
             className="rounded-md px-3 py-2 transition-all cursor-pointer"
             style={{
-              background: 'rgba(0, 229, 255, 0.05)',
-              border: '1.5px solid rgba(0, 229, 255, 0.25)',
+              background: hexToRgba(boardColor, 0.06),
+              border: `1.5px solid ${hexToRgba(boardColor, 0.3)}`,
               clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-              boxShadow: 'inset 0 0 8px rgba(0, 229, 255, 0.02)',
+              boxShadow: `inset 0 0 8px ${hexToRgba(boardColor, 0.03)}`,
             }}
             onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FCEE0A'; e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.15), inset 0 0 8px rgba(252,238,10,0.04)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(boardColor, 0.3); e.currentTarget.style.boxShadow = `inset 0 0 8px ${hexToRgba(boardColor, 0.03)}`; }}
           >
             <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">
               {task.description}
@@ -858,7 +862,7 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
     <div className="flex-1 overflow-y-auto">
       <div className="p-4 space-y-3">
         {/* Header */}
-        <div className="flex items-center justify-between pb-2" style={{ borderBottom: '2px solid rgba(252, 238, 10, 0.15)' }}>
+        <div className="flex items-center justify-between pb-2" style={{ borderBottom: `2px solid ${hexToRgba('#00d9ff', 0.2)}` }}>
           <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}>
             {mode === 'edit' ? 'Редактировать' : 'Новая задача'}
           </h3>

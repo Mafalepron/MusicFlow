@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ArrowLeft, RefreshCw, Hexagon, FolderOpen, ChevronRight, Trash2, Plus, Music, Disc3, Zap, AudioLines, Search, Pencil, LayoutGrid, Layers, Check, X, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, hexToRgba } from '@/lib/utils';
 
 type FilterType = 'all' | 'kanban' | 'music';
 
@@ -478,9 +478,9 @@ function KanbanWorkspace() {
           <DescriptionBottomPanel />
         </div>
         <div className="w-[360px] flex flex-col min-h-0" style={{
-          borderLeft: '2px solid rgba(252, 238, 10, 0.25)',
+          borderLeft: `2px solid ${hexToRgba(boardColor, 0.3)}`,
           background: 'linear-gradient(180deg, rgba(5, 10, 20, 0.95), rgba(8, 12, 24, 0.98))',
-          boxShadow: 'inset 1px 0 0 rgba(252, 238, 10, 0.1), -4px 0 24px rgba(0, 0, 0, 0.5)',
+          boxShadow: `inset 1px 0 0 ${hexToRgba(boardColor, 0.1)}, -4px 0 24px rgba(0, 0, 0, 0.5)`,
         }}>
           {isTrackWizardOpen ? (
             <TrackWizard />

@@ -129,37 +129,80 @@ export default function TaskStrip() {
     el.style.boxShadow = 'none';
   };
 
-  // When collapsed, show only the selected task (or a placeholder)
+  // The currently selected task (used for the compact collapsed view)
   const selectedTask = boardTasks.find(t => t.id === selectedTaskId) || null;
-  const visibleTasks = isCollapsed
-    ? (selectedTask ? [selectedTask] : [])
-    : boardTasks;
 
+  // ── COLLAPSED: compact single line ──
+  // The whole line is clickable to expand. No "New Task" button. The selected
+  // task title is shown inline as a description (no "текущая" badge).
+  if (isCollapsed) {
+    const SelIcon = selectedTask ? (STATUS_ICON[selectedTask.status] || Circle) : null;
+    const selDone = selectedTask?.status === 'done';
+    return (
+      <div
+        className="flex-shrink-0 cursor-pointer select-none"
+        style={styles.containerBorder}
+        onClick={() => setIsCollapsed(false)}
+        title="Развернуть список задач"
+      >
+        <div className="h-[2px]" style={styles.accentLine} />
+        <div className="flex items-center gap-2 px-3 py-1.5">
+          <ChevronDown
+            className="w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 rotate-180"
+            style={{ color: c.a6 }}
+          />
+          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={styles.dotBg} />
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest flex-shrink-0" style={styles.titleColor}>
+            {selectedBoard.title}
+          </h3>
+          <span className="text-[9px] text-slate-600 flex-shrink-0">{boardTasks.length}</span>
+          {/* Selected task shown inline as a description */}
+          {selectedTask && SelIcon ? (
+            <>
+              <span
+                className="text-slate-600 flex-shrink-0"
+                style={{ fontSize: '10px' }}
+              >{'// '}</span>
+              <SelIcon
+                className="w-3 h-3 flex-shrink-0"
+                style={{ color: selDone ? styles.iconDone : styles.iconActive }}
+              />
+              <span
+                className={cn('text-[11px] font-medium truncate min-w-0', selDone && 'line-through')}
+                style={{ color: selDone ? styles.textDoneColor : styles.textColor }}
+              >
+                {selectedTask.title}
+              </span>
+              {selectedTask.soundflowTrackId && (
+                <Music className="w-2.5 h-2.5 flex-shrink-0" style={{ color: '#22d3ee' }} />
+              )}
+            </>
+          ) : (
+            <span className="text-[10px] text-slate-600 truncate">— задача не выбрана</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── EXPANDED: full task list ──
   return (
     <div className="flex-shrink-0" style={styles.containerBorder}>
       <div className="h-[2px]" style={styles.accentLine} />
       <div className="flex items-center gap-1.5 px-3 py-1.5">
         <button
-          onClick={() => setIsCollapsed(v => !v)}
+          onClick={() => setIsCollapsed(true)}
           className="flex-shrink-0 p-0.5 rounded transition-all hover:bg-white/5"
           style={{ color: c.a6 }}
-          title={isCollapsed ? 'Развернуть список задач' : 'Свернуть (только текущая задача)'}
+          title="Свернуть (только текущая задача)"
         >
-          <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', isCollapsed && 'rotate-180')} />
+          <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200" />
         </button>
         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={styles.dotBg} />
         <h3 className="text-[10px] font-semibold uppercase tracking-widest" style={styles.titleColor}>
           {selectedBoard.title}
         </h3>
         <span className="text-[9px] text-slate-600">{boardTasks.length}</span>
-        {isCollapsed && selectedTask && (
-          <span
-            className="ml-1 text-[9px] px-1.5 py-0.5 rounded font-medium"
-            style={{ color: c.raw, backgroundColor: c.a08, border: `1px solid ${c.a2}` }}
-          >
-            текущая
-          </span>
-        )}
         <div className="flex-1" />
         {showButton && (
           <button
@@ -208,126 +251,119 @@ export default function TaskStrip() {
         )}
       </div>
 
-      {!isCollapsed || visibleTasks.length > 0 ? (
-        <div
-          ref={scrollRef}
-          className="flex gap-2 px-3 pb-2 overflow-x-auto"
-          style={styles.scrollbar}
-        >
-          {boardTasks.length === 0 && !isCollapsed && (
-            <div className="flex items-center justify-center w-full py-2">
-              <p className="text-[10px] text-slate-700">Нет задач</p>
-            </div>
-          )}
-          {isCollapsed && !selectedTask && (
-            <div className="flex items-center justify-center w-full py-2">
-              <p className="text-[10px] text-slate-700">Нет выбранной задачи</p>
-            </div>
-          )}
-          {visibleTasks.map((task) => {
-            const Icon = STATUS_ICON[task.status] || Circle;
-            const isSelected = selectedTaskId === task.id;
-            const isTrack = !!task.trackConfig;
-            const allLeaves = isTrack
-              ? (task.children || []).flatMap(s => s.children || [])
-              : (task.children || []);
-            const progress = isTrack ? getProgress(allLeaves) : getProgress(task.children || []);
-            const isDone = task.status === 'done';
-            return (
-              <div
-                key={task.id}
-                onClick={() => setSelectedTaskId(task.id)}
-                onDoubleClick={() => {
-                  if (task.soundflowTrackId) {
-                    const kanbanState = useKanbanStore.getState();
-                    const kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
-                    const sfProjectId = kanbanProject?.soundflowProjectId;
-                    if (sfProjectId && task.soundflowTrackId) {
-                      useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId);
-                      return;
-                    }
+      <div
+        ref={scrollRef}
+        className="flex gap-2 px-3 pb-2 overflow-x-auto"
+        style={styles.scrollbar}
+      >
+        {boardTasks.length === 0 && (
+          <div className="flex items-center justify-center w-full py-2">
+            <p className="text-[10px] text-slate-700">Нет задач</p>
+          </div>
+        )}
+        {boardTasks.map((task) => {
+          const Icon = STATUS_ICON[task.status] || Circle;
+          const isSelected = selectedTaskId === task.id;
+          const isTrack = !!task.trackConfig;
+          const allLeaves = isTrack
+            ? (task.children || []).flatMap(s => s.children || [])
+            : (task.children || []);
+          const progress = isTrack ? getProgress(allLeaves) : getProgress(task.children || []);
+          const isDone = task.status === 'done';
+          return (
+            <div
+              key={task.id}
+              onClick={() => setSelectedTaskId(task.id)}
+              onDoubleClick={() => {
+                if (task.soundflowTrackId) {
+                  const kanbanState = useKanbanStore.getState();
+                  const kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
+                  const sfProjectId = kanbanProject?.soundflowProjectId;
+                  if (sfProjectId && task.soundflowTrackId) {
+                    useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId);
+                    return;
                   }
-                  setEditingTask(task);
-                }}
-                className={cn(
-                  'group flex-shrink-0 rounded-lg cursor-pointer transition-all duration-200',
-                  isSelected && 'animate-in fade-in duration-200',
+                }
+                setEditingTask(task);
+              }}
+              className={cn(
+                'group flex-shrink-0 rounded-lg cursor-pointer transition-all duration-200',
+                isSelected && 'animate-in fade-in duration-200',
+              )}
+              style={isSelected ? styles.cardSelected : styles.cardDefault}
+              onMouseEnter={(e) => { if (!isSelected) handleCardEnter(e.currentTarget); }}
+              onMouseLeave={(e) => { if (!isSelected) handleCardLeave(e.currentTarget); }}
+            >
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+                <button
+                  onClick={(e) => cycleStatus(e, task)}
+                  className="flex-shrink-0 transition-opacity hover:opacity-60"
+                  style={{ color: isDone ? styles.iconDone : styles.iconActive }}
+                  title={'Статус: ' + task.status}
+                >
+                  <Icon className="w-3 h-3" />
+                </button>
+                <p
+                  className={cn(
+                    'text-[11px] font-medium leading-tight truncate min-w-0 flex-1',
+                    isDone ? 'line-through' : '',
+                  )}
+                  style={{ color: isDone ? styles.textDoneColor : styles.textColor }}
+                >
+                  {task.title}
+                </p>
+                {task.soundflowTrackId && (
+                  <span
+                    className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded"
+                    style={{
+                      color: '#22d3ee',
+                      backgroundColor: 'rgba(34, 211, 238, 0.12)',
+                      boxShadow: 'inset 0 0 0 1px rgba(34, 211, 238, 0.25)',
+                    }}
+                    title="Связан с аудиотреком — двойной клик откроет редактор"
+                  >
+                    <Music className="w-2.5 h-2.5" />
+                  </span>
                 )}
-                style={isSelected ? styles.cardSelected : styles.cardDefault}
-                onMouseEnter={(e) => { if (!isSelected) handleCardEnter(e.currentTarget); }}
-                onMouseLeave={(e) => { if (!isSelected) handleCardLeave(e.currentTarget); }}
-              >
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5">
-                  <button
-                    onClick={(e) => cycleStatus(e, task)}
-                    className="flex-shrink-0 transition-opacity hover:opacity-60"
-                    style={{ color: isDone ? styles.iconDone : styles.iconActive }}
-                    title={'Статус: ' + task.status}
-                  >
-                    <Icon className="w-3 h-3" />
-                  </button>
-                  <p
-                    className={cn(
-                      'text-[11px] font-medium leading-tight truncate min-w-0 flex-1',
-                      isDone ? 'line-through' : '',
-                    )}
-                    style={{ color: isDone ? styles.textDoneColor : styles.textColor }}
-                  >
-                    {task.title}
-                  </p>
-                  {task.soundflowTrackId && (
-                    <span
-                      className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded"
-                      style={{
-                        color: '#22d3ee',
-                        backgroundColor: 'rgba(34, 211, 238, 0.12)',
-                        boxShadow: 'inset 0 0 0 1px rgba(34, 211, 238, 0.25)',
-                      }}
-                      title="Связан с аудиотреком — двойной клик откроет редактор"
-                    >
-                      <Music className="w-2.5 h-2.5" />
-                    </span>
-                  )}
-                  {allLeaves.length > 0 && (
-                    <span className="text-[8px] flex-shrink-0 tabular-nums font-medium" style={{ color: styles.progressTextColor }}>
-                      {progress}%
-                    </span>
-                  )}
-                  <div className="flex items-center gap-px opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
-                      className="p-0.5 rounded hover:bg-white/10"
-                      style={{ color: styles.editColor }}
-                    >
-                      <Pencil className="w-2.5 h-2.5" />
-                    </button>
-                    <DeleteTaskButton
-                      task={task}
-                      onDelete={async () => {
-                        await fetch('/api/tasks?id=' + task.id, { method: 'DELETE' });
-                        if (selectedTaskId === task.id) setSelectedTaskId(null);
-                        await reloadTasks();
-                      }}
-                      accentColor={c.raw}
-                    />
-                  </div>
-                </div>
                 {allLeaves.length > 0 && (
-                  <div className="h-[2px] w-full overflow-hidden rounded-b-lg" style={styles.progressBg}>
-                    <div
-                      className="h-full transition-all duration-500"
-                      style={{
-                        width: progress + '%',
-                        backgroundColor: hexToRgba(boardColor, progress === 100 ? 0.8 : 0.5),
-                      }}
-                    />
-                  </div>
+                  <span className="text-[8px] flex-shrink-0 tabular-nums font-medium" style={{ color: styles.progressTextColor }}>
+                    {progress}%
+                  </span>
                 )}
+                <div className="flex items-center gap-px opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
+                    className="p-0.5 rounded hover:bg-white/10"
+                    style={{ color: styles.editColor }}
+                  >
+                    <Pencil className="w-2.5 h-2.5" />
+                  </button>
+                  <DeleteTaskButton
+                    task={task}
+                    onDelete={async () => {
+                      await fetch('/api/tasks?id=' + task.id, { method: 'DELETE' });
+                      if (selectedTaskId === task.id) setSelectedTaskId(null);
+                      await reloadTasks();
+                    }}
+                    accentColor={c.raw}
+                  />
+                </div>
               </div>
-            );
-          })}
-        </div>
-      ) : null}
+              {allLeaves.length > 0 && (
+                <div className="h-[2px] w-full overflow-hidden rounded-b-lg" style={styles.progressBg}>
+                  <div
+                    className="h-full transition-all duration-500"
+                    style={{
+                      width: progress + '%',
+                      backgroundColor: hexToRgba(boardColor, progress === 100 ? 0.8 : 0.5),
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
