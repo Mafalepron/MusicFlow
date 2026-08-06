@@ -377,8 +377,8 @@ export default function DescriptionBottomPanel() {
         .cp-panel {
           position: relative;
           background: linear-gradient(180deg, rgba(5, 10, 20, 0.98), rgba(8, 12, 24, 0.99));
-          border-top: 2px solid rgba(252, 238, 10, 0.3);
-          box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6), 0 -2px 0 rgba(252, 238, 10, 0.1), 0 -4px 16px rgba(252, 238, 10, 0.08), inset 0 1px 0 rgba(252, 238, 10, 0.05);
+          border-top: 2px solid rgba(0, 229, 255, 0.2);
+          box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6), 0 -2px 0 rgba(0, 229, 255, 0.08), 0 -4px 16px rgba(0, 229, 255, 0.06), inset 0 1px 0 rgba(0, 229, 255, 0.04);
           overflow: hidden;
         }
         .cp-panel::before {
@@ -386,8 +386,8 @@ export default function DescriptionBottomPanel() {
           position: absolute;
           inset: 0;
           background-image:
-            linear-gradient(rgba(252, 238, 10, 0.025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(252, 238, 10, 0.025) 1px, transparent 1px);
+            linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
           background-size: 24px 24px;
           pointer-events: none;
           z-index: 0;
@@ -399,8 +399,8 @@ export default function DescriptionBottomPanel() {
             0deg,
             transparent 0px,
             transparent 2px,
-            rgba(252, 238, 10, 0.02) 2px,
-            rgba(252, 238, 10, 0.02) 3px
+            rgba(0, 229, 255, 0.02) 2px,
+            rgba(0, 229, 255, 0.02) 3px
           );
           pointer-events: none;
           z-index: 1;
@@ -430,8 +430,8 @@ export default function DescriptionBottomPanel() {
           flex-shrink: 0;
           position: relative;
           z-index: 2;
-          background: linear-gradient(90deg, rgba(252, 238, 10, 0.05), transparent 70%);
-          border-bottom: 1px solid rgba(252, 238, 10, 0.12);
+          background: linear-gradient(90deg, rgba(0, 229, 255, 0.04), transparent 70%);
+          border-bottom: 1px solid rgba(0, 229, 255, 0.12);
         }
         .cp-header-icon {
           width: 28px;
@@ -523,12 +523,12 @@ export default function DescriptionBottomPanel() {
           background: ${c.a5};
         }
 
-        /* Cyberpunk stage card — deep dark with thick glowing border */
+        /* Cyberpunk stage card — deep dark with blue default border, yellow on highlight */
         .cp-stage-card {
           position: relative;
           margin: 0 8px 8px;
           background: linear-gradient(135deg, rgba(10, 18, 32, 0.92), rgba(6, 10, 20, 0.96));
-          border: 2px solid rgba(252, 238, 10, 0.25);
+          border: 2px solid rgba(0, 229, 255, 0.22);
           clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
           transition: all 200ms;
           overflow: hidden;
@@ -551,7 +551,7 @@ export default function DescriptionBottomPanel() {
           left: 0;
           width: 4px;
           height: 100%;
-          background: linear-gradient(180deg, transparent, rgba(252, 238, 10, 0.6) 20%, rgba(252, 238, 10, 0.6) 80%, transparent);
+          background: linear-gradient(180deg, transparent, rgba(0, 229, 255, 0.5) 20%, rgba(0, 229, 255, 0.5) 80%, transparent);
           opacity: 0.8;
         }
         .cp-stage-header {
@@ -562,8 +562,8 @@ export default function DescriptionBottomPanel() {
           position: relative;
         }
         .cp-stage-header-bg {
-          background: linear-gradient(90deg, rgba(252, 238, 10, 0.08), transparent 80%);
-          border-bottom: 1px solid rgba(252, 238, 10, 0.15);
+          background: linear-gradient(90deg, rgba(0, 229, 255, 0.06), transparent 80%);
+          border-bottom: 1px solid rgba(0, 229, 255, 0.12);
         }
         .cp-stage-title {
           font-size: 12px;
@@ -576,7 +576,7 @@ export default function DescriptionBottomPanel() {
           background: rgba(255, 255, 255, 0.04);
           overflow: hidden;
           position: relative;
-          border: 1px solid rgba(252, 238, 10, 0.06);
+          border: 1px solid rgba(0, 229, 255, 0.08);
         }
         .cp-progress-fill {
           height: 100%;
@@ -601,8 +601,8 @@ export default function DescriptionBottomPanel() {
           flex-wrap: wrap;
           padding: 6px 8px;
           margin: 4px 8px;
-          background: rgba(252, 238, 10, 0.03);
-          border: 1px solid rgba(252, 238, 10, 0.08);
+          background: rgba(0, 229, 255, 0.03);
+          border: 1px solid rgba(0, 229, 255, 0.1);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
         }
         .cp-subtask-row {
@@ -614,9 +614,9 @@ export default function DescriptionBottomPanel() {
           transition: all 120ms;
           border-left: 3px solid rgba(0, 229, 255, 0.5);
           background: rgba(8, 14, 26, 0.8);
-          border-top: 1.5px solid rgba(252, 238, 10, 0.22);
-          border-right: 1.5px solid rgba(252, 238, 10, 0.22);
-          border-bottom: 1.5px solid rgba(252, 238, 10, 0.22);
+          border-top: 1.5px solid rgba(0, 229, 255, 0.18);
+          border-right: 1.5px solid rgba(0, 229, 255, 0.18);
+          border-bottom: 1.5px solid rgba(0, 229, 255, 0.18);
           clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
           box-shadow: inset 0 0 6px rgba(0, 229, 255, 0.02);
         }
@@ -662,19 +662,19 @@ export default function DescriptionBottomPanel() {
           font-weight: 700;
           letter-spacing: 0.05em;
           text-transform: uppercase;
-          color: #FCEE0A;
+          color: #00E5FF;
           transition: all 150ms;
-          border: 1.5px solid rgba(252, 238, 10, 0.4);
-          background: rgba(252, 238, 10, 0.08);
+          border: 1.5px solid rgba(0, 229, 255, 0.3);
+          background: rgba(0, 229, 255, 0.06);
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-          box-shadow: 0 0 6px rgba(252, 238, 10, 0.08);
+          box-shadow: 0 0 6px rgba(0, 229, 255, 0.06);
         }
         .cp-add-btn:hover {
-          color: #fff;
-          border-color: rgba(252, 238, 10, 0.7);
-          background: rgba(252, 238, 10, 0.15);
-          box-shadow: 0 0 16px rgba(252, 238, 10, 0.25), inset 0 0 10px rgba(252, 238, 10, 0.06);
-          text-shadow: 0 0 8px rgba(252, 238, 10, 0.6);
+          color: #FCEE0A;
+          border-color: rgba(252, 238, 10, 0.6);
+          background: rgba(252, 238, 10, 0.1);
+          box-shadow: 0 0 16px rgba(252, 238, 10, 0.2), inset 0 0 10px rgba(252, 238, 10, 0.04);
+          text-shadow: 0 0 8px rgba(252, 238, 10, 0.4);
         }
         .cp-desc-card {
           padding: 8px 12px;
