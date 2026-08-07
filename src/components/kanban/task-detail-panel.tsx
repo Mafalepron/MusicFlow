@@ -849,17 +849,120 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
   };
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="p-4 space-y-3">
+    <div className="flex-1 overflow-y-auto tf-panel relative">
+      <style jsx global>{`
+        .tf-panel { position: relative; overflow: hidden; }
+        .tf-grid {
+          position: absolute; inset: 0;
+          background-image:
+            linear-gradient(${hexToRgba(color, 0.025)} 1px, transparent 1px),
+            linear-gradient(90deg, ${hexToRgba(color, 0.025)} 1px, transparent 1px);
+          background-size: 20px 20px;
+          pointer-events: none; z-index: 0;
+        }
+        .tf-scanlines {
+          position: absolute; inset: 0;
+          background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, ${hexToRgba(color, 0.012)} 2px, ${hexToRgba(color, 0.012)} 3px);
+          pointer-events: none; z-index: 1;
+          animation: tf-scan 8s linear infinite;
+        }
+        @keyframes tf-scan { 0% { transform: translateY(0); } 100% { transform: translateY(3px); } }
+        .tf-neon-top {
+          height: 3px; flex-shrink: 0; position: relative; z-index: 2;
+          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
+          animation: tf-pulse 3s ease-in-out infinite;
+        }
+        @keyframes tf-pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+        .tf-input {
+          background: rgba(8, 8, 16, 0.92);
+          border: 1.5px solid ${hexToRgba(color, 0.3)};
+          color: rgb(226, 232, 240);
+          transition: all 150ms;
+          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+        }
+        .tf-input:focus, .tf-input:focus-visible {
+          outline: none;
+          border-color: #FCEE0A;
+          box-shadow: 0 0 8px rgba(252, 238, 10, 0.2);
+        }
+        .tf-input::placeholder { color: rgb(71, 85, 105); }
+        .tf-label {
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: ${hexToRgba(color, 0.7)};
+          text-shadow: 0 0 4px ${hexToRgba(color, 0.2)};
+        }
+        .tf-select-trigger {
+          background: rgba(8, 8, 16, 0.92) !important;
+          border: 1.5px solid ${hexToRgba(color, 0.3)} !important;
+          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+          transition: all 150ms;
+        }
+        .tf-select-trigger:focus, .tf-select-trigger[data-state=open] {
+          border-color: #FCEE0A !important;
+          box-shadow: 0 0 8px rgba(252, 238, 10, 0.2);
+        }
+        .tf-select-content {
+          background: rgba(8, 10, 18, 0.97) !important;
+          border: 1.5px solid ${hexToRgba(color, 0.4)} !important;
+          border-radius: 0 !important;
+          clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+          box-shadow: 0 0 24px ${hexToRgba(color, 0.15)}, 0 8px 32px rgba(0,0,0,0.6);
+        }
+        .tf-select-item[data-highlighted] {
+          background: ${hexToRgba(color, 0.12)};
+        }
+        .tf-btn-primary {
+          color: #000;
+          background: linear-gradient(135deg, #FCEE0A, #F1F100);
+          box-shadow: 0 0 12px rgba(252, 238, 10, 0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+          clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+          text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+          transition: all 180ms;
+        }
+        .tf-btn-primary:hover:not(:disabled) {
+          box-shadow: 0 0 20px rgba(252, 238, 10, 0.6), 0 0 32px rgba(252, 238, 10, 0.2);
+          transform: translateY(-1px);
+        }
+        .tf-btn-danger {
+          color: #FF003C;
+          background: rgba(255, 0, 60, 0.08);
+          border: 1.5px solid rgba(255, 0, 60, 0.3);
+          clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+          transition: all 180ms;
+        }
+        .tf-btn-danger:hover:not(:disabled) {
+          background: rgba(255, 0, 60, 0.15);
+          border-color: rgba(255, 0, 60, 0.6);
+          box-shadow: 0 0 16px rgba(255, 0, 60, 0.3);
+        }
+      `}</style>
+      <div className="tf-grid" />
+      <div className="tf-scanlines" />
+      <div className="tf-neon-top" style={{ background: `linear-gradient(90deg, transparent, ${color} 20%, #FCEE0A 50%, ${color} 80%, transparent)` }} />
+      <div className="p-4 space-y-3 relative z-[2]">
         {/* Header */}
-        <div className="flex items-center justify-between pb-2" style={{ borderBottom: `2px solid ${hexToRgba('#00d9ff', 0.2)}` }}>
-          <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}>
-            {mode === 'edit' ? 'Редактировать' : 'Новая задача'}
-          </h3>
+        <div className="flex items-center justify-between pb-2" style={{ borderBottom: `2px solid ${hexToRgba(color, 0.3)}` }}>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-6 h-6 flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, #FCEE0A, #F1F100)',
+                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+              }}
+            >
+              <Pencil className="w-3 h-3 text-black" />
+            </div>
+            <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}>
+              {mode === 'edit' ? 'Редактировать' : 'Новая задача'}
+            </h3>
+          </div>
           <button
             onClick={() => { setEditingTask(null); setIsCreating(false); }}
-            className="p-1.5 rounded transition-all"
-            style={{ color: '#4a4a5e', border: '1px solid transparent' }}
+            className="p-1 transition-all"
+            style={{ color: '#4a4a5e', border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; e.currentTarget.style.background = 'rgba(252,238,10,0.06)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5e'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
           >
@@ -870,57 +973,47 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
         <div className="space-y-3">
           {/* Title */}
           <div className="space-y-1">
-            <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Название</Label>
+            <Label className="tf-label">Название</Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Задача..."
-              className="text-sm text-slate-100 placeholder:text-slate-600 h-9 rounded-md focus:outline-none"
-              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
-              onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
-              onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
+              className="tf-input text-sm h-9 px-3 py-1 focus:outline-none focus-visible:ring-0"
             />
           </div>
 
           {/* Description */}
           <div className="space-y-1">
-            <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Описание</Label>
+            <Label className="tf-label">Описание</Label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Описание..."
-              className="text-xs text-slate-200 placeholder:text-slate-600 min-h-[55px] resize-none rounded-md focus:outline-none"
-              style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)', boxShadow: 'inset 0 0 6px rgba(252,238,10,0.02)' }}
-              onFocus={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.4)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.05), 0 0 8px rgba(252,238,10,0.1)'; }}
-              onBlur={(e) => { e.target.style.borderColor = 'rgba(252,238,10,0.15)'; e.target.style.boxShadow = 'inset 0 0 6px rgba(252,238,10,0.02)'; }}
+              className="tf-input text-xs min-h-[55px] resize-none px-3 py-2 focus:outline-none focus-visible:ring-0"
             />
           </div>
 
           {/* Status + Priority */}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Статус</Label>
+              <Label className="tf-label">Статус</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{STATUSES.map((s) => (<SelectItem key={s.value} value={s.value}><span className={s.color}>{s.label}</span></SelectItem>))}</SelectContent>
+                <SelectTrigger className="tf-select-trigger text-xs h-9 focus:outline-none focus-visible:ring-0"><SelectValue /></SelectTrigger>
+                <SelectContent className="tf-select-content z-[60]">{STATUSES.map((s) => (<SelectItem key={s.value} value={s.value} className="tf-select-item"><span className={s.color}>{s.label}</span></SelectItem>))}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Приоритет</Label>
+              <Label className="tf-label">Приоритет</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-                <SelectTrigger className="text-xs text-slate-100 h-9 rounded-md" style={{ background: 'rgba(8,8,16,0.9)', border: '1.5px solid rgba(252,238,10,0.2)' }}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-slate-700 z-[60]">{PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value}><div className="flex items-center gap-1.5"><div className={cn('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}</div></SelectItem>))}</SelectContent>
+                <SelectTrigger className="tf-select-trigger text-xs h-9 focus:outline-none focus-visible:ring-0"><SelectValue /></SelectTrigger>
+                <SelectContent className="tf-select-content z-[60]">{PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value} className="tf-select-item"><div className="flex items-center gap-1.5"><div className={cn('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}</div></SelectItem>))}</SelectContent>
               </Select>
             </div>
           </div>
 
           {/* Deadline */}
           <div className="space-y-1">
-            <Label className="text-[9px] uppercase tracking-widest font-bold" style={{ color: 'rgba(252,238,10,0.6)' }}>Дедлайн</Label>
+            <Label className="tf-label">Дедлайн</Label>
             <DeadlinePicker value={deadline} onChange={setDeadline} size="md" boardColor={color} />
           </div>
         </div>
@@ -930,8 +1023,7 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
           <button
             onClick={() => void handleSave()}
             disabled={!title.trim() || saving}
-            className="flex-1 flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold rounded-md transition-all disabled:opacity-40"
-            style={{ color: '#000', background: 'linear-gradient(135deg, #FCEE0A, #F1F100)', boxShadow: '0 0 10px rgba(252,238,10,0.3)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+            className="tf-btn-primary flex-1 flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold disabled:opacity-40"
           >
             <Save className="w-3 h-3" />{saving ? '...' : mode === 'edit' ? 'Сохранить' : 'Создать'}
           </button>
@@ -939,8 +1031,7 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
             <button
               onClick={() => void handleDelete()}
               disabled={saving}
-              className="flex items-center justify-center gap-1.5 h-9 px-4 text-[11px] font-bold rounded-md transition-all"
-              style={{ color: '#FF003C', background: 'rgba(255,0,60,0.08)', border: '1.5px solid rgba(255,0,60,0.3)', clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+              className="tf-btn-danger flex items-center justify-center gap-1.5 h-9 px-4 text-[11px] font-bold disabled:opacity-40"
             >
               <Trash2 className="w-3 h-3" /> Удалить
             </button>

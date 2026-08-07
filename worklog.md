@@ -727,3 +727,30 @@ Verification via VLM:
 
 Stage Summary:
 - All 3 "Добавить подзадачу" buttons now use the unified `cp-add-btn` class, matching the "Добавить этап" button style with board color by default and yellow on hover.
+
+---
+Task ID: 17
+Agent: main (Z.ai Code)
+Task: Restyle the task/track editing form (TaskForm) to cyberpunk 2077 style.
+
+Work Log:
+- Read the TaskForm component in task-detail-panel.tsx (lines 791-952).
+- Found it had basic styling: plain inputs with yellow borders, standard Select dropdowns, no scanlines/grid/neon effects.
+- Rewrote the entire return JSX with a comprehensive cyberpunk 2077 style using `style jsx global` CSS classes:
+
+Changes made:
+- **Container**: Added `tf-panel` class with `position: relative; overflow: hidden`.
+- **Visual overlays**: Added `tf-grid` (20px grid pattern in board color), `tf-scanlines` (animated CRT scan lines), and `tf-neon-top` (pulsing neon gradient top border: transparent → board color → #FCEE0A → board color → transparent).
+- **Inputs**: Created `.tf-input` class — dark background (`rgba(8,8,16,0.92)`), board-color border, angular clip-path corners (4px), yellow border on focus with glow. Removed purple focus ring via `focus-visible:ring-0`.
+- **Labels**: Created `.tf-label` class — uppercase, wide letter-spacing (0.12em), board color at 70% opacity, text-shadow glow.
+- **Select dropdowns**: Created `.tf-select-trigger` (board-color border, angular clip-path, yellow on focus/open) and `.tf-select-content` (dark background, board-color border, 8px angular clip-path, neon glow shadow).
+- **Header**: Added a yellow gradient pencil icon (angular clip-path) next to the "РЕДАКТИРОВАТЬ"/"НОВАЯ ЗАДАЧА" title. Close button has angular clip-path with yellow hover.
+- **Buttons**: `.tf-btn-primary` (yellow gradient, angular clip-path, glow, lift on hover) and `.tf-btn-danger` (red outline, angular clip-path, red glow on hover).
+- All elements use the board color (`color` variable) for theming, adapting to whichever board is selected.
+
+Verification via VLM:
+- VLM confirmed all 7 points: neon top border ✓, scan lines + grid ✓, angular clip-path corners ✓, letter-spaced glowing labels ✓, yellow pencil icon ✓, angular buttons ✓, overall cyberpunk 2077 aesthetic ✓.
+- No runtime errors. Lint: no new errors (2 pre-existing in other files).
+
+Stage Summary:
+- The TaskForm (opened via pencil/edit button) is now fully cyberpunk 2077 styled with scanlines, grid pattern, neon top border, angular clip-path inputs/buttons, board-color theming, and glowing labels — matching the rest of the app's aesthetic.
