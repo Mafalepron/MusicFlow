@@ -1,0 +1,1051 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { useKanbanStore, Task, TaskStatus, TaskPriority, TaskCategory, TaskChild } from '@/store/kanban-store';
+     5→import { useNavigationStore } from '@/lib/store';
+     6→import { Button } from '@/components/ui/button';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Textarea } from '@/components/ui/textarea';
+     9→import { Label } from '@/components/ui/label';
+    10→import {
+    11→  Select,
+    12→  SelectContent,
+    13→  SelectItem,
+    14→  SelectTrigger,
+    15→  SelectValue,
+    16→} from '@/components/ui/select';
+    17→import {
+    18→  Check, Circle, Clock, Eye, Plus, Trash2, Pencil,
+    19→  ChevronRight, X, Save, Music, AudioWaveform,
+    20→  AlertTriangle, Flame, CalendarDays, User, ListChecks,
+    21→} from 'lucide-react';
+    22→import DeadlinePicker, { getDeadlineInfo } from '@/components/kanban/deadline-picker';
+    23→import { cn, boardColorStyles, hexToRgba } from '@/lib/utils';
+    24→
+    25→const STATUSES: { value: TaskStatus; label: string; color: string; dot: string }[] = [
+    26→  { value: 'todo', label: 'К выполнению', color: 'text-cyan-400', dot: '#22d3ee' },
+    27→  { value: 'in-progress', label: 'В работе', color: 'text-orange-400', dot: '#fb923c' },
+    28→  { value: 'review', label: 'На проверке', color: 'text-rose-400', dot: '#fb7185' },
+    29→  { value: 'done', label: 'Готово', color: 'text-emerald-400', dot: '#34d399' },
+    30→];
+    31→
+    32→const PRIORITIES: { value: TaskPriority; label: string; dot: string; text: string }[] = [
+    33→  { value: 'low', label: 'Низкий', dot: 'bg-slate-500', text: 'text-slate-400' },
+    34→  { value: 'medium', label: 'Средний', dot: 'bg-amber-500', text: 'text-amber-400' },
+    35→  { value: 'high', label: 'Высокий', dot: 'bg-rose-500', text: 'text-rose-400' },
+    36→];
+    37→
+    38→const CATEGORIES: { value: TaskCategory; label: string }[] = [
+    39→  { value: 'rehearsal', label: '🎤 Репетиция' },
+    40→  { value: 'recording', label: '🎵 Запись' },
+    41→  { value: 'performance', label: '🎪 Выступление' },
+    42→  { value: 'marketing', label: '📢 Маркетинг' },
+    43→  { value: 'social', label: '📱 Соцсети' },
+    44→  { value: 'general', label: '📋 Общее' },
+    45→];
+    46→
+    47→const PRIORITY_DOT_HEX: Record<string, string> = {
+    48→  low: '#64748b',
+    49→  medium: '#f59e0b',
+    50→  high: '#f43f5e',
+    51→};
+    52→
+    53→const STATUS_DOT_HEX: Record<string, string> = {
+    54→  todo: '#22d3ee',
+    55→  'in-progress': '#fb923c',
+    56→  review: '#fb7185',
+    57→  done: '#34d399',
+    58→};
+    59→
+    60→const DESC_LIMIT = 600;
+    61→
+    62→export default function TaskDetailPanel() {
+    63→  const {
+    64→    boardTasks, selectedTaskId, setBoardTasks,
+    65→    selectedBoardId, boards,
+    66→    editingTask, isCreating, setEditingTask, setIsCreating,
+    67→  } = useKanbanStore();
+    68→
+    69→  const selectedTask = boardTasks.find(t => t.id === selectedTaskId);
+    70→  const selectedBoard = boards.find(b => b.id === selectedBoardId);
+    71→
+    72→  const boardColor = selectedBoard?.color || '#00d9ff';
+    73→
+    74→  if (isCreating) return <TaskForm mode="create" boardColor={boardColor} />;
+    75→  if (editingTask) return <TaskForm mode="edit" task={editingTask} boardColor={boardColor} />;
+    76→
+    77→  if (!selectedTask) {
+    78→    return (
+    79→      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+    80→        <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800/50 flex items-center justify-center mb-3">
+    81→          <Pencil className="w-5 h-5 text-slate-700" />
+    82→        </div>
+    83→        <p className="text-xs text-slate-600 leading-relaxed">
+    84→          Выберите задачу в панели<br />сверху для просмотра и редактирования
+    85→        </p>
+    86→      </div>
+    87→    );
+    88→  }
+    89→
+    90→  // Track detail view for tracks with 3-level hierarchy
+    91→  if (selectedTask.trackConfig) {
+    92→    return <TrackDetailView task={selectedTask} board={selectedBoard} />;
+    93→  }
+    94→
+    95→  return <TaskDetailView task={selectedTask} board={selectedBoard} />;
+    96→}
+    97→
+    98→/* ── Track Detail View (info-only — stages/subtasks moved to bottom panel) ──── */
+    99→
+   100→function TrackDetailView({ task, board }: { task: Task; board?: { title: string; color: string } }) {
+   101→  const { setBoardTasks, selectedBoardId, setEditingTask, setSelectedTaskId, setSelectedStageForPanel } = useKanbanStore();
+   102→  const [descDraft, setDescDraft] = useState(task.description || '');
+   103→  const [isEditingDesc, setIsEditingDesc] = useState(false);
+   104→  const [savingDesc, setSavingDesc] = useState(false);
+   105→
+   106→  const config = task.trackConfig ? JSON.parse(task.trackConfig) : null;
+   107→  const stages = task.children || [];
+   108→  const allSubtasks = stages.flatMap(s => s.children || []);
+   109→  const progress = getProgress(allSubtasks);
+   110→  const boardColor = board?.color || '#00d9ff';
+   111→  const bc = boardColorStyles(boardColor);
+   112→
+   113→  const getProgressColor = () => {
+   114→    if (progress === 100) return '#10b981';
+   115→    if (progress > 50) return boardColor;
+   116→    if (progress > 0) return '#f59e0b';
+   117→    return '#334155';
+   118→  };
+   119→  const getProgressTextColor = () => {
+   120→    if (progress === 100) return '#34d399';
+   121→    if (progress > 50) return boardColor;
+   122→    if (progress > 0) return '#f59e0b';
+   123→    return '#475569';
+   124→  };
+   125→
+   126→  const reloadTasks = useCallback(async () => {
+   127→    if (!selectedBoardId) return;
+   128→    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+   129→    const data = await res.json();
+   130→    setBoardTasks(data.tasks);
+   131→  }, [selectedBoardId, setBoardTasks]);
+   132→
+   133→  const saveDesc = useCallback(async () => {
+   134→    if (savingDesc) return;
+   135→    setSavingDesc(true);
+   136→    try {
+   137→      await fetch('/api/tasks', {
+   138→        method: 'PUT',
+   139→        headers: { 'Content-Type': 'application/json' },
+   140→        body: JSON.stringify({ id: task.id, description: descDraft.trim() || null }),
+   141→      });
+   142→      setIsEditingDesc(false);
+   143→      await reloadTasks();
+   144→    } finally {
+   145→      setSavingDesc(false);
+   146→    }
+   147→  }, [task.id, descDraft, savingDesc, reloadTasks]);
+   148→
+   149→  // Sync descDraft when task changes (prev-tracker pattern avoids useEffect-setState)
+   150→  const [prevTaskDesc, setPrevTaskDesc] = useState<string | null>(task.description);
+   151→  if (task.description !== prevTaskDesc) {
+   152→    setPrevTaskDesc(task.description);
+   153→    if (!isEditingDesc) setDescDraft(task.description || '');
+   154→  }
+   155→
+   156→  const handleDelete = async () => {
+   157→    await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   158→    setSelectedTaskId(null);
+   159→    setSelectedStageForPanel(null);
+   160→    if (selectedBoardId) {
+   161→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+   162→      const data = await res.json();
+   163→      setBoardTasks(data.tasks);
+   164→    }
+   165→  };
+   166→
+   167→  const openManageStages = () => {
+   168→    if (stages.length > 0) {
+   169→      setSelectedStageForPanel({ taskId: task.id, stageId: stages[0].id });
+   170→    } else {
+   171→      // Still open so user can add stages
+   172→      setSelectedStageForPanel({ taskId: task.id, stageId: '' });
+   173→    }
+   174→  };
+   175→
+   176→  const deadlineInfo = getDeadlineInfo(task.deadline || null);
+   177→  const priorityHex = PRIORITY_DOT_HEX[task.priority] || '#64748b';
+   178→  const statusHex = STATUS_DOT_HEX[task.status] || '#22d3ee';
+   179→
+   180→  return (
+   181→    <div className="flex-1 overflow-y-auto flex flex-col">
+   182→      {/* Header — title + metadata in one line (cyberpunk angular) */}
+   183→      <div
+   184→        className="p-4 relative"
+   185→        style={{
+   186→          borderBottom: `2px solid ${hexToRgba(boardColor, 0.35)}`,
+   187→          background: `linear-gradient(135deg, ${hexToRgba(boardColor, 0.08)}, transparent 70%)`,
+   188→          clipPath: 'polygon(0 0, 100% 0, 100% 100%, calc(100% - 8px) 100%, 0 calc(100% - 8px))',
+   189→        }}
+   190→      >
+   191→        {/* Neon left accent */}
+   192→        <div
+   193→          className="absolute left-0 top-2 bottom-2 w-[2px] pointer-events-none"
+   194→          style={{ background: boardColor, boxShadow: `0 0 8px ${boardColor}, 0 0 16px ${hexToRgba(boardColor, 0.3)}` }}
+   195→        />
+   196→        <div className="flex items-center justify-between mb-2">
+   197→          <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
+   198→          <div className="flex items-center gap-1">
+   199→            <button
+   200→              onClick={() => setEditingTask(task)}
+   201→              className="p-1 text-slate-500 transition-all"
+   202→              style={{ border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+   203→              onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; e.currentTarget.style.background = 'rgba(252,238,10,0.08)'; }}
+   204→              onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+   205→              title="Редактировать"
+   206→            >
+   207→              <Pencil className="w-3.5 h-3.5" />
+   208→            </button>
+   209→            <button
+   210→              onClick={() => void handleDelete()}
+   211→              className="p-1 text-slate-500 transition-all"
+   212→              style={{ border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+   213→              onMouseEnter={(e) => { e.currentTarget.style.color = '#FF003C'; e.currentTarget.style.borderColor = 'rgba(255,0,60,0.4)'; e.currentTarget.style.background = 'rgba(255,0,60,0.08)'; }}
+   214→              onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+   215→              title="Удалить"
+   216→            >
+   217→              <Trash2 className="w-3.5 h-3.5" />
+   218→            </button>
+   219→          </div>
+   220→        </div>
+   221→
+   222→        {/* Metadata in one line */}
+   223→        <div className="flex items-center gap-3 flex-wrap text-[10px]">
+   224→          {/* Status */}
+   225→          <span className="flex items-center gap-1">
+   226→            <Circle className="w-2 h-2" style={{ color: statusHex }} />
+   227→            <span style={{ color: statusHex }}>{STATUSES.find(s => s.value === task.status)?.label || task.status}</span>
+   228→          </span>
+   229→          {/* Priority */}
+   230→          <span className="flex items-center gap-1 text-slate-400">
+   231→            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: priorityHex }} />
+   232→            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
+   233→          </span>
+   234→          {/* Assignee */}
+   235→          {task.assignee && (
+   236→            <span className="flex items-center gap-1 text-slate-400">
+   237→              <User className="w-2.5 h-2.5" />
+   238→              {task.assignee}
+   239→            </span>
+   240→          )}
+   241→          {/* Deadline */}
+   242→          {task.deadline && (
+   243→            <span className="flex items-center gap-1" style={{ color: deadlineInfo.status === 'overdue' ? '#fb7185' : deadlineInfo.status === 'urgent' ? '#f59e0b' : '#64748b' }}>
+   244→              <CalendarDays className="w-2.5 h-2.5" />
+   245→              <DeadlineBadge value={task.deadline} info={deadlineInfo} />
+   246→            </span>
+   247→          )}
+   248→        </div>
+   249→
+   250→        {/* Instruments */}
+   251→        {config?.instruments?.length > 0 && (
+   252→          <div className="flex flex-wrap gap-1 mt-2">
+   253→            {config.instruments.map((inst: string) => (
+   254→              <span
+   255→                key={inst}
+   256→                className="text-[9px] px-1.5 py-0.5 rounded transition-colors"
+   257→                style={{ backgroundColor: hexToRgba(boardColor, 0.1), color: boardColor }}
+   258→              >
+   259→                {inst}
+   260→              </span>
+   261→            ))}
+   262→          </div>
+   263→        )}
+   264→      </div>
+   265→
+   266→      {/* Track cover — moved to right after status/instruments line */}
+   267→      <div className="px-4 py-3 flex items-start gap-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
+   268→        <div
+   269→          className="w-20 h-20 flex-shrink-0 border border-dashed flex items-center justify-center overflow-hidden"
+   270→          style={{ borderColor: 'rgba(252, 238, 10, 0.4)', backgroundColor: 'rgba(10, 14, 24, 0.6)', clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))' }}
+   271→        >
+   272→          {task.soundflowTrackId ? (
+   273→            <div className="w-full h-full flex items-center justify-center text-slate-700">
+   274→              <Music className="w-6 h-6" />
+   275→            </div>
+   276→          ) : (
+   277→            <div className="text-center px-1">
+   278→              <Music className="w-4 h-4 mx-auto mb-0.5 text-slate-700" />
+   279→              <p className="text-[8px] text-slate-600">Нет обложки</p>
+   280→            </div>
+   281→          )}
+   282→        </div>
+   283→        <div className="flex-1 min-w-0 pt-0.5">
+   284→          <span
+   285→            className="text-[9px] uppercase tracking-widest font-medium block mb-1"
+   286→            style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
+   287→          >
+   288→            Обложка
+   289→          </span>
+   290→          <p className="text-[9px] text-slate-600 leading-relaxed">
+   291→            {task.soundflowTrackId ? 'Связана с аудиотреком' : 'Загрузите обложку для трека'}
+   292→          </p>
+   293→        </div>
+   294→      </div>
+   295→
+   296→      {/* Open in Audio Editor */}
+   297→      {task.soundflowTrackId && (
+   298→        <div className="px-4 py-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
+   299→          <button
+   300→            onClick={async () => {
+   301→              const kanbanState = useKanbanStore.getState();
+   302→              let kanbanProject = kanbanState.projects.find(p => p.id === kanbanState.selectedProjectId);
+   303→              let sfProjectId = kanbanProject?.soundflowProjectId;
+   304→
+   305→              if (!sfProjectId && kanbanState.selectedProjectId) {
+   306→                try {
+   307→                  const res = await fetch(`/api/tasks?parentId=${kanbanState.selectedProjectId}`);
+   308→                  const data = await res.json();
+   309→                  if (data.tasks && data.tasks.length > 0) {
+   310→                    sfProjectId = data.tasks[0].soundflowProjectId;
+   311→                  }
+   312→                } catch { /* ignore */ }
+   313→              }
+   314→
+   315→              if (!sfProjectId && task.soundflowTrackId) {
+   316→                try {
+   317→                  const res = await fetch(`/api/tracks/${task.soundflowTrackId}`);
+   318→                  if (res.ok) {
+   319→                    const track = await res.json();
+   320→                    sfProjectId = track.projectId || track.project?.id;
+   321→                  }
+   322→                } catch { /* ignore */ }
+   323→              }
+   324→
+   325→              if (sfProjectId && task.soundflowTrackId) {
+   326→                useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId);
+   327→              }
+   328→            }}
+   329→            className="w-full flex items-center justify-center gap-2 text-[11px] font-semibold text-white px-3 py-2 rounded-md transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+   330→            style={{
+   331→              background: 'linear-gradient(135deg, #06b6d4 0%, #14b8a6 100%)',
+   332→              boxShadow: '0 2px 10px rgba(6, 182, 212, 0.35), 0 0 18px rgba(20, 184, 166, 0.18)',
+   333→            }}
+   334→          >
+   335→            <AudioWaveform className="w-3.5 h-3.5" />
+   336→            Открыть в аудиоредакторе
+   337→          </button>
+   338→        </div>
+   339→      )}
+   340→
+   341→      {/* Description (inline editable) — cyberpunk styled */}
+   342→      <div className="px-4 py-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
+   343→        <div className="flex items-center justify-between mb-2">
+   344→          <span
+   345→            className="text-[9px] uppercase tracking-widest font-bold"
+   346→            style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
+   347→          >
+   348→            Описание
+   349→          </span>
+   350→          {!isEditingDesc && (
+   351→            <button
+   352→              onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+   353→              className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 font-medium"
+   354→              style={{ color: '#FCEE0A' }}
+   355→            >
+   356→              <Pencil className="w-2.5 h-2.5" /> Изменить
+   357→            </button>
+   358→          )}
+   359→        </div>
+   360→        {isEditingDesc ? (
+   361→          <div className="space-y-2">
+   362→            <Textarea
+   363→              value={descDraft}
+   364→              onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
+   365→              placeholder="Опишите трек..."
+   366→              className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[64px] resize-none focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] rounded-md border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
+   367→              autoFocus
+   368→              onKeyDown={(e) => {
+   369→                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+   370→                  e.preventDefault();
+   371→                  void saveDesc();
+   372→                }
+   373→                if (e.key === 'Escape') {
+   374→                  setIsEditingDesc(false);
+   375→                  setDescDraft(task.description || '');
+   376→                }
+   377→              }}
+   378→            />
+   379→            <div className="flex items-center justify-between">
+   380→              <span className="text-[8px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
+   381→              <div className="flex items-center gap-1.5">
+   382→                <button
+   383→                  onClick={() => { setIsEditingDesc(false); setDescDraft(task.description || ''); }}
+   384→                  className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+   385→                >
+   386→                  Отмена
+   387→                </button>
+   388→                <button
+   389→                  onClick={() => void saveDesc()}
+   390→                  className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+   391→                  style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+   392→                >
+   393→                  Сохранить
+   394→                </button>
+   395→              </div>
+   396→            </div>
+   397→          </div>
+   398→        ) : task.description ? (
+   399→          <p
+   400→            className="text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap cursor-pointer hover:text-slate-300 transition-colors"
+   401→            onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+   402→          >
+   403→            {task.description}
+   404→          </p>
+   405→        ) : (
+   406→          <button
+   407→            onClick={() => { setDescDraft(''); setIsEditingDesc(true); }}
+   408→            className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors"
+   409→          >
+   410→            Нажмите, чтобы добавить описание...
+   411→          </button>
+   412→        )}
+   413→      </div>
+   414→
+   415→      {/* Track text / lyrics */}
+   416→      <TrackTextSection task={task} boardColor={boardColor} onUpdate={async (patch) => {
+   417→        await fetch('/api/tasks', {
+   418→          method: 'PUT',
+   419→          headers: { 'Content-Type': 'application/json' },
+   420→          body: JSON.stringify({ id: task.id, ...patch }),
+   421→        });
+   422→        if (selectedBoardId) {
+   423→          const res = await fetch(`/api/tasks?boardId=${selectedBoardId}&deep=true`);
+   424→          const data = await res.json();
+   425→          setBoardTasks(data.tasks);
+   426→        }
+   427→      }} />
+   428→    </div>
+   429→  );
+   430→}
+   431→
+   432→/* ── Track Text / Lyrics Section ──────────────────────── */
+   433→
+   434→function TrackTextSection({
+   435→  task,
+   436→  boardColor,
+   437→  onUpdate,
+   438→}: {
+   439→  task: Task;
+   440→  boardColor: string;
+   441→  onUpdate: (patch: Record<string, unknown>) => Promise<void>;
+   442→}) {
+   443→  const config = task.trackConfig ? JSON.parse(task.trackConfig) : null;
+   444→  const trackText: string = config?.text || '';
+   445→  const [isEditing, setIsEditing] = useState(false);
+   446→  const [isExpanded, setIsExpanded] = useState(false);
+   447→  const [draft, setDraft] = useState(trackText);
+   448→
+   449→  const save = async () => {
+   450→    const newConfig = { ...config, text: draft.trim() };
+   451→    await onUpdate({ trackConfig: JSON.stringify(newConfig) });
+   452→    setIsEditing(false);
+   453→  };
+   454→
+   455→  const cancel = () => {
+   456→    setDraft(trackText);
+   457→    setIsEditing(false);
+   458→  };
+   459→
+   460→  return (
+   461→    <div className="px-4 py-3">
+   462→      <div className="flex items-center justify-between mb-2">
+   463→        <span
+   464→          className="text-[9px] uppercase tracking-widest font-medium"
+   465→          style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
+   466→        >
+   467→          Текст трека
+   468→        </span>
+   469→        <div className="flex items-center gap-1">
+   470→          {!isEditing && trackText && (
+   471→            <button
+   472→              onClick={() => setIsExpanded(v => !v)}
+   473→              className="text-[9px] px-1.5 py-0.5 rounded transition-colors text-slate-500 hover:text-slate-300"
+   474→            >
+   475→              {isExpanded ? 'Свернуть' : 'Читать'}
+   476→            </button>
+   477→          )}
+   478→          {!isEditing && (
+   479→            <button
+   480→              onClick={() => { setDraft(trackText); setIsEditing(true); }}
+   481→              className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1"
+   482→              style={{ color: '#FCEE0A' }}
+   483→            >
+   484→              <Pencil className="w-2.5 h-2.5" /> Изменить
+   485→            </button>
+   486→          )}
+   487→        </div>
+   488→      </div>
+   489→
+   490→      {isEditing ? (
+   491→        <div className="space-y-2">
+   492→          <Textarea
+   493→            value={draft}
+   494→            onChange={(e) => setDraft(e.target.value)}
+   495→            placeholder="Введите текст трека или лирику..."
+   496→            className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[110px] resize-none focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] rounded-md border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
+   497→            autoFocus
+   498→            onKeyDown={(e) => {
+   499→              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void save(); }
+   500→              if (e.key === 'Escape') cancel();
+   501→            }}
+   502→          />
+   503→          <div className="flex items-center justify-end gap-2">
+   504→            <button
+   505→              onClick={cancel}
+   506→              className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+   507→            >
+   508→              Отмена
+   509→            </button>
+   510→            <button
+   511→              onClick={() => void save()}
+   512→              className="text-[10px] font-bold px-3 py-1 rounded transition-all"
+   513→              style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+   514→            >
+   515→              Сохранить
+   516→            </button>
+   517→          </div>
+   518→        </div>
+   519→      ) : trackText ? (
+   520→        <div
+   521→          className={`text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap ${isExpanded ? '' : 'line-clamp-3'}`}
+   522→        >
+   523→          {trackText}
+   524→        </div>
+   525→      ) : (
+   526→        <button
+   527→          onClick={() => { setDraft(''); setIsEditing(true); }}
+   528→          className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors"
+   529→        >
+   530→          Нажмите, чтобы добавить текст трека...
+   531→        </button>
+   532→      )}
+   533→    </div>
+   534→  );
+   535→}
+   536→
+   537→/* ── Deadline badge helper ─────────────────────────────── */
+   538→
+   539→function DeadlineBadge({
+   540→  value, info,
+   541→}: {
+   542→  value: string;
+   543→  info: { daysLeft: number; status: string };
+   544→}) {
+   545→  const d = new Date(value);
+   546→  const day = String(d.getDate()).padStart(2, '0');
+   547→  const month = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'][d.getMonth()];
+   548→  const color = info.status === 'overdue' ? '#fb7185' :
+   549→    info.status === 'urgent' ? '#f59e0b' :
+   550→    info.status === 'soon' ? '#22d3ee' : '#94a3b8';
+   551→
+   552→  return (
+   553→    <div className="flex items-center gap-1.5">
+   554→      <span className="text-[11px] font-medium" style={{ color }}>{day} {month}</span>
+   555→      {info.status === 'overdue' && (
+   556→        <span className="flex items-center gap-0.5 text-[9px] font-bold text-rose-400 bg-rose-500/15 px-1.5 py-0.5 rounded-full">
+   557→          <AlertTriangle className="w-2.5 h-2.5" />{Math.abs(info.daysLeft)}д
+   558→        </span>
+   559→      )}
+   560→      {info.status === 'urgent' && (
+   561→        <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-full">
+   562→          <Flame className="w-2.5 h-2.5" />{info.daysLeft}д
+   563→        </span>
+   564→      )}
+   565→    </div>
+   566→  );
+   567→}
+   568→
+   569→/* ── Regular Task Detail View (cyberpunk styled — matches TrackDetailView) ──── */
+   570→
+   571→function TaskDetailView({ task, board }: { task: Task; board?: { title: string; color: string } }) {
+   572→  const { setBoardTasks, selectedBoardId, setEditingTask, setSelectedTaskId, setSelectedStageForPanel } = useKanbanStore();
+   573→  const [descDraft, setDescDraft] = useState(task.description || '');
+   574→  const [isEditingDesc, setIsEditingDesc] = useState(false);
+   575→  const [savingDesc, setSavingDesc] = useState(false);
+   576→
+   577→  const boardColor = board?.color || '#00d9ff';
+   578→  const subtasks = task.children || [];
+   579→  const doneCount = subtasks.filter(s => s.status === 'done').length;
+   580→
+   581→  const reloadTasks = useCallback(async () => {
+   582→    if (!selectedBoardId) return;
+   583→    const isTracks = useKanbanStore.getState().boards.find(b => b.id === selectedBoardId)?.boardType === 'tracks';
+   584→    const res = await fetch(`/api/tasks?boardId=${selectedBoardId}${isTracks ? '&deep=true' : ''}`);
+   585→    const data = await res.json();
+   586→    setBoardTasks(data.tasks);
+   587→  }, [selectedBoardId, setBoardTasks]);
+   588→
+   589→  const saveDesc = useCallback(async () => {
+   590→    if (savingDesc) return;
+   591→    setSavingDesc(true);
+   592→    try {
+   593→      await fetch('/api/tasks', {
+   594→        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+   595→        body: JSON.stringify({ id: task.id, description: descDraft.trim() || null }),
+   596→      });
+   597→      setIsEditingDesc(false);
+   598→      await reloadTasks();
+   599→    } finally {
+   600→      setSavingDesc(false);
+   601→    }
+   602→  }, [task.id, descDraft, savingDesc, reloadTasks]);
+   603→
+   604→  // Sync descDraft when task changes (prev-tracker pattern)
+   605→  const [prevTaskDesc, setPrevTaskDesc] = useState<string | null>(task.description);
+   606→  if (task.description !== prevTaskDesc) {
+   607→    setPrevTaskDesc(task.description);
+   608→    if (!isEditingDesc) setDescDraft(task.description || '');
+   609→  }
+   610→
+   611→  const handleDeleteTask = async () => {
+   612→    await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   613→    setSelectedTaskId(null);
+   614→    setSelectedStageForPanel(null);
+   615→    if (selectedBoardId) {
+   616→      const res = await fetch(`/api/tasks?boardId=${selectedBoardId}`);
+   617→      const data = await res.json();
+   618→      setBoardTasks(data.tasks);
+   619→    }
+   620→  };
+   621→
+   622→  const deadlineInfo = getDeadlineInfo(task.deadline || null);
+   623→  const priorityHex = PRIORITY_DOT_HEX[task.priority] || '#64748b';
+   624→  const statusHex = STATUS_DOT_HEX[task.status] || '#22d3ee';
+   625→
+   626→  return (
+   627→    <div className="flex-1 overflow-y-auto flex flex-col">
+   628→      {/* Header — title + metadata in one line (cyberpunk angular) */}
+   629→      <div
+   630→        className="p-4 relative"
+   631→        style={{
+   632→          borderBottom: `2px solid ${hexToRgba(boardColor, 0.35)}`,
+   633→          background: `linear-gradient(135deg, ${hexToRgba(boardColor, 0.08)}, transparent 70%)`,
+   634→          clipPath: 'polygon(0 0, 100% 0, 100% 100%, calc(100% - 8px) 100%, 0 calc(100% - 8px))',
+   635→        }}
+   636→      >
+   637→        {/* Neon left accent */}
+   638→        <div
+   639→          className="absolute left-0 top-2 bottom-2 w-[2px] pointer-events-none"
+   640→          style={{ background: boardColor, boxShadow: `0 0 8px ${boardColor}, 0 0 16px ${hexToRgba(boardColor, 0.3)}` }}
+   641→        />
+   642→        <div className="flex items-center justify-between mb-2">
+   643→          <h3 className="text-base font-semibold text-white leading-tight">{task.title}</h3>
+   644→          <div className="flex items-center gap-1">
+   645→            <button
+   646→              onClick={() => setEditingTask(task)}
+   647→              className="p-1 text-slate-500 transition-all"
+   648→              style={{ border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+   649→              onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.4)'; e.currentTarget.style.background = 'rgba(252,238,10,0.08)'; }}
+   650→              onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+   651→              title="Редактировать"
+   652→            >
+   653→              <Pencil className="w-3.5 h-3.5" />
+   654→            </button>
+   655→            <button
+   656→              onClick={() => void handleDeleteTask()}
+   657→              className="p-1 text-slate-500 transition-all"
+   658→              style={{ border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+   659→              onMouseEnter={(e) => { e.currentTarget.style.color = '#FF003C'; e.currentTarget.style.borderColor = 'rgba(255,0,60,0.4)'; e.currentTarget.style.background = 'rgba(255,0,60,0.08)'; }}
+   660→              onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+   661→              title="Удалить"
+   662→            >
+   663→              <Trash2 className="w-3.5 h-3.5" />
+   664→            </button>
+   665→          </div>
+   666→        </div>
+   667→
+   668→        {/* Metadata in one line: status · priority · assignee · deadline */}
+   669→        <div className="flex items-center gap-3 flex-wrap text-[10px]">
+   670→          {/* Status */}
+   671→          <span className="flex items-center gap-1">
+   672→            <Circle className="w-2 h-2" style={{ color: statusHex }} />
+   673→            <span style={{ color: statusHex }}>{STATUSES.find(s => s.value === task.status)?.label || task.status}</span>
+   674→          </span>
+   675→          {/* Priority */}
+   676→          <span className="flex items-center gap-1 text-slate-400">
+   677→            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: priorityHex }} />
+   678→            {PRIORITIES.find(p => p.value === task.priority)?.label || task.priority}
+   679→          </span>
+   680→          {/* Assignee */}
+   681→          {task.assignee && (
+   682→            <span className="flex items-center gap-1 text-slate-400">
+   683→              <User className="w-2.5 h-2.5" />
+   684→              {task.assignee}
+   685→            </span>
+   686→          )}
+   687→          {/* Deadline */}
+   688→          {task.deadline && (
+   689→            <span className="flex items-center gap-1" style={{ color: deadlineInfo.status === 'overdue' ? '#fb7185' : deadlineInfo.status === 'urgent' ? '#f59e0b' : '#64748b' }}>
+   690→              <CalendarDays className="w-2.5 h-2.5" />
+   691→              <DeadlineBadge value={task.deadline} info={deadlineInfo} />
+   692→            </span>
+   693→          )}
+   694→          {/* Subtasks count chip */}
+   695→          {subtasks.length > 0 && (
+   696→            <span
+   697→              className="flex items-center gap-1 ml-auto px-1.5 py-0.5 text-[9px] font-bold"
+   698→              style={{
+   699→                color: '#FCEE0A',
+   700→                border: '1px solid rgba(252, 238, 10, 0.3)',
+   701→                backgroundColor: 'rgba(252, 238, 10, 0.06)',
+   702→                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+   703→              }}
+   704→              title={`${doneCount} из ${subtasks.length} подзадач выполнено`}
+   705→            >
+   706→              <ListChecks className="w-2.5 h-2.5" />
+   707→              {doneCount}/{subtasks.length}
+   708→            </span>
+   709→          )}
+   710→        </div>
+   711→      </div>
+   712→
+   713→      {/* Description (inline editable) — cyberpunk styled, matches TrackDetailView */}
+   714→      <div className="px-4 py-3" style={{ borderBottom: `2px solid ${hexToRgba(boardColor, 0.2)}` }}>
+   715→        <div className="flex items-center justify-between mb-2">
+   716→          <span
+   717→            className="text-[9px] uppercase tracking-widest font-bold"
+   718→            style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}
+   719→          >
+   720→            Описание
+   721→          </span>
+   722→          {!isEditingDesc && (
+   723→            <button
+   724→              onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+   725→              className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex items-center gap-1 font-medium"
+   726→              style={{ color: '#FCEE0A' }}
+   727→            >
+   728→              <Pencil className="w-2.5 h-2.5" /> Изменить
+   729→            </button>
+   730→          )}
+   731→        </div>
+   732→        {isEditingDesc ? (
+   733→          <div className="space-y-2">
+   734→            <Textarea
+   735→              value={descDraft}
+   736→              onChange={(e) => setDescDraft(e.target.value.slice(0, DESC_LIMIT))}
+   737→              placeholder="Описание задачи..."
+   738→              className="bg-[rgba(8,8,16,0.92)] text-[10px] text-slate-300 placeholder:text-slate-600 min-h-[64px] resize-none focus:outline-none focus-visible:ring-0 focus-visible:border-[#FCEE0A] rounded-md border border-[rgba(252,238,10,0.35)] transition-colors px-2.5 py-1.5"
+   739→              autoFocus
+   740→              onKeyDown={(e) => {
+   741→                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+   742→                  e.preventDefault();
+   743→                  void saveDesc();
+   744→                }
+   745→                if (e.key === 'Escape') {
+   746→                  setIsEditingDesc(false);
+   747→                  setDescDraft(task.description || '');
+   748→                }
+   749→              }}
+   750→            />
+   751→            <div className="flex items-center justify-between">
+   752→              <span className="text-[8px] text-slate-600 tabular-nums">{descDraft.length}/{DESC_LIMIT}</span>
+   753→              <div className="flex items-center gap-1.5">
+   754→                <button
+   755→                  onClick={() => { setIsEditingDesc(false); setDescDraft(task.description || ''); }}
+   756→                  className="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded transition-colors"
+   757→                >
+   758→                  Отмена
+   759→                </button>
+   760→                <button
+   761→                  onClick={() => void saveDesc()}
+   762→                  disabled={savingDesc}
+   763→                  className="text-[10px] font-bold px-3 py-1 rounded transition-all disabled:opacity-50"
+   764→                  style={{ color: '#000', backgroundColor: '#FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.3)' }}
+   765→                >
+   766→                  {savingDesc ? '...' : 'Сохранить'}
+   767→                </button>
+   768→              </div>
+   769→            </div>
+   770→          </div>
+   771→        ) : task.description ? (
+   772→          <p
+   773→            className="text-[11px] text-slate-400 leading-relaxed whitespace-pre-wrap cursor-pointer hover:text-slate-300 transition-colors"
+   774→            onClick={() => { setDescDraft(task.description || ''); setIsEditingDesc(true); }}
+   775→          >
+   776→            {task.description}
+   777→          </p>
+   778→        ) : (
+   779→          <button
+   780→            onClick={() => { setDescDraft(''); setIsEditingDesc(true); }}
+   781→            className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors"
+   782→          >
+   783→            Нажмите, чтобы добавить описание...
+   784→          </button>
+   785→        )}
+   786→      </div>
+   787→    </div>
+   788→  );
+   789→}
+   790→
+   791→/* ── Task Form (create / edit) ──────────── */
+   792→
+   793→function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: Task; boardColor?: string }) {
+   794→  const { selectedBoardId, setBoardTasks, selectedProjectId, setEditingTask, setIsCreating, setSelectedTaskId } = useKanbanStore();
+   795→  const color = boardColor || '#00d9ff';
+   796→  const [title, setTitle] = useState('');
+   797→  const [description, setDescription] = useState('');
+   798→  const [status, setStatus] = useState<TaskStatus>('todo');
+   799→  const [priority, setPriority] = useState<TaskPriority>('medium');
+   800→  const [assignee, setAssignee] = useState('');
+   801→  const [category, setCategory] = useState<TaskCategory>('general');
+   802→  const [deadline, setDeadline] = useState<string | null>(null);
+   803→  const [saving, setSaving] = useState(false);
+   804→
+   805→  useEffect(() => {
+   806→    if (mode === 'edit' && task) {
+   807→      setTitle(task.title); setDescription(task.description || ''); setStatus(task.status);
+   808→      setPriority(task.priority); setAssignee(task.assignee || ''); setCategory(task.category);
+   809→      setDeadline(task.deadline || null);
+   810→    }
+   811→  }, [mode, task]);
+   812→
+   813→  const reloadTasks = useCallback(async () => {
+   814→    if (selectedBoardId) {
+   815→      const isTracks = useKanbanStore.getState().boards.find(b => b.id === selectedBoardId)?.boardType === 'tracks';
+   816→      const url = `/api/tasks?boardId=${selectedBoardId}${isTracks ? '&deep=true' : ''}`;
+   817→      const res = await fetch(url);
+   818→      const data = await res.json();
+   819→      setBoardTasks(data.tasks);
+   820→    }
+   821→    if (selectedProjectId) {
+   822→      const bRes = await fetch(`/api/boards?projectId=${selectedProjectId}`);
+   823→      const bData = await bRes.json();
+   824→      useKanbanStore.getState().setBoards(bData.boards);
+   825→    }
+   826→  }, [selectedBoardId, selectedProjectId, setBoardTasks]);
+   827→
+   828→  const handleSave = async () => {
+   829→    if (!title.trim()) return;
+   830→    setSaving(true);
+   831→    try {
+   832→      if (mode === 'edit' && task) {
+   833→        await fetch('/api/tasks', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: task.id, title, description: description || null, status, priority, assignee: assignee || null, category, boardId: selectedBoardId, deadline }) });
+   834→      } else {
+   835→        await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, description: description || null, status, priority, assignee: assignee || null, category, parentId: null, boardId: selectedBoardId, deadline }) });
+   836→      }
+   837→      await reloadTasks(); setEditingTask(null); setIsCreating(false);
+   838→      if (mode === 'edit' && task) setSelectedTaskId(task.id);
+   839→    } finally { setSaving(false); }
+   840→  };
+   841→
+   842→  const handleDelete = async () => {
+   843→    if (!task) return;
+   844→    setSaving(true);
+   845→    try {
+   846→      await fetch(`/api/tasks?id=${task.id}`, { method: 'DELETE' });
+   847→      await reloadTasks(); setEditingTask(null); setSelectedTaskId(null);
+   848→    } finally { setSaving(false); }
+   849→  };
+   850→
+   851→  return (
+   852→    <div className="flex-1 overflow-y-auto tf-panel relative">
+   853→      <style jsx global>{`
+   854→        .tf-panel { position: relative; overflow: hidden; }
+   855→        .tf-grid {
+   856→          position: absolute; inset: 0;
+   857→          background-image:
+   858→            linear-gradient(${hexToRgba(color, 0.025)} 1px, transparent 1px),
+   859→            linear-gradient(90deg, ${hexToRgba(color, 0.025)} 1px, transparent 1px);
+   860→          background-size: 20px 20px;
+   861→          pointer-events: none; z-index: 0;
+   862→        }
+   863→        .tf-scanlines {
+   864→          position: absolute; inset: 0;
+   865→          background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, ${hexToRgba(color, 0.012)} 2px, ${hexToRgba(color, 0.012)} 3px);
+   866→          pointer-events: none; z-index: 1;
+   867→          animation: tf-scan 8s linear infinite;
+   868→        }
+   869→        @keyframes tf-scan { 0% { transform: translateY(0); } 100% { transform: translateY(3px); } }
+   870→        .tf-neon-top {
+   871→          height: 3px; flex-shrink: 0; position: relative; z-index: 2;
+   872→          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
+   873→          animation: tf-pulse 3s ease-in-out infinite;
+   874→        }
+   875→        @keyframes tf-pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+   876→        .tf-input {
+   877→          background: rgba(8, 8, 16, 0.92);
+   878→          border: 1.5px solid ${hexToRgba(color, 0.3)};
+   879→          color: rgb(226, 232, 240);
+   880→          transition: all 150ms;
+   881→          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+   882→        }
+   883→        .tf-input:focus, .tf-input:focus-visible {
+   884→          outline: none;
+   885→          border-color: #FCEE0A;
+   886→          box-shadow: 0 0 8px rgba(252, 238, 10, 0.2);
+   887→        }
+   888→        .tf-input::placeholder { color: rgb(71, 85, 105); }
+   889→        .tf-label {
+   890→          font-size: 9px;
+   891→          font-weight: 800;
+   892→          letter-spacing: 0.12em;
+   893→          text-transform: uppercase;
+   894→          color: ${hexToRgba(color, 0.7)};
+   895→          text-shadow: 0 0 4px ${hexToRgba(color, 0.2)};
+   896→        }
+   897→        .tf-select-trigger {
+   898→          background: rgba(8, 8, 16, 0.92) !important;
+   899→          border: 1.5px solid ${hexToRgba(color, 0.3)} !important;
+   900→          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+   901→          transition: all 150ms;
+   902→        }
+   903→        .tf-select-trigger:focus, .tf-select-trigger[data-state=open] {
+   904→          border-color: #FCEE0A !important;
+   905→          box-shadow: 0 0 8px rgba(252, 238, 10, 0.2);
+   906→        }
+   907→        .tf-select-content {
+   908→          background: rgba(8, 10, 18, 0.97) !important;
+   909→          border: 1.5px solid ${hexToRgba(color, 0.4)} !important;
+   910→          border-radius: 0 !important;
+   911→          clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+   912→          box-shadow: 0 0 24px ${hexToRgba(color, 0.15)}, 0 8px 32px rgba(0,0,0,0.6);
+   913→        }
+   914→        .tf-select-item[data-highlighted] {
+   915→          background: ${hexToRgba(color, 0.12)};
+   916→        }
+   917→        .tf-btn-primary {
+   918→          color: #000;
+   919→          background: linear-gradient(135deg, #FCEE0A, #F1F100);
+   920→          box-shadow: 0 0 12px rgba(252, 238, 10, 0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+   921→          clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+   922→          text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+   923→          transition: all 180ms;
+   924→        }
+   925→        .tf-btn-primary:hover:not(:disabled) {
+   926→          box-shadow: 0 0 20px rgba(252, 238, 10, 0.6), 0 0 32px rgba(252, 238, 10, 0.2);
+   927→          transform: translateY(-1px);
+   928→        }
+   929→        .tf-btn-danger {
+   930→          color: #FF003C;
+   931→          background: rgba(255, 0, 60, 0.08);
+   932→          border: 1.5px solid rgba(255, 0, 60, 0.3);
+   933→          clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+   934→          transition: all 180ms;
+   935→        }
+   936→        .tf-btn-danger:hover:not(:disabled) {
+   937→          background: rgba(255, 0, 60, 0.15);
+   938→          border-color: rgba(255, 0, 60, 0.6);
+   939→          box-shadow: 0 0 16px rgba(255, 0, 60, 0.3);
+   940→        }
+   941→      `}</style>
+   942→      <div className="tf-grid" />
+   943→      <div className="tf-scanlines" />
+   944→      <div className="tf-neon-top" style={{ background: `linear-gradient(90deg, transparent, ${color} 20%, #FCEE0A 50%, ${color} 80%, transparent)` }} />
+   945→      <div className="p-4 space-y-3 relative z-[2]">
+   946→        {/* Header */}
+   947→        <div className="flex items-center justify-between pb-2" style={{ borderBottom: `2px solid ${hexToRgba(color, 0.3)}` }}>
+   948→          <div className="flex items-center gap-2">
+   949→            <div
+   950→              className="w-6 h-6 flex items-center justify-center"
+   951→              style={{
+   952→                background: 'linear-gradient(135deg, #FCEE0A, #F1F100)',
+   953→                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+   954→              }}
+   955→            >
+   956→              <Pencil className="w-3 h-3 text-black" />
+   957→            </div>
+   958→            <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 6px rgba(252,238,10,0.3)' }}>
+   959→              {mode === 'edit' ? 'Редактировать' : 'Новая задача'}
+   960→            </h3>
+   961→          </div>
+   962→          <button
+   963→            onClick={() => { setEditingTask(null); setIsCreating(false); }}
+   964→            className="p-1 transition-all"
+   965→            style={{ color: '#4a4a5e', border: '1px solid transparent', clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))' }}
+   966→            onMouseEnter={(e) => { e.currentTarget.style.color = '#FCEE0A'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; e.currentTarget.style.background = 'rgba(252,238,10,0.06)'; }}
+   967→            onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5e'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+   968→          >
+   969→            <X className="h-3.5 w-3.5" />
+   970→          </button>
+   971→        </div>
+   972→
+   973→        <div className="space-y-3">
+   974→          {/* Title */}
+   975→          <div className="space-y-1">
+   976→            <Label className="tf-label">Название</Label>
+   977→            <Input
+   978→              value={title}
+   979→              onChange={(e) => setTitle(e.target.value)}
+   980→              placeholder="Задача..."
+   981→              className="tf-input text-sm h-9 px-3 py-1 focus:outline-none focus-visible:ring-0"
+   982→            />
+   983→          </div>
+   984→
+   985→          {/* Description */}
+   986→          <div className="space-y-1">
+   987→            <Label className="tf-label">Описание</Label>
+   988→            <Textarea
+   989→              value={description}
+   990→              onChange={(e) => setDescription(e.target.value)}
+   991→              placeholder="Описание..."
+   992→              className="tf-input text-xs min-h-[55px] resize-none px-3 py-2 focus:outline-none focus-visible:ring-0"
+   993→            />
+   994→          </div>
+   995→
+   996→          {/* Status + Priority */}
+   997→          <div className="grid grid-cols-2 gap-2">
+   998→            <div className="space-y-1">
+   999→              <Label className="tf-label">Статус</Label>
+  1000→              <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
+  1001→                <SelectTrigger className="tf-select-trigger text-xs h-9 focus:outline-none focus-visible:ring-0"><SelectValue /></SelectTrigger>
+  1002→                <SelectContent className="tf-select-content z-[60]">{STATUSES.map((s) => (<SelectItem key={s.value} value={s.value} className="tf-select-item"><span className={s.color}>{s.label}</span></SelectItem>))}</SelectContent>
+  1003→              </Select>
+  1004→            </div>
+  1005→            <div className="space-y-1">
+  1006→              <Label className="tf-label">Приоритет</Label>
+  1007→              <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+  1008→                <SelectTrigger className="tf-select-trigger text-xs h-9 focus:outline-none focus-visible:ring-0"><SelectValue /></SelectTrigger>
+  1009→                <SelectContent className="tf-select-content z-[60]">{PRIORITIES.map((p) => (<SelectItem key={p.value} value={p.value} className="tf-select-item"><div className="flex items-center gap-1.5"><div className={cn('w-1.5 h-1.5 rounded-full', p.dot)} />{p.label}</div></SelectItem>))}</SelectContent>
+  1010→              </Select>
+  1011→            </div>
+  1012→          </div>
+  1013→
+  1014→          {/* Deadline */}
+  1015→          <div className="space-y-1">
+  1016→            <Label className="tf-label">Дедлайн</Label>
+  1017→            <DeadlinePicker value={deadline} onChange={setDeadline} size="md" boardColor={color} />
+  1018→          </div>
+  1019→        </div>
+  1020→
+  1021→        {/* Actions */}
+  1022→        <div className="flex gap-2 pt-2">
+  1023→          <button
+  1024→            onClick={() => void handleSave()}
+  1025→            disabled={!title.trim() || saving}
+  1026→            className="tf-btn-primary flex-1 flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold disabled:opacity-40"
+  1027→          >
+  1028→            <Save className="w-3 h-3" />{saving ? '...' : mode === 'edit' ? 'Сохранить' : 'Создать'}
+  1029→          </button>
+  1030→          {mode === 'edit' && (
+  1031→            <button
+  1032→              onClick={() => void handleDelete()}
+  1033→              disabled={saving}
+  1034→              className="tf-btn-danger flex items-center justify-center gap-1.5 h-9 px-4 text-[11px] font-bold disabled:opacity-40"
+  1035→            >
+  1036→              <Trash2 className="w-3 h-3" /> Удалить
+  1037→            </button>
+  1038→          )}
+  1039→        </div>
+  1040→      </div>
+  1041→    </div>
+  1042→  );
+  1043→}
+  1044→
+  1045→/* ── Helpers ──────────────────────────────────────────── */
+  1046→
+  1047→function getProgress(children: { status: string }[]): number {
+  1048→  if (children.length === 0) return 0;
+  1049→  return Math.round((children.filter(c => c.status === 'done').length / children.length) * 100);
+  1050→}
+  1051→

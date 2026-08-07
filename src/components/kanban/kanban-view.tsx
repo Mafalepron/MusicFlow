@@ -9,6 +9,7 @@ import OnboardingHintPanel from '@/components/board/onboarding-hint-panel';
 import TaskDetailPanel from '@/components/kanban/task-detail-panel';
 import TrackWizard from '@/components/kanban/track-wizard';
 import DescriptionBottomPanel from '@/components/kanban/description-bottom-panel';
+import ProjectInfoModal from '@/components/kanban/project-info-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -382,6 +383,7 @@ function KanbanWorkspace() {
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newBoardColor, setNewBoardColor] = useState('#00d9ff');
+  const [showProjectInfo, setShowProjectInfo] = useState(false);
   const BOARD_COLORS = ['#00d9ff', '#ff8c00', '#ff3366', '#00ff88', '#a855f7', '#eab308', '#06b6d4', '#f43f5e'];
   const onboardingInitRef = useRef<string | null>(null);
 
@@ -473,7 +475,7 @@ function KanbanWorkspace() {
                 <Button size="sm" variant="ghost" onClick={() => setCreatingBoard(false)} className="h-7 w-7 p-0 text-slate-500 hover:text-slate-300">×</Button>
               </div>
             )}
-            <RadialBoard projectName={project?.title || 'Проект'} onAddBoard={() => setCreatingBoard(true)} />
+            <RadialBoard projectName={project?.title || 'Проект'} onAddBoard={() => setCreatingBoard(true)} onCenterClick={() => setShowProjectInfo(true)} />
           </div>
           <DescriptionBottomPanel />
         </div>
@@ -517,6 +519,9 @@ function KanbanWorkspace() {
           </div>
         </div>
       </div>
+      {showProjectInfo && selectedProjectId && (
+        <ProjectInfoModal projectId={selectedProjectId} onClose={() => setShowProjectInfo(false)} />
+      )}
     </div>
   );
 }

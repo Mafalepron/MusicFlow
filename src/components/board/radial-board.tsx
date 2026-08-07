@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 interface RadialBoardProps {
   projectName: string;
   onAddBoard: () => void;
+  onCenterClick?: () => void;
 }
 
 // Board panel dimensions in SVG units
@@ -26,7 +27,7 @@ function rectEdgeDist(angle: number, halfW: number, halfH: number): number {
   return 1 / Math.max(cosA / halfW, sinA / halfH);
 }
 
-export default function RadialBoard({ projectName, onAddBoard }: RadialBoardProps) {
+export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: RadialBoardProps) {
   const { boards, selectedBoardId, setSelectedBoardId, onboarding } = useKanbanStore();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -249,8 +250,8 @@ export default function RadialBoard({ projectName, onAddBoard }: RadialBoardProp
             </g>
           ))}
 
-          {/* Center circle */}
-          <g>
+          {/* Center circle — clickable to show project info */}
+          <g className="center-circle" onClick={() => onCenterClick?.()} style={{ cursor: onCenterClick ? 'pointer' : 'default' }}>
             <circle cx={layout.cx} cy={layout.cy} r={CENTER_R} fill="#1a1a2e" stroke="#2a2a4a" strokeWidth={2} />
             <circle cx={layout.cx} cy={layout.cy} r={CENTER_R} fill="url(#centerGradient)" />
             <text x={layout.cx} y={layout.cy - 6} textAnchor="middle" fill="#e2e8f0" fontSize={13} fontWeight={700} fontFamily="system-ui, sans-serif">
@@ -259,7 +260,7 @@ export default function RadialBoard({ projectName, onAddBoard }: RadialBoardProp
             <text x={layout.cx} y={layout.cy + 12} textAnchor="middle" fill="#64748b" fontSize={9} fontFamily="system-ui, sans-serif">
               ПРОЕКТ
             </text>
-            <g className={cn('center-plus', boards.length === 0 && 'center-pulse')} onClick={handlePlusClick} data-pressed={plusPressed || undefined}>
+            <g className={cn('center-plus', boards.length === 0 && 'center-pulse')} onClick={(e) => { e.stopPropagation(); handlePlusClick(); }} data-pressed={plusPressed || undefined}>
               <circle cx={layout.cx} cy={layout.cy + 30} r={10} className="plus-bg" />
               <line x1={layout.cx - 4} y1={layout.cy + 30} x2={layout.cx + 4} y2={layout.cy + 30} className="plus-line" />
               <line x1={layout.cx} y1={layout.cy + 26} x2={layout.cx} y2={layout.cy + 34} className="plus-line" />
@@ -383,6 +384,12 @@ export default function RadialBoard({ projectName, onAddBoard }: RadialBoardProp
         </g>
 
         <style>{`
+          .center-circle {
+            transition: filter 0.2s ease;
+          }
+          .center-circle:hover {
+            filter: drop-shadow(0 0 12px rgba(252, 238, 10, 0.3));
+          }
           .center-plus {
             cursor: pointer;
             transform-box: fill-box;

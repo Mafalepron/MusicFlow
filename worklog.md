@@ -754,3 +754,83 @@ Verification via VLM:
 
 Stage Summary:
 - The TaskForm (opened via pencil/edit button) is now fully cyberpunk 2077 styled with scanlines, grid pattern, neon top border, angular clip-path inputs/buttons, board-color theming, and glowing labels — matching the rest of the app's aesthetic.
+
+---
+Task ID: 2
+Agent: project-modal-builder
+Task: Create ProjectInfoModal component
+
+Work Log:
+- Read /home/z/my-project/worklog.md (Task 17: cyberpunk TaskForm styling) for context and conventions.
+- Read /home/z/my-project/src/components/kanban/description-bottom-panel.tsx (1-400) and task-detail-panel.tsx (1-1051) to learn the established cyberpunk 2077 visual language: scanlines + grid pattern overlays, pulsing neon top border (transparent → board color → #FCEE0A → board color → transparent), angular clip-path corners (`polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))`), yellow (#FCEE0A) section labels with 0.12em letter-spacing + glow, `style jsx global` convention.
+- Read /home/z/my-project/src/store/kanban-store.ts to confirm the Task/TaskChild/TaskGrandchild interfaces (top-level tracks have `children` (stages) which have `children` (subtasks); all levels have `category`, `status`, `deadline`).
+- Read /home/z/my-project/src/app/api/tasks/route.ts to confirm: `/api/tasks?parentId=null` returns top-level project tasks (filter `isProject: true`); `/api/tasks?boardId=X&deep=true` returns 2-level nested children; serialized response includes `soundflowProjectId` at the top level.
+- Read /home/z/my-project/src/app/api/boards/route.ts to confirm: `/api/boards?projectId=X` returns `{ boards: [...] }` with `id, title, color, boardType, projectId` fields.
+- Verified `hexToRgba` exists in /home/z/my-project/src/lib/utils.ts.
+- Verified `styled-jsx` is bundled with Next.js 16.
+- Checked ESLint config — `@typescript-eslint/no-unused-vars` is OFF, so unused imports won't fail lint.
+
+Created /home/z/my-project/src/components/kanban/project-info-modal.tsx (1096 lines):
+
+Component structure:
+1. `'use client'` directive at top.
+2. Imports: `useEffect, useState` from react; `X, Music, CalendarDays, Disc3, AudioLines, Zap, Check, Circle, Clock, ListChecks, FileText, Guitar, Mic2` from lucide-react; `hexToRgba` from `@/lib/utils`; `Task` type from `@/store/kanban-store`.
+3. Props interface: `{ projectId: string; onClose: () => void; }`.
+4. Constants: `BOARD_COLOR = '#00d9ff'`, `PROJECT_TYPE_LABEL` (album→Альбом, ep→EP, single→Сингл, general→Канбан), `STATUS_HEX`, `STATUS_ICON`.
+5. Helper functions: `getProgress(children)` — done/total * 100 rounded; `countAll(tasks)` — recursive count of total + done across all levels (top-level + children + grandchildren); `formatDeadline(value)` — `DD month YYYY` in Russian.
+
+Data fetching (in a single useEffect on projectId):
+- Fetch `/api/tasks?parentId=null` → find task by `projectId` → setProject.
+- Fetch `/api/boards?projectId=${projectId}` → setBoards.
+- For each board, fetch `/api/tasks?boardId=${board.id}&deep=true` in parallel via Promise.all → setBoardTasksMap.
+
+Escape key listener: separate useEffect that calls `onClose()` on Escape keydown.
+
+Derived/aggregate data (computed during render):
+- `tracks`: top-level tasks from the `boardType === 'tracks'` board.
+- `instruments`: unique set parsed from each track's `trackConfig.instruments` (JSON string).
+- `totalTasks` / `doneTasks` / `progressPct`: recursive count across ALL boards.
+- `performances`: tasks (top-level + children + grandchildren) with `category === 'performance'`, enriched with the source board's title + color.
+
+Rendered sections (in this order):
+1. Header — Disc3 icon (yellow) in angular frame + project title + meta row (yellow gradient type badge, deadline chip, SoundFlow link chip if soundflowProjectId) + yellow close button (X). Left neon accent bar.
+2. Cover — 96×96 square with yellow dashed border, dark fill, Music icon centered (TrackDetailView-style). Label "ОБЛОЖКА" + description text on the right.
+3. Concept — yellow "КОНЦЕПЦИЯ" label with FileText icon + project description (or italic placeholder).
+4. Track List — yellow "ТРЕК-ЛИСТ" label with AudioLines icon + count chip. Each track card: numbered (01, 02, ...), yellow title, status icon (Circle/Clock/Check colored by status), yellow progress bar with % text, instrument chips.
+5. Completion Stage — yellow "ЭТАП ВЫПОЛНЕНИЯ" label with Zap icon. Large yellow (or green at 100%) progress bar + huge monospace % number + "X / Y задач" counter.
+6. Instruments — yellow "ИНСТРУМЕНТЫ" label with Guitar icon + count chip. Grid of cyan instrument chips (or Mic2 empty state).
+7. References — yellow "РЕФЕРЕНСЫ" label + FileText empty state ("Референсы скоро появятся").
+8. Clips — yellow "КЛИПЫ" label + Disc3 empty state ("Клипы скоро появятся").
+9. Concert Schedule — yellow "КОНЦЕРТЫ" label with CalendarDays icon + count chip. Each concert card: vertical board-color accent bar + yellow title + status icon + board name (in board color) + deadline (Clock icon). Empty state if none.
+
+Cyberpunk 2077 styling (CSS via `<style jsx global>` with `pim-` prefix):
+- Overlay: `position: fixed; inset: 0; z-index: 100` semi-transparent dark backdrop (rgba(0,0,0,0.7)) with `backdrop-filter: blur(4px)` + fade-in animation.
+- Panel: max-w-2xl (672px), max-h-80vh, `rgba(8, 10, 18, 0.98)` background, 1.5px board-color border, 12px angular clip-path, neon glow shadow + pop-in animation.
+- Scanlines overlay: animated CRT scan lines in rgba(0,229,255,0.02).
+- Grid pattern overlay: 24px grid in rgba(0,229,255,0.025).
+- Pulsing neon top border: 3px gradient (transparent → #00d9ff → #FCEE0A → #00d9ff → transparent) with pulsing yellow glow animation.
+- Scrollbar: thin (6px), cyberpunk-styled (board-color thumb, yellow-tinted track), also `scrollbar-width: thin` for Firefox.
+- All cards/inputs/buttons use angular clip-path corners.
+- Section labels: uppercase, 0.12em letter-spacing, #FCEE0A yellow with text-shadow glow.
+- Yellow (#FCEE0A) for: type badge, section labels, track titles, concert titles, overall progress bar fill, progress %, count chip borders hover.
+- Cyan/blue (#00d9ff) for: borders, accents, instrument chips, count chips, progress bar tracks.
+- Close button: angular, transparent by default → fills yellow on hover (inverts text color to black).
+- Mobile responsiveness: @media (max-width: 640px) — smaller padding, smaller title, 80px cover, etc.
+
+Interaction:
+- Click backdrop → onClose.
+- Click panel → stopPropagation (prevents close).
+- Escape key → onClose.
+- Close button → onClose.
+
+Verification:
+- Ran `cd /home/z/my-project && bun run lint 2>&1 | grep project-info-modal` → returned NO matches (exit 1 from grep), confirming zero lint errors in the new file.
+- The 2 lint errors in the output are pre-existing in other files (project-chat.tsx:557 and app-header.tsx:132), unrelated to this task.
+- Dev server log shows successful recompilation ("✓ Compiled in 369ms") with no errors after the file was added.
+
+Stage Summary:
+- Created /home/z/my-project/src/components/kanban/project-info-modal.tsx — a fully cyberpunk 2077-styled modal that opens when the user clicks the center circle (project name) in the radial board.
+- The modal fetches and displays: project task info (title, type badge, deadline, SoundFlow link), cover placeholder, concept description, full track list (with per-track status + progress + instruments), overall completion progress bar with %, aggregated unique instruments, references/clips placeholder sections, and a concert schedule aggregated from all `category === 'performance'` tasks across all boards (top-level + stages + subtasks).
+- Visually matches the established app aesthetic: dark scanline + grid overlays, pulsing neon top border, angular clip-path corners, yellow section labels with glow, board-color (cyan) accents, thin cyberpunk scrollbar, mobile-responsive.
+- Closes on Escape key, backdrop click, or close button.
+- Lint clean (no new errors). The component is ready to be wired up to the radial board's `onCenterClick` callback in a follow-up task.
