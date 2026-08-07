@@ -215,7 +215,7 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
         <div className="pim-grid" />
         <div
           className="pim-neon-top"
-          style={{ background: `linear-gradient(90deg, transparent, ${boardColor} 20%, #FCEE0A 50%, ${boardColor} 80%, transparent)` }}
+          style={{ background: `linear-gradient(90deg, transparent, #00d9ff 20%, #FCEE0A 50%, #00d9ff 80%, transparent)` }}
         />
 
         {/* Scrollable content */}
@@ -503,7 +503,7 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
         </div>
       </div>
 
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .pim-overlay {
           position: fixed;
           inset: 0;
@@ -528,9 +528,9 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           max-width: 672px;
           max-height: 80vh;
           background: rgba(8, 10, 18, 0.98);
-          border: 1.5px solid ${hexToRgba(boardColor, 0.3)};
+          border: 1.5px solid rgba(0, 217, 255, 0.3)};
           box-shadow:
-            0 0 32px ${hexToRgba(boardColor, 0.15)},
+            0 0 32px rgba(0, 217, 255, 0.15)},
             0 16px 64px rgba(0, 0, 0, 0.7);
           clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
           overflow: hidden;
@@ -608,15 +608,15 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           background: rgba(252, 238, 10, 0.03);
         }
         .pim-scroll::-webkit-scrollbar-thumb {
-          background: ${hexToRgba(boardColor, 0.4)};
+          background: rgba(0, 217, 255, 0.4)};
           border-radius: 0;
         }
         .pim-scroll::-webkit-scrollbar-thumb:hover {
-          background: ${hexToRgba(boardColor, 0.6)};
+          background: rgba(0, 217, 255, 0.6)};
         }
         .pim-scroll {
           scrollbar-width: thin;
-          scrollbar-color: ${hexToRgba(boardColor, 0.4)} rgba(252, 238, 10, 0.03);
+          scrollbar-color: rgba(0, 217, 255, 0.4)} rgba(252, 238, 10, 0.03);
         }
 
         .pim-loading {
@@ -625,12 +625,12 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           align-items: center;
           gap: 12px;
           padding: 64px 16px;
-          color: ${hexToRgba(boardColor, 0.7)};
+          color: rgba(0, 217, 255, 0.7)};
           font-size: 11px;
           font-weight: 800;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          text-shadow: 0 0 8px ${hexToRgba(boardColor, 0.3)};
+          text-shadow: 0 0 8px rgba(0, 217, 255, 0.3)};
         }
 
         .pim-content {
@@ -644,8 +644,8 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           justify-content: space-between;
           gap: 12px;
           padding: 16px;
-          background: linear-gradient(135deg, ${hexToRgba(boardColor, 0.08)}, transparent 70%);
-          border-bottom: 2px solid ${hexToRgba(boardColor, 0.35)};
+          background: linear-gradient(135deg, rgba(0, 217, 255, 0.08)}, transparent 70%);
+          border-bottom: 2px solid rgba(0, 217, 255, 0.35)};
           position: relative;
         }
         .pim-header::before {
@@ -655,8 +655,8 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           top: 12px;
           bottom: 12px;
           width: 2px;
-          background: ${boardColor};
-          box-shadow: 0 0 8px ${boardColor}, 0 0 16px ${hexToRgba(boardColor, 0.3)};
+          background: #00d9ff;
+          box-shadow: 0 0 8px #00d9ff, 0 0 16px rgba(0, 217, 255, 0.3)};
         }
         .pim-header-left {
           display: flex;
@@ -671,8 +671,8 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           display: flex;
           align-items: center;
           justify-content: center;
-          background: ${hexToRgba('#FCEE0A', 0.08)};
-          border: 1.5px solid ${hexToRgba('#FCEE0A', 0.4)};
+          background: rgba(252, 238, 10, 0.08)};
+          border: 1.5px solid rgba(252, 238, 10, 0.4)};
           clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
           flex-shrink: 0;
         }
@@ -714,10 +714,10 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           font-size: 9px;
           font-weight: 600;
           letter-spacing: 0.05em;
-          color: ${hexToRgba(boardColor, 0.85)};
+          color: rgba(0, 217, 255, 0.85)};
           padding: 3px 7px;
-          border: 1px solid ${hexToRgba(boardColor, 0.3)};
-          background: ${hexToRgba(boardColor, 0.06)};
+          border: 1px solid rgba(0, 217, 255, 0.3)};
+          background: rgba(0, 217, 255, 0.06)};
           clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
         }
         .pim-close {
@@ -744,7 +744,7 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
         /* ── Sections ─────────────────────────── */
         .pim-section {
           padding: 14px 16px;
-          border-bottom: 1px solid ${hexToRgba(boardColor, 0.15)};
+          border-bottom: 1px solid rgba(0, 217, 255, 0.15)};
         }
         .pim-section:last-child {
           border-bottom: none;
@@ -777,9 +777,9 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           font-weight: 700;
           letter-spacing: 0.05em;
           padding: 2px 7px;
-          color: ${boardColor};
-          background: ${hexToRgba(boardColor, 0.1)};
-          border: 1px solid ${hexToRgba(boardColor, 0.3)};
+          color: #00d9ff;
+          background: rgba(0, 217, 255, 0.1)};
+          border: 1px solid rgba(0, 217, 255, 0.3)};
           clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
         }
 
@@ -832,8 +832,8 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           gap: 8px;
           padding: 18px 12px;
           color: #475569;
-          background: ${hexToRgba(boardColor, 0.03)};
-          border: 1px dashed ${hexToRgba(boardColor, 0.2)};
+          background: rgba(0, 217, 255, 0.03)};
+          border: 1px dashed rgba(0, 217, 255, 0.2)};
           clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
         }
         .pim-empty-state svg {
@@ -856,12 +856,12 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           gap: 10px;
           padding: 10px 12px;
           background: linear-gradient(135deg, rgba(10, 18, 32, 0.7), rgba(6, 10, 20, 0.8));
-          border: 1.5px solid ${hexToRgba(boardColor, 0.2)};
+          border: 1.5px solid rgba(0, 217, 255, 0.2)};
           clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
           transition: all 180ms;
         }
         .pim-track-card:hover {
-          border-color: ${hexToRgba('#FCEE0A', 0.4)};
+          border-color: rgba(252, 238, 10, 0.4)};
           background: linear-gradient(135deg, rgba(14, 24, 42, 0.7), rgba(8, 14, 26, 0.8));
           box-shadow: 0 0 16px rgba(252, 238, 10, 0.08);
         }
@@ -869,7 +869,7 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           font-size: 11px;
           font-weight: 800;
           font-family: monospace;
-          color: ${hexToRgba(boardColor, 0.6)};
+          color: rgba(0, 217, 255, 0.6)};
           letter-spacing: 0.05em;
           min-width: 22px;
         }
@@ -906,7 +906,7 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           flex: 1;
           height: 4px;
           background: rgba(255, 255, 255, 0.05);
-          border: 1px solid ${hexToRgba(boardColor, 0.15)};
+          border: 1px solid rgba(0, 217, 255, 0.15)};
           overflow: hidden;
           position: relative;
         }
@@ -943,9 +943,9 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           font-size: 9px;
           font-weight: 600;
           padding: 2px 6px;
-          color: ${boardColor};
-          background: ${hexToRgba(boardColor, 0.1)};
-          border: 1px solid ${hexToRgba(boardColor, 0.25)};
+          color: #00d9ff;
+          background: rgba(0, 217, 255, 0.1)};
+          border: 1px solid rgba(0, 217, 255, 0.25)};
           clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
         }
         .pim-instrument-chip-lg {
@@ -967,7 +967,7 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
         .pim-overall-progress-bar {
           height: 8px;
           background: rgba(255, 255, 255, 0.05);
-          border: 1px solid ${hexToRgba('#FCEE0A', 0.2)};
+          border: 1px solid rgba(252, 238, 10, 0.2)};
           overflow: hidden;
           position: relative;
           clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
@@ -1014,13 +1014,13 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           display: flex;
           gap: 0;
           background: linear-gradient(135deg, rgba(10, 18, 32, 0.7), rgba(6, 10, 20, 0.8));
-          border: 1.5px solid ${hexToRgba(boardColor, 0.2)};
+          border: 1.5px solid rgba(0, 217, 255, 0.2)};
           clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
           overflow: hidden;
           transition: all 180ms;
         }
         .pim-concert-card:hover {
-          border-color: ${hexToRgba('#FCEE0A', 0.4)};
+          border-color: rgba(252, 238, 10, 0.4)};
           box-shadow: 0 0 16px rgba(252, 238, 10, 0.08);
         }
         .pim-concert-accent {
@@ -1090,7 +1090,7 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
             font-size: 18px;
           }
         }
-      `}</style>
+      `}} />
     </div>
   );
 }

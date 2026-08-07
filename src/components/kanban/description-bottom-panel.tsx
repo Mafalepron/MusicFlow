@@ -77,11 +77,14 @@ interface GroupMember {
 
 interface ColorSet {
   raw: string;
+  a02: string;
   a04: string;
+  a05: string;
   a08: string;
   a1: string;
   a12: string;
   a15: string;
+  a18: string;
   a2: string;
   a25: string;
   a3: string;
@@ -262,11 +265,14 @@ export default function DescriptionBottomPanel() {
 
   const c = useMemo<ColorSet>(() => ({
     raw: boardColor,
+    a02: hexToRgba(boardColor, 0.02),
     a04: hexToRgba(boardColor, 0.04),
+    a05: hexToRgba(boardColor, 0.05),
     a08: hexToRgba(boardColor, 0.08),
     a1: hexToRgba(boardColor, 0.1),
     a12: hexToRgba(boardColor, 0.12),
     a15: hexToRgba(boardColor, 0.15),
+    a18: hexToRgba(boardColor, 0.18),
     a2: hexToRgba(boardColor, 0.2),
     a25: hexToRgba(boardColor, 0.25),
     a3: hexToRgba(boardColor, 0.3),
