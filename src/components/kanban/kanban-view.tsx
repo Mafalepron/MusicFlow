@@ -243,22 +243,23 @@ function ProjectList() {
                 className="group relative cursor-pointer overflow-hidden"
                 style={{
                   borderRadius: '10px',
-                  background: 'rgba(10,14,22,0.5)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  background: `linear-gradient(135deg, ${hexToRgba(color, 0.1)}, rgba(14,18,28,0.85))`,
+                  border: `1px solid ${hexToRgba(color, 0.3)}`,
+                  boxShadow: `0 0 0 1px ${hexToRgba(color, 0.08)}, 0 4px 12px rgba(0,0,0,0.3)`,
                   transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
                 }}
                 onMouseEnter={(e) => {
                   if (!isEditing && !isConfirming) {
-                    e.currentTarget.style.background = 'rgba(16,20,30,0.8)';
-                    e.currentTarget.style.borderColor = hexToRgba(color, 0.35);
-                    e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.35)`;
-                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.background = `linear-gradient(135deg, ${hexToRgba(color, 0.18)}, rgba(16,20,30,0.95))`;
+                    e.currentTarget.style.borderColor = hexToRgba(color, 0.6);
+                    e.currentTarget.style.boxShadow = `0 0 0 1px ${hexToRgba(color, 0.3)}, 0 8px 32px ${hexToRgba(color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)`;
+                    e.currentTarget.style.transform = 'translateY(-4px) scale(1.01)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(10,14,22,0.5)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
-                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.background = `linear-gradient(135deg, ${hexToRgba(color, 0.1)}, rgba(14,18,28,0.85))`;
+                  e.currentTarget.style.borderColor = hexToRgba(color, 0.3);
+                  e.currentTarget.style.boxShadow = `0 0 0 1px ${hexToRgba(color, 0.08)}, 0 4px 12px rgba(0,0,0,0.3)`;
                   e.currentTarget.style.transform = 'none';
                 }}
               >

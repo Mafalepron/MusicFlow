@@ -66,14 +66,16 @@ function ProjectCard({ project, trackCount, onClick, onOpenKanban }: {
         onMouseLeave={() => setHovered(false)}
         className="relative cursor-pointer transition-all duration-200"
         style={{
+          borderRadius: '10px',
           background: hovered
-            ? `linear-gradient(135deg, ${hexToRgba(type.color, 0.12)}, rgba(8, 12, 22, 0.95))`
-            : `linear-gradient(135deg, ${hexToRgba(type.color, 0.06)}, rgba(8, 12, 22, 0.92))`,
-          clipPath: CARD_CLIP,
+            ? `linear-gradient(135deg, ${hexToRgba(type.color, 0.18)}, rgba(16,20,30,0.95))`
+            : `linear-gradient(135deg, ${hexToRgba(type.color, 0.1)}, rgba(14,18,28,0.85))`,
+          border: `1px solid ${hovered ? hexToRgba(type.color, 0.6) : hexToRgba(type.color, 0.3)}`,
           boxShadow: hovered
-            ? `0 0 0 1px ${hexToRgba(type.color, 0.5)}, 0 0 28px ${hexToRgba(type.color, 0.15)}, 0 4px 16px rgba(0,0,0,0.4)`
-            : `0 0 0 1px ${hexToRgba(type.color, 0.2)}, 0 2px 8px rgba(0,0,0,0.3)`,
-          transform: hovered ? 'translateY(-3px)' : 'translateY(0)',
+            ? `0 0 0 1px ${hexToRgba(type.color, 0.3)}, 0 8px 32px ${hexToRgba(type.color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)`
+            : `0 0 0 1px ${hexToRgba(type.color, 0.08)}, 0 4px 12px rgba(0,0,0,0.3)`,
+          transform: hovered ? 'translateY(-4px) scale(1.01)' : 'translateY(0)',
+          overflow: 'hidden',
         }}
       >
         {/* Top accent bar */}

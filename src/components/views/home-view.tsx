@@ -59,11 +59,11 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
       className="group relative cursor-pointer"
       style={{
         borderRadius: '10px',
-        background: h ? 'rgba(16,20,30,0.8)' : 'rgba(10,14,22,0.5)',
-        border: `1px solid ${h ? hexToRgba(t.color, 0.4) : 'rgba(255,255,255,0.06)'}`,
-        boxShadow: h ? `0 8px 28px rgba(0,0,0,0.4), 0 0 0 1px ${hexToRgba(t.color, 0.15)}` : '0 2px 8px rgba(0,0,0,0.2)',
+        background: h ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.18)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(t.color, 0.1)}, rgba(14,18,28,0.85))`,
+        border: `1px solid ${h ? hexToRgba(t.color, 0.6) : hexToRgba(t.color, 0.3)}`,
+        boxShadow: h ? `0 0 0 1px ${hexToRgba(t.color, 0.3)}, 0 8px 32px ${hexToRgba(t.color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)` : `0 0 0 1px ${hexToRgba(t.color, 0.08)}, 0 4px 12px rgba(0,0,0,0.3)`,
         transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
-        transform: h ? 'translateY(-3px)' : 'none',
+        transform: h ? 'translateY(-4px) scale(1.01)' : 'translateY(0)',
         overflow: 'hidden',
       }}
     >
@@ -71,7 +71,7 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
       <div
         className="h-20 flex items-end p-3"
         style={{
-          background: `linear-gradient(135deg, ${hexToRgba(t.color, h ? 0.25 : 0.12)}, ${hexToRgba(t.color, h ? 0.05 : 0.02)})`,
+          background: `linear-gradient(135deg, ${hexToRgba(t.color, h ? 0.3 : 0.18)}, ${hexToRgba(t.color, h ? 0.08 : 0.04)})`,
           borderBottom: `1px solid ${hexToRgba(t.color, 0.1)}`,
         }}
       >
@@ -138,11 +138,11 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
       className="cursor-pointer p-4"
       style={{
         borderRadius: '10px',
-        background: h ? 'rgba(16,20,30,0.8)' : 'rgba(10,14,22,0.5)',
-        border: `1px solid ${h ? hexToRgba(color, 0.35) : 'rgba(255,255,255,0.06)'}`,
-        boxShadow: h ? `0 6px 20px rgba(0,0,0,0.35)` : '0 2px 6px rgba(0,0,0,0.15)',
+        background: h ? `linear-gradient(135deg, ${hexToRgba(color, 0.15)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(color, 0.08)}, rgba(14,18,28,0.85))`,
+        border: `1px solid ${h ? hexToRgba(color, 0.55) : hexToRgba(color, 0.25)}`,
+        boxShadow: h ? `0 0 0 1px ${hexToRgba(color, 0.2)}, 0 6px 24px ${hexToRgba(color, 0.15)}, 0 4px 12px rgba(0,0,0,0.35)` : `0 0 0 1px ${hexToRgba(color, 0.05)}, 0 4px 10px rgba(0,0,0,0.25)`,
         transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
-        transform: h ? 'translateY(-2px)' : 'none',
+        transform: h ? 'translateY(-3px) scale(1.01)' : 'none',
       }}
     >
       <div className="mb-2 flex items-center justify-between">
@@ -183,11 +183,11 @@ function IdeaCard({ idea, onClick }: { idea: { id: string; title: string; descri
       className="w-60 shrink-0 cursor-pointer p-4"
       style={{
         borderRadius: '10px',
-        background: h ? 'rgba(16,20,30,0.8)' : 'rgba(10,14,22,0.5)',
-        border: `1px solid ${h ? hexToRgba(A, 0.3) : 'rgba(255,255,255,0.06)'}`,
-        boxShadow: h ? `0 6px 20px rgba(0,0,0,0.3)` : '0 2px 6px rgba(0,0,0,0.15)',
+        background: h ? `linear-gradient(135deg, ${hexToRgba(A, 0.15)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(A, 0.08)}, rgba(14,18,28,0.85))`,
+        border: `1px solid ${h ? hexToRgba(A, 0.5) : hexToRgba(A, 0.22)}`,
+        boxShadow: h ? `0 0 0 1px ${hexToRgba(A, 0.15)}, 0 6px 24px ${hexToRgba(A, 0.15)}, 0 4px 12px rgba(0,0,0,0.3)` : `0 0 0 1px ${hexToRgba(A, 0.05)}, 0 4px 10px rgba(0,0,0,0.2)`,
         transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
-        transform: h ? 'translateY(-2px)' : 'none',
+        transform: h ? 'translateY(-3px) scale(1.01)' : 'none',
       }}
     >
       <div className="mb-2 flex items-center gap-2">
@@ -212,8 +212,9 @@ function StatPill({ icon: Icon, value, label, color }: {
       className="flex items-center gap-3 p-4"
       style={{
         borderRadius: '10px',
-        background: h ? 'rgba(16,20,30,0.7)' : 'rgba(10,14,22,0.4)',
-        border: `1px solid ${h ? hexToRgba(color, 0.25) : 'rgba(255,255,255,0.05)'}`,
+        background: h ? `linear-gradient(135deg, ${hexToRgba(color, 0.12)}, rgba(16,20,30,0.9))` : `linear-gradient(135deg, ${hexToRgba(color, 0.06)}, rgba(14,18,28,0.8))`,
+        border: `1px solid ${h ? hexToRgba(color, 0.4) : hexToRgba(color, 0.18)}`,
+        boxShadow: h ? `0 0 16px ${hexToRgba(color, 0.12)}` : 'none',
         transition: 'all 200ms',
       }}
     >
@@ -376,8 +377,8 @@ export function HomeView() {
                   className="overflow-hidden"
                   style={{
                     borderRadius: '10px',
-                    background: 'rgba(10,14,22,0.5)',
-                    border: '1px solid rgba(255,255,255,0.06)',
+                    background: `linear-gradient(135deg, ${hexToRgba(t.color, 0.06)}, rgba(14,18,28,0.8))`,
+                    border: `1px solid ${hexToRgba(t.color, 0.2)}`,
                   }}
                 >
                   <button
