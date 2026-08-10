@@ -213,34 +213,33 @@ function IdeaCard({ idea, onClick }: { idea: { id: string; title: string; descri
   );
 }
 
-/* ─── Stat Pill ─── */
-function StatPill({ icon: Icon, value, label, color }: {
-  icon: typeof FolderKanban; value: number; label: string; color: string;
-}) {
-  const [h, setH] = useState(false);
+/* ─── Stat Bar: cyberpunk 2077 style inline stats ─── */
+function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number; label: string; color: string }[] }) {
   return (
     <div
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
-      className="flex items-center gap-3 p-4"
+      className="flex items-center gap-0 overflow-hidden"
       style={{
-        borderRadius: '10px',
-        background: h ? `linear-gradient(135deg, ${hexToRgba(color, 0.12)}, rgba(16,20,30,0.9))` : `linear-gradient(135deg, ${hexToRgba(color, 0.06)}, rgba(14,18,28,0.8))`,
-        border: `1px solid ${h ? hexToRgba(color, 0.4) : hexToRgba(color, 0.18)}`,
-        boxShadow: h ? `0 0 16px ${hexToRgba(color, 0.12)}` : 'none',
-        transition: 'all 200ms',
+        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+        background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+        boxShadow: '0 0 14px rgba(252,238,10,0.3), 0 0 28px rgba(252,238,10,0.1), inset 0 1px 0 rgba(255,255,255,0.4)',
       }}
     >
-      <div
-        className="flex h-9 w-9 items-center justify-center rounded-lg"
-        style={{ background: hexToRgba(color, 0.1), border: `1px solid ${hexToRgba(color, 0.2)}` }}
-      >
-        <Icon className="w-4 h-4" style={{ color }} />
-      </div>
-      <div>
-        <p className="text-xl font-bold tabular-nums text-slate-100">{value}</p>
-        <p className="text-[10px] text-slate-500">{label}</p>
-      </div>
+      {stats.map((s, i) => {
+        const Icon = s.icon;
+        return (
+          <div
+            key={s.label}
+            className="flex items-center gap-2 px-3 py-2 transition-all hover:bg-black/10"
+            style={i < stats.length - 1 ? { borderRight: '1px solid rgba(0,0,0,0.15)' } : undefined}
+          >
+            <Icon className="w-3.5 h-3.5" style={{ color: '#000' }} />
+            <div className="flex items-baseline gap-1">
+              <span className="text-sm font-extrabold tabular-nums" style={{ color: '#000' }}>{s.value}</span>
+              <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'rgba(0,0,0,0.5)' }}>{s.label}</span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -707,20 +706,23 @@ export function HomeView() {
   return (
     <div className="min-h-full bg-[#06080d]">
       <div className="mx-auto max-w-6xl px-5 py-6 lg:px-8 lg:py-8">
-        {/* ── Header ── */}
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-          <h1 className="text-xl font-bold text-slate-100 lg:text-2xl">
-            Привет, {user?.displayName || 'музыкант'}
-          </h1>
-          <p className="mt-0.5 text-sm text-slate-500">
-            {currentGroup?.name || 'SoundFlow'}{currentGroup?.genre ? ` · ${currentGroup.genre}` : ''}
-          </p>
+        {/* ── Header + Stats in one row ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <h1 className="text-xl font-bold text-slate-100 lg:text-2xl">
+              Привет, {user?.displayName || 'музыкант'}
+            </h1>
+            <p className="mt-0.5 text-sm text-slate-500">
+              {currentGroup?.name || 'SoundFlow'}{currentGroup?.genre ? ` · ${currentGroup.genre}` : ''}
+            </p>
+          </div>
+          <StatBar stats={stats} />
         </motion.div>
-
-        {/* ── Stats ── */}
-        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {stats.map(s => <StatPill key={s.label} {...s} />)}
-        </div>
 
         {/* ── Quick Access ── */}
         {quickAccessItems.length > 0 && (
