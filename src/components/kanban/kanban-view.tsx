@@ -98,33 +98,45 @@ function ProjectList() {
   ];
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col bg-[#06080d]">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-800/50 bg-gradient-to-b from-slate-900/40 to-transparent">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 border border-cyan-500/30 flex items-center justify-center shadow-lg shadow-cyan-500/10">
-              <LayoutGrid className="w-5 h-5 text-cyan-400" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-200">Канбан-проекты</h2>
-              <p className="text-[10px] text-slate-500">Управление досками и задачами</p>
-            </div>
+      <div className="px-6 py-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-slate-100">Канбан-проекты</h2>
+            <p className="mt-0.5 text-sm text-slate-500">Управление досками и задачами</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => void loadProjects()} disabled={loading} className="h-8 w-8 p-0 text-slate-500 hover:text-slate-300">
+            <button
+              onClick={() => void loadProjects()}
+              disabled={loading}
+              className="flex items-center justify-center h-9 w-9 rounded-lg border border-white/[0.06] bg-white/[0.03] text-slate-500 transition-colors hover:text-slate-300 hover:border-white/10"
+            >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button size="sm" onClick={() => setCreating(true)} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white h-8 text-xs gap-1.5 transition-all shadow-lg shadow-cyan-500/20">
-              <Plus className="w-3.5 h-3.5" /> Новый канбан
-            </Button>
+            </button>
+            <button
+              onClick={() => setCreating(true)}
+              className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200"
+              style={{
+                padding: '9px 18px',
+                color: '#000',
+                background: 'linear-gradient(135deg, #FCEE0A, #F1F100)',
+                borderRadius: '8px',
+                boxShadow: '0 0 12px rgba(252,238,10,0.35)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 18px rgba(252,238,10,0.55)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.35)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Новый канбан
+            </button>
           </div>
         </div>
 
-        {/* Stats + Filters row */}
+        {/* Filters + Search */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Filter tabs */}
-          <div className="flex items-center gap-0.5 bg-slate-900/60 rounded-lg p-0.5 border border-slate-800/50">
+          <div className="flex items-center gap-1 bg-white/[0.03] rounded-lg p-1 border border-white/[0.06]">
             {filters.map(f => {
               const Icon = f.icon;
               const active = filter === f.key;
@@ -134,27 +146,23 @@ function ProjectList() {
                   onClick={() => setFilter(f.key)}
                   className={cn(
                     'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-200',
-                    active
-                      ? 'bg-cyan-500/20 text-cyan-300 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50',
+                    active ? 'bg-yellow-500/15 text-yellow-300' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]',
                   )}
                 >
                   <Icon className="w-3 h-3" />
                   {f.label}
-                  <span className={cn('text-[9px] px-1 py-0 rounded-full', active ? 'bg-cyan-500/30 text-cyan-200' : 'bg-slate-800/60 text-slate-600')}>{f.count}</span>
+                  <span className={cn('text-[9px] px-1 py-0 rounded-full', active ? 'bg-yellow-500/20 text-yellow-200' : 'bg-white/[0.06] text-slate-600')}>{f.count}</span>
                 </button>
               );
             })}
           </div>
-
-          {/* Search */}
           <div className="relative flex-1 min-w-[140px] max-w-[220px]">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600 pointer-events-none" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Поиск..."
-              className="w-full bg-slate-900/60 border border-slate-800/50 rounded-lg pl-8 pr-7 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/40 transition-colors"
+              className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg pl-8 pr-3 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-yellow-500/30 transition-colors"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-400">
@@ -167,203 +175,198 @@ function ProjectList() {
 
       {/* Inline create form */}
       {creating && (
-        <div className="px-6 py-3 border-b border-slate-800/30 bg-cyan-500/[0.03]">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Zap className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400" />
-              <input
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void handleCreate();
-                  if (e.key === 'Escape') { setCreating(false); setNewTitle(''); }
-                }}
-                placeholder="Название канбан-проекта..."
-                autoFocus
-                className="w-full bg-slate-900/80 border border-cyan-500/30 rounded-lg pl-8 pr-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/60 focus:shadow-[0_0_0_3px_rgba(0,217,255,0.08)] transition-all"
-              />
-            </div>
-            <Button size="sm" onClick={() => void handleCreate()} disabled={!newTitle.trim()} className="bg-cyan-600 hover:bg-cyan-500 text-white h-9 px-4 text-xs gap-1.5 disabled:opacity-40">
-              <Check className="w-3.5 h-3.5" /> Создать
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setCreating(false); setNewTitle(''); }} className="h-9 px-3 text-xs text-slate-500 hover:text-slate-300">
+        <div className="px-6 pb-3">
+          <div className="flex gap-2 p-3 rounded-lg border border-yellow-500/20 bg-yellow-500/[0.03]">
+            <input
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleCreate(); if (e.key === 'Escape') { setCreating(false); setNewTitle(''); } }}
+              placeholder="Название канбан-проекта..."
+              autoFocus
+              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-md px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-yellow-500/40"
+            />
+            <button
+              onClick={() => void handleCreate()}
+              disabled={!newTitle.trim()}
+              className="px-4 py-2 rounded-md text-xs font-bold bg-yellow-500 text-black disabled:opacity-30 transition-opacity"
+            >
+              Создать
+            </button>
+            <button onClick={() => { setCreating(false); setNewTitle(''); }} className="px-3 py-2 rounded-md text-xs text-slate-500 hover:text-slate-300">
               Отмена
-            </Button>
-          </div>
-          <div className="flex items-center gap-1.5 mt-2 ml-1">
-            <Layers className="w-3 h-3 text-cyan-400/70" />
-            <span className="text-[10px] text-slate-500">Стандартный канбан — доски создаются вручную внутри проекта</span>
+            </button>
           </div>
         </div>
       )}
 
       {/* Project grid */}
       <ScrollArea className="flex-1">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-6 pt-2">
           {filtered.length === 0 && !loading && (
-            <div className="col-span-full text-center py-20">
-              <div className="inline-flex flex-col items-center gap-3 animate-pulse">
-                <div className="w-16 h-16 rounded-2xl bg-slate-800/50 border border-slate-700/30 flex items-center justify-center">
-                  {search ? <Search className="w-7 h-7 text-slate-700" /> : <LayoutGrid className="w-7 h-7 text-slate-700" />}
+            <div className="col-span-full text-center py-16">
+              <div className="inline-flex flex-col items-center gap-3">
+                <div className="w-14 h-14 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
+                  {search ? <Search className="w-6 h-6 text-slate-700" /> : <LayoutGrid className="w-6 h-6 text-slate-700" />}
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm font-medium">
-                    {search ? 'Ничего не найдено' : filter === 'music' ? 'Нет музыкальных проектов' : filter === 'kanban' ? 'Нет стандартных канбанов' : 'Канбан-проектов пока нет'}
+                    {search ? 'Ничего не найдено' : 'Канбан-проектов пока нет'}
                   </p>
                   <p className="text-slate-600 text-xs mt-1">
-                    {search ? 'Попробуйте изменить запрос' : 'Создайте новый канбан или откройте проект из вкладки Projects'}
+                    {search ? 'Попробуйте изменить запрос' : 'Создайте новый канбан-проект'}
                   </p>
                 </div>
               </div>
             </div>
           )}
           {filtered.map((project) => {
-            const color = getStatusColor(project.status);
             const isMusic = !!project.soundflowProjectId;
-            const pType = project.projectType;
-            const isAlbum = pType === 'album' || pType === 'ep';
-            const isSingle = pType === 'single';
-            const isEp = pType === 'ep';
+            const pType = project.projectType || 'general';
+            const typeConf = isMusic
+              ? (pType === 'album' ? { color: '#a855f7', icon: Disc3, label: 'Альбом' }
+                 : pType === 'ep' ? { color: '#00d9ff', icon: AudioLines, label: 'EP' }
+                 : pType === 'single' ? { color: '#f59e0b', icon: Music2, label: 'Сингл' }
+                 : { color: '#10b981', icon: Music2, label: 'Music' })
+              : { color: '#FCEE0A', icon: FolderOpen, label: 'Канбан' };
+            const TypeIcon = typeConf.icon;
+            const color = typeConf.color;
+            const childCount = project.children?.length || 0;
+            const doneCount = (project.children || []).filter(c => c.status === 'done').length;
+            const pct = childCount > 0 ? Math.round((doneCount / childCount) * 100) : 0;
             const isEditing = editingId === project.id;
             const isConfirming = confirmDeleteId === project.id;
-            const childCount = project.children?.length || 0;
 
             return (
               <div
                 key={project.id}
                 onClick={() => !isEditing && !isConfirming && selectProject(project.id)}
-                className={cn(
-                  'group relative rounded-xl p-4 cursor-pointer transition-all duration-200 border',
-                  isEditing || isConfirming ? 'cursor-default' : '',
-                  isMusic
-                    ? 'bg-gradient-to-br from-purple-500/[0.06] to-transparent border-purple-500/20 hover:border-purple-500/40 hover:from-purple-500/[0.1]'
-                    : 'bg-slate-900/60 border-slate-800/50 hover:border-cyan-500/30 hover:bg-slate-800/40',
-                )}
-                style={!isMusic ? { boxShadow: 'inset 0 0 0 1px transparent' } : undefined}
+                className="group relative cursor-pointer overflow-hidden"
+                style={{
+                  borderRadius: '10px',
+                  background: 'rgba(10,14,22,0.5)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isEditing && !isConfirming) {
+                    e.currentTarget.style.background = 'rgba(16,20,30,0.8)';
+                    e.currentTarget.style.borderColor = hexToRgba(color, 0.35);
+                    e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.35)`;
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(10,14,22,0.5)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.transform = 'none';
+                }}
               >
-                {/* Top row: icon + title + chevron */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                {/* Cover strip */}
+                <div
+                  className="h-16 flex items-center justify-between px-4"
+                  style={{
+                    background: `linear-gradient(135deg, ${hexToRgba(color, 0.15)}, ${hexToRgba(color, 0.02)})`,
+                    borderBottom: `1px solid ${hexToRgba(color, 0.08)}`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
                     <div
-                      className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105',
-                        isAlbum ? 'bg-gradient-to-br from-purple-500/25 to-pink-500/15' :
-                        isSingle ? 'bg-gradient-to-br from-amber-500/25 to-orange-500/15' :
-                        '')}
-                      style={!isAlbum && !isSingle ? { backgroundColor: color + '18', boxShadow: `0 0 12px ${color}15` } : undefined}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg"
+                      style={{ background: hexToRgba(color, 0.15), border: `1px solid ${hexToRgba(color, 0.25)}` }}
                     >
-                      {isAlbum
-                        ? <Disc3 className="w-4.5 h-4.5 text-purple-400 group-hover:rotate-45 transition-transform duration-300" />
-                        : isSingle
-                          ? <AudioLines className="w-4.5 h-4.5 text-amber-400" />
-                          : <FolderOpen className="w-4.5 h-4.5" style={{ color }} />
-                      }
+                      <TypeIcon className="w-4 h-4" style={{ color }} />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      {isEditing ? (
-                        <input
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') void handleRename(project.id);
-                            if (e.key === 'Escape') { setEditingId(null); setEditTitle(''); }
-                          }}
-                          autoFocus
-                          className="w-full bg-slate-900 border border-cyan-500/50 rounded px-2 py-0.5 text-sm text-slate-200 focus:outline-none focus:shadow-[0_0_0_2px_rgba(0,217,255,0.1)]"
-                        />
-                      ) : (
-                        <h3 className="text-sm font-semibold text-slate-200 truncate flex items-center gap-1.5">
-                          {project.title}
-                        </h3>
-                      )}
-                      {project.description && !isEditing && (
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{project.description}</p>
-                      )}
-                    </div>
+                    <span className="text-[11px] font-semibold" style={{ color }}>{typeConf.label}</span>
                   </div>
-                  {!isEditing && !isConfirming && (
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5" style={{ background: hexToRgba(color, 0.1), color, border: `1px solid ${hexToRgba(color, 0.2)}` }}>
+                    {isMusic ? 'AUTO' : 'KANBAN'}
+                  </span>
+                </div>
+
+                {/* Body */}
+                <div className="p-4">
+                  {isEditing ? (
+                    <input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void handleRename(project.id);
+                        if (e.key === 'Escape') { setEditingId(null); setEditTitle(''); }
+                      }}
+                      autoFocus
+                      className="w-full bg-white/[0.06] border border-yellow-500/40 rounded px-2 py-1 text-sm text-slate-100 focus:outline-none"
+                    />
+                  ) : (
+                    <h3 className="mb-2 text-[15px] font-semibold leading-snug text-slate-200 group-hover:text-white transition-colors">
+                      {project.title}
+                    </h3>
+                  )}
+
+                  {project.description && !isEditing && (
+                    <p className="mb-2 text-[11px] text-slate-500 line-clamp-1">{project.description}</p>
+                  )}
+
+                  {/* Progress */}
+                  {!isEditing && childCount > 0 && (
+                    <div className="mb-2 flex items-center gap-2">
+                      <div className="flex-1 h-1 rounded-full bg-slate-800 overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? '#10b981' : color, boxShadow: pct > 0 ? `0 0 4px ${hexToRgba(pct === 100 ? '#10b981' : color, 0.5)}` : 'none' }} />
+                      </div>
+                      <span className="text-[10px] font-semibold tabular-nums" style={{ color: pct === 100 ? '#10b981' : color }}>{pct}%</span>
+                    </div>
+                  )}
+
+                  {/* Meta row */}
+                  {!isEditing && (
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Layers className="w-3 h-3" />
+                        {childCount} {childCount === 1 ? 'доска' : childCount > 4 ? 'досок' : 'доски'}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: getStatusColor(project.status), boxShadow: `0 0 4px ${hexToRgba(getStatusColor(project.status), 0.4)}` }} />
+                        {getStatusLabel(project.status)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Edit mode */}
+                  {isEditing && (
+                    <div className="flex items-center gap-2 mt-3">
+                      <button onClick={(e) => { e.stopPropagation(); void handleRename(project.id); }} disabled={!editTitle.trim()} className="px-3 py-1 rounded text-[10px] font-bold bg-yellow-500 text-black disabled:opacity-30">Сохранить</button>
+                      <button onClick={(e) => { e.stopPropagation(); setEditingId(null); setEditTitle(''); }} className="px-2 py-1 text-[10px] text-slate-500 hover:text-slate-300">Отмена</button>
+                    </div>
+                  )}
+
+                  {/* Delete confirmation */}
+                  {isConfirming && (
+                    <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/30 p-2.5">
+                      <p className="text-[10px] text-rose-300 mb-2">Удалить проект? Это необратимо.</p>
+                      <div className="flex items-center gap-2">
+                        <button onClick={(e) => { e.stopPropagation(); void handleDelete(project.id); }} className="px-3 py-1 rounded text-[10px] font-bold bg-rose-600 text-white">Удалить</button>
+                        <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} className="px-2 py-1 text-[10px] text-slate-500">Отмена</button>
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {/* Bottom row: status + counts + type badge */}
-                {!isEditing && (
-                  <div className="flex items-center gap-2 mt-3 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}80` }} />
-                      <span className="text-[10px] font-medium" style={{ color }}>{getStatusLabel(project.status)}</span>
-                    </div>
-                    {childCount > 0 && (
-                      <span className="text-[10px] text-slate-600 flex items-center gap-0.5">
-                        <Layers className="w-2.5 h-2.5" />
-                        {childCount}
-                      </span>
-                    )}
-                    {isMusic ? (
-                      <span className="text-[9px] text-cyan-300 bg-cyan-500/15 border border-cyan-500/20 px-1.5 py-0.5 rounded ml-auto capitalize flex items-center gap-1 font-medium">
-                        <Music className="w-2.5 h-2.5" />
-                        {isEp ? 'EP' : pType}
-                      </span>
-                    ) : (
-                      <span className="text-[9px] text-cyan-400/70 bg-cyan-500/[0.08] border border-cyan-500/15 px-1.5 py-0.5 rounded ml-auto flex items-center gap-1 font-medium">
-                        <Zap className="w-2.5 h-2.5" />
-                        Канбан
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Edit mode actions */}
-                {isEditing && (
-                  <div className="flex items-center gap-2 mt-3">
-                    <Button size="sm" onClick={(e) => { e.stopPropagation(); void handleRename(project.id); }} disabled={!editTitle.trim()} className="h-7 text-[10px] bg-cyan-600 hover:bg-cyan-500 text-white gap-1 disabled:opacity-40">
-                      <Check className="w-3 h-3" /> Сохранить
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingId(null); setEditTitle(''); }} className="h-7 text-[10px] text-slate-500 hover:text-slate-300">
-                      Отмена
-                    </Button>
-                  </div>
-                )}
-
-                {/* Delete confirmation */}
-                {isConfirming && (
-                  <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/30 p-2.5">
-                    <p className="text-[10px] text-rose-300 mb-2">Удалить проект? Это действие необратимо.</p>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" onClick={(e) => { e.stopPropagation(); void handleDelete(project.id); }} className="h-7 text-[10px] bg-rose-600 hover:bg-rose-500 text-white gap-1">
-                        <Trash2 className="w-3 h-3" /> Удалить
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} className="h-7 text-[10px] text-slate-400 hover:text-slate-200">
-                        Отмена
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Hover actions — only for standard kanbans (not music projects) */}
+                {/* Hover actions */}
                 {!isMusic && !isEditing && !isConfirming && (
                   <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => startEdit(e, project)}
-                      className="p-1.5 rounded-lg hover:bg-slate-700/60 text-slate-500 hover:text-cyan-400 transition-all"
-                      title="Переименовать"
-                    >
+                    <button onClick={(e) => startEdit(e, project)} className="p-1.5 rounded hover:bg-white/[0.08] text-slate-500 hover:text-yellow-400 transition-all" title="Переименовать">
                       <Pencil className="w-3 h-3" />
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }}
-                      className="p-1.5 rounded-lg hover:bg-slate-700/60 text-slate-500 hover:text-rose-400 transition-all"
-                      title="Удалить"
-                    >
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }} className="p-1.5 rounded hover:bg-white/[0.08] text-slate-500 hover:text-rose-400 transition-all" title="Удалить">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 )}
 
-                {/* Music projects: read-only indicator on hover */}
                 {isMusic && !isEditing && !isConfirming && (
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[8px] text-slate-600 bg-slate-800/60 px-1.5 py-0.5 rounded flex items-center gap-0.5" title="Создано в Projects — редактирование там">
+                    <span className="text-[8px] text-slate-600 bg-white/[0.06] px-1.5 py-0.5 rounded flex items-center gap-0.5" title="Создано в Projects — редактирование там">
                       <Clock className="w-2 h-2" /> только просмотр
                     </span>
                   </div>
