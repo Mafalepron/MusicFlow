@@ -47,18 +47,26 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !currentGroupId) return;
+    if (!title.trim()) return;
 
     setLoading(true);
     setError('');
 
     if (!currentGroupId) {
-      setError('No group selected. Please join or create a group first.');
+      setError('Не выбрана группа. Создайте или присоединитесь к группе.');
       setLoading(false);
       return;
     }
 
     try {
+      // Verify group exists before creating
+      const groupCheck = await fetch(`/api/groups/${currentGroupId}`);
+      if (!groupCheck.ok) {
+        setError('Группа не найдена. Возможна сессия устарела — перезайдите в аккаунт.');
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
