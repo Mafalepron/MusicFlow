@@ -110,8 +110,9 @@ export async function POST(request: NextRequest) {
         creator: {
           select: { id: true, displayName: true, avatarUrl: true },
         },
-        kanbanTask: {
+        kanbanTasks: {
           select: { id: true },
+          take: 1,
         },
       },
     })
@@ -156,8 +157,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         ...track,
-        kanbanTaskId: (track as Record<string, unknown>).kanbanTaskId || null,
-        kanbanTask: undefined,
+        kanbanTaskId: (track as Record<string, unknown>).kanbanTaskId || track.kanbanTasks?.[0]?.id || null,
+        kanbanTasks: undefined,
         createdAt: track.createdAt.toISOString(),
         updatedAt: track.updatedAt.toISOString(),
       },

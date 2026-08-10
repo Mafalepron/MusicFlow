@@ -119,7 +119,7 @@ model Track {
   creator    User       @relation(fields: [createdBy], references: [id])
   versions   TrackVersion[]
   comments   Comment[]
-  kanbanTask Task?      @relation("TrackKanbanLink")
+  kanbanTasks Task[]      @relation("TrackKanbanLink")
 
   @@index([projectId])
 }
@@ -227,7 +227,7 @@ model Task {
   hexR               Int      @default(0)
   deadline           DateTime?
   soundflowProjectId String?  @unique // FK to Project.id — if this kanban project wraps a SoundFlow Project
-  soundflowTrackId   String?  @unique // FK to Track.id — if this kanban track wraps a real audio Track
+  soundflowTrackId   String?  // FK to Track.id — multiple tasks can reference the same track (e.g. mixing/mastering tasks)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @default(now()) @updatedAt
 
@@ -240,6 +240,8 @@ model Task {
   chatMessages       ChatMessage[]    @relation("ChatTaskRef")
   soundflowProject   Project?         @relation("ProjectKanbanLink", fields: [soundflowProjectId], references: [id], onDelete: SetNull)
   soundflowTrack     Track?           @relation("TrackKanbanLink", fields: [soundflowTrackId], references: [id], onDelete: SetNull)
+
+  @@index([soundflowTrackId])
 }
 
 model TaskConnection {

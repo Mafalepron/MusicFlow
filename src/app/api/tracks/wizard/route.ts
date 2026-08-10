@@ -191,5 +191,44 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // --- Cross-board mirroring: create linked tasks on Mixing, Mastering, References boards ---
+  // When a track is created, a matching task appears on each of these boards,
+  // linked via soundflowTrackId so they stay connected to the same track.
+  const MIRROR_BOARDS = [
+    { title: 'Сведение', taskTitle: `${title.trim()} — Сведение` },
+    { title: 'Мастеринг', taskTitle: `${title.trim()} — Мастеринг` },
+    { title: 'Референсы', taskTitle: `${title.trim()} — Референсы` },
+  ];
+
+  // Find sibling boards in the same kanban project
+  const siblingBoards = await db.board.findMany({
+    where: {
+      projectId: board.projectId,
+      isGhost: false,
+      title: { in: MIRROR_BOARDS.map((b) => b.title) },
+    },
+    select: { id: true, title: true },
+  });
+
+  for (const mirror of MIRROR_BOARDS) {
+    const targetBoard = siblingBoards.find((b) => b.title === mirror.title);
+    if (!targetBoard) continue;
+
+    await db.task.create({
+      data: {
+        title: mirror.taskTitle,
+        description: `Связанная задача для трека «${title.trim()}»`,
+        status: 'todo',
+        priority: 'medium',
+        category: 'recording',
+        boardId: targetBoard.id,
+        hexQ: 0,
+        hexR: 0,
+        ...(deadline ? { deadline: new Date(deadline) } : {}),
+        ...(soundflowTrackId ? { soundflowTrackId } : {}),
+      },
+    });
+  }
+
   return NextResponse.json({ trackId: track.id, soundflowTrackId }, { status: 201 });
 }
