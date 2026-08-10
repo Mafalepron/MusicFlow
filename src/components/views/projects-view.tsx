@@ -18,22 +18,19 @@ const statusHex: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  draft: 'Draft',
-  in_progress: 'In Progress',
-  mixing: 'Mixing',
-  mastering: 'Mastering',
-  released: 'Released',
+  draft: 'Черновик',
+  in_progress: 'В работе',
+  mixing: 'Сведение',
+  mastering: 'Мастеринг',
+  released: 'Релиз',
 };
 
 const typeConfig: Record<string, { label: string; color: string; icon: typeof Disc3 }> = {
-  album: { label: 'Альбом', color: '#a855f7', icon: Disc3 },
-  ep: { label: 'EP', color: '#00d9ff', icon: AudioLines },
-  single: { label: 'Сингл', color: '#f59e0b', icon: Music2 },
-  general: { label: 'Канбан', color: '#10b981', icon: LayoutDashboard },
+  album:   { label: 'Альбом',  color: '#a855f7', icon: Disc3 },
+  ep:      { label: 'EP',      color: '#00d9ff', icon: AudioLines },
+  single:  { label: 'Сингл',   color: '#f59e0b', icon: Music2 },
+  general: { label: 'Канбан',  color: '#10b981', icon: LayoutDashboard },
 };
-
-const CARD_CLIP = 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))';
-const BADGE_CLIP = 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -51,86 +48,67 @@ function ProjectCard({ project, trackCount, onClick, onOpenKanban }: {
   onClick: () => void;
   onOpenKanban: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const [h, setH] = useState(false);
   const type = typeConfig[project.type] || typeConfig.general;
   const TypeIcon = type.icon;
-  const stHex = statusHex[project.status] || '#64748b';
-  const stLabel = statusLabels[project.status] || project.status;
+  const sc = statusHex[project.status] || '#64748b';
+  const sl = statusLabels[project.status] || project.status;
   const hasKanban = !!project.kanbanTaskId;
 
   return (
     <motion.div variants={cardVariants}>
       <div
         onClick={onClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className="relative cursor-pointer transition-all duration-200"
+        onMouseEnter={() => setH(true)}
+        onMouseLeave={() => setH(false)}
+        className="group relative cursor-pointer overflow-hidden"
         style={{
           borderRadius: '10px',
-          background: hovered
+          background: h
             ? `linear-gradient(135deg, ${hexToRgba(type.color, 0.18)}, rgba(16,20,30,0.95))`
             : `linear-gradient(135deg, ${hexToRgba(type.color, 0.1)}, rgba(14,18,28,0.85))`,
-          border: `1px solid ${hovered ? hexToRgba(type.color, 0.6) : hexToRgba(type.color, 0.3)}`,
-          boxShadow: hovered
+          border: `1px solid ${h ? hexToRgba(type.color, 0.6) : hexToRgba(type.color, 0.3)}`,
+          boxShadow: h
             ? `0 0 0 1px ${hexToRgba(type.color, 0.3)}, 0 8px 32px ${hexToRgba(type.color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)`
             : `0 0 0 1px ${hexToRgba(type.color, 0.08)}, 0 4px 12px rgba(0,0,0,0.3)`,
-          transform: hovered ? 'translateY(-4px) scale(1.01)' : 'translateY(0)',
-          overflow: 'hidden',
+          transform: h ? 'translateY(-4px) scale(1.01)' : 'translateY(0)',
+          transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
         }}
       >
-        {/* Top accent bar */}
+        {/* Cover strip */}
         <div
-          className="h-[3px] w-full"
+          className="h-16 flex items-center justify-between px-4"
           style={{
-            background: `linear-gradient(90deg, transparent, ${type.color} 30%, ${type.color} 70%, transparent)`,
-            boxShadow: `0 0 8px ${hexToRgba(type.color, 0.5)}`,
+            background: `linear-gradient(135deg, ${hexToRgba(type.color, h ? 0.3 : 0.18)}, ${hexToRgba(type.color, h ? 0.08 : 0.04)})`,
+            borderBottom: `1px solid ${hexToRgba(type.color, 0.1)}`,
           }}
-        />
-
-        <div className="p-5">
-          {/* Type icon + badge row */}
-          <div className="mb-4 flex items-center justify-between">
+        >
+          <div className="flex items-center gap-2">
             <div
-              className="flex items-center gap-2 px-2.5 py-1"
-              style={{
-                background: hexToRgba(type.color, 0.12),
-                boxShadow: `inset 0 0 0 1px ${hexToRgba(type.color, 0.3)}`,
-                clipPath: BADGE_CLIP,
-              }}
+              className="flex h-8 w-8 items-center justify-center rounded-lg"
+              style={{ background: hexToRgba(type.color, 0.15), border: `1px solid ${hexToRgba(type.color, 0.3)}` }}
             >
-              <TypeIcon className="w-3 h-3" style={{ color: type.color }} />
-              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: type.color }}>
-                {type.label}
-              </span>
+              <TypeIcon className="w-4 h-4" style={{ color: type.color }} />
             </div>
-
-            {/* Status dot */}
-            <div className="flex items-center gap-1.5">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{
-                  backgroundColor: stHex,
-                  boxShadow: `0 0 6px ${hexToRgba(stHex, 0.6)}`,
-                }}
-              />
-              <span className="text-[10px] font-medium" style={{ color: stHex }}>
-                {stLabel}
-              </span>
-            </div>
+            <span className="text-[11px] font-semibold" style={{ color: type.color }}>{type.label}</span>
           </div>
+          <span
+            className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+            style={{ background: hexToRgba(sc, 0.12), color: sc, border: `1px solid ${hexToRgba(sc, 0.25)}` }}
+          >
+            {sl}
+          </span>
+        </div>
 
-          {/* Title */}
+        {/* Body */}
+        <div className="p-4">
           <h3
-            className="mb-3 text-base font-bold transition-colors"
-            style={{
-              color: hovered ? type.color : '#e2e8f0',
-              textShadow: hovered ? `0 0 8px ${hexToRgba(type.color, 0.3)}` : 'none',
-            }}
+            className="mb-2 text-[15px] font-semibold leading-snug transition-colors"
+            style={{ color: h ? type.color : '#e2e8f0' }}
           >
             {project.title}
           </h3>
 
-          {/* Track count + updated */}
           <div className="flex items-center justify-between text-[11px] text-slate-500">
             <span className="flex items-center gap-1.5">
               <Music2 className="w-3 h-3" />
@@ -142,16 +120,12 @@ function ProjectCard({ project, trackCount, onClick, onOpenKanban }: {
             </span>
           </div>
 
-          {/* Kanban link */}
           {hasKanban && (
-            <div className="mt-4 pt-3" style={{ borderTop: `1px solid ${hexToRgba(type.color, 0.15)}` }}>
+            <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${hexToRgba(type.color, 0.1)}` }}>
               <button
                 onClick={(e) => { e.stopPropagation(); onOpenKanban(); }}
-                className="flex items-center gap-1.5 text-[11px] font-medium transition-all"
-                style={{
-                  color: hovered ? '#FCEE0A' : '#00d9ff',
-                  textShadow: hovered ? '0 0 6px rgba(252,238,10,0.3)' : 'none',
-                }}
+                className="flex items-center gap-1.5 text-[11px] font-medium transition-colors"
+                style={{ color: h ? '#FCEE0A' : '#00d9ff' }}
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
                 Открыть Kanban
@@ -181,38 +155,27 @@ export function ProjectsView() {
   };
 
   return (
-    <div className="min-h-full" style={{ background: '#05080f' }}>
+    <div className="min-h-full bg-[#06080d]">
       <div className="mx-auto max-w-6xl space-y-6 p-6 lg:p-8">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold uppercase tracking-widest" style={{ color: '#FCEE0A', textShadow: '0 0 8px rgba(252,238,10,0.3)' }}>
-              Проекты
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Управление альбомами, EP и синглами
-            </p>
+            <h2 className="text-xl font-bold text-slate-100">Проекты</h2>
+            <p className="mt-0.5 text-sm text-slate-500">Управление альбомами, EP и синглами</p>
           </div>
           <button
             onClick={() => setDialogOpen(true)}
             className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200"
             style={{
-              padding: '9px 20px',
+              padding: '9px 18px',
               color: '#000',
               background: 'linear-gradient(135deg, #FCEE0A, #F1F100)',
-              border: '1.5px solid rgba(252,238,10,0.9)',
-              clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-              boxShadow: '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)',
+              borderRadius: '8px',
+              boxShadow: '0 0 12px rgba(252,238,10,0.35)',
               cursor: 'pointer',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 0 20px rgba(252,238,10,0.6), 0 0 32px rgba(252,238,10,0.2)';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 18px rgba(252,238,10,0.55)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.35)'; e.currentTarget.style.transform = 'translateY(0)'; }}
           >
             <Plus className="w-3.5 h-3.5" />
             Новый проект
@@ -242,40 +205,29 @@ export function ProjectsView() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
-            className="flex flex-col items-center justify-center px-6 py-20"
-            style={{
-              border: '1.5px dashed rgba(252,238,10,0.15)',
-              clipPath: CARD_CLIP,
-              background: 'rgba(8,12,22,0.6)',
-            }}
+            className="flex flex-col items-center justify-center py-16"
           >
             <div
-              className="mb-4 flex h-16 w-16 items-center justify-center"
-              style={{
-                background: 'rgba(252,238,10,0.06)',
-                boxShadow: 'inset 0 0 0 1px rgba(252,238,10,0.2)',
-                clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-              }}
+              className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg"
+              style={{ background: 'rgba(252,238,10,0.06)', border: '1px solid rgba(252,238,10,0.15)' }}
             >
-              <FolderOpen className="h-7 w-7" style={{ color: '#FCEE0A', opacity: 0.5 }} />
+              <FolderOpen className="h-6 w-6 text-slate-600" />
             </div>
-            <h3 className="mb-1 text-base font-bold text-slate-300">
-              Пока нет проектов
-            </h3>
-            <p className="mb-6 text-sm text-slate-600">
-              Создайте первый проект, чтобы начать работу
-            </p>
+            <h3 className="mb-1 text-sm font-medium text-slate-400">Пока нет проектов</h3>
+            <p className="mb-4 text-xs text-slate-600">Создайте первый проект, чтобы начать работу</p>
             <button
               onClick={() => setDialogOpen(true)}
               className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200"
               style={{
-                padding: '9px 20px',
+                padding: '9px 18px',
                 color: '#000',
                 background: 'linear-gradient(135deg, #FCEE0A, #F1F100)',
-                clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                boxShadow: '0 0 12px rgba(252,238,10,0.3)',
+                borderRadius: '8px',
+                boxShadow: '0 0 12px rgba(252,238,10,0.35)',
                 cursor: 'pointer',
               }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 18px rgba(252,238,10,0.55)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.35)'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
               <Plus className="w-3.5 h-3.5" />
               Создать проект
