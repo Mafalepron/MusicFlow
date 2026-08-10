@@ -724,25 +724,24 @@ export function HomeView() {
           <StatBar stats={stats} />
         </motion.div>
 
-        {/* ── Quick Access ── */}
+        {/* ── Quick Access — warm amber, soft blurred panel ── */}
         {quickAccessItems.length > 0 && (
-          <section className="mt-8 relative" style={{
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, rgba(252,238,10,0.04), rgba(8,10,18,0.6))',
-            border: '1px solid rgba(252,238,10,0.15)',
+          <section className="mt-8 relative overflow-hidden" style={{
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(8,10,18,0.5))',
+            border: '1px solid rgba(245,158,11,0.2)',
             padding: '20px',
-            boxShadow: '0 0 32px rgba(252,238,10,0.04)',
+            boxShadow: '0 0 40px rgba(245,158,11,0.06), inset 0 1px 0 rgba(245,158,11,0.08)',
           }}>
-            {/* Neon top accent */}
-            <div className="absolute left-0 right-0 top-0 h-[2px] rounded-t-[12px]" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(252,238,10,0.5) 30%, rgba(252,238,10,0.5) 70%, transparent)',
-              boxShadow: '0 0 8px rgba(252,238,10,0.3)',
+            {/* Amber glow orb — decorative */}
+            <div className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 rounded-full" style={{
+              background: 'radial-gradient(circle, rgba(245,158,11,0.12), transparent 70%)',
             }} />
             <SectionHeader
               title="Быстрый доступ"
               action={
-                <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: Y }}>
-                  <Star className="w-3 h-3" style={{ color: Y, fill: Y }} />
+                <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#f59e0b' }}>
+                  <Star className="w-3 h-3" style={{ color: '#f59e0b', fill: '#f59e0b' }} />
                   {quickAccessItems.length}
                 </span>
               }
@@ -760,33 +759,33 @@ export function HomeView() {
           </section>
         )}
 
-        {/* ── Auto Projects Panel ── */}
+        {/* ── Auto Projects — yellow, angular cyberpunk panel ── */}
         <section className="mt-8 relative" style={{
           borderRadius: '14px',
-          background: 'linear-gradient(180deg, rgba(252,238,10,0.03) 0%, rgba(8,10,18,0.4) 100%)',
-          border: '1px solid rgba(252,238,10,0.12)',
+          background: 'linear-gradient(180deg, rgba(252,238,10,0.04) 0%, rgba(8,10,18,0.5) 100%)',
+          border: '1px solid rgba(252,238,10,0.15)',
           padding: '20px',
-          boxShadow: '0 0 40px rgba(252,238,10,0.03)',
+          boxShadow: '0 4px 32px rgba(252,238,10,0.04)',
         }}>
           {/* Neon top accent — yellow */}
           <div className="absolute left-0 right-0 top-0 h-[2px] rounded-t-[14px]" style={{
-            background: 'linear-gradient(90deg, transparent, rgba(252,238,10,0.5) 20%, rgba(252,238,10,0.6) 50%, rgba(252,238,10,0.5) 80%, transparent)',
-            boxShadow: '0 0 10px rgba(252,238,10,0.3)',
+            background: 'linear-gradient(90deg, transparent, rgba(252,238,10,0.6) 20%, #FCEE0A 50%, rgba(252,238,10,0.6) 80%, transparent)',
+            boxShadow: '0 0 12px rgba(252,238,10,0.4)',
           }} />
-          {/* Corner accent — yellow */}
+          {/* Corner accents — yellow */}
           <div className="absolute top-0 left-0 w-3 h-3 rounded-tl-[14px]" style={{
-            borderTop: '2px solid rgba(252,238,10,0.6)',
-            borderLeft: '2px solid rgba(252,238,10,0.6)',
+            borderTop: '2px solid rgba(252,238,10,0.7)',
+            borderLeft: '2px solid rgba(252,238,10,0.7)',
           }} />
           <div className="absolute top-0 right-0 w-3 h-3 rounded-tr-[14px]" style={{
-            borderTop: '2px solid rgba(252,238,10,0.6)',
-            borderRight: '2px solid rgba(252,238,10,0.6)',
+            borderTop: '2px solid rgba(252,238,10,0.7)',
+            borderRight: '2px solid rgba(252,238,10,0.7)',
           }} />
 
           <SectionHeader
             title="Авто проекты"
             action={
-              <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-yellow-400">
+              <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-yellow-400" style={{ color: 'rgba(252,238,10,0.6)' }}>
                 Все <ArrowRight className="w-3 h-3" />
               </button>
             }
@@ -805,33 +804,28 @@ export function HomeView() {
           </div>
         </section>
 
-        {/* ── Kanban Projects Panel ── */}
+        {/* ── Kanban Projects — cyan, left accent bar style ── */}
         <section className="mt-6 relative" style={{
           borderRadius: '14px',
-          background: 'linear-gradient(180deg, rgba(0,217,255,0.03) 0%, rgba(8,10,18,0.4) 100%)',
-          border: '1px solid rgba(0,217,255,0.12)',
-          padding: '20px',
-          boxShadow: '0 0 40px rgba(0,217,255,0.03)',
+          background: 'linear-gradient(135deg, rgba(0,217,255,0.04), rgba(8,10,18,0.5))',
+          border: '1px solid rgba(0,217,255,0.1)',
+          padding: '20px 20px 20px 24px',
+          boxShadow: '0 4px 32px rgba(0,217,255,0.04)',
         }}>
-          {/* Neon top accent — cyan */}
-          <div className="absolute left-0 right-0 top-0 h-[2px] rounded-t-[14px]" style={{
-            background: 'linear-gradient(90deg, transparent, rgba(0,217,255,0.5) 20%, rgba(0,217,255,0.6) 50%, rgba(0,217,255,0.5) 80%, transparent)',
-            boxShadow: '0 0 10px rgba(0,217,255,0.3)',
+          {/* Left accent bar — cyan, full height */}
+          <div className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full" style={{
+            background: 'linear-gradient(180deg, transparent, #00d9ff 20%, #00d9ff 80%, transparent)',
+            boxShadow: '0 0 12px rgba(0,217,255,0.5)',
           }} />
-          {/* Corner accents — cyan */}
-          <div className="absolute top-0 left-0 w-3 h-3 rounded-tl-[14px]" style={{
-            borderTop: '2px solid rgba(0,217,255,0.6)',
-            borderLeft: '2px solid rgba(0,217,255,0.6)',
-          }} />
-          <div className="absolute top-0 right-0 w-3 h-3 rounded-tr-[14px]" style={{
-            borderTop: '2px solid rgba(0,217,255,0.6)',
-            borderRight: '2px solid rgba(0,217,255,0.6)',
+          {/* Cyan glow orb — decorative */}
+          <div className="pointer-events-none absolute -bottom-10 -left-10 w-28 h-28 rounded-full" style={{
+            background: 'radial-gradient(circle, rgba(0,217,255,0.08), transparent 70%)',
           }} />
 
           <SectionHeader
             title="Канбан проекты"
             action={
-              <button onClick={() => setAllKanbanOpen(true)} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-cyan-400">
+              <button onClick={() => setAllKanbanOpen(true)} className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-cyan-400" style={{ color: 'rgba(0,217,255,0.6)' }}>
                 Все <ArrowRight className="w-3 h-3" />
               </button>
             }
