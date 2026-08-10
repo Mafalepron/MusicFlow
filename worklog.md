@@ -1012,3 +1012,44 @@ Stage Summary:
 - Concert schedule section unchanged — still aggregates tasks with `category === 'performance'` across all boards and sub-levels.
 - All new CSS classes added to global `cyberpunk.css` (no `<style jsx>` or `dangerouslySetInnerHTML`).
 - Lint clean for project-info-modal.tsx.
+
+---
+Task ID: CLOSE-CONFIRM
+Agent: full-stack-developer
+Task: Add confirmation dialog when closing/completing a stage or task with unclosed subtasks/children
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load project context (kanban cyberpunk UI, Task → TaskChild (stage) → TaskGrandchild (subtask) hierarchy, board color theming via c = useMemo(hexToRgba(boardColor, ...))).
+- Read /home/z/my-project/src/store/kanban-store.ts (1-90) to verify types: TaskStatus union includes 'review', Task.children: TaskChild[], TaskChild.children?: TaskGrandchild[].
+- Read StageCard and SubtaskRow in /home/z/my-project/src/components/kanban/description-bottom-panel.tsx and the full /home/z/my-project/src/components/board/task-strip.tsx to map cycleStatus, onUpdate, reloadTasks, and the board-color `c` ColorSet.
+
+EDITS — /home/z/my-project/src/components/kanban/description-bottom-panel.tsx:
+- Added `import { createPortal } from 'react-dom';`.
+- StageCard: added state `showCloseConfirm` + `closingAll`, computed `unclosedSubtasks = subtasks.filter(s => s.status !== 'done')`.
+- cycleStatus now intercepts: if `next === 'done' && unclosedSubtasks.length > 0` → setShowCloseConfirm(true) and return; otherwise falls through to onUpdate({status: next}).
+- Added completeAllAndClose(): PUTs status='done' for each unclosed subtask via /api/tasks, then onUpdate({status:'done'}) + reloadTasks(), wrapped in try/finally that clears closingAll and showCloseConfirm.
+- Rendered a portal-based cyberpunk confirmation dialog at the end of StageCard's return (createPortal → document.body). Dark bg rgba(8,10,18,0.98), board-color border (c.a4), angular clip-path, yellow glow; AlertTriangle header "Этап не завершён" + stage title; body lists unclosed subtasks with colored status dots in a max-h-40 scroll area; buttons "Отмена" (gray, flex-1) and "Завершить все" (yellow #FCEE0A with Check icon + clip-path). Spinner shown while closingAll.
+- SubtaskRow untouched (no children → no confirmation needed per spec).
+
+EDITS — /home/z/my-project/src/components/board/task-strip.tsx:
+- Added `import { createPortal } from 'react-dom';`.
+- Added state `closeConfirmTask: Task | null` and `closingAllTask: boolean` in TaskStrip.
+- cycleStatus(e, task) now: when next === 'done', calls collectUnclosedDescendants(task); if >0 → setCloseConfirmTask(task) and return; else proceeds with the original PUT + reloadTasks.
+- Added collectUnclosedDescendants(task): recursive walk over task.children collecting {id, title, status, level} for every descendant whose status !== 'done' (used for both display and the gating check).
+- Added closeAllDescendants(taskId, children): recursive async that PUTs status='done' for each unclosed child, then recurses into child.children.
+- Added completeAllAndCloseTask(task): calls closeAllDescendants, then PUTs the task itself to status='done', then reloadTasks(); try/finally clears closingAllTask + closeConfirmTask.
+- Rendered portal-based confirmation dialog before the closing </div> of the ts-panel root. Same cyberpunk styling as StageCard (board-color border, clip-path, yellow accents). Header "Задача не завершена" + task title; body lists every unclosed descendant indented by level (`paddingLeft: 10 + level*12 px`) with colored status dots and labels (в работе / ревью / к вып.). Buttons "Отмена" and "Завершить все" with spinner state.
+
+KEY DESIGN DECISION:
+- Both dialogs are mounted via createPortal(…, document.body) rather than inline. This guarantees `position: fixed` is anchored to the viewport and is NOT trapped inside any transformed ancestor (the kanban board uses transform-based panning, which would otherwise pin a `fixed` dialog to the panned coordinate space). This satisfies the constraint "The dialog must NOT interfere with the existing panning/clicking behavior."
+
+VERIFICATION:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "description-bottom-panel|task-strip"` → no output (clean for both files).
+- Full `bun run lint` → 2 errors total, both PRE-EXISTING in src/components/layout/app-header.tsx (react-hooks/set-state-in-effect, lines 132 and ~140); 0 warnings; nothing from the two files I touched.
+- /home/z/my-project/dev.log tail: `✓ Compiled in 171ms` and `✓ Compiled in 454ms` after edits, no errors related to the modified files.
+
+Stage Summary:
+- Closing a STAGE via its status icon: if any subtask is not 'done', a cyberpunk popup lists the unclosed subtasks by name and offers "Завершить все" (marks all subtasks + the stage as done) or "Отмена" (no-op). If all subtasks are already done, the status changes silently.
+- Closing the TOP TASK in task-strip.tsx: same pattern but recursive — collects every unclosed descendant at all levels (stages AND their subtasks) for display, and "Завершить все" recursively marks every unclosed descendant + the task itself as done.
+- Both dialogs are portal-rendered to document.body with z-[200], backdrop blur, and a yellow-accented board-color-themed cyberpunk panel; all text in Russian; spinner shown during the async close-all operation; closing the overlay (click outside or "Отмена") is disabled while the operation is in-flight.
+- Wrote /home/z/my-project/agent-ctx/CLOSE-CONFIRM-full-stack-developer.md as the agent work record for this task.

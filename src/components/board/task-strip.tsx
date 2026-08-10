@@ -3,6 +3,7 @@
 import { useKanbanStore, Task, TaskStatus } from '@/store/kanban-store';
 import { useNavigationStore } from '@/lib/store';
 import { useEffect, useRef, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, Circle, Clock, Eye, Trash2, Pencil, Plus, Music, ChevronDown, AlertTriangle } from 'lucide-react';
 import { cn, hexToRgba } from '@/lib/utils';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -22,6 +23,8 @@ export default function TaskStrip() {
   } = useKanbanStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [closeConfirmTask, setCloseConfirmTask] = useState<Task | null>(null);
+  const [closingAllTask, setClosingAllTask] = useState(false);
   const selectedBoard = boards.find(b => b.id === selectedBoardId);
   const boardColor = selectedBoard?.color || '#00d9ff';
   const boardType = selectedBoard?.boardType || '';
@@ -89,12 +92,74 @@ export default function TaskStrip() {
     const order: TaskStatus[] = ['todo', 'in-progress', 'review', 'done'];
     const idx = order.indexOf(task.status);
     const next = order[(idx + 1) % order.length];
+
+    // If trying to mark as done and the task has unclosed descendants (stages/subtasks), show confirmation
+    if (next === 'done') {
+      const unclosed = collectUnclosedDescendants(task);
+      if (unclosed.length > 0) {
+        setCloseConfirmTask(task);
+        return;
+      }
+    }
+
     await fetch('/api/tasks', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: task.id, status: next }),
     });
     await reloadTasks();
+  };
+
+  // Collect unclosed descendants (stages + subtasks) for display in the confirmation dialog
+  const collectUnclosedDescendants = (task: Task): Array<{ id: string; title: string; status: string; level: number }> => {
+    const out: Array<{ id: string; title: string; status: string; level: number }> = [];
+    const walk = (children: any[] | undefined, level: number) => {
+      if (!children) return;
+      for (const child of children) {
+        if (child.status !== 'done') {
+          out.push({ id: child.id, title: child.title, status: child.status, level });
+        }
+        if (child.children && child.children.length > 0) {
+          walk(child.children, level + 1);
+        }
+      }
+    };
+    walk(task.children, 0);
+    return out;
+  };
+
+  // Recursively mark all descendants (stages + subtasks) AND the task itself as done
+  const closeAllDescendants = async (taskId: string, children: any[] | undefined): Promise<void> => {
+    if (!children) return;
+    for (const child of children) {
+      if (child.status !== 'done') {
+        await fetch('/api/tasks', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: child.id, status: 'done' }),
+        });
+      }
+      if (child.children && child.children.length > 0) {
+        await closeAllDescendants(child.id, child.children);
+      }
+    }
+  };
+
+  const completeAllAndCloseTask = async (task: Task) => {
+    if (closingAllTask) return;
+    setClosingAllTask(true);
+    try {
+      await closeAllDescendants(task.id, task.children);
+      await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: task.id, status: 'done' }),
+      });
+      await reloadTasks();
+    } finally {
+      setClosingAllTask(false);
+      setCloseConfirmTask(null);
+    }
   };
 
   const reloadTasks = async () => {
@@ -433,6 +498,133 @@ export default function TaskStrip() {
           );
         })}
       </div>
+
+      {/* Close-with-unclosed-children confirmation dialog (rendered via portal at document.body) */}
+      {closeConfirmTask && typeof document !== 'undefined' && createPortal(
+        (() => {
+          const unclosed = collectUnclosedDescendants(closeConfirmTask);
+          return (
+            <div
+              className="fixed inset-0 z-[200] flex items-center justify-center"
+              style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+              onClick={() => { if (!closingAllTask) setCloseConfirmTask(null); }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: 'rgba(8, 10, 18, 0.98)',
+                  border: `1.5px solid ${c.a4}`,
+                  clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+                  boxShadow: `0 0 32px ${c.a15}, 0 0 64px rgba(252, 238, 10, 0.08), 0 16px 48px rgba(0,0,0,0.6)`,
+                  padding: '20px',
+                  maxWidth: '420px',
+                  width: '90%',
+                }}
+              >
+                {/* Header */}
+                <div className="flex items-start gap-2.5 mb-3">
+                  <div
+                    className="flex-shrink-0 w-8 h-8 rounded flex items-center justify-center"
+                    style={{
+                      backgroundColor: 'rgba(252, 238, 10, 0.1)',
+                      border: '1px solid rgba(252, 238, 10, 0.35)',
+                      boxShadow: '0 0 12px rgba(252, 238, 10, 0.15)',
+                    }}
+                  >
+                    <AlertTriangle className="w-4 h-4" style={{ color: '#FCEE0A' }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-bold text-slate-100 leading-tight" style={{ letterSpacing: '0.02em' }}>
+                      Задача не завершена
+                    </p>
+                    <p className="text-[10px] text-slate-500 truncate mt-0.5" title={closeConfirmTask.title}>
+                      «{closeConfirmTask.title}»
+                    </p>
+                  </div>
+                </div>
+
+                {/* Body text */}
+                <p className="text-[11px] text-slate-400 leading-relaxed mb-2.5">
+                  Остались незавершённые этапы и подзадачи
+                  <span className="text-[#FCEE0A] font-semibold"> ({unclosed.length})</span>.
+                  Завершить все вместе с задачей?
+                </p>
+
+                {/* Unclosed descendants list */}
+                <div
+                  className="mb-3.5 max-h-48 overflow-y-auto rounded pr-1"
+                  style={{
+                    background: 'rgba(0,0,0,0.4)',
+                    border: `1px solid ${c.a2}`,
+                  }}
+                >
+                  <ul className="py-1.5">
+                    {unclosed.map(item => (
+                      <li
+                        key={item.id}
+                        className="flex items-center gap-2 px-2.5 py-1 text-[10px]"
+                        style={{ paddingLeft: `${10 + item.level * 12}px` }}
+                      >
+                        <span
+                          className="flex-shrink-0 w-1.5 h-1.5 rounded-full"
+                          style={{
+                            backgroundColor: item.status === 'in-progress' ? '#fb923c' : item.status === 'review' ? '#22d3ee' : '#22d3ee',
+                            boxShadow: `0 0 6px ${item.status === 'in-progress' ? '#fb923c' : '#22d3ee'}80`,
+                          }}
+                        />
+                        <span className="text-slate-300 truncate flex-1 min-w-0" title={item.title}>
+                          {item.title}
+                        </span>
+                        <span className="text-[8px] uppercase tracking-wider flex-shrink-0" style={{ color: c.a6 }}>
+                          {item.status === 'in-progress' ? 'в работе' : item.status === 'review' ? 'ревью' : 'к вып.'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCloseConfirmTask(null)}
+                    disabled={closingAllTask}
+                    className="flex-1 text-[11px] font-medium px-3 py-2 rounded transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 disabled:opacity-50"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={() => void completeAllAndCloseTask(closeConfirmTask)}
+                    disabled={closingAllTask}
+                    className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded transition-all disabled:opacity-60"
+                    style={{
+                      color: '#000',
+                      backgroundColor: '#FCEE0A',
+                      boxShadow: '0 0 12px rgba(252, 238, 10, 0.4), inset 0 1px 0 rgba(255,255,255,0.4)',
+                      clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+                    }}
+                  >
+                    {closingAllTask ? (
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="w-3 h-3 rounded-full border-2 border-black/30 border-t-black animate-spin"
+                          style={{ animationDuration: '0.6s' }}
+                        />
+                        Завершение...
+                      </span>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        Завершить все
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })(),
+        document.body,
+      )}
     </div>
   );
 }

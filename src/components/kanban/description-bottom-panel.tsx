@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useKanbanStore, Task, TaskChild, TaskGrandchild, TaskStatus, TaskPriority } from '@/store/kanban-store';
 import { useAuthStore } from '@/lib/store';
 import {
@@ -603,12 +604,15 @@ function StageCard({
   const [titleDraft, setTitleDraft] = useState(stage.title);
   const [descDraft, setDescDraft] = useState(stage.description || '');
   const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [closingAll, setClosingAll] = useState(false);
 
   const subtasks = stage.children || [];
   const stageProgress = getProgress(subtasks);
   const StatusIcon = STATUS_ICON[stage.status] || Circle;
   const statusHex = STATUS_HEX[stage.status] || '#64748b';
   const priorityHex = PRIORITY_HEX[stage.priority] || '#64748b';
+  const unclosedSubtasks = subtasks.filter(s => s.status !== 'done');
 
   // Sync local draft state with prop changes when not actively editing (prev-tracker pattern)
   const [prevStageTitle, setPrevStageTitle] = useState(stage.title);
@@ -640,7 +644,36 @@ function StageCard({
     const order: TaskStatus[] = ['todo', 'in-progress', 'done'];
     const idx = order.indexOf(stage.status as TaskStatus);
     const next = order[(idx + 1) % order.length];
+
+    // If trying to mark as done and there are unclosed subtasks, show confirmation
+    if (next === 'done' && unclosedSubtasks.length > 0) {
+      setShowCloseConfirm(true);
+      return;
+    }
+
     await onUpdate({ status: next });
+  };
+
+  // Mark all unclosed subtasks as done AND the stage itself as done
+  const completeAllAndClose = async () => {
+    if (closingAll) return;
+    setClosingAll(true);
+    try {
+      for (const sub of subtasks) {
+        if (sub.status !== 'done') {
+          await fetch('/api/tasks', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: sub.id, status: 'done' }),
+          });
+        }
+      }
+      await onUpdate({ status: 'done' });
+      await reloadTasks();
+    } finally {
+      setClosingAll(false);
+      setShowCloseConfirm(false);
+    }
   };
 
   const deadlineInfo = getDeadlineInfo(stage.deadline || null);
@@ -864,6 +897,127 @@ function StageCard({
             reloadTasks={reloadTasks}
           />
         </div>
+      )}
+
+      {/* Close-with-unclosed-subtasks confirmation dialog */}
+      {showCloseConfirm && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => { if (!closingAll) setShowCloseConfirm(false); }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'rgba(8, 10, 18, 0.98)',
+              border: `1.5px solid ${c.a4}`,
+              clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+              boxShadow: `0 0 32px ${c.a15}, 0 0 64px rgba(252, 238, 10, 0.08), 0 16px 48px rgba(0,0,0,0.6)`,
+              padding: '20px',
+              maxWidth: '400px',
+              width: '90%',
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-start gap-2.5 mb-3">
+              <div
+                className="flex-shrink-0 w-8 h-8 rounded flex items-center justify-center"
+                style={{
+                  backgroundColor: 'rgba(252, 238, 10, 0.1)',
+                  border: '1px solid rgba(252, 238, 10, 0.35)',
+                  boxShadow: '0 0 12px rgba(252, 238, 10, 0.15)',
+                }}
+              >
+                <AlertTriangle className="w-4 h-4" style={{ color: '#FCEE0A' }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] font-bold text-slate-100 leading-tight" style={{ letterSpacing: '0.02em' }}>
+                  Этап не завершён
+                </p>
+                <p className="text-[10px] text-slate-500 truncate mt-0.5" title={stage.title}>
+                  «{stage.title}»
+                </p>
+              </div>
+            </div>
+
+            {/* Body text */}
+            <p className="text-[11px] text-slate-400 leading-relaxed mb-2.5">
+              Остались незавершённые подзадачи
+              <span className="text-[#FCEE0A] font-semibold"> ({unclosedSubtasks.length})</span>.
+              Завершить все подзадачи вместе с этапом?
+            </p>
+
+            {/* Unclosed subtasks list */}
+            <div
+              className="mb-3.5 max-h-40 overflow-y-auto rounded pr-1"
+              style={{
+                background: 'rgba(0,0,0,0.4)',
+                border: `1px solid ${c.a2}`,
+              }}
+            >
+              <ul className="py-1.5">
+                {unclosedSubtasks.map(sub => (
+                  <li
+                    key={sub.id}
+                    className="flex items-center gap-2 px-2.5 py-1 text-[10px]"
+                  >
+                    <span
+                      className="flex-shrink-0 w-1.5 h-1.5 rounded-full"
+                      style={{
+                        backgroundColor: sub.status === 'in-progress' ? '#fb923c' : '#22d3ee',
+                        boxShadow: `0 0 6px ${sub.status === 'in-progress' ? '#fb923c' : '#22d3ee'}80`,
+                      }}
+                    />
+                    <span className="text-slate-300 truncate flex-1 min-w-0" title={sub.title}>
+                      {sub.title}
+                    </span>
+                    <span className="text-[8px] uppercase tracking-wider flex-shrink-0" style={{ color: c.a6 }}>
+                      {sub.status === 'in-progress' ? 'в работе' : 'к вып.'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowCloseConfirm(false)}
+                disabled={closingAll}
+                className="flex-1 text-[11px] font-medium px-3 py-2 rounded transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => void completeAllAndClose()}
+                disabled={closingAll}
+                className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-2 rounded transition-all disabled:opacity-60"
+                style={{
+                  color: '#000',
+                  backgroundColor: '#FCEE0A',
+                  boxShadow: '0 0 12px rgba(252, 238, 10, 0.4), inset 0 1px 0 rgba(255,255,255,0.4)',
+                  clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+                }}
+              >
+                {closingAll ? (
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="w-3 h-3 rounded-full border-2 border-black/30 border-t-black animate-spin"
+                      style={{ animationDuration: '0.6s' }}
+                    />
+                    Завершение...
+                  </span>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    Завершить все
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
