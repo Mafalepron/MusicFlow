@@ -127,7 +127,7 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
   const handlePointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
     const target = e.target as Element;
-    if (target.closest('.board-panel') || target.closest('.center-plus')) return;
+    if (target.closest('.board-panel') || target.closest('.center-plus') || target.closest('.center-circle')) return;
     isPanning.current = true;
     setCursorStyle('grabbing');
     (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
