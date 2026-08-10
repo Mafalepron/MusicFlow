@@ -760,8 +760,29 @@ export function HomeView() {
           </section>
         )}
 
-        {/* ── Auto Projects ── */}
-        <section className="mt-8">
+        {/* ── Auto Projects Panel ── */}
+        <section className="mt-8 relative" style={{
+          borderRadius: '14px',
+          background: 'linear-gradient(180deg, rgba(252,238,10,0.03) 0%, rgba(8,10,18,0.4) 100%)',
+          border: '1px solid rgba(252,238,10,0.12)',
+          padding: '20px',
+          boxShadow: '0 0 40px rgba(252,238,10,0.03)',
+        }}>
+          {/* Neon top accent — yellow */}
+          <div className="absolute left-0 right-0 top-0 h-[2px] rounded-t-[14px]" style={{
+            background: 'linear-gradient(90deg, transparent, rgba(252,238,10,0.5) 20%, rgba(252,238,10,0.6) 50%, rgba(252,238,10,0.5) 80%, transparent)',
+            boxShadow: '0 0 10px rgba(252,238,10,0.3)',
+          }} />
+          {/* Corner accent — yellow */}
+          <div className="absolute top-0 left-0 w-3 h-3 rounded-tl-[14px]" style={{
+            borderTop: '2px solid rgba(252,238,10,0.6)',
+            borderLeft: '2px solid rgba(252,238,10,0.6)',
+          }} />
+          <div className="absolute top-0 right-0 w-3 h-3 rounded-tr-[14px]" style={{
+            borderTop: '2px solid rgba(252,238,10,0.6)',
+            borderRight: '2px solid rgba(252,238,10,0.6)',
+          }} />
+
           <SectionHeader
             title="Авто проекты"
             action={
@@ -784,8 +805,29 @@ export function HomeView() {
           </div>
         </section>
 
-        {/* ── Kanban Projects ── */}
-        <section className="mt-8">
+        {/* ── Kanban Projects Panel ── */}
+        <section className="mt-6 relative" style={{
+          borderRadius: '14px',
+          background: 'linear-gradient(180deg, rgba(0,217,255,0.03) 0%, rgba(8,10,18,0.4) 100%)',
+          border: '1px solid rgba(0,217,255,0.12)',
+          padding: '20px',
+          boxShadow: '0 0 40px rgba(0,217,255,0.03)',
+        }}>
+          {/* Neon top accent — cyan */}
+          <div className="absolute left-0 right-0 top-0 h-[2px] rounded-t-[14px]" style={{
+            background: 'linear-gradient(90deg, transparent, rgba(0,217,255,0.5) 20%, rgba(0,217,255,0.6) 50%, rgba(0,217,255,0.5) 80%, transparent)',
+            boxShadow: '0 0 10px rgba(0,217,255,0.3)',
+          }} />
+          {/* Corner accents — cyan */}
+          <div className="absolute top-0 left-0 w-3 h-3 rounded-tl-[14px]" style={{
+            borderTop: '2px solid rgba(0,217,255,0.6)',
+            borderLeft: '2px solid rgba(0,217,255,0.6)',
+          }} />
+          <div className="absolute top-0 right-0 w-3 h-3 rounded-tr-[14px]" style={{
+            borderTop: '2px solid rgba(0,217,255,0.6)',
+            borderRight: '2px solid rgba(0,217,255,0.6)',
+          }} />
+
           <SectionHeader
             title="Канбан проекты"
             action={
