@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FolderKanban, Music2, Lightbulb, Users, ArrowRight, Plus,
-  ChevronDown, ChevronRight, Disc3, AudioLines, Zap, Clock, Star, X,
+  ChevronDown, ChevronRight, ChevronLeft, Disc3, AudioLines, Zap, Clock, Star, X,
 } from 'lucide-react';
 import { useAuthStore, useDataStore, useNavigationStore, type Project } from '@/lib/store';
 import { useKanbanStore, type Task } from '@/store/kanban-store';
@@ -318,45 +318,150 @@ function QuickAccessCard({ item, onClick, onUnstar }: {
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      className="group w-56 shrink-0 cursor-pointer p-3"
+      className="group w-52 shrink-0 cursor-pointer overflow-hidden"
       style={{
         borderRadius: '10px',
-        background: h ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.14)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(t.color, 0.08)}, rgba(14,18,28,0.85))`,
-        border: `1px solid ${h ? hexToRgba(t.color, 0.5) : hexToRgba(t.color, 0.2)}`,
-        boxShadow: h ? `0 6px 24px ${hexToRgba(t.color, 0.15)}` : 'none',
+        background: h ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.16)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(t.color, 0.1)}, rgba(14,18,28,0.85))`,
+        border: `1px solid ${h ? hexToRgba(t.color, 0.55) : hexToRgba(t.color, 0.28)}`,
+        boxShadow: h ? `0 0 0 1px ${hexToRgba(t.color, 0.2)}, 0 6px 24px ${hexToRgba(t.color, 0.18)}` : `0 0 0 1px ${hexToRgba(t.color, 0.05)}`,
         transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
-        transform: h ? 'translateY(-2px)' : 'none',
+        transform: h ? 'translateY(-3px) scale(1.02)' : 'none',
       }}
     >
-      <div className="mb-2 flex items-center justify-between">
-        <div
-          className="flex h-7 w-7 items-center justify-center rounded-md"
-          style={{ background: hexToRgba(t.color, 0.1), border: `1px solid ${hexToRgba(t.color, 0.25)}` }}
-        >
-          <Icon className="w-3.5 h-3.5" style={{ color: t.color }} />
+      {/* Top color strip */}
+      <div className="h-10 flex items-center justify-between px-3" style={{ background: `linear-gradient(135deg, ${hexToRgba(t.color, h ? 0.25 : 0.15)}, transparent)` }}>
+        <div className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: hexToRgba(t.color, 0.15), border: `1px solid ${hexToRgba(t.color, 0.3)}` }}>
+          <Icon className="w-3 h-3" style={{ color: t.color }} />
         </div>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onUnstar(); }}
-          className="p-1 rounded transition-all hover:bg-white/[0.08]"
-          style={{ color: Y }}
+          className="p-0.5 rounded transition-all hover:bg-white/[0.1]"
           title="Убрать из быстрого доступа"
         >
-          <Star className="w-3.5 h-3.5" style={{ color: Y, fill: Y }} />
+          <Star className="w-3 h-3" style={{ color: Y, fill: Y }} />
         </button>
       </div>
-      <p className="text-sm font-medium text-slate-200 line-clamp-1">{item.title}</p>
-      <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
-        <span className="flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc }} />
-          {sl}
-        </span>
-        <span>·</span>
-        <span className="flex items-center gap-1">
-          <Music2 className="w-3 h-3" />
-          {item.trackCount}
-        </span>
+      <div className="p-3">
+        <p className="text-sm font-medium text-slate-200 line-clamp-1">{item.title}</p>
+        <div className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 4px ${hexToRgba(sc, 0.4)}` }} />
+            {sl}
+          </span>
+          <span>·</span>
+          <span className="flex items-center gap-1">
+            <Music2 className="w-3 h-3" />
+            {item.trackCount}
+          </span>
+        </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Carousel with arrow buttons ─── */
+function Carousel({ children }: { children: React.ReactNode }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const updateArrows = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 8);
+    setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+  }, []);
+
+  useEffect(() => {
+    updateArrows();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateArrows, { passive: true });
+    window.addEventListener('resize', updateArrows);
+    return () => {
+      el.removeEventListener('scroll', updateArrows);
+      window.removeEventListener('resize', updateArrows);
+    };
+  }, [updateArrows]);
+
+  const scroll = (dir: 'left' | 'right') => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = el.clientWidth * 0.7;
+    el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="relative group/carousel">
+      {/* Left arrow */}
+      {canLeft && (
+        <button
+          onClick={() => scroll('left')}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex h-10 w-10 items-center justify-center transition-all duration-200"
+          style={{
+            background: 'rgba(8,10,18,0.85)',
+            backdropFilter: 'blur(8px)',
+            borderRadius: '50%',
+            border: '1px solid rgba(252,238,10,0.3)',
+            boxShadow: '0 0 16px rgba(252,238,10,0.15)',
+            color: '#FCEE0A',
+            cursor: 'pointer',
+            opacity: 0.7,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(252,238,10,0.4)'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.6)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.15)'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; }}
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Scrollable container — hidden scrollbar */}
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto py-1"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
+        {children}
+      </div>
+
+      {/* Right arrow */}
+      {canRight && (
+        <button
+          onClick={() => scroll('right')}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex h-10 w-10 items-center justify-center transition-all duration-200"
+          style={{
+            background: 'rgba(8,10,18,0.85)',
+            backdropFilter: 'blur(8px)',
+            borderRadius: '50%',
+            border: '1px solid rgba(252,238,10,0.3)',
+            boxShadow: '0 0 16px rgba(252,238,10,0.15)',
+            color: '#FCEE0A',
+            cursor: 'pointer',
+            opacity: 0.7,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(252,238,10,0.4)'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.6)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.15)'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; }}
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Edge fade gradients */}
+      {canLeft && (
+        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 z-[5]" style={{ background: 'linear-gradient(90deg, rgba(6,8,13,0.9), transparent)' }} />
+      )}
+      {canRight && (
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-12 z-[5]" style={{ background: 'linear-gradient(270deg, rgba(6,8,13,0.9), transparent)' }} />
+      )}
+
+      {/* Hidden scrollbar CSS */}
+      <style>{`
+        .group\\/carousel > div::-webkit-scrollbar { display: none; }
+      `}</style>
     </div>
   );
 }
@@ -619,17 +724,28 @@ export function HomeView() {
 
         {/* ── Quick Access ── */}
         {quickAccessItems.length > 0 && (
-          <section className="mt-8">
+          <section className="mt-8 relative" style={{
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, rgba(252,238,10,0.04), rgba(8,10,18,0.6))',
+            border: '1px solid rgba(252,238,10,0.15)',
+            padding: '20px',
+            boxShadow: '0 0 32px rgba(252,238,10,0.04)',
+          }}>
+            {/* Neon top accent */}
+            <div className="absolute left-0 right-0 top-0 h-[2px] rounded-t-[12px]" style={{
+              background: 'linear-gradient(90deg, transparent, rgba(252,238,10,0.5) 30%, rgba(252,238,10,0.5) 70%, transparent)',
+              boxShadow: '0 0 8px rgba(252,238,10,0.3)',
+            }} />
             <SectionHeader
               title="Быстрый доступ"
               action={
-                <span className="flex items-center gap-1 text-[11px] font-medium text-slate-600">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: Y }}>
                   <Star className="w-3 h-3" style={{ color: Y, fill: Y }} />
                   {quickAccessItems.length}
                 </span>
               }
             />
-            <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
+            <Carousel>
               {quickAccessItems.map(item => (
                 <QuickAccessCard
                   key={item.id}
@@ -638,7 +754,7 @@ export function HomeView() {
                   onUnstar={() => toggleQuickAccess(item.id)}
                 />
               ))}
-            </div>
+            </Carousel>
           </section>
         )}
 
