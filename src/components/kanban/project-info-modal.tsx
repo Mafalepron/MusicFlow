@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   X, Music, CalendarDays, Disc3, AudioLines, Zap, Check, Circle, Clock,
-  ListChecks, FileText, Guitar, Mic2,
+  ListChecks, FileText, Guitar, Mic2, Pencil, User,
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { hexToRgba } from '@/lib/utils';
-import type { Task } from '@/store/kanban-store';
+import type { Task, TaskChild } from '@/store/kanban-store';
 
 interface ProjectInfoModalProps {
   projectId: string;
@@ -50,6 +51,15 @@ interface ConcertEntry {
   boardColor: string;
 }
 
+/* Static lookup of "extra" boards to show as their own task lists. */
+const BOARD_SECTION_DEFS: { title: string; match: string[] }[] = [
+  { title: 'ДИСТРИБУЦИЯ', match: ['Дистрибуция'] },
+  { title: 'МАРКЕТИНГ / ПРОДВИЖЕНИЕ', match: ['Маркетинг', 'Продвижение'] },
+  { title: 'СВЕДЕНИЕ', match: ['Сведение'] },
+  { title: 'МАСТЕРИНГ', match: ['Мастеринг'] },
+  { title: 'РЕФЕРЕНСЫ', match: ['Референсы'] },
+];
+
 /* ── Helpers ──────────────────────────────────────────── */
 
 function getProgress(children: { status: string }[] | undefined): number {
@@ -88,6 +98,43 @@ function formatDeadline(value: string): string {
   return `${day} ${month} ${year}`;
 }
 
+/* ── Compact task row (used by all extra board sections) ── */
+
+function BoardTaskRow({ task }: { task: Task | TaskChild }) {
+  const StatusIcon = STATUS_ICON[task.status] || Circle;
+  const statusHex = STATUS_HEX[task.status] || '#22d3ee';
+  const deadline = (task as { deadline?: string | null }).deadline ?? null;
+  const assignee = (task as { assignee?: string | null }).assignee ?? null;
+  return (
+    <div className="pim-board-task-card">
+      <span className="pim-board-task-status" style={{ color: statusHex }}>
+        <StatusIcon className="w-3 h-3" />
+      </span>
+      <div className="pim-board-task-body">
+        <div className="pim-board-task-header">
+          <span className="pim-board-task-title">{task.title}</span>
+        </div>
+        {(deadline || assignee) && (
+          <div className="pim-board-task-meta">
+            {deadline && (
+              <span className="pim-board-task-deadline">
+                <Clock className="w-2.5 h-2.5" />
+                {formatDeadline(deadline)}
+              </span>
+            )}
+            {assignee && (
+              <span className="pim-board-task-assignee">
+                <User className="w-2.5 h-2.5" />
+                {assignee}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Main Modal ───────────────────────────────────────── */
 
 export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModalProps) {
@@ -95,6 +142,19 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
   const [project, setProject] = useState<Task | null>(null);
   const [boards, setBoards] = useState<BoardInfo[]>([]);
   const [boardTasksMap, setBoardTasksMap] = useState<Map<string, Task[]>>(new Map());
+
+  // Concept (description) inline editing
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descDraft, setDescDraft] = useState('');
+  const [savingDesc, setSavingDesc] = useState(false);
+  const descTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Cover URL fetch + edit
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverLoaded, setCoverLoaded] = useState(false);
+  const [editingCover, setEditingCover] = useState(false);
+  const [coverDraft, setCoverDraft] = useState('');
+  const [savingCover, setSavingCover] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +189,20 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
           }
         }));
         if (!cancelled) setBoardTasksMap(tasksMap);
+
+        // 4. Fetch SoundFlow project to get coverUrl (if linked)
+        if (proj?.soundflowProjectId) {
+          try {
+            const cvRes = await fetch(`/api/projects/${proj.soundflowProjectId}`);
+            if (cvRes.ok) {
+              const cvData = await cvRes.json();
+              if (!cancelled) setCoverUrl(cvData.coverUrl || null);
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        if (!cancelled) setCoverLoaded(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -136,14 +210,87 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
     return () => { cancelled = true; };
   }, [projectId]);
 
-  // Close on Escape key
+  // Close on Escape key (only when not editing description)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !editingDesc && !editingCover) onClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [onClose, editingDesc, editingCover]);
+
+  // Focus textarea when entering edit mode
+  useEffect(() => {
+    if (editingDesc && descTextareaRef.current) {
+      descTextareaRef.current.focus();
+      descTextareaRef.current.setSelectionRange(
+        descTextareaRef.current.value.length,
+        descTextareaRef.current.value.length,
+      );
+    }
+  }, [editingDesc]);
+
+  /* ── Save handlers ────────────────────────────────── */
+
+  async function saveDesc() {
+    if (!project || savingDesc) return;
+    const next = descDraft.trim();
+    if (next === (project.description || '')) {
+      setEditingDesc(false);
+      return;
+    }
+    setSavingDesc(true);
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: projectId, description: next }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      setProject(prev => prev ? { ...prev, description: next || null } : prev);
+      setEditingDesc(false);
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingDesc(false);
+    }
+  }
+
+  function startEditDesc() {
+    setDescDraft(project?.description || '');
+    setEditingDesc(true);
+  }
+
+  function cancelEditDesc() {
+    setEditingDesc(false);
+    setDescDraft(project?.description || '');
+  }
+
+  async function saveCover() {
+    if (!project || !project.soundflowProjectId || savingCover) return;
+    const next = coverDraft.trim();
+    setSavingCover(true);
+    try {
+      const res = await fetch(`/api/projects/${project.soundflowProjectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coverUrl: next || null }),
+      });
+      if (!res.ok) throw new Error('cover save failed');
+      const data = await res.json();
+      setCoverUrl(data.coverUrl || null);
+      setEditingCover(false);
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingCover(false);
+    }
+  }
+
+  function startEditCover() {
+    setCoverDraft(coverUrl || '');
+    setEditingCover(true);
+  }
 
   /* ── Aggregate data ────────────────────────────────── */
 
@@ -171,11 +318,14 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
   // Overall progress: total done / total tasks across ALL boards
   let totalTasks = 0;
   let doneTasks = 0;
+  const boardProgressList: { board: BoardInfo; total: number; done: number; pct: number }[] = [];
   for (const b of boards) {
     const ts = boardTasksMap.get(b.id) || [];
     const c = countAll(ts as unknown as CountableTask[]);
     totalTasks += c.total;
     doneTasks += c.done;
+    const pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : 0;
+    boardProgressList.push({ board: b, total: c.total, done: c.done, pct });
   }
   const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
@@ -204,7 +354,23 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
     }
   }
 
-  const boardColor = BOARD_COLOR;
+  // Build the extra board-task sections (Дистрибуция / Маркетинг / etc.)
+  // Always show all 5 sections — empty ones display "Нет задач".
+  const boardSections: { title: string; tasks: (Task | TaskChild)[]; color: string }[] = [];
+  for (const def of BOARD_SECTION_DEFS) {
+    const matchingBoards = boards.filter(b =>
+      def.match.some(m => b.title.toLowerCase() === m.toLowerCase()),
+    );
+    const tasks: (Task | TaskChild)[] = [];
+    let color = BOARD_COLOR;
+    for (const mb of matchingBoards) {
+      const ts = boardTasksMap.get(mb.id) || [];
+      for (const t of ts) tasks.push(t);
+      if (mb.color) color = mb.color;
+    }
+    boardSections.push({ title: def.title, tasks, color });
+  }
+
   const projectTypeLabel = (project?.projectType && PROJECT_TYPE_LABEL[project.projectType]) || project?.projectType || 'Канбан';
 
   return (
@@ -301,25 +467,137 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
               {/* ─── COVER ─── */}
               <section className="pim-section pim-cover-section">
                 <div className="pim-cover">
-                  <Music className="w-7 h-7" style={{ color: hexToRgba('#FCEE0A', 0.55) }} />
+                  {coverUrl ? (
+                    <img
+                      src={coverUrl}
+                      alt="Обложка проекта"
+                      className="pim-cover-img"
+                      onError={() => setCoverUrl(null)}
+                    />
+                  ) : (
+                    <Music className="w-7 h-7" style={{ color: hexToRgba('#FCEE0A', 0.55) }} />
+                  )}
                 </div>
                 <div className="pim-cover-info">
                   <span className="pim-label pim-label-block">ОБЛОЖКА</span>
-                  <p className="pim-cover-text">
-                    {project.soundflowProjectId
-                      ? 'Связан с проектом SoundFlow'
-                      : 'Загрузите обложку для релиза'}
-                  </p>
+                  {editingCover ? (
+                    <>
+                      <input
+                        type="url"
+                        className="pim-cover-url-input"
+                        placeholder="https://..."
+                        value={coverDraft}
+                        onChange={(e) => setCoverDraft(e.target.value)}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void saveCover(); }
+                          if (e.key === 'Escape') { setEditingCover(false); }
+                        }}
+                      />
+                      <div className="pim-edit-actions">
+                        <button
+                          className="pim-edit-cancel"
+                          onClick={() => setEditingCover(false)}
+                          disabled={savingCover}
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          className="pim-edit-save"
+                          onClick={() => void saveCover()}
+                          disabled={savingCover}
+                        >
+                          {savingCover ? '...' : 'Сохранить'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="pim-cover-text">
+                        {!project.soundflowProjectId
+                          ? 'Нет связи с SoundFlow'
+                          : coverUrl
+                            ? 'Обложка загружена'
+                            : coverLoaded
+                              ? 'Обложка не задана'
+                              : 'Загрузка обложки...'}
+                      </p>
+                      {project.soundflowProjectId && (
+                        <div className="pim-cover-edit-row">
+                          <button
+                            className="pim-edit-btn"
+                            onClick={startEditCover}
+                            disabled={savingCover}
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Изменить
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </section>
 
-              {/* ─── CONCEPT ─── */}
+              {/* ─── CONCEPT (editable) ─── */}
               <section className="pim-section">
                 <div className="pim-label-row">
                   <FileText className="w-3 h-3" />
                   <span className="pim-label">КОНЦЕПЦИЯ</span>
+                  {!editingDesc && (
+                    <button
+                      className="pim-edit-btn"
+                      style={{ marginLeft: 'auto' }}
+                      onClick={startEditDesc}
+                      title="Изменить концепцию"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Изменить
+                    </button>
+                  )}
                 </div>
-                {project.description ? (
+                {editingDesc ? (
+                  <div>
+                    <Textarea
+                      ref={descTextareaRef}
+                      value={descDraft}
+                      onChange={(e) => setDescDraft(e.target.value)}
+                      placeholder="Опишите концепцию проекта..."
+                      className="pim-concept-textarea"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                          e.preventDefault();
+                          void saveDesc();
+                        }
+                        if (e.key === 'Escape') {
+                          e.preventDefault();
+                          cancelEditDesc();
+                        }
+                      }}
+                      onBlur={() => { void saveDesc(); }}
+                    />
+                    <div className="pim-edit-actions">
+                      <span style={{ fontSize: '9px', color: '#475569', marginRight: 'auto' }}>
+                        Ctrl+Enter — сохранить · Esc — отмена
+                      </span>
+                      <button
+                        className="pim-edit-cancel"
+                        onClick={cancelEditDesc}
+                        disabled={savingDesc}
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        className="pim-edit-save"
+                        onClick={() => void saveDesc()}
+                        disabled={savingDesc}
+                      >
+                        {savingDesc ? '...' : 'Сохранить'}
+                      </button>
+                    </div>
+                  </div>
+                ) : project.description ? (
                   <p className="pim-concept-text">{project.description}</p>
                 ) : (
                   <p className="pim-empty-inline">Концепция не задана</p>
@@ -435,6 +713,51 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
                 </div>
               </section>
 
+              {/* ─── BOARD PROGRESS OVERVIEW ─── */}
+              <section className="pim-section">
+                <div className="pim-label-row">
+                  <ListChecks className="w-3 h-3" />
+                  <span className="pim-label">ПРОГРЕСС ПО ДОСКАМ</span>
+                  <span className="pim-count-chip">{boards.length}</span>
+                </div>
+                {boards.length === 0 ? (
+                  <div className="pim-empty-inline">Доски не найдены</div>
+                ) : (
+                  <div className="pim-board-progress-grid">
+                    {boardProgressList.map(({ board, total, done, pct }) => (
+                      <div key={board.id} className="pim-board-progress-card">
+                        <div className="pim-board-progress-header">
+                          <span
+                            className="pim-board-progress-dot"
+                            style={{ background: board.color, boxShadow: `0 0 6px ${hexToRgba(board.color, 0.6)}` }}
+                          />
+                          <span className="pim-board-progress-title" title={board.title}>
+                            {board.title}
+                          </span>
+                          <span className="pim-board-progress-pct">{pct}%</span>
+                        </div>
+                        <div className="pim-board-progress-bar">
+                          <div
+                            className="pim-board-progress-fill"
+                            style={{
+                              width: `${pct}%`,
+                              background: pct === 100
+                                ? 'linear-gradient(90deg, #10b981, #34d399)'
+                                : board.color,
+                              boxShadow: pct > 0 ? `0 0 6px ${hexToRgba(pct === 100 ? '#34d399' : board.color, 0.4)}` : 'none',
+                            }}
+                          />
+                        </div>
+                        <div className="pim-board-progress-meta">
+                          <span>{done} вып.</span>
+                          <span>{total} всего</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
               {/* ─── INSTRUMENTS ─── */}
               <section className="pim-section">
                 <div className="pim-label-row">
@@ -456,29 +779,28 @@ export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModa
                 )}
               </section>
 
-              {/* ─── REFERENCES ─── */}
-              <section className="pim-section">
-                <div className="pim-label-row">
-                  <FileText className="w-3 h-3" />
-                  <span className="pim-label">РЕФЕРЕНСЫ</span>
-                </div>
-                <div className="pim-empty-state">
-                  <FileText className="w-5 h-5" />
-                  <p>Референсы скоро появятся</p>
-                </div>
-              </section>
-
-              {/* ─── CLIPS ─── */}
-              <section className="pim-section">
-                <div className="pim-label-row">
-                  <Disc3 className="w-3 h-3" />
-                  <span className="pim-label">КЛИПЫ</span>
-                </div>
-                <div className="pim-empty-state">
-                  <Disc3 className="w-5 h-5" />
-                  <p>Клипы скоро появятся</p>
-                </div>
-              </section>
+              {/* ─── EXTRA BOARD SECTIONS ─── */}
+              {boardSections.map((sec) => (
+                <section key={sec.title} className="pim-section">
+                  <div className="pim-label-row">
+                    <span
+                      className="pim-board-progress-dot"
+                      style={{ background: sec.color, boxShadow: `0 0 6px ${hexToRgba(sec.color, 0.6)}` }}
+                    />
+                    <span className="pim-label">{sec.title}</span>
+                    <span className="pim-count-chip">{sec.tasks.length}</span>
+                  </div>
+                  {sec.tasks.length === 0 ? (
+                    <div className="pim-empty-inline-board">Нет задач</div>
+                  ) : (
+                    <div className="pim-board-tasks-list">
+                      {sec.tasks.map((t) => (
+                        <BoardTaskRow key={t.id} task={t} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ))}
 
               {/* ─── CONCERT SCHEDULE ─── */}
               <section className="pim-section">
