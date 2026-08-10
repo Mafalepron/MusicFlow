@@ -1053,3 +1053,47 @@ Stage Summary:
 - Closing the TOP TASK in task-strip.tsx: same pattern but recursive — collects every unclosed descendant at all levels (stages AND their subtasks) for display, and "Завершить все" recursively marks every unclosed descendant + the task itself as done.
 - Both dialogs are portal-rendered to document.body with z-[200], backdrop blur, and a yellow-accented board-color-themed cyberpunk panel; all text in Russian; spinner shown during the async close-all operation; closing the overlay (click outside or "Отмена") is disabled while the operation is in-flight.
 - Wrote /home/z/my-project/agent-ctx/CLOSE-CONFIRM-full-stack-developer.md as the agent work record for this task.
+
+---
+Task ID: HOME-REDESIGN
+Agent: main (Z.ai Code)
+Task: Redesign home page, sidebar, and main app layout in cyberpunk 2077 style for SoundFlow music collaboration app
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load project context: existing cyberpunk 2077 Kanban workspace with central `src/app/cyberpunk.css` (1226 lines), CSS variables `--bc-X` set on component roots, all `<style jsx global>` and `dangerouslySetInnerHTML` blocks forbidden (Turbopack OOM).
+- Read /home/z/my-project/src/components/views/home-view.tsx (301 lines) and /home/z/my-project/src/components/layout/app-sidebar.tsx (189 lines) to understand existing default shadcn/ui theme — light cards, rounded corners, purple (#8A2BE2) accents, English-only labels.
+- Read /home/z/my-project/src/lib/store.ts, /home/z/my-project/src/store/kanban-store.ts, /home/z/my-project/src/components/kanban/kanban-view.tsx, /home/z/my-project/src/app/api/tasks/route.ts, /home/z/my-project/src/lib/utils.ts, /home/z/my-project/src/app/page.tsx, /home/z/my-project/src/components/layout/app-header.tsx to verify store APIs, navigate-to-kanban-project pattern, and layout constraints (AppHeader h-14 = 3.5rem).
+- Wrote /home/z/my-project/agent-ctx/HOME-REDESIGN-main.md as the agent work record (full implementation details there).
+
+EDITS — /home/z/my-project/src/components/views/home-view.tsx (661 lines):
+- Added imports: `AnimatePresence` from framer-motion; `ChevronDown, ChevronRight, Hexagon, Folder, Disc3, Plus` from lucide-react; `useKanbanStore, type Task` from `@/store/kanban-store`; `hexToRgba` from `@/lib/utils`.
+- Defined cyberpunk palette: YELLOW=#FCEE0A, CYAN=#00d9ff, AMBER=#F59E0B, GREEN=#10B981, CARD_BG='rgba(8,12,22,0.9)'.
+- Defined clip-path constants: CARD_CLIP (6px corner cut), BTN_CLIP (4px corner cut).
+- Replaced English labels with Russian: typeLabels {album:'Альбом', ep:'EP', single:'Сингл', general:'Общее'}, statusLabels {draft:'Черновик', in_progress:'В работе', mixing:'Сведение', mastering:'Мастеринг', released:'Релиз'}.
+- Replaced purple/blue status colors: draft=#F59E0B, in_progress=#00d9ff, mixing=#ff6b35 (was #8A2BE2 violet), mastering=#10B981, released=#FCEE0A.
+- Added `pluralize(n, [one, few, many])` Russian plural helper for "трек/трека/треков", "этап/этапа/этапов", "проект/проекта/проектов".
+- Added 4 reusable components: `NeonCard` (dark bg + clip-path + inset box-shadow border in custom color + 200ms hover glow via useState), `SectionTitle` (uppercase tracking-[0.12em] + text-shadow glow), `EmptyState` (clip-path card with dimmed icon + label + hint), `IdeaCard` (separate component for per-card hover state on horizontal scroll).
+- Rewrote HomeView with 6 sections: Header (yellow welcome + cyan group), Stats grid (4 color-coded NeonCards), АВТО ПРОЕКТЫ (SoundFlow projects with kanbanTaskId → click navigates to kanban), КАНБАН ПРОЕКТЫ (all kanban top-level tasks fetched from /api/tasks?parentId=null, with completion progress bar), МОИ ПАПКИ (4 collapsible folder cards by type with AnimatePresence height animation), ЛЕНТА ИДЕЙ (horizontal scroll of recent 8 ideas).
+- Root: `<div className="relative min-h-[calc(100dvh-3.5rem)] overflow-hidden bg-[#05080f]">` with two absolute overlay layers — 32px cyan grid (0.04 alpha) + 2px scanlines (0.012 alpha).
+- `goToKanbanProject(id)` helper: `navigate('kanban')` then `setTimeout(() => useKanbanStore.getState().selectProject(id), 220)` — matches the pattern used in project-detail-view.tsx:118-121.
+
+EDITS — /home/z/my-project/src/components/layout/app-sidebar.tsx (382 lines):
+- Added imports: `Hexagon` from lucide-react, `hexToRgba` from `@/lib/utils`. Removed unused `Music`, `Separator`, `Button` imports.
+- Extracted `NavItem` as separate component (each item manages its own hover state via useState). BTN_CLIP-shaped button with 2px left border (yellow when active, cyan on hover, transparent otherwise), icon with drop-shadow glow when active/hovered, uppercase tracking-[0.12em] label. Notification badge: BTN_CLIP, yellow bg/border.
+- Rewrote SidebarContent: dark `#05080f` bg with 24px cyan grid overlay; Hexagon logo in BTN_CLIP box with yellow tint + border + glow; "SOUNDFLOW" yellow uppercase tracking-[0.18em] with text-shadow glow; cyan-gradient divider line; CARD_CLIP group info card with cyan border + cyan monospace invite code in BTN_CLIP box (text-shadow glow); ScrollArea of NavItems (Home/Ideas/Projects/Kanban/Settings); BTN_CLIP avatar frame with cyan tint; BTN_CLIP logout button with RED tint + onMouseEnter/onMouseLeave switching to RED border-0.6 + 12px RED outer glow + RED text color on hover.
+- AppSidebar: `<aside className="hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:w-60 lg:flex-col border-r border-[#1a2030] bg-[#05080f]">` — explicit dark bg + dark slate border.
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "home-view|app-sidebar"` → empty output (no errors, no warnings for both files). Only 2 pre-existing errors remain in unrelated files (project-chat.tsx:557 and app-header.tsx:132 — both `react-hooks/set-state-in-effect`, not caused by my changes).
+- `npx tsc --noEmit --skipLibCheck 2>&1 | grep -E "home-view|app-sidebar"` → empty output (no TypeScript errors).
+- Fixed transient compile error: initial draft had `void RED;` at the bottom of home-view.tsx but `const RED` had been removed earlier — caused `ReferenceError: RED is not defined` at runtime (visible in dev.log line 514, "GET / 500 in 791ms"). Removed the trailing `void RED;` line — error cleared.
+- dev.log tail shows successful API calls from the new home view: `GET /api/groups/.../members 200` (member count fetch), `GET /api/tasks?parentId=null 200` (kanban projects fetch). No compile errors, no 5xx responses after the fix.
+- File sizes: home-view.tsx = 661 lines (over the 500-line soft target — bulk is 6 sections × helper components × Russian plural helper × clip-path constants). app-sidebar.tsx = 382 lines.
+
+Stage Summary:
+- HomeView now displays 6 cyberpunk-styled sections: Header (yellow welcome + cyan group), Stats grid (4 color-coded cards), АВТО ПРОЕКТЫ (SoundFlow projects linked to kanban via kanbanTaskId), КАНБАН ПРОЕКТЫ (all kanban top-level tasks with completion progress bar), МОИ ПАПКИ (4 collapsible folder cards by type with animated expand), ЛЕНТА ИДЕЙ (horizontal scroll of recent ideas).
+- Clicking any auto-project or kanban-project card navigates to the kanban view and selects that project.
+- AppSidebar now has cyberpunk styling: dark `#05080f` bg with cyan grid overlay, yellow glowing SOUNDFLOW logo with Hexagon icon, BTN_CLIP nav items with yellow active state + left border glow + drop-shadow on icons, cyan invite code in monospace BTN_CLIP box, BTN_CLIP avatar frame, RED logout button with hover glow.
+- All existing functionality preserved: navigation, invite code copy, member count fetch, notification badge, logout, project detail navigation from folders, kanban project navigation from cards.
+- No `<style jsx>` or `dangerouslySetInnerHTML` blocks added. All dynamic colors use inline `style={{...}}` with `hexToRgba()` calls.
+- Lint clean, TSC clean, dev server responds HTTP 200 on `/`.
