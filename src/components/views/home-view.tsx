@@ -793,7 +793,7 @@ export function HomeView() {
           />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <CreateCard onClick={() => setCreateProjectOpen(true)} label="Создать" />
-            {autoProjects.map(p => (
+            {autoProjects.slice(0, 3).map(p => (
               <ProjectCard
                 key={p.id}
                 project={p}
@@ -838,7 +838,7 @@ export function HomeView() {
           />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <CreateCard onClick={() => navigate('kanban')} label="Создать" />
-            {kanbanProjects.map(task => (
+            {kanbanProjects.slice(0, 3).map(task => (
               <KanbanCard key={task.id} task={task} onClick={() => goToKanban(task.id)} />
             ))}
           </div>
