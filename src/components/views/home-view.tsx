@@ -728,10 +728,10 @@ export function HomeView() {
         {quickAccessItems.length > 0 && (
           <section className="mt-8 relative overflow-hidden" style={{
             borderRadius: '16px',
-            background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(8,10,18,0.5))',
-            border: '1px solid rgba(245,158,11,0.2)',
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(12,16,24,0.8))',
+            border: '1px solid rgba(245,158,11,0.25)',
             padding: '20px',
-            boxShadow: '0 0 40px rgba(245,158,11,0.06), inset 0 1px 0 rgba(245,158,11,0.08)',
+            boxShadow: '0 0 40px rgba(245,158,11,0.08), inset 0 1px 0 rgba(245,158,11,0.1)',
           }}>
             {/* Amber glow orb — decorative */}
             <div className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 rounded-full" style={{
@@ -762,10 +762,10 @@ export function HomeView() {
         {/* ── Auto Projects — yellow, angular cyberpunk panel ── */}
         <section className="mt-8 relative" style={{
           borderRadius: '14px',
-          background: 'linear-gradient(180deg, rgba(252,238,10,0.04) 0%, rgba(8,10,18,0.5) 100%)',
-          border: '1px solid rgba(252,238,10,0.15)',
+          background: 'linear-gradient(180deg, rgba(252,238,10,0.1) 0%, rgba(12,16,24,0.85) 100%)',
+          border: '1px solid rgba(252,238,10,0.2)',
           padding: '20px',
-          boxShadow: '0 4px 32px rgba(252,238,10,0.04)',
+          boxShadow: '0 4px 32px rgba(252,238,10,0.06)',
         }}>
           {/* Neon top accent — yellow */}
           <div className="absolute left-0 right-0 top-0 h-[2px] rounded-t-[14px]" style={{
@@ -807,10 +807,10 @@ export function HomeView() {
         {/* ── Kanban Projects — cyan, left accent bar style ── */}
         <section className="mt-6 relative" style={{
           borderRadius: '14px',
-          background: 'linear-gradient(135deg, rgba(0,217,255,0.04), rgba(8,10,18,0.5))',
-          border: '1px solid rgba(0,217,255,0.1)',
+          background: 'linear-gradient(135deg, rgba(0,217,255,0.1), rgba(12,16,24,0.85))',
+          border: '1px solid rgba(0,217,255,0.18)',
           padding: '20px 20px 20px 24px',
-          boxShadow: '0 4px 32px rgba(0,217,255,0.04)',
+          boxShadow: '0 4px 32px rgba(0,217,255,0.06)',
         }}>
           {/* Left accent bar — cyan, full height */}
           <div className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full" style={{
