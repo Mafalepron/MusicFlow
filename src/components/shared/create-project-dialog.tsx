@@ -52,6 +52,12 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     setLoading(true);
     setError('');
 
+    if (!currentGroupId) {
+      setError('No group selected. Please join or create a group first.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/projects', {
         method: 'POST',
@@ -61,7 +67,11 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to create project');
+        const errMsg = data.error || 'Failed to create project';
+        const details = data.details
+          ? Object.entries(data.details).map(([k, v]) => `${k}: ${(v as string[]).join(', ')}`).join('; ')
+          : '';
+        throw new Error(details ? `${errMsg} (${details})` : errMsg);
       }
 
       const project: Project = await res.json();
