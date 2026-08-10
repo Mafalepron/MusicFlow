@@ -10,7 +10,7 @@ import {
   ChevronRight, ChevronLeft, Check, Music, Guitar, Mic2,
   Sparkles, X, Loader2, Plus, Trash2, FileText,
 } from 'lucide-react';
-import { cn, boardColorStyles } from '@/lib/utils';
+import { cn, boardColorStyles, hexToRgba } from '@/lib/utils';
 import DeadlinePicker from '@/components/kanban/deadline-picker';
 
 interface WizardData {
@@ -282,7 +282,32 @@ export default function TrackWizard() {
   const STEPS = ['Название', 'Инструменты', 'Этапы'];
 
   return (
-    <div className="tw-panel flex flex-col flex-1 min-h-0">
+    <div className="tw-panel flex flex-col flex-1 min-h-0" style={{
+      '--bc': '#00d9ff',
+      '--bc-012': hexToRgba('#00d9ff', 0.012),
+      '--bc-02': hexToRgba('#00d9ff', 0.02),
+      '--bc-025': hexToRgba('#00d9ff', 0.025),
+      '--bc-04': hexToRgba('#00d9ff', 0.04),
+      '--bc-05': hexToRgba('#00d9ff', 0.05),
+      '--bc-08': hexToRgba('#00d9ff', 0.08),
+      '--bc-1': hexToRgba('#00d9ff', 0.1),
+      '--bc-12': hexToRgba('#00d9ff', 0.12),
+      '--bc-15': hexToRgba('#00d9ff', 0.15),
+      '--bc-18': hexToRgba('#00d9ff', 0.18),
+      '--bc-2': hexToRgba('#00d9ff', 0.2),
+      '--bc-22': hexToRgba('#00d9ff', 0.22),
+      '--bc-25': hexToRgba('#00d9ff', 0.25),
+      '--bc-3': hexToRgba('#00d9ff', 0.3),
+      '--bc-35': hexToRgba('#00d9ff', 0.35),
+      '--bc-4': hexToRgba('#00d9ff', 0.4),
+      '--bc-45': hexToRgba('#00d9ff', 0.45),
+      '--bc-5': hexToRgba('#00d9ff', 0.5),
+      '--bc-55': hexToRgba('#00d9ff', 0.55),
+      '--bc-6': hexToRgba('#00d9ff', 0.6),
+      '--bc-65': hexToRgba('#00d9ff', 0.65),
+      '--bc-7': hexToRgba('#00d9ff', 0.7),
+      '--bc-8': hexToRgba('#00d9ff', 0.8),
+    } as React.CSSProperties}>
       {/* Grid pattern overlay */}
       <div className="tw-grid" />
       {/* Scan line overlay */}
@@ -827,103 +852,6 @@ export default function TrackWizard() {
           </button>
         )}
       </div>
-      <style jsx global>{`
-        .tw-panel {
-          position: relative;
-          background: linear-gradient(180deg, rgba(5, 10, 20, 0.97), rgba(8, 12, 24, 0.99));
-          overflow: hidden;
-        }
-        .tw-grid {
-          position: absolute;
-          inset: 0;
-          background-image:
-            linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
-          background-size: 24px 24px;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .tw-scanlines {
-          position: absolute;
-          inset: 0;
-          background: repeating-linear-gradient(
-            0deg,
-            transparent 0px,
-            transparent 2px,
-            rgba(0, 229, 255, 0.02) 2px,
-            rgba(0, 229, 255, 0.02) 3px
-          );
-          pointer-events: none;
-          z-index: 1;
-          animation: tw-scan 8s linear infinite;
-        }
-        @keyframes tw-scan {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(3px); }
-        }
-        .tw-neon-top {
-          height: 3px;
-          flex-shrink: 0;
-          position: relative;
-          z-index: 2;
-          background: linear-gradient(90deg, transparent, #00E5FF 20%, #FCEE0A 50%, #00E5FF 80%, transparent);
-          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
-          animation: tw-pulse-neon 3s ease-in-out infinite;
-        }
-        @keyframes tw-pulse-neon {
-          0%, 100% { opacity: 0.8; box-shadow: 0 0 8px rgba(252, 238, 10, 0.4), 0 0 16px rgba(252, 238, 10, 0.15); }
-          50% { opacity: 1; box-shadow: 0 0 16px rgba(252, 238, 10, 0.7), 0 0 32px rgba(252, 238, 10, 0.3); }
-        }
-        /* Cyberpunk stage card — deep dark with blue default border, yellow on hover/expanded */
-        .tw-stage-card {
-          position: relative;
-          background: linear-gradient(135deg, rgba(10, 18, 32, 0.92), rgba(6, 10, 20, 0.96));
-          border: 2px solid rgba(0, 229, 255, 0.22);
-          clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-          transition: all 200ms;
-          overflow: hidden;
-        }
-        .tw-stage-card::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 4px;
-          height: 100%;
-          background: linear-gradient(180deg, transparent, rgba(0, 229, 255, 0.5) 20%, rgba(0, 229, 255, 0.5) 80%, transparent);
-          opacity: 0.8;
-          z-index: 1;
-          pointer-events: none;
-        }
-        .tw-stage-card:hover {
-          border-color: rgba(252, 238, 10, 0.5);
-          background: linear-gradient(135deg, rgba(14, 24, 42, 0.92), rgba(8, 14, 26, 0.96));
-          box-shadow: 0 0 24px rgba(252, 238, 10, 0.12), inset 0 0 12px rgba(252, 238, 10, 0.03);
-        }
-        .tw-stage-card-selected {
-          border-color: rgba(252, 238, 10, 0.6);
-          border-width: 2px;
-          box-shadow: 0 0 0 1px rgba(252, 238, 10, 0.3), 0 0 32px rgba(252, 238, 10, 0.15);
-        }
-        .tw-stage-card-selected::after {
-          background: linear-gradient(180deg, transparent, rgba(252, 238, 10, 0.6) 20%, rgba(252, 238, 10, 0.6) 80%, transparent);
-        }
-        /* Scrollbar — cyberpunk themed */
-        .tw-scroll::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-        .tw-scroll::-webkit-scrollbar-track {
-          background: rgba(252, 238, 10, 0.03);
-        }
-        .tw-scroll::-webkit-scrollbar-thumb {
-          background: rgba(0, 229, 255, 0.3);
-          border-radius: 0;
-        }
-        .tw-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgba(252, 238, 10, 0.5);
-        }
-      `}</style>
     </div>
   );
 }

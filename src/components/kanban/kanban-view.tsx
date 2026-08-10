@@ -480,25 +480,34 @@ function KanbanWorkspace() {
           <DescriptionBottomPanel />
         </div>
         <div className="w-[360px] flex flex-col min-h-0 relative overflow-hidden rp-panel" style={{
+          '--bc': boardColor,
+          '--bc-012': hexToRgba(boardColor, 0.012),
+          '--bc-02': hexToRgba(boardColor, 0.02),
+          '--bc-025': hexToRgba(boardColor, 0.025),
+          '--bc-04': hexToRgba(boardColor, 0.04),
+          '--bc-05': hexToRgba(boardColor, 0.05),
+          '--bc-08': hexToRgba(boardColor, 0.08),
+          '--bc-1': hexToRgba(boardColor, 0.1),
+          '--bc-12': hexToRgba(boardColor, 0.12),
+          '--bc-15': hexToRgba(boardColor, 0.15),
+          '--bc-18': hexToRgba(boardColor, 0.18),
+          '--bc-2': hexToRgba(boardColor, 0.2),
+          '--bc-22': hexToRgba(boardColor, 0.22),
+          '--bc-25': hexToRgba(boardColor, 0.25),
+          '--bc-3': hexToRgba(boardColor, 0.3),
+          '--bc-35': hexToRgba(boardColor, 0.35),
+          '--bc-4': hexToRgba(boardColor, 0.4),
+          '--bc-45': hexToRgba(boardColor, 0.45),
+          '--bc-5': hexToRgba(boardColor, 0.5),
+          '--bc-55': hexToRgba(boardColor, 0.55),
+          '--bc-6': hexToRgba(boardColor, 0.6),
+          '--bc-65': hexToRgba(boardColor, 0.65),
+          '--bc-7': hexToRgba(boardColor, 0.7),
+          '--bc-8': hexToRgba(boardColor, 0.8),
           borderLeft: `2px solid ${hexToRgba(boardColor, 0.35)}`,
           background: 'linear-gradient(180deg, rgba(5, 10, 20, 0.97), rgba(8, 12, 24, 0.99))',
           boxShadow: `inset 1px 0 0 ${hexToRgba(boardColor, 0.15)}, -4px 0 24px rgba(0, 0, 0, 0.5), inset 4px 0 24px ${hexToRgba(boardColor, 0.04)}`,
-        }}>
-          <style jsx global>{`
-            .rp-panel .rp-grid {
-              position: absolute; inset: 0;
-              background-image:
-                linear-gradient(${hexToRgba(boardColor, 0.025)} 1px, transparent 1px),
-                linear-gradient(90deg, ${hexToRgba(boardColor, 0.025)} 1px, transparent 1px);
-              background-size: 20px 20px;
-              pointer-events: none; z-index: 0;
-            }
-            .rp-panel .rp-scanlines {
-              position: absolute; inset: 0;
-              background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, ${hexToRgba(boardColor, 0.012)} 2px, ${hexToRgba(boardColor, 0.012)} 3px);
-              pointer-events: none; z-index: 1;
-            }
-          `}</style>
+        } as React.CSSProperties}>
           <div className="rp-grid" />
           <div className="rp-scanlines" />
           {/* Neon left accent line */}

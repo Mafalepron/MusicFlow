@@ -299,7 +299,31 @@ export default function DescriptionBottomPanel() {
       style={{
         height: isCollapsed ? '42px' : '360px',
         transition: 'height 220ms ease',
-      }}
+        '--bc': c.raw,
+        '--bc-012': hexToRgba(boardColor, 0.012),
+        '--bc-02': c.a02,
+        '--bc-025': hexToRgba(boardColor, 0.025),
+        '--bc-04': c.a04,
+        '--bc-05': c.a05,
+        '--bc-08': c.a08,
+        '--bc-1': c.a1,
+        '--bc-12': c.a12,
+        '--bc-15': c.a15,
+        '--bc-18': c.a18,
+        '--bc-2': c.a2,
+        '--bc-22': hexToRgba(boardColor, 0.22),
+        '--bc-25': c.a25,
+        '--bc-3': c.a3,
+        '--bc-35': hexToRgba(boardColor, 0.35),
+        '--bc-4': c.a4,
+        '--bc-45': hexToRgba(boardColor, 0.45),
+        '--bc-5': c.a5,
+        '--bc-55': hexToRgba(boardColor, 0.55),
+        '--bc-6': c.a6,
+        '--bc-65': hexToRgba(boardColor, 0.65),
+        '--bc-7': c.a7,
+        '--bc-8': hexToRgba(boardColor, 0.8),
+      } as React.CSSProperties}
     >
       {/* Scan line overlay */}
       <div className="cp-scanlines" />
@@ -388,355 +412,6 @@ export default function DescriptionBottomPanel() {
         </div>
       )}
 
-      <style jsx global>{`
-        .cp-panel {
-          position: relative;
-          background: linear-gradient(180deg, rgba(5, 10, 20, 0.98), rgba(8, 12, 24, 0.99));
-          border-top: 2px solid rgba(0, 229, 255, 0.2);
-          box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6), 0 -2px 0 rgba(0, 229, 255, 0.08), 0 -4px 16px rgba(0, 229, 255, 0.06), inset 0 1px 0 rgba(0, 229, 255, 0.04);
-          overflow: hidden;
-        }
-        .cp-panel::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background-image:
-            linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
-          background-size: 24px 24px;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .cp-scanlines {
-          position: absolute;
-          inset: 0;
-          background: repeating-linear-gradient(
-            0deg,
-            transparent 0px,
-            transparent 2px,
-            rgba(0, 229, 255, 0.02) 2px,
-            rgba(0, 229, 255, 0.02) 3px
-          );
-          pointer-events: none;
-          z-index: 1;
-          animation: cp-scan 8s linear infinite;
-        }
-        @keyframes cp-scan {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(3px); }
-        }
-        .cp-neon-top {
-          height: 3px;
-          flex-shrink: 0;
-          position: relative;
-          z-index: 2;
-          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
-          animation: cp-pulse-neon 3s ease-in-out infinite;
-        }
-        @keyframes cp-pulse-neon {
-          0%, 100% { opacity: 0.8; box-shadow: 0 0 8px rgba(252, 238, 10, 0.4), 0 0 16px rgba(252, 238, 10, 0.15); }
-          50% { opacity: 1; box-shadow: 0 0 16px rgba(252, 238, 10, 0.7), 0 0 32px rgba(252, 238, 10, 0.3); }
-        }
-        .cp-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          flex-shrink: 0;
-          position: relative;
-          z-index: 2;
-          background: linear-gradient(90deg, rgba(0, 229, 255, 0.04), transparent 70%);
-          border-bottom: 1px solid rgba(0, 229, 255, 0.12);
-        }
-        .cp-header-icon {
-          width: 28px;
-          height: 28px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1.5px solid;
-          clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
-          flex-shrink: 0;
-        }
-        .cp-header-title {
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          text-shadow: 0 0 10px currentColor, 0 0 4px currentColor;
-        }
-        .cp-header-sub {
-          font-size: 10px;
-          color: #4a5a6e;
-          font-family: monospace;
-        }
-        .cp-count-chip {
-          font-size: 9px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          padding: 3px 8px;
-          border: 1px solid;
-          clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
-          flex-shrink: 0;
-        }
-        .cp-icon-btn {
-          padding: 4px;
-          border-radius: 2px;
-          color: #4a4a5e;
-          transition: all 120ms;
-          flex-shrink: 0;
-          border: 1px solid transparent;
-        }
-        .cp-icon-btn:hover {
-          color: #FCEE0A;
-          border-color: rgba(252, 238, 10, 0.4);
-          background: rgba(252, 238, 10, 0.1);
-          box-shadow: 0 0 8px rgba(252, 238, 10, 0.15);
-        }
-        .cp-content {
-          position: relative;
-          z-index: 2;
-        }
-        .cp-header-progress {
-          width: 64px;
-          height: 5px;
-          background: rgba(255, 255, 255, 0.05);
-          overflow: hidden;
-          border: 1px solid rgba(252, 238, 10, 0.15);
-          position: relative;
-        }
-        .cp-header-progress-fill {
-          height: 100%;
-          transition: width 500ms;
-        }
-        .cp-header-progress-fill::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-          animation: cp-shimmer 2s linear infinite;
-        }
-        .cp-header-progress-text {
-          font-size: 10px;
-          font-weight: 700;
-          font-family: monospace;
-          text-shadow: 0 0 6px currentColor;
-          min-width: 30px;
-        }
-        .panel-scroll::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-        .panel-scroll::-webkit-scrollbar-track {
-          background: rgba(252, 238, 10, 0.03);
-        }
-        .panel-scroll::-webkit-scrollbar-thumb {
-          background: ${c.a3};
-          border-radius: 0;
-        }
-        .panel-scroll::-webkit-scrollbar-thumb:hover {
-          background: ${c.a5};
-        }
-
-        /* Cyberpunk stage card — uses board color for default border, yellow on highlight */
-        .cp-stage-card {
-          position: relative;
-          margin: 0 8px 8px;
-          background: linear-gradient(135deg, rgba(10, 18, 32, 0.92), rgba(6, 10, 20, 0.96));
-          border: 2px solid ${c.a25};
-          clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-          transition: all 200ms;
-          overflow: hidden;
-        }
-        .cp-stage-card:hover {
-          border-color: rgba(252, 238, 10, 0.5);
-          background: linear-gradient(135deg, rgba(14, 24, 42, 0.92), rgba(8, 14, 26, 0.96));
-          box-shadow: 0 0 24px rgba(252, 238, 10, 0.12), inset 0 0 12px rgba(252, 238, 10, 0.03);
-        }
-        .cp-stage-card-selected {
-          border-color: rgba(252, 238, 10, 0.6);
-          border-width: 2px;
-          box-shadow: 0 0 0 1px rgba(252, 238, 10, 0.3), 0 0 32px rgba(252, 238, 10, 0.15);
-        }
-        /* Done state — muted green-tinted block with strikethrough overlay */
-        .cp-stage-card-done {
-          border-color: rgba(52, 211, 153, 0.3) !important;
-          background: linear-gradient(135deg, rgba(16, 32, 24, 0.85), rgba(8, 18, 14, 0.92)) !important;
-          opacity: 0.72;
-        }
-        .cp-stage-card-done::after {
-          background: linear-gradient(180deg, transparent, rgba(52, 211, 153, 0.5) 20%, rgba(52, 211, 153, 0.5) 80%, transparent) !important;
-        }
-        .cp-stage-card-done:hover {
-          border-color: rgba(52, 211, 153, 0.45) !important;
-          opacity: 0.85;
-        }
-        .cp-stage-card::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 4px;
-          height: 100%;
-          background: linear-gradient(180deg, transparent, ${c.a5} 20%, ${c.a5} 80%, transparent);
-          opacity: 0.8;
-        }
-        .cp-stage-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          position: relative;
-        }
-        .cp-stage-header-bg {
-          background: linear-gradient(90deg, ${c.a08}, transparent 80%);
-          border-bottom: 1px solid ${c.a15};
-        }
-        .cp-stage-title {
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-          text-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
-        }
-        .cp-progress-bar {
-          height: 4px;
-          background: rgba(255, 255, 255, 0.04);
-          overflow: hidden;
-          position: relative;
-          border: 1px solid ${c.a1};
-        }
-        .cp-progress-fill {
-          height: 100%;
-          transition: width 500ms;
-          position: relative;
-        }
-        .cp-progress-fill::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-          animation: cp-shimmer 2s linear infinite;
-        }
-        @keyframes cp-shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-        .cp-meta-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-          padding: 6px 8px;
-          margin: 4px 8px;
-          background: ${c.a04};
-          border: 1px solid ${c.a1};
-          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-        }
-        .cp-subtask-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          margin: 3px 8px 3px 16px;
-          transition: all 120ms;
-          border-left: 3px solid ${c.a5};
-          background: rgba(8, 14, 26, 0.8);
-          border-top: 1.5px solid ${c.a18};
-          border-right: 1.5px solid ${c.a18};
-          border-bottom: 1.5px solid ${c.a18};
-          clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%);
-          box-shadow: inset 0 0 6px ${c.a04};
-        }
-        .cp-subtask-row:hover {
-          background: rgba(252, 238, 10, 0.06);
-          border-left-color: #FCEE0A;
-          border-left-width: 4px;
-          border-color: rgba(252, 238, 10, 0.35);
-          box-shadow: 0 0 20px rgba(252, 238, 10, 0.12), inset 0 0 10px rgba(252, 238, 10, 0.03);
-        }
-        /* Done subtask — muted green-tinted block */
-        .cp-subtask-row-done {
-          border-left-color: rgba(52, 211, 153, 0.4) !important;
-          border-color: rgba(52, 211, 153, 0.18) !important;
-          background: rgba(12, 24, 18, 0.7) !important;
-          opacity: 0.65;
-        }
-        .cp-subtask-row-done:hover {
-          opacity: 0.85;
-          border-left-color: rgba(52, 211, 153, 0.55) !important;
-        }
-        .cp-arrow-btn {
-          padding: 4px;
-          color: ${c.a6};
-          transition: all 100ms;
-          flex-shrink: 0;
-          border: 1px solid transparent;
-          filter: drop-shadow(0 0 3px ${c.a2});
-        }
-        .cp-arrow-btn:hover {
-          color: #FCEE0A;
-          border-color: rgba(252, 238, 10, 0.4);
-          background: rgba(252, 238, 10, 0.08);
-          filter: drop-shadow(0 0 5px rgba(252, 238, 10, 0.5));
-        }
-        .cp-arrow-btn:disabled {
-          opacity: 0.2;
-          cursor: not-allowed;
-        }
-        .cp-delete-btn {
-          padding: 4px;
-          color: ${c.a6};
-          transition: all 100ms;
-          flex-shrink: 0;
-          border: 1px solid transparent;
-          filter: drop-shadow(0 0 3px ${c.a2});
-        }
-        .cp-delete-btn:hover {
-          color: #FF003C;
-          border-color: rgba(255, 0, 60, 0.4);
-          background: rgba(255, 0, 60, 0.08);
-          filter: drop-shadow(0 0 5px rgba(255, 0, 60, 0.6));
-        }
-        .cp-add-btn {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 7px 12px;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          color: ${c.a7};
-          transition: all 150ms;
-          border: 1.5px solid ${c.a3};
-          background: ${c.a08};
-          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-          box-shadow: 0 0 6px ${c.a12};
-          text-shadow: 0 0 4px ${c.a25};
-        }
-        .cp-add-btn:hover {
-          color: #FCEE0A;
-          border-color: rgba(252, 238, 10, 0.6);
-          background: rgba(252, 238, 10, 0.1);
-          box-shadow: 0 0 16px rgba(252, 238, 10, 0.2), inset 0 0 10px rgba(252, 238, 10, 0.04);
-          text-shadow: 0 0 8px rgba(252, 238, 10, 0.4);
-          transform: translateY(-1px);
-        }
-        .cp-desc-card {
-          padding: 8px 12px;
-          margin: 4px 8px;
-          background: ${c.a05};
-          border: 1.5px solid ${c.a25};
-          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-          transition: all 150ms;
-          box-shadow: inset 0 0 8px ${c.a02 || c.a04};
-        }
-        .cp-desc-card:hover {
-          border-color: ${c.a5};
-          background: ${c.a08};
-          box-shadow: 0 0 16px ${c.a15}, inset 0 0 10px ${c.a04};
-        }
-      `}</style>
     </div>
   );
 }

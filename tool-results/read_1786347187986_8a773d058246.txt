@@ -1,0 +1,1097 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useState } from 'react';
+     4→import {
+     5→  X, Music, CalendarDays, Disc3, AudioLines, Zap, Check, Circle, Clock,
+     6→  ListChecks, FileText, Guitar, Mic2,
+     7→} from 'lucide-react';
+     8→import { hexToRgba } from '@/lib/utils';
+     9→import type { Task } from '@/store/kanban-store';
+    10→
+    11→interface ProjectInfoModalProps {
+    12→  projectId: string;
+    13→  onClose: () => void;
+    14→}
+    15→
+    16→/* ── Constants ────────────────────────────────────────── */
+    17→
+    18→const BOARD_COLOR = '#00d9ff';
+    19→
+    20→const PROJECT_TYPE_LABEL: Record<string, string> = {
+    21→  album: 'Альбом',
+    22→  ep: 'EP',
+    23→  single: 'Сингл',
+    24→  general: 'Канбан',
+    25→};
+    26→
+    27→const STATUS_HEX: Record<string, string> = {
+    28→  todo: '#22d3ee',
+    29→  'in-progress': '#fb923c',
+    30→  review: '#fb7185',
+    31→  done: '#34d399',
+    32→};
+    33→
+    34→const STATUS_ICON: Record<string, typeof Circle> = {
+    35→  todo: Circle,
+    36→  'in-progress': Clock,
+    37→  done: Check,
+    38→};
+    39→
+    40→interface BoardInfo {
+    41→  id: string;
+    42→  title: string;
+    43→  color: string;
+    44→  boardType: string;
+    45→}
+    46→
+    47→interface ConcertEntry {
+    48→  task: { id: string; title: string; status: string; deadline: string | null };
+    49→  boardTitle: string;
+    50→  boardColor: string;
+    51→}
+    52→
+    53→/* ── Helpers ──────────────────────────────────────────── */
+    54→
+    55→function getProgress(children: { status: string }[] | undefined): number {
+    56→  if (!children || children.length === 0) return 0;
+    57→  const done = children.filter(c => c.status === 'done').length;
+    58→  return Math.round((done / children.length) * 100);
+    59→}
+    60→
+    61→interface CountableTask {
+    62→  status: string;
+    63→  children?: CountableTask[] | unknown;
+    64→}
+    65→
+    66→function countAll(tasks: CountableTask[]): { total: number; done: number } {
+    67→  let total = 0;
+    68→  let done = 0;
+    69→  for (const t of tasks) {
+    70→    total++;
+    71→    if (t.status === 'done') done++;
+    72→    if (Array.isArray(t.children) && t.children.length > 0) {
+    73→      const sub = countAll(t.children as CountableTask[]);
+    74→      total += sub.total;
+    75→      done += sub.done;
+    76→    }
+    77→  }
+    78→  return { total, done };
+    79→}
+    80→
+    81→function formatDeadline(value: string): string {
+    82→  const d = new Date(value);
+    83→  if (isNaN(d.getTime())) return value;
+    84→  const day = String(d.getDate()).padStart(2, '0');
+    85→  const months = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    86→  const month = months[d.getMonth()] || '';
+    87→  const year = d.getFullYear();
+    88→  return `${day} ${month} ${year}`;
+    89→}
+    90→
+    91→/* ── Main Modal ───────────────────────────────────────── */
+    92→
+    93→export default function ProjectInfoModal({ projectId, onClose }: ProjectInfoModalProps) {
+    94→  const [loading, setLoading] = useState(true);
+    95→  const [project, setProject] = useState<Task | null>(null);
+    96→  const [boards, setBoards] = useState<BoardInfo[]>([]);
+    97→  const [boardTasksMap, setBoardTasksMap] = useState<Map<string, Task[]>>(new Map());
+    98→
+    99→  useEffect(() => {
+   100→    let cancelled = false;
+   101→    (async () => {
+   102→      setLoading(true);
+   103→      try {
+   104→        // 1. Fetch project task (parentId=null, then find by id)
+   105→        const projRes = await fetch('/api/tasks?parentId=null');
+   106→        const projData = await projRes.json();
+   107→        if (cancelled) return;
+   108→        const proj = ((projData.tasks as Task[]) || []).find(t => t.id === projectId) || null;
+   109→        setProject(proj);
+   110→
+   111→        // 2. Fetch boards
+   112→        const boardsRes = await fetch(`/api/boards?projectId=${projectId}`);
+   113→        const boardsData = await boardsRes.json();
+   114→        if (cancelled) return;
+   115→        const bl: BoardInfo[] = ((boardsData.boards as BoardInfo[]) || []).map(b => ({
+   116→          id: b.id, title: b.title, color: b.color, boardType: b.boardType,
+   117→        }));
+   118→        setBoards(bl);
+   119→
+   120→        // 3. For each board, fetch deep tasks (tracks boards need 2-level children)
+   121→        const tasksMap = new Map<string, Task[]>();
+   122→        await Promise.all(bl.map(async (b) => {
+   123→          try {
+   124→            const r = await fetch(`/api/tasks?boardId=${b.id}&deep=true`);
+   125→            const d = await r.json();
+   126→            if (!cancelled) tasksMap.set(b.id, (d.tasks as Task[]) || []);
+   127→          } catch {
+   128→            /* ignore */
+   129→          }
+   130→        }));
+   131→        if (!cancelled) setBoardTasksMap(tasksMap);
+   132→      } finally {
+   133→        if (!cancelled) setLoading(false);
+   134→      }
+   135→    })();
+   136→    return () => { cancelled = true; };
+   137→  }, [projectId]);
+   138→
+   139→  // Close on Escape key
+   140→  useEffect(() => {
+   141→    const handler = (e: KeyboardEvent) => {
+   142→      if (e.key === 'Escape') onClose();
+   143→    };
+   144→    window.addEventListener('keydown', handler);
+   145→    return () => window.removeEventListener('keydown', handler);
+   146→  }, [onClose]);
+   147→
+   148→  /* ── Aggregate data ────────────────────────────────── */
+   149→
+   150→  const tracksBoard = boards.find(b => b.boardType === 'tracks');
+   151→  const tracks: Task[] = tracksBoard ? (boardTasksMap.get(tracksBoard.id) || []) : [];
+   152→
+   153→  // Aggregate unique instruments from all track tasks' trackConfig
+   154→  const instrumentsSet = new Set<string>();
+   155→  for (const t of tracks) {
+   156→    if (t.trackConfig) {
+   157→      try {
+   158→        const cfg = JSON.parse(t.trackConfig) as { instruments?: unknown };
+   159→        if (Array.isArray(cfg.instruments)) {
+   160→          for (const inst of cfg.instruments) {
+   161→            if (typeof inst === 'string' && inst.trim()) instrumentsSet.add(inst.trim());
+   162→          }
+   163→        }
+   164→      } catch {
+   165→        /* ignore */
+   166→      }
+   167→    }
+   168→  }
+   169→  const instruments = Array.from(instrumentsSet);
+   170→
+   171→  // Overall progress: total done / total tasks across ALL boards
+   172→  let totalTasks = 0;
+   173→  let doneTasks = 0;
+   174→  for (const b of boards) {
+   175→    const ts = boardTasksMap.get(b.id) || [];
+   176→    const c = countAll(ts as unknown as CountableTask[]);
+   177→    totalTasks += c.total;
+   178→    doneTasks += c.done;
+   179→  }
+   180→  const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+   181→
+   182→  // Performance tasks (concerts) across all boards, all levels
+   183→  const performances: ConcertEntry[] = [];
+   184→  for (const b of boards) {
+   185→    const ts = boardTasksMap.get(b.id) || [];
+   186→    for (const t of ts) {
+   187→      if (t.category === 'performance') {
+   188→        performances.push({ task: t, boardTitle: b.title, boardColor: b.color });
+   189→      }
+   190→      if (t.children) {
+   191→        for (const child of t.children) {
+   192→          if (child.category === 'performance') {
+   193→            performances.push({ task: child, boardTitle: b.title, boardColor: b.color });
+   194→          }
+   195→          if (child.children) {
+   196→            for (const gc of child.children) {
+   197→              if (gc.category === 'performance') {
+   198→                performances.push({ task: gc, boardTitle: b.title, boardColor: b.color });
+   199→              }
+   200→            }
+   201→          }
+   202→        }
+   203→      }
+   204→    }
+   205→  }
+   206→
+   207→  const boardColor = BOARD_COLOR;
+   208→  const projectTypeLabel = (project?.projectType && PROJECT_TYPE_LABEL[project.projectType]) || project?.projectType || 'Канбан';
+   209→
+   210→  return (
+   211→    <div className="pim-overlay" onClick={onClose} role="dialog" aria-modal="true">
+   212→      <div className="pim-panel" onClick={(e) => e.stopPropagation()}>
+   213→        {/* Visual overlays */}
+   214→        <div className="pim-scanlines" />
+   215→        <div className="pim-grid" />
+   216→        <div
+   217→          className="pim-neon-top"
+   218→          style={{ background: `linear-gradient(90deg, transparent, #00d9ff 20%, #FCEE0A 50%, #00d9ff 80%, transparent)` }}
+   219→        />
+   220→
+   221→        {/* Scrollable content */}
+   222→        <div className="pim-scroll">
+   223→          {loading ? (
+   224→            <div className="pim-loading">
+   225→              <Zap className="w-6 h-6 animate-pulse" style={{ color: '#FCEE0A' }} />
+   226→              <p>ЗАГРУЗКА...</p>
+   227→            </div>
+   228→          ) : !project ? (
+   229→            <div className="pim-loading">
+   230→              <FileText className="w-6 h-6" style={{ color: '#f43f5e' }} />
+   231→              <p>ПРОЕКТ НЕ НАЙДЕН</p>
+   232→            </div>
+   233→          ) : (
+   234→            <div className="pim-content">
+   235→              {/* ─── HEADER ─── */}
+   236→              <header className="pim-header">
+   237→                <div className="pim-header-left">
+   238→                  <div className="pim-header-icon">
+   239→                    <Disc3 className="w-4 h-4" style={{ color: '#FCEE0A' }} />
+   240→                  </div>
+   241→                  <div className="pim-header-title-wrap">
+   242→                    <h2 className="pim-title">{project.title}</h2>
+   243→                    <div className="pim-meta-row">
+   244→                      <span className="pim-type-badge">{projectTypeLabel}</span>
+   245→                      {project.deadline && (
+   246→                        <span className="pim-meta-chip">
+   247→                          <CalendarDays className="w-2.5 h-2.5" />
+   248→                          {formatDeadline(project.deadline)}
+   249→                        </span>
+   250→                      )}
+   251→                      {project.soundflowProjectId && (
+   252→                        <span className="pim-meta-chip">
+   253→                          <AudioLines className="w-2.5 h-2.5" />
+   254→                          SoundFlow
+   255→                        </span>
+   256→                      )}
+   257→                    </div>
+   258→                  </div>
+   259→                </div>
+   260→                <button
+   261→                  className="pim-close"
+   262→                  onClick={onClose}
+   263→                  title="Закрыть (Esc)"
+   264→                  aria-label="Закрыть"
+   265→                >
+   266→                  <X className="w-4 h-4" />
+   267→                </button>
+   268→              </header>
+   269→
+   270→              {/* ─── COVER ─── */}
+   271→              <section className="pim-section pim-cover-section">
+   272→                <div className="pim-cover">
+   273→                  <Music className="w-7 h-7" style={{ color: hexToRgba('#FCEE0A', 0.55) }} />
+   274→                </div>
+   275→                <div className="pim-cover-info">
+   276→                  <span className="pim-label pim-label-block">ОБЛОЖКА</span>
+   277→                  <p className="pim-cover-text">
+   278→                    {project.soundflowProjectId
+   279→                      ? 'Связан с проектом SoundFlow'
+   280→                      : 'Загрузите обложку для релиза'}
+   281→                  </p>
+   282→                </div>
+   283→              </section>
+   284→
+   285→              {/* ─── CONCEPT ─── */}
+   286→              <section className="pim-section">
+   287→                <div className="pim-label-row">
+   288→                  <FileText className="w-3 h-3" />
+   289→                  <span className="pim-label">КОНЦЕПЦИЯ</span>
+   290→                </div>
+   291→                {project.description ? (
+   292→                  <p className="pim-concept-text">{project.description}</p>
+   293→                ) : (
+   294→                  <p className="pim-empty-inline">Концепция не задана</p>
+   295→                )}
+   296→              </section>
+   297→
+   298→              {/* ─── TRACK LIST ─── */}
+   299→              <section className="pim-section">
+   300→                <div className="pim-label-row">
+   301→                  <AudioLines className="w-3 h-3" />
+   302→                  <span className="pim-label">ТРЕК-ЛИСТ</span>
+   303→                  <span className="pim-count-chip">{tracks.length}</span>
+   304→                </div>
+   305→                {tracks.length === 0 ? (
+   306→                  <div className="pim-empty-state">
+   307→                    <Music className="w-5 h-5" />
+   308→                    <p>Треки пока не добавлены</p>
+   309→                  </div>
+   310→                ) : (
+   311→                  <div className="pim-tracks-list">
+   312→                    {tracks.map((track, idx) => {
+   313→                      const StatusIcon = STATUS_ICON[track.status] || Circle;
+   314→                      const statusHex = STATUS_HEX[track.status] || '#22d3ee';
+   315→                      const trackProgress = getProgress(track.children as { status: string }[] | undefined);
+   316→                      let trackInstruments: string[] = [];
+   317→                      if (track.trackConfig) {
+   318→                        try {
+   319→                          const cfg = JSON.parse(track.trackConfig) as { instruments?: unknown };
+   320→                          if (Array.isArray(cfg.instruments)) {
+   321→                            trackInstruments = cfg.instruments.filter(
+   322→                              (i): i is string => typeof i === 'string' && i.trim().length > 0,
+   323→                            );
+   324→                          }
+   325→                        } catch { /* ignore */ }
+   326→                      }
+   327→                      return (
+   328→                        <div key={track.id} className="pim-track-card">
+   329→                          <div className="pim-track-num">{String(idx + 1).padStart(2, '0')}</div>
+   330→                          <div className="pim-track-body">
+   331→                            <div className="pim-track-header">
+   332→                              <span className="pim-track-title">{track.title}</span>
+   333→                              <span className="pim-track-status" style={{ color: statusHex }}>
+   334→                                <StatusIcon className="w-3 h-3" />
+   335→                              </span>
+   336→                            </div>
+   337→                            <div className="pim-track-progress-row">
+   338→                              <div className="pim-track-progress-bar">
+   339→                                <div
+   340→                                  className="pim-track-progress-fill"
+   341→                                  style={{
+   342→                                    width: `${trackProgress}%`,
+   343→                                    backgroundColor: trackProgress === 100 ? '#34d399' : '#FCEE0A',
+   344→                                    boxShadow: trackProgress > 0
+   345→                                      ? `0 0 6px ${hexToRgba(trackProgress === 100 ? '#34d399' : '#FCEE0A', 0.5)}`
+   346→                                      : 'none',
+   347→                                  }}
+   348→                                />
+   349→                              </div>
+   350→                              <span
+   351→                                className="pim-track-progress-text"
+   352→                                style={{ color: trackProgress === 100 ? '#34d399' : '#FCEE0A' }}
+   353→                              >
+   354→                                {trackProgress}%
+   355→                              </span>
+   356→                            </div>
+   357→                            {trackInstruments.length > 0 && (
+   358→                              <div className="pim-track-instruments">
+   359→                                {trackInstruments.map((inst) => (
+   360→                                  <span key={inst} className="pim-instrument-chip">{inst}</span>
+   361→                                ))}
+   362→                              </div>
+   363→                            )}
+   364→                          </div>
+   365→                        </div>
+   366→                      );
+   367→                    })}
+   368→                  </div>
+   369→                )}
+   370→              </section>
+   371→
+   372→              {/* ─── COMPLETION STAGE ─── */}
+   373→              <section className="pim-section">
+   374→                <div className="pim-label-row">
+   375→                  <Zap className="w-3 h-3" />
+   376→                  <span className="pim-label">ЭТАП ВЫПОЛНЕНИЯ</span>
+   377→                </div>
+   378→                <div className="pim-overall-progress">
+   379→                  <div className="pim-overall-progress-bar">
+   380→                    <div
+   381→                      className="pim-overall-progress-fill"
+   382→                      style={{
+   383→                        width: `${progressPct}%`,
+   384→                        background: progressPct === 100
+   385→                          ? 'linear-gradient(90deg, #10b981, #34d399)'
+   386→                          : 'linear-gradient(90deg, #FCEE0A, #fbbf24)',
+   387→                        boxShadow: progressPct > 0
+   388→                          ? `0 0 10px ${hexToRgba(progressPct === 100 ? '#34d399' : '#FCEE0A', 0.5)}`
+   389→                          : 'none',
+   390→                      }}
+   391→                    />
+   392→                  </div>
+   393→                  <div className="pim-overall-progress-meta">
+   394→                    <span
+   395→                      className="pim-overall-progress-pct"
+   396→                      style={{ color: progressPct === 100 ? '#34d399' : '#FCEE0A' }}
+   397→                    >
+   398→                      {progressPct}%
+   399→                    </span>
+   400→                    <span className="pim-overall-progress-count">
+   401→                      {doneTasks} / {totalTasks} задач
+   402→                    </span>
+   403→                  </div>
+   404→                </div>
+   405→              </section>
+   406→
+   407→              {/* ─── INSTRUMENTS ─── */}
+   408→              <section className="pim-section">
+   409→                <div className="pim-label-row">
+   410→                  <Guitar className="w-3 h-3" />
+   411→                  <span className="pim-label">ИНСТРУМЕНТЫ</span>
+   412→                  <span className="pim-count-chip">{instruments.length}</span>
+   413→                </div>
+   414→                {instruments.length === 0 ? (
+   415→                  <div className="pim-empty-state">
+   416→                    <Mic2 className="w-5 h-5" />
+   417→                    <p>Инструменты не указаны</p>
+   418→                  </div>
+   419→                ) : (
+   420→                  <div className="pim-instruments-grid">
+   421→                    {instruments.map((inst) => (
+   422→                      <span key={inst} className="pim-instrument-chip pim-instrument-chip-lg">{inst}</span>
+   423→                    ))}
+   424→                  </div>
+   425→                )}
+   426→              </section>
+   427→
+   428→              {/* ─── REFERENCES ─── */}
+   429→              <section className="pim-section">
+   430→                <div className="pim-label-row">
+   431→                  <FileText className="w-3 h-3" />
+   432→                  <span className="pim-label">РЕФЕРЕНСЫ</span>
+   433→                </div>
+   434→                <div className="pim-empty-state">
+   435→                  <FileText className="w-5 h-5" />
+   436→                  <p>Референсы скоро появятся</p>
+   437→                </div>
+   438→              </section>
+   439→
+   440→              {/* ─── CLIPS ─── */}
+   441→              <section className="pim-section">
+   442→                <div className="pim-label-row">
+   443→                  <Disc3 className="w-3 h-3" />
+   444→                  <span className="pim-label">КЛИПЫ</span>
+   445→                </div>
+   446→                <div className="pim-empty-state">
+   447→                  <Disc3 className="w-5 h-5" />
+   448→                  <p>Клипы скоро появятся</p>
+   449→                </div>
+   450→              </section>
+   451→
+   452→              {/* ─── CONCERT SCHEDULE ─── */}
+   453→              <section className="pim-section">
+   454→                <div className="pim-label-row">
+   455→                  <CalendarDays className="w-3 h-3" />
+   456→                  <span className="pim-label">КОНЦЕРТЫ</span>
+   457→                  <span className="pim-count-chip">{performances.length}</span>
+   458→                </div>
+   459→                {performances.length === 0 ? (
+   460→                  <div className="pim-empty-state">
+   461→                    <CalendarDays className="w-5 h-5" />
+   462→                    <p>Концерты не запланированы</p>
+   463→                  </div>
+   464→                ) : (
+   465→                  <div className="pim-concerts-list">
+   466→                    {performances.map(({ task, boardTitle, boardColor: bc }) => {
+   467→                      const StatusIcon = STATUS_ICON[task.status] || Circle;
+   468→                      const statusHex = STATUS_HEX[task.status] || '#22d3ee';
+   469→                      return (
+   470→                        <div key={task.id} className="pim-concert-card">
+   471→                          <div
+   472→                            className="pim-concert-accent"
+   473→                            style={{ background: bc, boxShadow: `0 0 6px ${bc}` }}
+   474→                          />
+   475→                          <div className="pim-concert-body">
+   476→                            <div className="pim-concert-header">
+   477→                              <span className="pim-concert-title">{task.title}</span>
+   478→                              <span className="pim-concert-status" style={{ color: statusHex }}>
+   479→                                <StatusIcon className="w-3 h-3" />
+   480→                              </span>
+   481→                            </div>
+   482→                            <div className="pim-concert-meta">
+   483→                              <span className="pim-concert-board" style={{ color: bc }}>
+   484→                                <ListChecks className="w-2.5 h-2.5" />
+   485→                                {boardTitle}
+   486→                              </span>
+   487→                              {task.deadline && (
+   488→                                <span className="pim-concert-deadline">
+   489→                                  <Clock className="w-2.5 h-2.5" />
+   490→                                  {formatDeadline(task.deadline)}
+   491→                                </span>
+   492→                              )}
+   493→                            </div>
+   494→                          </div>
+   495→                        </div>
+   496→                      );
+   497→                    })}
+   498→                  </div>
+   499→                )}
+   500→              </section>
+   501→            </div>
+   502→          )}
+   503→        </div>
+   504→      </div>
+   505→
+   506→      <style dangerouslySetInnerHTML={{ __html: `
+   507→        .pim-overlay {
+   508→          position: fixed;
+   509→          inset: 0;
+   510→          z-index: 100;
+   511→          display: flex;
+   512→          align-items: center;
+   513→          justify-content: center;
+   514→          background: rgba(0, 0, 0, 0.7);
+   515→          backdrop-filter: blur(4px);
+   516→          -webkit-backdrop-filter: blur(4px);
+   517→          padding: 16px;
+   518→          animation: pim-fade-in 180ms ease-out;
+   519→        }
+   520→        @keyframes pim-fade-in {
+   521→          from { opacity: 0; }
+   522→          to { opacity: 1; }
+   523→        }
+   524→
+   525→        .pim-panel {
+   526→          position: relative;
+   527→          width: 100%;
+   528→          max-width: 672px;
+   529→          max-height: 80vh;
+   530→          background: rgba(8, 10, 18, 0.98);
+   531→          border: 1.5px solid rgba(0, 217, 255, 0.3)};
+   532→          box-shadow:
+   533→            0 0 32px rgba(0, 217, 255, 0.15)},
+   534→            0 16px 64px rgba(0, 0, 0, 0.7);
+   535→          clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+   536→          overflow: hidden;
+   537→          display: flex;
+   538→          flex-direction: column;
+   539→          animation: pim-pop-in 220ms ease-out;
+   540→        }
+   541→        @keyframes pim-pop-in {
+   542→          from { opacity: 0; transform: translateY(8px) scale(0.98); }
+   543→          to { opacity: 1; transform: translateY(0) scale(1); }
+   544→        }
+   545→
+   546→        .pim-scanlines {
+   547→          position: absolute;
+   548→          inset: 0;
+   549→          background: repeating-linear-gradient(
+   550→            0deg,
+   551→            transparent 0px,
+   552→            transparent 2px,
+   553→            rgba(0, 229, 255, 0.02) 2px,
+   554→            rgba(0, 229, 255, 0.02) 3px
+   555→          );
+   556→          pointer-events: none;
+   557→          z-index: 1;
+   558→          animation: pim-scan 8s linear infinite;
+   559→        }
+   560→        @keyframes pim-scan {
+   561→          0% { transform: translateY(0); }
+   562→          100% { transform: translateY(3px); }
+   563→        }
+   564→
+   565→        .pim-grid {
+   566→          position: absolute;
+   567→          inset: 0;
+   568→          background-image:
+   569→            linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
+   570→            linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
+   571→          background-size: 24px 24px;
+   572→          pointer-events: none;
+   573→          z-index: 1;
+   574→        }
+   575→
+   576→        .pim-neon-top {
+   577→          height: 3px;
+   578→          flex-shrink: 0;
+   579→          position: relative;
+   580→          z-index: 2;
+   581→          box-shadow:
+   582→            0 0 12px rgba(252, 238, 10, 0.5),
+   583→            0 0 24px rgba(252, 238, 10, 0.2);
+   584→          animation: pim-pulse-neon 3s ease-in-out infinite;
+   585→        }
+   586→        @keyframes pim-pulse-neon {
+   587→          0%, 100% {
+   588→            opacity: 0.85;
+   589→            box-shadow: 0 0 8px rgba(252, 238, 10, 0.4), 0 0 16px rgba(252, 238, 10, 0.15);
+   590→          }
+   591→          50% {
+   592→            opacity: 1;
+   593→            box-shadow: 0 0 16px rgba(252, 238, 10, 0.7), 0 0 32px rgba(252, 238, 10, 0.3);
+   594→          }
+   595→        }
+   596→
+   597→        .pim-scroll {
+   598→          position: relative;
+   599→          z-index: 2;
+   600→          overflow-y: auto;
+   601→          flex: 1;
+   602→          min-height: 0;
+   603→        }
+   604→        .pim-scroll::-webkit-scrollbar {
+   605→          width: 6px;
+   606→        }
+   607→        .pim-scroll::-webkit-scrollbar-track {
+   608→          background: rgba(252, 238, 10, 0.03);
+   609→        }
+   610→        .pim-scroll::-webkit-scrollbar-thumb {
+   611→          background: rgba(0, 217, 255, 0.4)};
+   612→          border-radius: 0;
+   613→        }
+   614→        .pim-scroll::-webkit-scrollbar-thumb:hover {
+   615→          background: rgba(0, 217, 255, 0.6)};
+   616→        }
+   617→        .pim-scroll {
+   618→          scrollbar-width: thin;
+   619→          scrollbar-color: rgba(0, 217, 255, 0.4)} rgba(252, 238, 10, 0.03);
+   620→        }
+   621→
+   622→        .pim-loading {
+   623→          display: flex;
+   624→          flex-direction: column;
+   625→          align-items: center;
+   626→          gap: 12px;
+   627→          padding: 64px 16px;
+   628→          color: rgba(0, 217, 255, 0.7)};
+   629→          font-size: 11px;
+   630→          font-weight: 800;
+   631→          letter-spacing: 0.18em;
+   632→          text-transform: uppercase;
+   633→          text-shadow: 0 0 8px rgba(0, 217, 255, 0.3)};
+   634→        }
+   635→
+   636→        .pim-content {
+   637→          padding: 0;
+   638→        }
+   639→
+   640→        /* ── Header ───────────────────────────── */
+   641→        .pim-header {
+   642→          display: flex;
+   643→          align-items: flex-start;
+   644→          justify-content: space-between;
+   645→          gap: 12px;
+   646→          padding: 16px;
+   647→          background: linear-gradient(135deg, rgba(0, 217, 255, 0.08)}, transparent 70%);
+   648→          border-bottom: 2px solid rgba(0, 217, 255, 0.35)};
+   649→          position: relative;
+   650→        }
+   651→        .pim-header::before {
+   652→          content: '';
+   653→          position: absolute;
+   654→          left: 0;
+   655→          top: 12px;
+   656→          bottom: 12px;
+   657→          width: 2px;
+   658→          background: #00d9ff;
+   659→          box-shadow: 0 0 8px #00d9ff, 0 0 16px rgba(0, 217, 255, 0.3)};
+   660→        }
+   661→        .pim-header-left {
+   662→          display: flex;
+   663→          gap: 12px;
+   664→          align-items: flex-start;
+   665→          min-width: 0;
+   666→          flex: 1;
+   667→        }
+   668→        .pim-header-icon {
+   669→          width: 36px;
+   670→          height: 36px;
+   671→          display: flex;
+   672→          align-items: center;
+   673→          justify-content: center;
+   674→          background: rgba(252, 238, 10, 0.08)};
+   675→          border: 1.5px solid rgba(252, 238, 10, 0.4)};
+   676→          clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+   677→          flex-shrink: 0;
+   678→        }
+   679→        .pim-header-title-wrap {
+   680→          min-width: 0;
+   681→          flex: 1;
+   682→        }
+   683→        .pim-title {
+   684→          font-size: 18px;
+   685→          font-weight: 700;
+   686→          color: #ffffff;
+   687→          line-height: 1.2;
+   688→          margin-bottom: 6px;
+   689→          word-break: break-word;
+   690→          text-shadow: 0 0 12px rgba(0, 229, 255, 0.15);
+   691→        }
+   692→        .pim-meta-row {
+   693→          display: flex;
+   694→          align-items: center;
+   695→          gap: 6px;
+   696→          flex-wrap: wrap;
+   697→        }
+   698→        .pim-type-badge {
+   699→          font-size: 9px;
+   700→          font-weight: 800;
+   701→          letter-spacing: 0.12em;
+   702→          text-transform: uppercase;
+   703→          padding: 3px 8px;
+   704→          color: #000;
+   705→          background: linear-gradient(135deg, #FCEE0A, #fbbf24);
+   706→          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+   707→          box-shadow: 0 0 8px rgba(252, 238, 10, 0.4);
+   708→          text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+   709→        }
+   710→        .pim-meta-chip {
+   711→          display: inline-flex;
+   712→          align-items: center;
+   713→          gap: 4px;
+   714→          font-size: 9px;
+   715→          font-weight: 600;
+   716→          letter-spacing: 0.05em;
+   717→          color: rgba(0, 217, 255, 0.85)};
+   718→          padding: 3px 7px;
+   719→          border: 1px solid rgba(0, 217, 255, 0.3)};
+   720→          background: rgba(0, 217, 255, 0.06)};
+   721→          clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
+   722→        }
+   723→        .pim-close {
+   724→          width: 30px;
+   725→          height: 30px;
+   726→          display: flex;
+   727→          align-items: center;
+   728→          justify-content: center;
+   729→          color: #4a4a5e;
+   730→          background: transparent;
+   731→          border: 1px solid transparent;
+   732→          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+   733→          transition: all 150ms;
+   734→          flex-shrink: 0;
+   735→          cursor: pointer;
+   736→        }
+   737→        .pim-close:hover {
+   738→          color: #000;
+   739→          background: #FCEE0A;
+   740→          border-color: #FCEE0A;
+   741→          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5);
+   742→        }
+   743→
+   744→        /* ── Sections ─────────────────────────── */
+   745→        .pim-section {
+   746→          padding: 14px 16px;
+   747→          border-bottom: 1px solid rgba(0, 217, 255, 0.15)};
+   748→        }
+   749→        .pim-section:last-child {
+   750→          border-bottom: none;
+   751→        }
+   752→        .pim-label-row {
+   753→          display: flex;
+   754→          align-items: center;
+   755→          gap: 6px;
+   756→          margin-bottom: 10px;
+   757→        }
+   758→        .pim-label-row svg {
+   759→          color: #FCEE0A;
+   760→          filter: drop-shadow(0 0 4px rgba(252, 238, 10, 0.4));
+   761→        }
+   762→        .pim-label {
+   763→          font-size: 10px;
+   764→          font-weight: 800;
+   765→          letter-spacing: 0.12em;
+   766→          text-transform: uppercase;
+   767→          color: #FCEE0A;
+   768→          text-shadow: 0 0 6px rgba(252, 238, 10, 0.3);
+   769→        }
+   770→        .pim-label-block {
+   771→          display: block;
+   772→          margin-bottom: 6px;
+   773→        }
+   774→        .pim-count-chip {
+   775→          margin-left: auto;
+   776→          font-size: 9px;
+   777→          font-weight: 700;
+   778→          letter-spacing: 0.05em;
+   779→          padding: 2px 7px;
+   780→          color: #00d9ff;
+   781→          background: rgba(0, 217, 255, 0.1)};
+   782→          border: 1px solid rgba(0, 217, 255, 0.3)};
+   783→          clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
+   784→        }
+   785→
+   786→        /* ── Cover section ────────────────────── */
+   787→        .pim-cover-section {
+   788→          display: flex;
+   789→          align-items: center;
+   790→          gap: 14px;
+   791→        }
+   792→        .pim-cover {
+   793→          width: 96px;
+   794→          height: 96px;
+   795→          flex-shrink: 0;
+   796→          display: flex;
+   797→          align-items: center;
+   798→          justify-content: center;
+   799→          background: rgba(10, 14, 24, 0.6);
+   800→          border: 1.5px dashed rgba(252, 238, 10, 0.4);
+   801→          clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+   802→        }
+   803→        .pim-cover-info {
+   804→          flex: 1;
+   805→          min-width: 0;
+   806→        }
+   807→        .pim-cover-text {
+   808→          font-size: 11px;
+   809→          color: #64748b;
+   810→          line-height: 1.5;
+   811→        }
+   812→
+   813→        /* ── Concept ──────────────────────────── */
+   814→        .pim-concept-text {
+   815→          font-size: 12px;
+   816→          color: #cbd5e1;
+   817→          line-height: 1.6;
+   818→          white-space: pre-wrap;
+   819→          word-break: break-word;
+   820→        }
+   821→        .pim-empty-inline {
+   822→          font-size: 11px;
+   823→          color: #475569;
+   824→          font-style: italic;
+   825→        }
+   826→
+   827→        /* ── Empty states ─────────────────────── */
+   828→        .pim-empty-state {
+   829→          display: flex;
+   830→          flex-direction: column;
+   831→          align-items: center;
+   832→          gap: 8px;
+   833→          padding: 18px 12px;
+   834→          color: #475569;
+   835→          background: rgba(0, 217, 255, 0.03)};
+   836→          border: 1px dashed rgba(0, 217, 255, 0.2)};
+   837→          clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+   838→        }
+   839→        .pim-empty-state svg {
+   840→          color: #475569;
+   841→        }
+   842→        .pim-empty-state p {
+   843→          font-size: 10px;
+   844→          letter-spacing: 0.05em;
+   845→          text-align: center;
+   846→        }
+   847→
+   848→        /* ── Track list ───────────────────────── */
+   849→        .pim-tracks-list {
+   850→          display: flex;
+   851→          flex-direction: column;
+   852→          gap: 6px;
+   853→        }
+   854→        .pim-track-card {
+   855→          display: flex;
+   856→          gap: 10px;
+   857→          padding: 10px 12px;
+   858→          background: linear-gradient(135deg, rgba(10, 18, 32, 0.7), rgba(6, 10, 20, 0.8));
+   859→          border: 1.5px solid rgba(0, 217, 255, 0.2)};
+   860→          clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+   861→          transition: all 180ms;
+   862→        }
+   863→        .pim-track-card:hover {
+   864→          border-color: rgba(252, 238, 10, 0.4)};
+   865→          background: linear-gradient(135deg, rgba(14, 24, 42, 0.7), rgba(8, 14, 26, 0.8));
+   866→          box-shadow: 0 0 16px rgba(252, 238, 10, 0.08);
+   867→        }
+   868→        .pim-track-num {
+   869→          font-size: 11px;
+   870→          font-weight: 800;
+   871→          font-family: monospace;
+   872→          color: rgba(0, 217, 255, 0.6)};
+   873→          letter-spacing: 0.05em;
+   874→          min-width: 22px;
+   875→        }
+   876→        .pim-track-body {
+   877→          flex: 1;
+   878→          min-width: 0;
+   879→        }
+   880→        .pim-track-header {
+   881→          display: flex;
+   882→          align-items: center;
+   883→          justify-content: space-between;
+   884→          gap: 8px;
+   885→          margin-bottom: 6px;
+   886→        }
+   887→        .pim-track-title {
+   888→          font-size: 12px;
+   889→          font-weight: 700;
+   890→          color: #FCEE0A;
+   891→          text-shadow: 0 0 6px rgba(252, 238, 10, 0.15);
+   892→          word-break: break-word;
+   893→        }
+   894→        .pim-track-status {
+   895→          display: flex;
+   896→          align-items: center;
+   897→          flex-shrink: 0;
+   898→        }
+   899→        .pim-track-progress-row {
+   900→          display: flex;
+   901→          align-items: center;
+   902→          gap: 8px;
+   903→          margin-bottom: 6px;
+   904→        }
+   905→        .pim-track-progress-bar {
+   906→          flex: 1;
+   907→          height: 4px;
+   908→          background: rgba(255, 255, 255, 0.05);
+   909→          border: 1px solid rgba(0, 217, 255, 0.15)};
+   910→          overflow: hidden;
+   911→          position: relative;
+   912→        }
+   913→        .pim-track-progress-fill {
+   914→          height: 100%;
+   915→          transition: width 500ms;
+   916→          position: relative;
+   917→        }
+   918→        .pim-track-progress-fill::after {
+   919→          content: '';
+   920→          position: absolute;
+   921→          inset: 0;
+   922→          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+   923→          animation: pim-shimmer 2s linear infinite;
+   924→        }
+   925→        @keyframes pim-shimmer {
+   926→          0% { transform: translateX(-100%); }
+   927→          100% { transform: translateX(100%); }
+   928→        }
+   929→        .pim-track-progress-text {
+   930→          font-size: 10px;
+   931→          font-weight: 700;
+   932→          font-family: monospace;
+   933→          min-width: 32px;
+   934→          text-align: right;
+   935→          text-shadow: 0 0 6px currentColor;
+   936→        }
+   937→        .pim-track-instruments {
+   938→          display: flex;
+   939→          flex-wrap: wrap;
+   940→          gap: 4px;
+   941→        }
+   942→        .pim-instrument-chip {
+   943→          font-size: 9px;
+   944→          font-weight: 600;
+   945→          padding: 2px 6px;
+   946→          color: #00d9ff;
+   947→          background: rgba(0, 217, 255, 0.1)};
+   948→          border: 1px solid rgba(0, 217, 255, 0.25)};
+   949→          clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
+   950→        }
+   951→        .pim-instrument-chip-lg {
+   952→          font-size: 10px;
+   953→          padding: 4px 9px;
+   954→        }
+   955→        .pim-instruments-grid {
+   956→          display: flex;
+   957→          flex-wrap: wrap;
+   958→          gap: 6px;
+   959→        }
+   960→
+   961→        /* ── Overall progress ─────────────────── */
+   962→        .pim-overall-progress {
+   963→          display: flex;
+   964→          flex-direction: column;
+   965→          gap: 8px;
+   966→        }
+   967→        .pim-overall-progress-bar {
+   968→          height: 8px;
+   969→          background: rgba(255, 255, 255, 0.05);
+   970→          border: 1px solid rgba(252, 238, 10, 0.2)};
+   971→          overflow: hidden;
+   972→          position: relative;
+   973→          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+   974→        }
+   975→        .pim-overall-progress-fill {
+   976→          height: 100%;
+   977→          transition: width 600ms;
+   978→          position: relative;
+   979→        }
+   980→        .pim-overall-progress-fill::after {
+   981→          content: '';
+   982→          position: absolute;
+   983→          inset: 0;
+   984→          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+   985→          animation: pim-shimmer 2s linear infinite;
+   986→        }
+   987→        .pim-overall-progress-meta {
+   988→          display: flex;
+   989→          align-items: baseline;
+   990→          justify-content: space-between;
+   991→          gap: 8px;
+   992→        }
+   993→        .pim-overall-progress-pct {
+   994→          font-size: 22px;
+   995→          font-weight: 800;
+   996→          font-family: monospace;
+   997→          letter-spacing: 0.05em;
+   998→          text-shadow: 0 0 12px currentColor;
+   999→        }
+  1000→        .pim-overall-progress-count {
+  1001→          font-size: 10px;
+  1002→          color: #64748b;
+  1003→          font-family: monospace;
+  1004→          letter-spacing: 0.08em;
+  1005→        }
+  1006→
+  1007→        /* ── Concerts ─────────────────────────── */
+  1008→        .pim-concerts-list {
+  1009→          display: flex;
+  1010→          flex-direction: column;
+  1011→          gap: 6px;
+  1012→        }
+  1013→        .pim-concert-card {
+  1014→          display: flex;
+  1015→          gap: 0;
+  1016→          background: linear-gradient(135deg, rgba(10, 18, 32, 0.7), rgba(6, 10, 20, 0.8));
+  1017→          border: 1.5px solid rgba(0, 217, 255, 0.2)};
+  1018→          clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  1019→          overflow: hidden;
+  1020→          transition: all 180ms;
+  1021→        }
+  1022→        .pim-concert-card:hover {
+  1023→          border-color: rgba(252, 238, 10, 0.4)};
+  1024→          box-shadow: 0 0 16px rgba(252, 238, 10, 0.08);
+  1025→        }
+  1026→        .pim-concert-accent {
+  1027→          width: 3px;
+  1028→          flex-shrink: 0;
+  1029→        }
+  1030→        .pim-concert-body {
+  1031→          flex: 1;
+  1032→          padding: 8px 10px;
+  1033→          min-width: 0;
+  1034→        }
+  1035→        .pim-concert-header {
+  1036→          display: flex;
+  1037→          align-items: center;
+  1038→          justify-content: space-between;
+  1039→          gap: 8px;
+  1040→          margin-bottom: 4px;
+  1041→        }
+  1042→        .pim-concert-title {
+  1043→          font-size: 12px;
+  1044→          font-weight: 700;
+  1045→          color: #FCEE0A;
+  1046→          word-break: break-word;
+  1047→        }
+  1048→        .pim-concert-meta {
+  1049→          display: flex;
+  1050→          align-items: center;
+  1051→          gap: 10px;
+  1052→          flex-wrap: wrap;
+  1053→          font-size: 9px;
+  1054→        }
+  1055→        .pim-concert-board,
+  1056→        .pim-concert-deadline {
+  1057→          display: inline-flex;
+  1058→          align-items: center;
+  1059→          gap: 4px;
+  1060→          font-weight: 600;
+  1061→          letter-spacing: 0.05em;
+  1062→        }
+  1063→        .pim-concert-deadline {
+  1064→          color: #94a3b8;
+  1065→        }
+  1066→
+  1067→        /* ── Mobile responsiveness ────────────── */
+  1068→        @media (max-width: 640px) {
+  1069→          .pim-overlay {
+  1070→            padding: 8px;
+  1071→          }
+  1072→          .pim-panel {
+  1073→            max-width: 100%;
+  1074→            max-height: 88vh;
+  1075→          }
+  1076→          .pim-title {
+  1077→            font-size: 16px;
+  1078→          }
+  1079→          .pim-cover {
+  1080→            width: 80px;
+  1081→            height: 80px;
+  1082→          }
+  1083→          .pim-section {
+  1084→            padding: 12px;
+  1085→          }
+  1086→          .pim-header {
+  1087→            padding: 12px;
+  1088→          }
+  1089→          .pim-overall-progress-pct {
+  1090→            font-size: 18px;
+  1091→          }
+  1092→        }
+  1093→      `}} />
+  1094→    </div>
+  1095→  );
+  1096→}
+  1097→

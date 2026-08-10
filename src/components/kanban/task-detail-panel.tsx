@@ -849,96 +849,32 @@ function TaskForm({ mode, task, boardColor }: { mode: 'create' | 'edit'; task?: 
   };
 
   return (
-    <div className="flex-1 overflow-y-auto tf-panel relative">
-      <style jsx global>{`
-        .tf-panel { position: relative; overflow: hidden; }
-        .tf-grid {
-          position: absolute; inset: 0;
-          background-image:
-            linear-gradient(${hexToRgba(color, 0.025)} 1px, transparent 1px),
-            linear-gradient(90deg, ${hexToRgba(color, 0.025)} 1px, transparent 1px);
-          background-size: 20px 20px;
-          pointer-events: none; z-index: 0;
-        }
-        .tf-scanlines {
-          position: absolute; inset: 0;
-          background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, ${hexToRgba(color, 0.012)} 2px, ${hexToRgba(color, 0.012)} 3px);
-          pointer-events: none; z-index: 1;
-          animation: tf-scan 8s linear infinite;
-        }
-        @keyframes tf-scan { 0% { transform: translateY(0); } 100% { transform: translateY(3px); } }
-        .tf-neon-top {
-          height: 3px; flex-shrink: 0; position: relative; z-index: 2;
-          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
-          animation: tf-pulse 3s ease-in-out infinite;
-        }
-        @keyframes tf-pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
-        .tf-input {
-          background: rgba(8, 8, 16, 0.92);
-          border: 1.5px solid ${hexToRgba(color, 0.3)};
-          color: rgb(226, 232, 240);
-          transition: all 150ms;
-          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-        }
-        .tf-input:focus, .tf-input:focus-visible {
-          outline: none;
-          border-color: #FCEE0A;
-          box-shadow: 0 0 8px rgba(252, 238, 10, 0.2);
-        }
-        .tf-input::placeholder { color: rgb(71, 85, 105); }
-        .tf-label {
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: ${hexToRgba(color, 0.7)};
-          text-shadow: 0 0 4px ${hexToRgba(color, 0.2)};
-        }
-        .tf-select-trigger {
-          background: rgba(8, 8, 16, 0.92) !important;
-          border: 1.5px solid ${hexToRgba(color, 0.3)} !important;
-          clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
-          transition: all 150ms;
-        }
-        .tf-select-trigger:focus, .tf-select-trigger[data-state=open] {
-          border-color: #FCEE0A !important;
-          box-shadow: 0 0 8px rgba(252, 238, 10, 0.2);
-        }
-        .tf-select-content {
-          background: rgba(8, 10, 18, 0.97) !important;
-          border: 1.5px solid ${hexToRgba(color, 0.4)} !important;
-          border-radius: 0 !important;
-          clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
-          box-shadow: 0 0 24px ${hexToRgba(color, 0.15)}, 0 8px 32px rgba(0,0,0,0.6);
-        }
-        .tf-select-item[data-highlighted] {
-          background: ${hexToRgba(color, 0.12)};
-        }
-        .tf-btn-primary {
-          color: #000;
-          background: linear-gradient(135deg, #FCEE0A, #F1F100);
-          box-shadow: 0 0 12px rgba(252, 238, 10, 0.4), inset 0 1px 0 rgba(255,255,255,0.3);
-          clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
-          text-shadow: 0 1px 0 rgba(255,255,255,0.3);
-          transition: all 180ms;
-        }
-        .tf-btn-primary:hover:not(:disabled) {
-          box-shadow: 0 0 20px rgba(252, 238, 10, 0.6), 0 0 32px rgba(252, 238, 10, 0.2);
-          transform: translateY(-1px);
-        }
-        .tf-btn-danger {
-          color: #FF003C;
-          background: rgba(255, 0, 60, 0.08);
-          border: 1.5px solid rgba(255, 0, 60, 0.3);
-          clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
-          transition: all 180ms;
-        }
-        .tf-btn-danger:hover:not(:disabled) {
-          background: rgba(255, 0, 60, 0.15);
-          border-color: rgba(255, 0, 60, 0.6);
-          box-shadow: 0 0 16px rgba(255, 0, 60, 0.3);
-        }
-      `}</style>
+    <div className="flex-1 overflow-y-auto tf-panel relative" style={{
+      '--bc': color,
+      '--bc-012': hexToRgba(color, 0.012),
+      '--bc-02': hexToRgba(color, 0.02),
+      '--bc-025': hexToRgba(color, 0.025),
+      '--bc-04': hexToRgba(color, 0.04),
+      '--bc-05': hexToRgba(color, 0.05),
+      '--bc-08': hexToRgba(color, 0.08),
+      '--bc-1': hexToRgba(color, 0.1),
+      '--bc-12': hexToRgba(color, 0.12),
+      '--bc-15': hexToRgba(color, 0.15),
+      '--bc-18': hexToRgba(color, 0.18),
+      '--bc-2': hexToRgba(color, 0.2),
+      '--bc-22': hexToRgba(color, 0.22),
+      '--bc-25': hexToRgba(color, 0.25),
+      '--bc-3': hexToRgba(color, 0.3),
+      '--bc-35': hexToRgba(color, 0.35),
+      '--bc-4': hexToRgba(color, 0.4),
+      '--bc-45': hexToRgba(color, 0.45),
+      '--bc-5': hexToRgba(color, 0.5),
+      '--bc-55': hexToRgba(color, 0.55),
+      '--bc-6': hexToRgba(color, 0.6),
+      '--bc-65': hexToRgba(color, 0.65),
+      '--bc-7': hexToRgba(color, 0.7),
+      '--bc-8': hexToRgba(color, 0.8),
+    } as React.CSSProperties}>
       <div className="tf-grid" />
       <div className="tf-scanlines" />
       <div className="tf-neon-top" style={{ background: `linear-gradient(90deg, transparent, ${color} 20%, #FCEE0A 50%, ${color} 80%, transparent)` }} />

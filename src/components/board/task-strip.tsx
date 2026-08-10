@@ -145,26 +145,36 @@ export default function TaskStrip() {
     return (
       <div
         className="flex-shrink-0 cursor-pointer select-none ts-panel"
-        style={styles.containerBorder}
+        style={{
+          ...styles.containerBorder,
+          '--bc': c.raw,
+          '--bc-012': hexToRgba(boardColor, 0.012),
+          '--bc-02': hexToRgba(boardColor, 0.02),
+          '--bc-025': hexToRgba(boardColor, 0.025),
+          '--bc-04': c.a04,
+          '--bc-05': hexToRgba(boardColor, 0.05),
+          '--bc-08': c.a08,
+          '--bc-1': c.a1,
+          '--bc-12': c.a12,
+          '--bc-15': c.a15,
+          '--bc-18': c.a18,
+          '--bc-2': c.a2,
+          '--bc-22': c.a22,
+          '--bc-25': c.a25,
+          '--bc-3': c.a3,
+          '--bc-35': c.a35,
+          '--bc-4': c.a4,
+          '--bc-45': c.a45,
+          '--bc-5': c.a5,
+          '--bc-55': c.a55,
+          '--bc-6': c.a6,
+          '--bc-65': c.a65,
+          '--bc-7': c.a7,
+          '--bc-8': c.a8,
+        } as React.CSSProperties}
         onClick={() => setIsCollapsed(false)}
         title="Развернуть список задач"
       >
-        <style jsx global>{`
-          .ts-panel { position: relative; overflow: hidden; }
-          .ts-scanlines {
-            position: absolute; inset: 0;
-            background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0, 229, 255, 0.015) 2px, rgba(0, 229, 255, 0.015) 3px);
-            pointer-events: none; z-index: 1;
-            animation: ts-scan 8s linear infinite;
-          }
-          @keyframes ts-scan { 0% { transform: translateY(0); } 100% { transform: translateY(3px); } }
-          .ts-neon-top {
-            height: 3px; flex-shrink: 0; position: relative; z-index: 2;
-            box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
-            animation: ts-pulse-neon 3s ease-in-out infinite;
-          }
-          @keyframes ts-pulse-neon { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
-        `}</style>
         <div className="ts-scanlines" />
         <div className="ts-neon-top" style={{ background: `linear-gradient(90deg, transparent, ${c.a6} 20%, #FCEE0A 50%, ${c.a6} 80%, transparent)` }} />
         <div className="flex items-center gap-2 px-3 py-1.5 relative z-[2]">
@@ -208,31 +218,33 @@ export default function TaskStrip() {
 
   // ── EXPANDED: full task list ──
   return (
-    <div className="flex-shrink-0 ts-panel" style={styles.containerBorder}>
-      <style jsx global>{`
-        .ts-panel { position: relative; overflow: hidden; }
-        .ts-grid {
-          position: absolute; inset: 0;
-          background-image:
-            linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
-          background-size: 20px 20px;
-          pointer-events: none; z-index: 0;
-        }
-        .ts-scanlines {
-          position: absolute; inset: 0;
-          background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0, 229, 255, 0.015) 2px, rgba(0, 229, 255, 0.015) 3px);
-          pointer-events: none; z-index: 1;
-          animation: ts-scan 8s linear infinite;
-        }
-        @keyframes ts-scan { 0% { transform: translateY(0); } 100% { transform: translateY(3px); } }
-        .ts-neon-top {
-          height: 3px; flex-shrink: 0; position: relative; z-index: 2;
-          box-shadow: 0 0 12px rgba(252, 238, 10, 0.5), 0 0 24px rgba(252, 238, 10, 0.2);
-          animation: ts-pulse-neon 3s ease-in-out infinite;
-        }
-        @keyframes ts-pulse-neon { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
-      `}</style>
+    <div className="flex-shrink-0 ts-panel" style={{
+      ...styles.containerBorder,
+      '--bc': c.raw,
+      '--bc-012': hexToRgba(boardColor, 0.012),
+      '--bc-02': hexToRgba(boardColor, 0.02),
+      '--bc-025': hexToRgba(boardColor, 0.025),
+      '--bc-04': c.a04,
+      '--bc-05': hexToRgba(boardColor, 0.05),
+      '--bc-08': c.a08,
+      '--bc-1': c.a1,
+      '--bc-12': c.a12,
+      '--bc-15': c.a15,
+      '--bc-18': c.a18,
+      '--bc-2': c.a2,
+      '--bc-22': c.a22,
+      '--bc-25': c.a25,
+      '--bc-3': c.a3,
+      '--bc-35': c.a35,
+      '--bc-4': c.a4,
+      '--bc-45': c.a45,
+      '--bc-5': c.a5,
+      '--bc-55': c.a55,
+      '--bc-6': c.a6,
+      '--bc-65': c.a65,
+      '--bc-7': c.a7,
+      '--bc-8': c.a8,
+    } as React.CSSProperties}>
       {/* Scan line overlay */}
       <div className="ts-scanlines" />
       {/* Grid pattern overlay */}
