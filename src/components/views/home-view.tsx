@@ -94,11 +94,24 @@ function NeonCard({
       className={`relative ${onClick ? 'cursor-pointer' : ''} ${className}`}
       style={{
         clipPath: CARD_CLIP,
-        background: CARD_BG,
-        boxShadow: `inset 0 0 0 1px ${hexToRgba(color, hovered ? 0.6 : 0.3)}, 0 0 ${hovered ? 28 : 18}px ${hexToRgba(color, hovered ? 0.22 : glow)}`,
-        transition: 'box-shadow 200ms ease',
+        background: hovered
+          ? `linear-gradient(135deg, ${hexToRgba(color, 0.1)}, rgba(10, 14, 24, 0.95))`
+          : `linear-gradient(135deg, ${hexToRgba(color, 0.04)}, rgba(10, 14, 24, 0.92))`,
+        boxShadow: `inset 0 0 0 1.5px ${hexToRgba(color, hovered ? 0.6 : 0.3)}, 0 0 ${hovered ? 32 : 18}px ${hexToRgba(color, hovered ? 0.25 : glow)}, 0 2px 12px rgba(0,0,0,0.4)`,
+        transition: 'box-shadow 200ms ease, background 200ms ease',
+        transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
       }}
     >
+      {/* Top accent bar */}
+      <div
+        className="absolute left-0 right-0 top-0 h-[2px]"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${color} 30%, ${color} 70%, transparent)`,
+          boxShadow: `0 0 6px ${hexToRgba(color, 0.5)}`,
+          opacity: hovered ? 1 : 0.6,
+          transition: 'opacity 200ms',
+        }}
+      />
       {children}
     </div>
   );
@@ -142,15 +155,24 @@ function EmptyState({
       className="flex flex-col items-center justify-center py-12"
       style={{
         clipPath: CARD_CLIP,
-        background: CARD_BG,
-        boxShadow: `inset 0 0 0 1px ${hexToRgba(color, 0.2)}`,
+        background: `linear-gradient(135deg, ${hexToRgba(color, 0.04)}, rgba(10, 14, 24, 0.9))`,
+        boxShadow: `inset 0 0 0 1.5px ${hexToRgba(color, 0.2)}, 0 0 20px ${hexToRgba(color, 0.06)}`,
       }}
     >
-      <Icon
-        className="mb-3 h-8 w-8"
-        style={{ color: hexToRgba(color, 0.5), filter: `drop-shadow(0 0 6px ${hexToRgba(color, 0.3)})` }}
-      />
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <div
+        className="mb-3 flex h-12 w-12 items-center justify-center"
+        style={{
+          clipPath: BTN_CLIP,
+          background: hexToRgba(color, 0.1),
+          boxShadow: `inset 0 0 0 1px ${hexToRgba(color, 0.3)}`,
+        }}
+      >
+        <Icon
+          className="h-5 w-5"
+          style={{ color: hexToRgba(color, 0.6), filter: `drop-shadow(0 0 6px ${hexToRgba(color, 0.4)})` }}
+        />
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
       {hint && <p className="mt-1 text-[10px] uppercase tracking-wider text-slate-600">{hint}</p>}
     </div>
   );
@@ -626,22 +648,44 @@ function IdeaCard({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="w-64 shrink-0 cursor-pointer p-4"
+      className="relative w-64 shrink-0 cursor-pointer p-4"
       style={{
         clipPath: CARD_CLIP,
-        background: CARD_BG,
-        boxShadow: `inset 0 0 0 1px ${hexToRgba(AMBER, hovered ? 0.6 : 0.3)}, 0 0 ${hovered ? 24 : 16}px ${hexToRgba(AMBER, hovered ? 0.18 : 0.06)}`,
-        transition: 'box-shadow 200ms ease',
+        background: hovered
+          ? `linear-gradient(135deg, ${hexToRgba(AMBER, 0.1)}, rgba(10, 14, 24, 0.95))`
+          : `linear-gradient(135deg, ${hexToRgba(AMBER, 0.04)}, rgba(10, 14, 24, 0.92))`,
+        boxShadow: `inset 0 0 0 1.5px ${hexToRgba(AMBER, hovered ? 0.6 : 0.3)}, 0 0 ${hovered ? 28 : 16}px ${hexToRgba(AMBER, hovered ? 0.2 : 0.06)}, 0 2px 8px rgba(0,0,0,0.3)`,
+        transition: 'box-shadow 200ms ease, background 200ms ease',
+        transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
       }}
     >
+      {/* Top accent bar */}
+      <div
+        className="absolute left-0 right-0 top-0 h-[2px]"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${AMBER} 30%, ${AMBER} 70%, transparent)`,
+          boxShadow: `0 0 6px ${hexToRgba(AMBER, 0.5)}`,
+          opacity: hovered ? 1 : 0.6,
+          transition: 'opacity 200ms',
+        }}
+      />
       <div className="mb-2 flex items-center gap-2">
-        <Lightbulb
-          className="h-3.5 w-3.5"
-          style={{ color: AMBER, filter: `drop-shadow(0 0 4px ${hexToRgba(AMBER, 0.6)})` }}
-        />
+        <div
+          className="flex h-7 w-7 items-center justify-center"
+          style={{
+            clipPath: BTN_CLIP,
+            background: hexToRgba(AMBER, 0.12),
+            boxShadow: `inset 0 0 0 1px ${hexToRgba(AMBER, 0.35)}`,
+          }}
+        >
+          <Lightbulb
+            className="h-3.5 w-3.5"
+            style={{ color: AMBER, filter: `drop-shadow(0 0 4px ${hexToRgba(AMBER, 0.6)})` }}
+          />
+        </div>
         <span
           className="text-[9px] font-bold uppercase tracking-[0.18em]"
-          style={{ color: AMBER }}
+          style={{ color: AMBER, textShadow: `0 0 4px ${hexToRgba(AMBER, 0.3)}` }}
         >
           ИДЕЯ
         </span>
