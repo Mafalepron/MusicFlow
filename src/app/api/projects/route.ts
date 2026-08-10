@@ -8,22 +8,22 @@ const createProjectSchema = z.object({
   groupId: z.string().min(1),
 })
 
-// Autoboard definitions (shared with /api/boards route)
+// Autoboard definitions — each board gets a unique, visually distinct color
 const ALBUM_DEFAULT_BOARDS = [
   { title: 'Треки', boardType: 'tracks', color: '#00d9ff', sortOrder: 0 },
   { title: 'Дизайн', boardType: 'general', color: '#a855f7', sortOrder: 1 },
-  { title: 'Дистрибуция', boardType: 'general', color: '#eab308', sortOrder: 2 },
-  { title: 'Маркетинг', boardType: 'general', color: '#f43f5e', sortOrder: 3 },
-  { title: 'Сведение', boardType: 'general', color: '#ff8c00', sortOrder: 4 },
-  { title: 'Мастеринг', boardType: 'general', color: '#06b6d4', sortOrder: 5 },
-  { title: 'Референсы', boardType: 'general', color: '#00ff88', sortOrder: 6 },
+  { title: 'Дистрибуция', boardType: 'general', color: '#f59e0b', sortOrder: 2 },
+  { title: 'Маркетинг', boardType: 'general', color: '#ec4899', sortOrder: 3 },
+  { title: 'Сведение', boardType: 'general', color: '#ff6b35', sortOrder: 4 },
+  { title: 'Мастеринг', boardType: 'general', color: '#10b981', sortOrder: 5 },
+  { title: 'Референсы', boardType: 'general', color: '#8b5cf6', sortOrder: 6 },
 ]
 
 const SINGLE_DEFAULT_BOARDS = [
   { title: 'Трек', boardType: 'tracks', color: '#00d9ff', sortOrder: 0 },
   { title: 'Обложка', boardType: 'general', color: '#a855f7', sortOrder: 1 },
-  { title: 'Публикация', boardType: 'general', color: '#eab308', sortOrder: 2 },
-  { title: 'Продвижение', boardType: 'general', color: '#f43f5e', sortOrder: 3 },
+  { title: 'Публикация', boardType: 'general', color: '#f59e0b', sortOrder: 2 },
+  { title: 'Продвижение', boardType: 'general', color: '#ec4899', sortOrder: 3 },
 ]
 
 export async function GET(request: NextRequest) {

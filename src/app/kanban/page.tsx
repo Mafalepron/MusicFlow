@@ -126,7 +126,12 @@ function KanbanWorkspace() {
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newBoardColor, setNewBoardColor] = useState('#00d9ff');
-  const BOARD_COLORS = ['#00d9ff', '#ff8c00', '#ff3366', '#00ff88', '#a855f7', '#eab308', '#06b6d4', '#f43f5e'];
+  const BOARD_COLORS = [
+    '#00d9ff', '#ff6b35', '#ec4899', '#10b981', '#a855f7',
+    '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16',
+    '#f97316', '#3b82f6', '#d946ef', '#14b8a6', '#eab308',
+    '#f43f5e', '#22c55e', '#6366f1', '#0ea5e9', '#fb7185',
+  ];
 
   const project = projects.find((p) => p.id === selectedProjectId);
   const selectedBoard = boards.find((b) => b.id === selectedBoardId);

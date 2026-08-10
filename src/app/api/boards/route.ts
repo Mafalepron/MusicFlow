@@ -1,23 +1,46 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
-const BOARD_COLORS = ['#00d9ff', '#ff8c00', '#ff3366', '#00ff88', '#a855f7', '#eab308', '#06b6d4', '#f43f5e'];
+// Large color palette for board creation — 20 visually distinct colors
+const BOARD_COLORS = [
+  '#00d9ff', // cyan
+  '#ff6b35', // orange-red
+  '#ec4899', // pink
+  '#10b981', // emerald
+  '#a855f7', // purple
+  '#f59e0b', // amber
+  '#8b5cf6', // violet
+  '#ef4444', // red
+  '#06b6d4', // teal
+  '#84cc16', // lime
+  '#f97316', // orange
+  '#3b82f6', // blue
+  '#d946ef', // fuchsia
+  '#14b8a6', // teal-green
+  '#eab308', // yellow
+  '#f43f5e', // rose
+  '#22c55e', // green
+  '#6366f1', // indigo
+  '#0ea5e9', // sky
+  '#fb7185', // light rose
+];
 
+// Autoboard definitions — each board gets a unique, visually distinct color
 const ALBUM_DEFAULT_BOARDS = [
   { title: 'Треки',       boardType: 'tracks',     color: '#00d9ff', sortOrder: 0 },
   { title: 'Дизайн',      boardType: 'general',   color: '#a855f7', sortOrder: 1 },
-  { title: 'Дистрибуция', boardType: 'general',   color: '#eab308', sortOrder: 2 },
-  { title: 'Маркетинг',   boardType: 'general',   color: '#f43f5e', sortOrder: 3 },
-  { title: 'Сведение',    boardType: 'general',   color: '#ff8c00', sortOrder: 4 },
-  { title: 'Мастеринг',   boardType: 'general',   color: '#06b6d4', sortOrder: 5 },
-  { title: 'Референсы',   boardType: 'general',   color: '#00ff88', sortOrder: 6 },
+  { title: 'Дистрибуция', boardType: 'general',   color: '#f59e0b', sortOrder: 2 },
+  { title: 'Маркетинг',   boardType: 'general',   color: '#ec4899', sortOrder: 3 },
+  { title: 'Сведение',    boardType: 'general',   color: '#ff6b35', sortOrder: 4 },
+  { title: 'Мастеринг',   boardType: 'general',   color: '#10b981', sortOrder: 5 },
+  { title: 'Референсы',   boardType: 'general',   color: '#8b5cf6', sortOrder: 6 },
 ];
 
 const SINGLE_DEFAULT_BOARDS = [
   { title: 'Трек',         boardType: 'tracks',     color: '#00d9ff', sortOrder: 0 },
   { title: 'Обложка',      boardType: 'general',   color: '#a855f7', sortOrder: 1 },
-  { title: 'Публикация',   boardType: 'general',   color: '#eab308', sortOrder: 2 },
-  { title: 'Продвижение',  boardType: 'general',   color: '#f43f5e', sortOrder: 3 },
+  { title: 'Публикация',   boardType: 'general',   color: '#f59e0b', sortOrder: 2 },
+  { title: 'Продвижение',  boardType: 'general',   color: '#ec4899', sortOrder: 3 },
 ];
 
 export async function GET(req: NextRequest) {

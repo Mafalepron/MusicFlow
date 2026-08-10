@@ -384,7 +384,12 @@ function KanbanWorkspace() {
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [newBoardColor, setNewBoardColor] = useState('#00d9ff');
   const [showProjectInfo, setShowProjectInfo] = useState(false);
-  const BOARD_COLORS = ['#00d9ff', '#ff8c00', '#ff3366', '#00ff88', '#a855f7', '#eab308', '#06b6d4', '#f43f5e'];
+  const BOARD_COLORS = [
+    '#00d9ff', '#ff6b35', '#ec4899', '#10b981', '#a855f7',
+    '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16',
+    '#f97316', '#3b82f6', '#d946ef', '#14b8a6', '#eab308',
+    '#f43f5e', '#22c55e', '#6366f1', '#0ea5e9', '#fb7185',
+  ];
   const onboardingInitRef = useRef<string | null>(null);
 
   const project = projects.find((p) => p.id === selectedProjectId);
@@ -450,13 +455,13 @@ function KanbanWorkspace() {
                   autoFocus
                   className="bg-slate-800/80 border-slate-600/50 text-sm text-slate-200 placeholder:text-slate-500 h-7 w-40 focus:border-slate-500"
                 />
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap max-w-[200px]">
                   {BOARD_COLORS.map((c) => (
                     <button
                       key={c}
                       onClick={() => setNewBoardColor(c)}
                       className={cn(
-                        'w-4 h-4 rounded-full transition-all duration-150 border',
+                        'w-3.5 h-3.5 rounded-full transition-all duration-150 border',
                         newBoardColor === c ? 'border-white scale-125' : 'border-transparent hover:scale-110',
                       )}
                       style={{ backgroundColor: c, boxShadow: newBoardColor === c ? `0 0 8px ${c}80` : 'none' }}
