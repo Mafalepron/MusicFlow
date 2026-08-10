@@ -165,20 +165,40 @@ export function ProjectsView() {
           </div>
           <button
             onClick={() => setDialogOpen(true)}
-            className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200"
+            className="flex items-center gap-1.5 transition-all duration-200"
             style={{
-              padding: '9px 18px',
+              fontSize: '10px',
+              fontWeight: 800,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              padding: '8px 18px',
               color: '#000',
-              background: 'linear-gradient(135deg, #FCEE0A, #F1F100)',
-              borderRadius: '8px',
-              boxShadow: '0 0 12px rgba(252,238,10,0.35)',
+              background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+              border: '1.5px solid rgba(252, 238, 10, 0.9)',
+              clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+              boxShadow: '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
               cursor: 'pointer',
+              textShadow: '0 1px 0 rgba(255,255,255,0.3)',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 18px rgba(252,238,10,0.55)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.35)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget;
+              el.style.color = '#FCEE0A';
+              el.style.border = '1.5px solid #FCEE0A';
+              el.style.boxShadow = '0 0 0 1px rgba(252, 238, 10, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(252, 238, 10, 0.15)';
+              el.style.textShadow = '0 0 8px rgba(252, 238, 10, 0.8), 0 1px 0 rgba(255,255,255,0.3)';
+              el.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget;
+              el.style.color = '#000';
+              el.style.border = '1.5px solid rgba(252, 238, 10, 0.9)';
+              el.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255, 255, 255, 0.4)';
+              el.style.textShadow = '0 1px 0 rgba(255,255,255,0.3)';
+              el.style.transform = 'translateY(0)';
+            }}
           >
-            <Plus className="w-3.5 h-3.5" />
-            Новый проект
+            <Plus className="w-3 h-3" />
+            <span>Новый проект</span>
           </button>
         </div>
 
@@ -217,20 +237,34 @@ export function ProjectsView() {
             <p className="mb-4 text-xs text-slate-600">Создайте первый проект, чтобы начать работу</p>
             <button
               onClick={() => setDialogOpen(true)}
-              className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200"
+              className="flex items-center gap-1.5 transition-all duration-200"
               style={{
-                padding: '9px 18px',
+                fontSize: '10px',
+                fontWeight: 800,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                padding: '8px 18px',
                 color: '#000',
-                background: 'linear-gradient(135deg, #FCEE0A, #F1F100)',
-                borderRadius: '8px',
-                boxShadow: '0 0 12px rgba(252,238,10,0.35)',
+                background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+                border: '1.5px solid rgba(252, 238, 10, 0.9)',
+                clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+                boxShadow: '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
                 cursor: 'pointer',
+                textShadow: '0 1px 0 rgba(255,255,255,0.3)',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 18px rgba(252,238,10,0.55)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.35)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#FCEE0A';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(252,238,10,0.6), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#000';
+                e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
             >
-              <Plus className="w-3.5 h-3.5" />
-              Создать проект
+              <Plus className="w-3 h-3" />
+              <span>Создать проект</span>
             </button>
           </motion.div>
         )}
