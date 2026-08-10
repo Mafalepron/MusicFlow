@@ -1097,3 +1097,38 @@ Stage Summary:
 - All existing functionality preserved: navigation, invite code copy, member count fetch, notification badge, logout, project detail navigation from folders, kanban project navigation from cards.
 - No `<style jsx>` or `dangerouslySetInnerHTML` blocks added. All dynamic colors use inline `style={{...}}` with `hexToRgba()` calls.
 - Lint clean, TSC clean, dev server responds HTTP 200 on `/`.
+
+---
+Task ID: HOME-CREATE-CARDS
+Agent: full-stack-developer
+Task: Add "+" Create cards, "Все" modal, and Quick Access (starred projects) to home-view
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand prior context (cyberpunk SoundFlow music app; navigation store; kanban store; ProjectCard/KanbanCard/IdeaCard patterns already in home-view).
+- Read /home/z/my-project/src/components/views/home-view.tsx (463 lines) — mapped the existing structure: imports (lucide-react, store, kanban-store, utils), palette constants (Y/C/A/G), typeMeta + stHex/stLabel maps, ProjectCard / KanbanCard / IdeaCard / StatPill / SectionHeader components, and HomeView with Auto Projects (filter p.kanbanTaskId), Kanban Projects (GET /api/tasks?parentId=null), Folders, Ideas sections.
+- Read /home/z/my-project/src/components/shared/create-project-dialog.tsx — confirmed CreateProjectDialog takes { open: boolean; onOpenChange: (open) => void } props and handles POST /api/projects + auto-open kanban. So I can drive it from a boolean state in HomeView.
+- Read /home/z/my-project/src/store/kanban-store.ts (Task type) — confirmed Task has id, title, status, projectType, createdAt, soundflowProjectId, children[]. Used children.length as the row's "track count" in the kanban modal.
+- Read /home/z/my-project/src/lib/utils.ts — confirmed hexToRgba(hex, alpha) returns "rgba(r,g,b,a)".
+- Verified lucide-react already exports Plus, Clock; added Star + X to the imports.
+- Made 8 sequential edits to /home/z/my-project/src/components/views/home-view.tsx via MultiEdit:
+  1) Imports: added `Star, X` to lucide-react list; added `import { CreateProjectDialog } from '@/components/shared/create-project-dialog';`
+  2) Added shared `SortMode` type ('date'|'name'|'type') and `ModalItem` interface (id/title/type/status/date/trackCount/onOpen) right after fmtDate.
+  3) Inserted three new components between SectionHeader and HomeView:
+     * CreateCard({onClick,label}) — cyberpunk "+" card: dashed yellow border rgba(252,238,10,0.3) → 0.6 on hover, dark bg rgba(10,14,22,0.5) → yellow tint on hover, large Plus w-8 h-8 in a 12x12 round badge with glow drop-shadow, "Создать" label below. min-height 180px so it visually fits both the 3-col auto grid and 4-col kanban grid.
+     * QuickAccessCard({item,onClick,onUnstar}) — small w-56 horizontal-scroll card with type icon, title, status dot+label, track count, and a filled-yellow Star button (top-right) that calls onUnstar.
+     * AllProjectsModal({open,onClose,mode,items,quickAccess,toggleQuickAccess}) — full-screen overlay (fixed inset-0, dark backdrop rgba(0,0,0,0.7) + blur(8px)) with centered panel (max-w-3xl, max-h-80vh). Panel uses angular clip-path polygon for cyberpunk corners, yellow border rgba(Y,0.5), neon top gradient bar, dark bg rgba(8,10,18,0.98). Header has title (mode === 'auto' ? 'Все проекты' : 'Все канбан-проекты') and an X close button. Sort controls row has 3 buttons (Дата/Название/Тип) that toggle sortMode state with yellow highlight when active, plus a project-count pill on the right. Scrollable list renders items as rows: type icon + title + meta (type label, status dot+label, track count, date) + star toggle (filled yellow when starred, gray when not). Clicking a row calls item.onOpen (which closes the modal and navigates). Star click stops propagation and calls toggleQuickAccess.
+  4) Added 4 new state vars to HomeView: createProjectOpen, allAutoOpen, allKanbanOpen, quickAccess (Set<string>).
+  5) Added useEffect on mount to load `soundflow-quick-access` from localStorage (JSON array) into the quickAccess Set, wrapped in try/catch.
+  6) Added toggleQuickAccess(id) function: updates the Set immutably and persists to localStorage. Added 3 useMemo builders: autoModalItems (from autoProjects, onOpen navigates to project-detail + closes modal), kanbanModalItems (from kanbanProjects, onOpen calls goToKanban + closes modal), quickAccessItems (union of both, filtered by quickAccess.has(id)).
+  7) Added a "Быстрый доступ" section above "Авто проекты" — only renders when quickAccessItems.length > 0. Horizontal scroll of QuickAccessCard items. Section header shows a filled yellow Star + count as the action.
+  8) Replaced both Auto Projects and Kanban Projects section header action buttons to say "Все <ArrowRight>" and call setAllAutoOpen(true) / setAllKanbanOpen(true) respectively (previously navigated away). Removed the empty-state branches since the CreateCard is always rendered first. Inserted <CreateCard onClick={...} label="Создать" /> as the first child of each grid — Auto opens CreateProjectDialog (setCreateProjectOpen(true)), Kanban navigates to kanban view.
+  9) At the end of HomeView's outer div (after the ideas section's closing), added: <CreateProjectDialog open={createProjectOpen} onOpenChange={setCreateProjectOpen} /> and <AnimatePresence> wrapping two conditional AllProjectsModal instances (auto + kanban) for proper enter/exit animations.
+- Ran `bun run lint 2>&1 | grep home-view` → exit 1 (no matches), meaning home-view.tsx has zero lint errors. (Two pre-existing errors in project-chat.tsx:557 and app-header.tsx:132 are unrelated to this task.)
+- Tailed dev.log: home page is rendering successfully — GET /api/tasks?parentId=null returns 200, GET /api/groups/.../members returns 200, GET /api/projects/.../tracks returns 200 for multiple projects. No compile errors.
+
+Stage Summary:
+- HomeView now features a "+" CreateCard at the start of both the Auto Projects grid (opens CreateProjectDialog) and the Kanban Projects grid (navigates to kanban view). The cards have dashed yellow borders, dark backgrounds, glowing Plus icons, and hover effects (border brightens, yellow tint, icon scales 1.1×).
+- Both section header "Все" buttons open an AllProjectsModal overlay (no page navigation). The modal is cyberpunk-styled: angular clip-path corners, neon top gradient, yellow border, dark blur backdrop. Each modal shows a sort toolbar (Дата/Название/Тип) and a scrollable row list with type icon, title, status, track count, date, and a star toggle.
+- Starred projects persist in localStorage under key `soundflow-quick-access` (JSON array of IDs). The home page shows a new "Быстрый доступ" section at the top (only when there are starred items) with horizontal-scroll cards for quick access. Clicking a QuickAccessCard navigates to the project; clicking its star button un-stars it.
+- File grew from 463 → 808 lines (slightly over the 700 soft target, but the 3 new components + state + modal + quick-access section required the additional code; everything is single-purpose and well-named).
+- All existing functionality (ProjectCard, KanbanCard, IdeaCard, StatPill, Folders, Ideas, stats, member count) is preserved.
