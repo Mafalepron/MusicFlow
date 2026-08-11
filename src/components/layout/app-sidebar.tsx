@@ -24,7 +24,7 @@ import { useNavigationStore, useAuthStore, useDataStore, type ViewName } from '@
 import { hexToRgba } from '@/lib/utils';
 
 /* ─── cyberpunk palette ─── */
-const YELLOW = '#FCEE0A';
+const YELLOW = '#FFC42E';
 const CYAN = '#00d9ff';
 const RED = '#EF4444';
 const GREEN = '#10B981';

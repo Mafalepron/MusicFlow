@@ -14,7 +14,7 @@ import { CreateProjectDialog } from '@/components/shared/create-project-dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 /* ─── palette ─── */
-const Y = '#FCEE0A'; // yellow accent
+const Y = '#FFC42E'; // golden sun (was #FFC42E harsh yellow)
 const C = '#00d9ff'; // cyan
 const A = '#f59e0b'; // amber
 const G = '#10b981'; // green
@@ -55,7 +55,7 @@ interface ModalItem {
   onOpen: () => void;
 }
 
-/* ─── Project Card — dark data slab with waveform + hex code + glitch ─── */
+/* ─── Project Card — dark data slab with realistic static waveform ─── */
 function ProjectCard({ project, trackCount, onClick, onKanban }: {
   project: Project; trackCount: number; onClick: () => void; onKanban: () => void;
 }) {
@@ -65,19 +65,17 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
   const sc = stHex[project.status] || '#64748b';
   const sl = stLabel[project.status] || project.status;
   const hasKanban = !!project.kanbanTaskId;
-  // Pseudo-random waveform bars (deterministic from project.id)
+  // Realistic waveform: deterministic pseudo-random heights from project.id
+  // Using a smooth sinusoidal envelope so it looks like a real audio track
   const waveBars = useMemo(() => {
     const seed = project.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    return Array.from({ length: 18 }, (_, i) => 0.2 + ((seed * (i + 5) * 11) % 80) / 100);
-  }, [project.id]);
-  // Hex code data block (deterministic from project.id)
-  const hexBlock = useMemo(() => {
-    const s = project.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    return {
-      addr: '0x' + (s * 0x1A3).toString(16).toUpperCase().padStart(4, '0').slice(0, 4),
-      coord: (s % 0xFF).toString(16).toUpperCase().padStart(2, '0') + ':' + ((s * 7) % 0xFF).toString(16).toUpperCase().padStart(2, '0'),
-      sig: 'SIG:' + ((s * 0x7F) % 0xFFFF).toString(16).toUpperCase().padStart(4, '0'),
-    };
+    return Array.from({ length: 32 }, (_, i) => {
+      // Combine base sinusoid + harmonics + deterministic noise → realistic waveform shape
+      const base = 0.45 + 0.35 * Math.sin((i / 32) * Math.PI * 4 + (seed % 7));
+      const harm = 0.15 * Math.sin((i / 32) * Math.PI * 11 + (seed % 13));
+      const noise = ((seed * (i + 3) * 7) % 23) / 100 - 0.1;
+      return Math.max(0.12, Math.min(0.95, base + harm + noise));
+    });
   }, [project.id]);
 
   return (
@@ -98,17 +96,6 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
         transform: h ? 'translateY(-4px) scale(1.01)' : 'translateY(0)',
       }}
     >
-      {/* ── Scanline distortion overlay (sweeps on hover) ── */}
-      {h && (
-        <div
-          className="absolute inset-x-0 h-2 pointer-events-none z-[3]"
-          style={{
-            background: `linear-gradient(180deg, transparent, ${hexToRgba(t.color, 0.5)}, transparent)`,
-            animation: 'kb3-scanline-sweep 1.4s ease-out',
-          }}
-        />
-      )}
-
       {/* ── Inner beveled frame (recessed screen effect) ── */}
       <div
         className="absolute inset-[3px] pointer-events-none transition-opacity duration-300"
@@ -118,7 +105,6 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
             ? `inset 0 0 0 1px ${hexToRgba(t.color, 0.35)}, inset 0 0 14px ${hexToRgba(t.color, 0.15)}`
             : `inset 0 0 0 1px ${hexToRgba(t.color, 0.15)}`,
           opacity: h ? 1 : 0.5,
-          animation: h ? 'kb3-border-jitter 2.5s ease-in-out infinite' : 'none',
         }}
       />
 
@@ -131,11 +117,11 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
         }}
       />
 
-      {/* Cover strip — with waveform overlay */}
+      {/* Cover strip — with type icon (left) */}
       <div
-        className="h-20 flex items-end justify-between p-3 relative z-[2] overflow-hidden"
+        className="h-16 flex items-center justify-between px-4 relative z-[2] overflow-hidden"
         style={{
-          background: `linear-gradient(135deg, ${hexToRgba(t.color, h ? 0.32 : 0.18)}, ${hexToRgba(t.color, h ? 0.08 : 0.04)})`,
+          background: `linear-gradient(135deg, ${hexToRgba(t.color, h ? 0.28 : 0.16)}, ${hexToRgba(t.color, h ? 0.06 : 0.03)})`,
           borderBottom: `1px solid ${hexToRgba(t.color, 0.12)}`,
         }}
       >
@@ -153,56 +139,66 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
           </div>
           <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
         </div>
-
-        {/* ── Audio waveform visualization (top-right of cover) ── */}
-        <div className="flex items-end gap-[1.5px] h-10 relative z-[2]" style={{ animation: h ? 'kb3-glitch-x 0.3s steps(2) infinite' : 'none' }}>
-          {waveBars.map((v, i) => (
-            <div
-              key={i}
-              style={{
-                width: '2.5px',
-                height: `${Math.round(v * 100)}%`,
-                background: t.color,
-                boxShadow: `0 0 3px ${hexToRgba(t.color, 0.7)}`,
-                transformOrigin: 'bottom',
-                animation: h ? `kb3-wave-bar ${0.6 + (i % 5) * 0.12}s ease-in-out ${(i * 0.04).toFixed(2)}s infinite` : 'none',
-                borderRadius: '0.5px',
-                opacity: h ? 1 : 0.65,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* ── Hex code data block overlay (bottom-right of cover) ── */}
-        <div
-          className="absolute bottom-1 right-2 px-1.5 py-0.5 text-[7px] font-mono leading-tight pointer-events-none"
-          style={{
-            background: 'rgba(0,0,0,0.55)',
-            border: `0.5px solid ${hexToRgba(t.color, 0.4)}`,
-            color: t.color,
-            opacity: 0.7,
-            animation: 'kb3-data-flicker 4s steps(8) infinite',
-            letterSpacing: '0.05em',
-          }}
-        >
-          {hexBlock.addr} {hexBlock.coord}
-        </div>
       </div>
 
       {/* Body */}
       <div className="p-4 relative z-[2]">
-        {/* Title — glitch RGB split on hover */}
+        {/* Title */}
         <h3
-          className="mb-2 text-[15px] font-bold leading-snug"
+          className="mb-2 text-[15px] font-bold leading-snug transition-colors"
           style={{
             color: h ? '#ffffff' : '#e8eaed',
-            fontFamily: 'monospace',
             letterSpacing: '0.01em',
-            animation: h ? 'kb3-rgb-split 1.2s steps(4) infinite' : 'none',
+            textShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.4)}` : 'none',
           }}
         >
           {project.title}
         </h3>
+
+        {/* ── Realistic audio waveform (static, playhead sweeps on hover) ── */}
+        <div className="relative h-12 my-2.5 overflow-hidden" style={{
+          background: 'rgba(0,0,0,0.35)',
+          borderRadius: '2px',
+          border: `0.5px solid ${hexToRgba(t.color, 0.2)}`,
+        }}>
+          {/* Center axis line */}
+          <div className="absolute left-0 right-0 top-1/2 h-px" style={{ background: hexToRgba(t.color, 0.15) }} />
+          {/* Waveform bars — static heights, gentle lift on hover */}
+          <div className="absolute inset-0 flex items-center justify-between px-1">
+            {waveBars.map((v, i) => (
+              <div
+                key={i}
+                className="relative"
+                style={{
+                  width: '2px',
+                  height: `${Math.round(v * 100)}%`,
+                  background: t.color,
+                  opacity: h ? 0.95 : 0.55,
+                  boxShadow: h ? `0 0 2px ${hexToRgba(t.color, 0.6)}` : 'none',
+                  transformOrigin: 'center',
+                  animation: h ? `kb4-bar-lift ${1.6 + (i % 6) * 0.18}s ease-in-out ${(i * 0.06).toFixed(2)}s infinite` : 'none',
+                  transition: 'opacity 200ms',
+                  borderRadius: '0.5px',
+                }}
+              />
+            ))}
+          </div>
+          {/* Playhead sweep — moves left→right→left on hover */}
+          {h && (
+            <div
+              className="absolute inset-y-0 pointer-events-none"
+              style={{
+                width: '36px',
+                background: `linear-gradient(90deg, transparent, ${hexToRgba(t.color, 0.25)} 40%, ${hexToRgba('#ffffff', 0.35)} 50%, ${hexToRgba(t.color, 0.25)} 60%, transparent)`,
+                animation: 'kb4-play-sweep 2.4s ease-in-out infinite',
+                boxShadow: `0 0 8px ${hexToRgba(t.color, 0.5)}`,
+              }}
+            >
+              {/* Playhead line */}
+              <div className="absolute inset-y-0 left-1/2 w-px" style={{ background: '#ffffff', boxShadow: `0 0 6px ${t.color}` }} />
+            </div>
+          )}
+        </div>
 
         {/* Meta row */}
         <div className="flex items-center gap-3 text-[11px]" style={{ color: h ? hexToRgba(t.color, 0.85) : '#7c8aa5', fontFamily: 'monospace' }}>
@@ -214,18 +210,6 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 5px ${hexToRgba(sc, 0.6)}` }} />
             {sl}
           </span>
-        </div>
-
-        {/* ── Hex code data block (full, in body) ── */}
-        <div className="mt-2.5 px-2 py-1.5 text-[8px] font-mono leading-tight" style={{
-          background: 'rgba(0,0,0,0.4)',
-          border: `0.5px solid ${hexToRgba(t.color, 0.3)}`,
-          borderLeft: `1.5px solid ${hexToRgba(t.color, 0.5)}`,
-          color: hexToRgba(t.color, 0.75),
-          letterSpacing: '0.06em',
-        }}>
-          <div>{hexBlock.addr} · {hexBlock.coord} · {hexBlock.sig}</div>
-          <div style={{ opacity: 0.6 }}>TRK:{trackCount.toString().padStart(2, '0')} · STS:{(project.status || 'draft').slice(0, 4).toUpperCase()}</div>
         </div>
 
         {hasKanban && (
@@ -544,8 +528,8 @@ function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number;
             className="flex items-center gap-2 px-3 py-2 transition-all hover:scale-[1.03]"
             style={{
               clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-              background: 'linear-gradient(135deg, #FCEE0A 0%, #F1E100 50%, #FCEE0A 100%)',
-              boxShadow: '0 0 14px rgba(252,238,10,0.5), 0 0 28px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.2)',
+              background: 'linear-gradient(135deg, #FFC42E 0%, #FFB423 50%, #FFC42E 100%)',
+              boxShadow: '0 0 14px rgba(255,196,46,0.5), 0 0 28px rgba(255,196,46,0.2), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.2)',
               borderRight: '1px solid rgba(0,0,0,0.25)',
             }}
           >
@@ -596,11 +580,11 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
         minHeight: '180px',
         clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
         background: h
-          ? 'radial-gradient(circle at center, rgba(252,238,10,0.14), rgba(10,14,22,0.92))'
-          : 'radial-gradient(circle at center, rgba(252,238,10,0.06), rgba(10,14,22,0.7))',
+          ? 'radial-gradient(circle at center, rgba(255,196,46,0.14), rgba(10,14,22,0.92))'
+          : 'radial-gradient(circle at center, rgba(255,196,46,0.06), rgba(10,14,22,0.7))',
         boxShadow: h
-          ? `inset 0 0 0 1.5px rgba(252,238,10,0.6), 0 0 28px rgba(252,238,10,0.25), inset 0 0 22px rgba(252,238,10,0.1)`
-          : `inset 0 0 0 1px rgba(252,238,10,0.25)`,
+          ? `inset 0 0 0 1.5px rgba(255,196,46,0.6), 0 0 28px rgba(255,196,46,0.25), inset 0 0 22px rgba(255,196,46,0.1)`
+          : `inset 0 0 0 1px rgba(255,196,46,0.25)`,
         transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
         cursor: 'pointer',
       }}
@@ -611,8 +595,8 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
         style={{
           opacity: h ? 0.5 : 0.15,
           backgroundImage: `
-            linear-gradient(rgba(252,238,10,0.12) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(252,238,10,0.12) 1px, transparent 1px)
+            linear-gradient(rgba(255,196,46,0.12) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,196,46,0.12) 1px, transparent 1px)
           `,
           backgroundSize: '14px 14px',
         }}
@@ -625,8 +609,8 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
           className="absolute rounded-full pointer-events-none"
           style={{
             width: '88px', height: '88px',
-            border: '1px solid rgba(252,238,10,0.35)',
-            boxShadow: '0 0 14px rgba(252,238,10,0.3)',
+            border: '1px solid rgba(255,196,46,0.35)',
+            boxShadow: '0 0 14px rgba(255,196,46,0.3)',
             opacity: h ? 1 : 0.55,
             transition: 'opacity 280ms',
           }}
@@ -638,10 +622,10 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
             width: '68px', height: '68px',
             top: '50%', left: '50%',
             borderRadius: '50%',
-            border: '1.5px dashed rgba(252,238,10,0.7)',
+            border: '1.5px dashed rgba(255,196,46,0.7)',
             background: 'transparent',
             animation: 'kb2-ring-spin-cw 8s linear infinite',
-            boxShadow: '0 0 12px rgba(252,238,10,0.4)',
+            boxShadow: '0 0 12px rgba(255,196,46,0.4)',
             opacity: h ? 1 : 0.65,
             transition: 'opacity 280ms',
           }}
@@ -653,7 +637,7 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
             width: '52px', height: '52px',
             top: '50%', left: '50%',
             borderRadius: '50%',
-            background: `conic-gradient(from 0deg, transparent 0deg, transparent 15deg, rgba(252,238,10,0.6) 16deg, rgba(252,238,10,0.6) 18deg, transparent 19deg, transparent 45deg, rgba(252,238,10,0.6) 46deg, rgba(252,238,10,0.6) 48deg, transparent 49deg, transparent 90deg, rgba(252,238,10,0.6) 91deg, rgba(252,238,10,0.6) 93deg, transparent 94deg, transparent 135deg, rgba(252,238,10,0.6) 136deg, rgba(252,238,10,0.6) 138deg, transparent 139deg, transparent 180deg, rgba(252,238,10,0.6) 181deg, rgba(252,238,10,0.6) 183deg, transparent 184deg, transparent 225deg, rgba(252,238,10,0.6) 226deg, rgba(252,238,10,0.6) 228deg, transparent 229deg, transparent 270deg, rgba(252,238,10,0.6) 271deg, rgba(252,238,10,0.6) 273deg, transparent 274deg, transparent 315deg, rgba(252,238,10,0.6) 316deg, rgba(252,238,10,0.6) 318deg, transparent 319deg)`,
+            background: `conic-gradient(from 0deg, transparent 0deg, transparent 15deg, rgba(255,196,46,0.6) 16deg, rgba(255,196,46,0.6) 18deg, transparent 19deg, transparent 45deg, rgba(255,196,46,0.6) 46deg, rgba(255,196,46,0.6) 48deg, transparent 49deg, transparent 90deg, rgba(255,196,46,0.6) 91deg, rgba(255,196,46,0.6) 93deg, transparent 94deg, transparent 135deg, rgba(255,196,46,0.6) 136deg, rgba(255,196,46,0.6) 138deg, transparent 139deg, transparent 180deg, rgba(255,196,46,0.6) 181deg, rgba(255,196,46,0.6) 183deg, transparent 184deg, transparent 225deg, rgba(255,196,46,0.6) 226deg, rgba(255,196,46,0.6) 228deg, transparent 229deg, transparent 270deg, rgba(255,196,46,0.6) 271deg, rgba(255,196,46,0.6) 273deg, transparent 274deg, transparent 315deg, rgba(255,196,46,0.6) 316deg, rgba(255,196,46,0.6) 318deg, transparent 319deg)`,
             mask: 'radial-gradient(circle, transparent 22px, #000 23px, #000 25px, transparent 26px)',
             WebkitMask: 'radial-gradient(circle, transparent 22px, #000 23px, #000 25px, transparent 26px)',
             animation: 'kb2-ring-spin-ccw 6s linear infinite',
@@ -666,8 +650,8 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
           className="relative flex items-center justify-center rounded-full"
           style={{
             width: '40px', height: '40px',
-            background: 'linear-gradient(135deg, #FCEE0A 0%, #F1E100 50%, #FCEE0A 100%)',
-            boxShadow: '0 0 18px rgba(252,238,10,0.6), inset 0 1px 0 rgba(255,255,255,0.5)',
+            background: 'linear-gradient(135deg, #FFC42E 0%, #FFB423 50%, #FFC42E 100%)',
+            boxShadow: '0 0 18px rgba(255,196,46,0.6), inset 0 1px 0 rgba(255,255,255,0.5)',
             animation: 'kb2-core-pulse 2.4s ease-in-out infinite',
           }}
         >
@@ -684,8 +668,8 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
       <span
         className="mt-4 text-[11px] font-extrabold uppercase tracking-[0.18em]"
         style={{
-          color: '#FCEE0A',
-          textShadow: '0 0 8px rgba(252,238,10,0.6), 0 0 4px rgba(252,238,10,0.9)',
+          color: '#FFC42E',
+          textShadow: '0 0 8px rgba(255,196,46,0.6), 0 0 4px rgba(255,196,46,0.9)',
           animation: h ? 'kb2-holo-text 1.8s ease-in-out infinite' : 'none',
         }}
       >
@@ -710,10 +694,15 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
   // Segmented dial — 8 segments, filled = priority/total * 8
   const DIAL_SEGS = 8;
   const filledDial = Math.round((priority / Math.max(total, 1)) * DIAL_SEGS);
-  // Audio waveform bars (deterministic pseudo-random based on item.id)
+  // Realistic waveform bars (deterministic from item.id) — smooth sinusoidal shape
   const waveBars = useMemo(() => {
     const seed = item.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    return Array.from({ length: 14 }, (_, i) => 0.25 + ((seed * (i + 3) * 7) % 75) / 100);
+    return Array.from({ length: 24 }, (_, i) => {
+      const base = 0.45 + 0.35 * Math.sin((i / 24) * Math.PI * 4 + (seed % 7));
+      const harm = 0.15 * Math.sin((i / 24) * Math.PI * 11 + (seed % 13));
+      const noise = ((seed * (i + 3) * 7) % 23) / 100 - 0.1;
+      return Math.max(0.12, Math.min(0.95, base + harm + noise));
+    });
   }, [item.id]);
 
   return (
@@ -767,7 +756,7 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
             className="p-0.5 transition-all hover:scale-110"
             title="Убрать из быстрого доступа"
           >
-            <Zap className="w-3 h-3" style={{ color: '#FCEE0A', filter: 'drop-shadow(0 0 3px rgba(252,238,10,0.7))' }} />
+            <Zap className="w-3 h-3" style={{ color: '#FFC42E', filter: 'drop-shadow(0 0 3px rgba(255,196,46,0.7))' }} />
           </button>
         </div>
 
@@ -794,28 +783,38 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
           </span>
         </div>
 
-        {/* ── Audio waveform visualization ── */}
-        <div className="mt-2.5 flex items-end gap-[1.5px] h-6">
-          {waveBars.map((v, i) => (
-            <div
-              key={i}
-              className="flex-1"
-              style={{
+        {/* ── Realistic audio waveform (static, playhead sweeps on hover) ── */}
+        <div className="relative h-8 mt-2.5 overflow-hidden" style={{
+          background: 'rgba(0,0,0,0.35)',
+          borderRadius: '2px',
+          border: `0.5px solid ${hexToRgba(t.color, 0.2)}`,
+        }}>
+          <div className="absolute left-0 right-0 top-1/2 h-px" style={{ background: hexToRgba(t.color, 0.15) }} />
+          <div className="absolute inset-0 flex items-center justify-between px-1">
+            {waveBars.map((v, i) => (
+              <div key={i} style={{
+                width: '1.5px',
                 height: `${Math.round(v * 100)}%`,
-                background: h ? t.color : hexToRgba(t.color, 0.5),
-                boxShadow: h ? `0 0 4px ${hexToRgba(t.color, 0.6)}` : 'none',
-                animation: h ? `kb2-wave ${0.8 + (i % 4) * 0.15}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` : 'none',
-                transformOrigin: 'bottom',
+                background: t.color,
+                opacity: h ? 0.95 : 0.55,
+                boxShadow: h ? `0 0 2px ${hexToRgba(t.color, 0.6)}` : 'none',
+                transformOrigin: 'center',
+                animation: h ? `kb4-bar-lift ${1.6 + (i % 6) * 0.18}s ease-in-out ${(i * 0.06).toFixed(2)}s infinite` : 'none',
+                transition: 'opacity 200ms',
                 borderRadius: '0.5px',
-                transition: 'background 200ms',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* ── Hex code data block (faint, decorative) ── */}
-        <div className="mt-2 text-[8px] font-mono leading-tight" style={{ color: hexToRgba(t.color, 0.35), letterSpacing: '0.05em' }}>
-          0x{(item.id.charCodeAt(0) * 0x1A3).toString(16).toUpperCase().padStart(4, '0').slice(0, 4)} · 0xFF{(item.id.charCodeAt(1) || 65).toString(16).toUpperCase()} · 0x{(priority * 0x1F).toString(16).toUpperCase().padStart(2, '0')}
+              }} />
+            ))}
+          </div>
+          {h && (
+            <div className="absolute inset-y-0 pointer-events-none" style={{
+              width: '28px',
+              background: `linear-gradient(90deg, transparent, ${hexToRgba(t.color, 0.25)} 40%, ${hexToRgba('#ffffff', 0.35)} 50%, ${hexToRgba(t.color, 0.25)} 60%, transparent)`,
+              animation: 'kb4-play-sweep 2.4s ease-in-out infinite',
+              boxShadow: `0 0 8px ${hexToRgba(t.color, 0.5)}`,
+            }}>
+              <div className="absolute inset-y-0 left-1/2 w-px" style={{ background: '#ffffff', boxShadow: `0 0 6px ${t.color}` }} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -849,9 +848,9 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
               className="flex h-5 items-center gap-0.5 pl-1 pr-0.5 transition-all hover:scale-105"
               style={{
                 clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-                background: triggerActive ? '#FCEE0A' : 'rgba(0,0,0,0.55)',
-                boxShadow: `inset 0 0 0 1px ${triggerActive ? 'rgba(252,238,10,0.85)' : 'rgba(252,238,10,0.45)'}, 0 0 8px ${triggerActive ? 'rgba(252,238,10,0.5)' : 'transparent'}`,
-                color: triggerActive ? '#000' : '#FCEE0A',
+                background: triggerActive ? '#FFC42E' : 'rgba(0,0,0,0.55)',
+                boxShadow: `inset 0 0 0 1px ${triggerActive ? 'rgba(255,196,46,0.85)' : 'rgba(255,196,46,0.45)'}, 0 0 8px ${triggerActive ? 'rgba(255,196,46,0.5)' : 'transparent'}`,
+                color: triggerActive ? '#000' : '#FFC42E',
               }}
               title="Сменить позицию"
             >
@@ -865,7 +864,7 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
             className="p-1.5 w-auto min-w-[72px] rounded-none border-0 bg-transparent"
             style={{
               background: 'rgba(8,10,18,0.98)',
-              boxShadow: 'inset 0 0 0 1px rgba(252,238,10,0.4), 0 8px 24px rgba(0,0,0,0.5)',
+              boxShadow: 'inset 0 0 0 1px rgba(255,196,46,0.4), 0 8px 24px rgba(0,0,0,0.5)',
               clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
             }}
             onClick={(e) => e.stopPropagation()}
@@ -881,9 +880,9 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
                     className="flex h-6 w-full items-center justify-center text-[10px] font-bold tabular-nums transition-colors"
                     style={{
                       clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-                      background: active ? 'rgba(252,238,10,0.18)' : 'transparent',
-                      color: active ? '#FCEE0A' : '#94a3b8',
-                      boxShadow: active ? 'inset 0 0 0 1px rgba(252,238,10,0.5)' : 'none',
+                      background: active ? 'rgba(255,196,46,0.18)' : 'transparent',
+                      color: active ? '#FFC42E' : '#94a3b8',
+                      boxShadow: active ? 'inset 0 0 0 1px rgba(255,196,46,0.5)' : 'none',
                     }}
                   >
                     {pos}
@@ -941,14 +940,14 @@ function Carousel({ children }: { children: React.ReactNode }) {
             background: 'rgba(8,10,18,0.85)',
             backdropFilter: 'blur(8px)',
             borderRadius: '50%',
-            border: '1px solid rgba(252,238,10,0.3)',
-            boxShadow: '0 0 16px rgba(252,238,10,0.15)',
-            color: '#FCEE0A',
+            border: '1px solid rgba(255,196,46,0.3)',
+            boxShadow: '0 0 16px rgba(255,196,46,0.15)',
+            color: '#FFC42E',
             cursor: 'pointer',
             opacity: 0.7,
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(252,238,10,0.4)'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.6)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.15)'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(255,196,46,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,196,46,0.6)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(255,196,46,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,196,46,0.3)'; }}
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -975,14 +974,14 @@ function Carousel({ children }: { children: React.ReactNode }) {
             background: 'rgba(8,10,18,0.85)',
             backdropFilter: 'blur(8px)',
             borderRadius: '50%',
-            border: '1px solid rgba(252,238,10,0.3)',
-            boxShadow: '0 0 16px rgba(252,238,10,0.15)',
-            color: '#FCEE0A',
+            border: '1px solid rgba(255,196,46,0.3)',
+            boxShadow: '0 0 16px rgba(255,196,46,0.15)',
+            color: '#FFC42E',
             cursor: 'pointer',
             opacity: 0.7,
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(252,238,10,0.4)'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.6)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.15)'; e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(255,196,46,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,196,46,0.6)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(255,196,46,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,196,46,0.3)'; }}
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -1434,7 +1433,7 @@ export function HomeView() {
         {/* ── Auto Projects — pulsating yellow fractured light-trail panel ── */}
         <section className="mt-8 relative overflow-hidden" style={{
           clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-          background: 'linear-gradient(180deg, rgba(252,238,10,0.10) 0%, rgba(12,16,24,0.95) 40%)',
+          background: 'linear-gradient(180deg, rgba(255,196,46,0.10) 0%, rgba(12,16,24,0.95) 40%)',
           padding: '22px',
         }}>
           {/* ── Multi-layered fractured light-trail border (yellow, pulsating) ── */}
@@ -1442,7 +1441,7 @@ export function HomeView() {
             className="absolute inset-0 pointer-events-none"
             style={{
               padding: '1.5px',
-              background: 'linear-gradient(90deg, rgba(252,238,10,0.8) 0%, rgba(252,238,10,0.15) 12%, rgba(252,238,10,0.8) 22%, rgba(168,85,247,0.5) 50%, rgba(252,238,10,0.8) 78%, rgba(252,238,10,0.15) 88%, rgba(252,238,10,0.8) 100%)',
+              background: 'linear-gradient(90deg, rgba(255,196,46,0.8) 0%, rgba(255,196,46,0.15) 12%, rgba(255,196,46,0.8) 22%, rgba(168,85,247,0.5) 50%, rgba(255,196,46,0.8) 78%, rgba(255,196,46,0.15) 88%, rgba(255,196,46,0.8) 100%)',
               backgroundSize: '200% 100%',
               animation: 'kb2-trail-yellow 7s linear infinite, kb2-pulse-yellow 2.8s ease-in-out infinite',
               WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
@@ -1457,7 +1456,7 @@ export function HomeView() {
             className="absolute inset-[3px] pointer-events-none"
             style={{
               clipPath: 'polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px))',
-              border: '1px solid rgba(252,238,10,0.22)',
+              border: '1px solid rgba(255,196,46,0.22)',
               animation: 'kb2-pulse-yellow 2.8s ease-in-out infinite',
               zIndex: 1,
             }}
@@ -1465,21 +1464,21 @@ export function HomeView() {
 
           {/* Neon top accent — yellow */}
           <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
-            background: 'linear-gradient(90deg, transparent, #FCEE0A 20%, #FCEE0A 80%, transparent)',
-            boxShadow: '0 0 16px rgba(252,238,10,0.7)',
+            background: 'linear-gradient(90deg, transparent, #FFC42E 20%, #FFC42E 80%, transparent)',
+            boxShadow: '0 0 16px rgba(255,196,46,0.7)',
           }} />
           {/* Corner accents — yellow, fractured style */}
-          <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #FCEE0A', borderLeft: '2.5px solid #FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.6)' }} />
-          <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #FCEE0A', borderRight: '2.5px solid #FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.6)' }} />
-          <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #FCEE0A', borderLeft: '2.5px solid #FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.6)' }} />
-          <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #FCEE0A', borderRight: '2.5px solid #FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.6)' }} />
+          <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #FFC42E', borderLeft: '2.5px solid #FFC42E', boxShadow: '0 0 8px rgba(255,196,46,0.6)' }} />
+          <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #FFC42E', borderRight: '2.5px solid #FFC42E', boxShadow: '0 0 8px rgba(255,196,46,0.6)' }} />
+          <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #FFC42E', borderLeft: '2.5px solid #FFC42E', boxShadow: '0 0 8px rgba(255,196,46,0.6)' }} />
+          <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #FFC42E', borderRight: '2.5px solid #FFC42E', boxShadow: '0 0 8px rgba(255,196,46,0.6)' }} />
 
           <div className="relative" style={{ zIndex: 2 }}>
             <SectionHeader
               title="Авто проекты"
               accentColor={Y}
               action={
-                <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105" style={{ color: 'rgba(252,238,10,0.85)', textShadow: '0 0 6px rgba(252,238,10,0.4)' }}>
+                <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105" style={{ color: 'rgba(255,196,46,0.85)', textShadow: '0 0 6px rgba(255,196,46,0.4)' }}>
                   Все <ArrowRight className="w-3 h-3" />
                 </button>
               }

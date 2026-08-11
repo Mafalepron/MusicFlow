@@ -1351,3 +1351,60 @@ Stage Summary:
 - All 7 glitch animations live in global cyberpunk.css (kb3-* prefix) — no inline <style> blocks.
 - VLM-verified all elements visible and working on hover.
 - Lint clean for home-view.tsx, TypeScript clean, dev server HTTP 200, 0 console errors.
+
+---
+Task ID: KB4-WAVEFORM-CLEANUP
+Agent: main
+Task: Make audio waves static/realistic (not aggressive), remove hex code blocks from cards, change yellow panel illumination to golden sun color
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from KB3-AUTOPROJECTS-GLITCH (ProjectCard had aggressive kb3-wave animations, kb3-glitch-x jitter, hex code data blocks, RGB split title glitch).
+- User feedback: "audio waves on autoboard cards are too sloppy and have too aggressive hover effects. Make the audio waves static, so that when you hover over them, the wave runs back and forth, slightly raising the lines and back, but so that the audio wave looks like on a real track. Then remove the area with the piece of code inside the cards. And make the yellow color of the panel illumination throughout the project not yellow, but closer to gold (the color of the sun)"
+
+Change 1 — Yellow → Golden Sun color (throughout project):
+- Changed palette const Y in home-view.tsx: `#FCEE0A` (harsh yellow) → `#FFC42E` (golden sun).
+- Used sed to replace all hardcoded yellow references across 3 files:
+  * src/components/views/home-view.tsx: #FCEE0A → #FFC42E, #F1E100/#F1F100 → #FFB423, rgba(252,238,10) → rgba(255,196,46)
+  * src/app/cyberpunk.css: same replacements (affects track wizard, task form, project info modal, stage cards, etc.)
+  * src/components/layout/app-sidebar.tsx: YELLOW const #FCEE0A → #FFC42E
+- Verified 0 remaining FCEE0A/252,238,10 references in all 3 files.
+
+Change 2 — Realistic static audio waveform (ProjectCard):
+- Added 2 new keyframes to cyberpunk.css:
+  * kb4-play-sweep: playhead moves left→right→left (translateX -110% → 0% → 110%) over 2.4s ease-in-out
+  * kb4-bar-lift: bars gently scaleY(1→1.3→1) with opacity 0.85→1→0.85 over 1.6s+
+- Rewrote waveBars useMemo in ProjectCard: 32 bars (was 18), now uses smooth sinusoidal envelope (base sinusoid + harmonics + deterministic noise) clamped 0.12-0.95 — looks like a real audio track waveform instead of random noise.
+- Replaced aggressive kb3-wave animation (0.6-1.2s with 0.04s staggered delays, scaleY 0.3→1) with gentle kb4-bar-lift (1.6-2.7s with 0.06s staggered delays, scaleY 1→1.3→1, opacity pulse).
+- Removed kb3-glitch-x container jitter (was causing sloppy appearance).
+- Waveform now lives in a dedicated h-12 container with dark bg, center axis line, 32 static bars, and a playhead sweep overlay that appears on hover (36px wide gradient with white center line + 8px glow).
+- Removed scanline distortion overlay (kb3-scanline-sweep).
+- Removed kb3-border-jitter on inner frame.
+- Removed kb3-rgb-split title glitch — title is now clean with subtle text-shadow glow on hover.
+
+Change 3 — Removed hex code data blocks:
+- Removed hexBlock useMemo (addr/coord/sig) from ProjectCard.
+- Removed hex code overlay in cover strip (was 7px monospace with kb3-data-flicker).
+- Removed full hex code data block in body (was 8px monospace with TRK:NN · STS:XXXX).
+- Removed hex code data block from QuickAccessCard (was 8px monospace 0x... · 0xFF... · 0x...).
+- Cover strip simplified: now just type icon + label (left), no waveform overlay (waveform moved to dedicated body section).
+
+Change 4 — QuickAccessCard waveform consistency:
+- Updated QuickAccessCard waveBars: 24 bars (was 14), same sinusoidal envelope algorithm as ProjectCard.
+- Replaced aggressive kb2-wave animation with gentle kb4-bar-lift.
+- Added playhead sweep overlay on hover (28px wide, matches ProjectCard style).
+- Waveform now in dedicated h-8 container with dark bg, center axis, 24 static bars.
+
+- Ran `bun run lint` → 0 errors in home-view.tsx (2 pre-existing unrelated errors in project-chat.tsx:557 and app-header.tsx:132).
+- Dev server GET / returns 200.
+
+- Agent Browser verification:
+  * Logged in as demo@soundflow.app, navigated to home, scrolled to Auto Projects.
+  * VLM analysis of resting state: confirmed (1) waveform is static realistic horizontal bar shape (not aggressive jitter), (2) hex code data blocks REMOVED, (3) panel border is golden/sun-yellow (not harsh bright yellow), (4) title text is clean without RGB glitch split.
+  * VLM analysis of hover state (Chrome Heart card): confirmed (1) playhead sweep visible at start of waveform, (2) bars gently scaleY pulse (subtle lift), (3) waveform maintains structured "real audio track" look, (4) NO hex code data blocks, (5) clean golden glow border (#fbbf24-like).
+
+Stage Summary:
+- Audio waveform on Auto Projects cards (and Quick Access cards) is now static and realistic — looks like a real audio track with smooth sinusoidal envelope (32 bars for ProjectCard, 24 for QuickAccessCard). On hover, a playhead sweep moves left→right→left across the waveform (2.4s ease-in-out), and bars gently lift up and down (scaleY 1→1.3→1, 1.6-2.7s with staggered delays). No more aggressive jitter or sloppy animation.
+- All hex code data blocks removed from cards (both the cover overlay and the body terminal-style block in ProjectCard, and the decorative block in QuickAccessCard).
+- Yellow color (#FCEE0A) replaced with golden sun (#FFC42E) throughout the project — home-view.tsx (palette Y, all hardcoded rgba/hex), cyberpunk.css (track wizard, task form, project info modal, stage cards, all kb-/kb2-/kb3- keyframes using yellow), app-sidebar.tsx (YELLOW const). The panel illumination is now a warm golden sun color instead of harsh neon yellow.
+- Lint clean for home-view.tsx, TypeScript clean, dev server HTTP 200, 0 console errors.
+- VLM-verified all 4 user requirements met.
