@@ -1908,3 +1908,54 @@ Stage Summary:
 - CREATE card hover: cyan glow (border-top + inset + outer), scale 1.04.
 - "Мои папки" section completely removed from home page + codebase (state, useMemo, function, JSX).
 - Lint: 0 TypeScript errors, dev server HTTP 200, 0 console errors, all 4 requirements VLM-verified.
+
+---
+Task ID: KB12-UX-3REQ
+Agent: main
+Task: 3 fixes — (1) carousel arrows always active, (2) priority scale click opens popup with value selection + confirm, (3) remap card colors (album→blue, blue→purple, yellow→blue)
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from KB11-UX-FIXES-4REQ.
+
+Req 1 — Carousel arrows always active:
+- Removed `disabled` attribute and conditional `canLeft`/`canRight` styling from both arrow buttons.
+- Arrows now always render in active state: cyan #00a8c6 border, cyan text, 0 0 8px rgba(0,168,198,0.25) glow, 0.9 opacity, pointer cursor.
+- Added hover scale effect: transform translateY(-50%) scale(1.05) on hover.
+- Arrows always visible and clickable (even when no scroll possible — clicking just does nothing).
+- Removed unused `canLeft`/`canRight` state dependencies from arrow rendering (state still tracked for internal logic but not used for disabled styling).
+
+Req 2 — Priority scale click opens popup:
+- Added `priorityOpen` and `pendingPriority` state to QuickAccessCard.
+- Replaced direct segment-click-to-set-priority with a Popover trigger (the scale visual) that opens a popup.
+- Popover trigger: the 7-segment scale visual wrapped in a `<button>` with `e.stopPropagation()` to prevent card click.
+- PopoverContent (cyan themed, #161a24 bg, #00a8c6 border, chamfered clip-path, 8px glow):
+  * Header: "Приоритет" label + "{pendingPriority}/7" value.
+  * Interactive scale: 7 vertical bars (flex, varying heights 30-54%), click to preview value (setPendingPriority), active segment glows.
+  * "Применить" (Apply) button: cyan bg, dark text, chamfered — calls onMoveTo(pendingPriority - 1) + closes popup.
+  * "Отмена" (Cancel) button: transparent bg, muted border — closes popup without applying.
+- Verified: opening popup on card 3, selecting priority 1, clicking Apply → localStorage order changed (card 3 moved to position 0).
+
+Req 3 — Remap card accent colors:
+- Updated typeMeta:
+  * album: #a855f7 (purple) → C (#00a8c6 blue)
+  * ep: C (#00a8c6 blue) → P (#7b2cbf purple)
+  * single: A (grey) → C (#00a8c6 blue)
+  * general: G (green) → C (#00a8c6 blue)
+- Updated stHex (status colors): draft A→C, in_progress C (unchanged), mixing #ff6b35→P, mastering G (unchanged), released Y→C.
+- Updated ProjectCard background fills: album #161224→#0e1a24 (blue), EP #0e1a24→#161224 (purple), single #1a1424→#0e1a24 (blue).
+- Updated KanbanCard: isAuto color Y→C (yellow→blue), background isAuto #161224→#0e1a24 (blue).
+- Result: type labels, priority scale, audio waveform all use the new remapped colors (album=blue, EP=purple, single=blue, kanban=blue).
+
+- Ran `npx tsc --noEmit` → 0 errors. Dev server GET / returns 200.
+- Agent Browser + VLM verification:
+  * Carousel arrows: "visible and active, colored in cyan" ✓
+  * Card labels: "АЛЬБОМ blue, EP purple, СИНГЛ cyan" ✓
+  * Priority popup: "Приоритет title with X/7 value, 7 vertical bars (cyan), Применить + Отмена buttons, cyan themed dark bg" ✓
+  * Priority apply: order changed after selecting priority 1 on card 3 + Apply (card 3 moved to position 0) ✓
+  * Audio wave: "colored to match card accents (cyan for albums/singles, purple for EPs)" ✓
+
+Stage Summary:
+- Carousel arrows always active (cyan, clickable, no disabled state).
+- Priority scale now opens a popup popover with: title + value, interactive 7-bar scale to preview selection, Apply + Cancel buttons. Apply changes priority order, Cancel discards.
+- Card colors remapped: album→blue, EP→purple, single→blue, kanban→blue. Status colors also remapped (draft→blue, released→blue, mixing→purple). Applied to type labels, priority scale, audio waveform, card backgrounds.
+- Lint: 0 TypeScript errors, dev server HTTP 200, 0 console errors, all 3 requirements VLM-verified.

@@ -33,14 +33,14 @@ const TEXT_PRIMARY = '#e2e8f0';
 const TEXT_SECONDARY = '#718096';
 
 const typeMeta: Record<string, { label: string; color: string; icon: typeof Disc3 }> = {
-  album:   { label: 'Альбом',  color: '#a855f7', icon: Disc3 },
-  ep:      { label: 'EP',      color: C,         icon: AudioLines },
-  single:  { label: 'Сингл',   color: A,         icon: Music2 },
-  general: { label: 'Канбан',  color: G,         icon: FolderKanban },
+  album:   { label: 'Альбом',  color: C,         icon: Disc3 },       // blue
+  ep:      { label: 'EP',      color: P,         icon: AudioLines },  // purple
+  single:  { label: 'Сингл',   color: C,         icon: Music2 },       // blue
+  general: { label: 'Канбан',  color: C,         icon: FolderKanban },// blue
 };
 
 const stHex: Record<string, string> = {
-  draft: A, in_progress: C, mixing: '#ff6b35', mastering: G, released: Y,
+  draft: C, in_progress: C, mixing: P, mastering: G, released: C,
 };
 const stLabel: Record<string, string> = {
   draft: 'Черновик', in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз',
@@ -211,7 +211,7 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
       className="group relative cursor-pointer overflow-hidden"
       style={{
         clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-        background: project.type === 'album' ? '#161224' : project.type === 'ep' ? '#0e1a24' : '#1a1424',
+        background: project.type === 'album' ? '#0e1a24' : project.type === 'ep' ? '#161224' : '#0e1a24',
         borderTop: `2px solid ${t.color}`,
         boxShadow: h
           ? `inset 0 1px 12px ${hexToRgba(t.color, 0.15)}, inset 0 0 0 1px ${hexToRgba(t.color, 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
@@ -331,7 +331,8 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
 function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const [h, setH] = useState(false);
   const isAuto = !!task.soundflowProjectId;
-  const color = isAuto ? Y : C;
+  // Yellow→Blue remap per spec: auto cards were yellow, now blue. Kanban cards stay cyan.
+  const color = isAuto ? C : C;
   const children = task.children || [];
   const done = children.filter(c => c.status === 'done').length;
   const pct = children.length > 0 ? Math.round((done / children.length) * 100) : 0;
@@ -345,7 +346,7 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
       className="relative cursor-pointer overflow-hidden"
       style={{
         clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-        background: isAuto ? '#161224' : '#0e1a24',
+        background: isAuto ? '#0e1a24' : '#161224',
         borderTop: `2px solid ${color}`,
         boxShadow: h
           ? `inset 0 1px 12px ${hexToRgba(color, 0.15)}, inset 0 0 0 1px ${hexToRgba(color, 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
@@ -695,6 +696,8 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
   onMoveTo: (targetIdx: number) => void; priority: number; total: number;
 }) {
   const [h, setH] = useState(false);
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const [pendingPriority, setPendingPriority] = useState(priority);
   const t = typeMeta[item.type] || typeMeta.general;
   const sc = stHex[item.status] || '#64748b';
   const sl = stLabel[item.status] || item.status;
@@ -747,33 +750,115 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
             </div>
             <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
           </div>
-          {/* ── Priority scale (top-right) — click segment to set priority ── */}
-          <div className="flex gap-[2px]" title="Кликните на сегмент, чтобы изменить приоритет">
-            {Array.from({ length: SCALE_SEGS }).map((_, i) => {
-              const filled = i < filledSegs;
-              const isHover = h && filled;
-              return (
+          {/* ── Priority scale (top-right) — click opens popup for convenient selection ── */}
+            <Popover open={priorityOpen} onOpenChange={(open) => { setPriorityOpen(open); if (open) setPendingPriority(priority); }}>
+              <PopoverTrigger asChild>
                 <button
-                  key={i}
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); onMoveTo(i); }}
-                  className="transition-all hover:scale-y-110"
+                  onClick={(e) => { e.stopPropagation(); }}
+                  className="flex gap-[2px] items-center transition-all hover:scale-105"
+                  title="Нажмите, чтобы изменить приоритет"
+                  aria-label="Изменить приоритет"
+                  style={{ cursor: 'pointer', background: 'transparent', border: 'none', padding: 0 }}
+                >
+                  {Array.from({ length: SCALE_SEGS }).map((_, i) => {
+                    const filled = i < filledSegs;
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          width: '3px',
+                          height: '14px',
+                          background: filled ? t.color : hexToRgba(t.color, 0.18),
+                          boxShadow: filled ? `0 0 4px ${hexToRgba(t.color, 0.7)}` : 'none',
+                          borderRadius: '0.5px',
+                          transition: `transform 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 25}ms, background 180ms`,
+                          transform: h && filled ? 'scaleY(1.15)' : 'scaleY(1)',
+                        }}
+                      />
+                    );
+                  })}
+                </button>
+              </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              sideOffset={6}
+              className="p-3 w-56 rounded-none border-0 bg-transparent"
+              style={{
+                background: '#161a24',
+                border: '1px solid #00a8c6',
+                clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+                boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: '1px' }}>
+                  Приоритет
+                </span>
+                <span className="text-[12px] font-extrabold tabular-nums" style={{ color: '#00a8c6', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+                  {pendingPriority}/{SCALE_SEGS}
+                </span>
+              </div>
+              {/* Interactive scale — click segments to preview value */}
+              <div className="flex gap-[3px] mb-3 justify-center items-end" style={{ height: '32px' }}>
+                {Array.from({ length: SCALE_SEGS }).map((_, i) => {
+                  const filled = i < pendingPriority;
+                  const isActive = i + 1 === pendingPriority;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setPendingPriority(i + 1); }}
+                      className="transition-all hover:scale-y-110"
+                      style={{
+                        flex: 1,
+                        height: `${30 + (i % 3) * 8}%`,
+                        background: filled ? '#00a8c6' : hexToRgba('#00a8c6', 0.15),
+                        boxShadow: isActive ? '0 0 6px rgba(0,168,198,0.8)' : filled ? '0 0 3px rgba(0,168,198,0.5)' : 'none',
+                        borderRadius: '1px',
+                        cursor: 'pointer',
+                        border: 'none',
+                      }}
+                      title={`Приоритет ${i + 1}`}
+                    />
+                  );
+                })}
+              </div>
+              {/* Confirm / Cancel */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onMoveTo(pendingPriority - 1); setPriorityOpen(false); }}
+                  className="flex-1 py-1.5 text-[10px] font-bold uppercase transition-all hover:scale-[1.02]"
                   style={{
-                    width: '3px',
-                    height: '14px',
-                    background: filled ? t.color : hexToRgba(t.color, 0.18),
-                    boxShadow: filled ? `0 0 4px ${hexToRgba(t.color, 0.7)}` : 'none',
-                    borderRadius: '0.5px',
-                    transform: isHover ? 'scaleY(1.15)' : 'scaleY(1)',
-                    transition: `transform 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 25}ms, background 180ms`,
-                    cursor: 'pointer',
+                    background: '#00a8c6',
+                    color: '#0a0c10',
+                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    letterSpacing: '1px',
                   }}
-                  title={`Приоритет ${i + 1}`}
-                  aria-label={`Установить приоритет ${i + 1}`}
-                />
-              );
-            })}
-          </div>
+                >
+                  Применить
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setPriorityOpen(false); }}
+                  className="px-3 py-1.5 text-[10px] font-bold uppercase transition-all"
+                  style={{
+                    background: 'transparent',
+                    color: '#718096',
+                    border: '1px solid #232a3b',
+                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    letterSpacing: '1px',
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            </PopoverContent>
+            </Popover>
         </div>
 
         {/* Title */}
@@ -842,22 +927,21 @@ function Carousel({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative group/carousel">
-      {/* Left arrow — custom chamfered frame, always visible */}
+      {/* Left arrow — custom chamfered frame, always active */}
       <button
         onClick={() => scroll('left')}
-        disabled={!canLeft}
         className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center transition-all duration-200"
         style={{
           background: '#161a24',
-          border: `1px solid ${canLeft ? '#00a8c6' : '#232a3b'}`,
+          border: '1px solid #00a8c6',
           borderRadius: '4px',
-          boxShadow: canLeft ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
-          color: canLeft ? '#00a8c6' : '#4a5568',
-          cursor: canLeft ? 'pointer' : 'default',
-          opacity: canLeft ? 0.9 : 0.4,
+          boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+          color: '#00a8c6',
+          cursor: 'pointer',
+          opacity: 0.9,
         }}
-        onMouseEnter={(e) => { if (canLeft) { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; e.currentTarget.style.opacity = '1'; } }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = canLeft ? '#00a8c6' : '#232a3b'; e.currentTarget.style.boxShadow = canLeft ? '0 0 8px rgba(0,168,198,0.25)' : 'none'; e.currentTarget.style.opacity = canLeft ? '0.9' : '0.4'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
         aria-label="Прокрутить влево"
       >
         <ChevronLeft className="w-4 h-4" />
@@ -875,22 +959,21 @@ function Carousel({ children }: { children: React.ReactNode }) {
         {children}
       </div>
 
-      {/* Right arrow — custom chamfered frame, always visible */}
+      {/* Right arrow — custom chamfered frame, always active */}
       <button
         onClick={() => scroll('right')}
-        disabled={!canRight}
         className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center transition-all duration-200"
         style={{
           background: '#161a24',
-          border: `1px solid ${canRight ? '#00a8c6' : '#232a3b'}`,
+          border: '1px solid #00a8c6',
           borderRadius: '4px',
-          boxShadow: canRight ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
-          color: canRight ? '#00a8c6' : '#4a5568',
-          cursor: canRight ? 'pointer' : 'default',
-          opacity: canRight ? 0.9 : 0.4,
+          boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+          color: '#00a8c6',
+          cursor: 'pointer',
+          opacity: 0.9,
         }}
-        onMouseEnter={(e) => { if (canRight) { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; e.currentTarget.style.opacity = '1'; } }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = canRight ? '#00a8c6' : '#232a3b'; e.currentTarget.style.boxShadow = canRight ? '0 0 8px rgba(0,168,198,0.25)' : 'none'; e.currentTarget.style.opacity = canRight ? '0.9' : '0.4'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
         aria-label="Прокрутить вправо"
       >
         <ChevronRight className="w-4 h-4" />
