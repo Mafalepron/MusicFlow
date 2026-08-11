@@ -305,9 +305,9 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
 }
 
 /* ─── Quick Access Card — cyberpunk 2077 style with priority ─── */
-function QuickAccessCard({ item, onClick, onUnstar, onMoveUp, onMoveDown, priority, isFirst, isLast }: {
+function QuickAccessCard({ item, onClick, onUnstar, onMoveLeft, onMoveRight, priority, isFirst, isLast }: {
   item: ModalItem; onClick: () => void; onUnstar: () => void;
-  onMoveUp: () => void; onMoveDown: () => void; priority: number; isFirst: boolean; isLast: boolean;
+  onMoveLeft: () => void; onMoveRight: () => void; priority: number; isFirst: boolean; isLast: boolean;
 }) {
   const [h, setH] = useState(false);
   const t = typeMeta[item.type] || typeMeta.general;
@@ -333,56 +333,6 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveUp, onMoveDown, priori
         transform: h ? 'translateY(-3px)' : 'none',
       }}
     >
-      {/* Priority number badge — top left, cyberpunk style */}
-      <div
-        className="absolute top-2 left-2 z-10 flex h-5 w-5 items-center justify-center"
-        style={{
-          clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-          background: h ? '#FCEE0A' : 'rgba(252,238,10,0.15)',
-          border: `1px solid ${h ? 'rgba(252,238,10,0.8)' : 'rgba(252,238,10,0.3)'}`,
-        }}
-      >
-        <span className="text-[9px] font-extrabold tabular-nums" style={{ color: h ? '#000' : '#FCEE0A' }}>
-          {priority}
-        </span>
-      </div>
-
-      {/* Priority controls — appear on hover */}
-      <div className={`absolute top-2 right-2 z-10 flex flex-col gap-0.5 transition-opacity duration-150 ${h ? 'opacity-100' : 'opacity-0'}`}>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); if (!isFirst) onMoveUp(); }}
-          disabled={isFirst}
-          className="flex h-5 w-5 items-center justify-center transition-all disabled:opacity-20"
-          style={{
-            clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
-            background: 'rgba(0,0,0,0.5)',
-            border: '1px solid rgba(252,238,10,0.3)',
-            color: '#FCEE0A',
-            cursor: isFirst ? 'default' : 'pointer',
-          }}
-          title="Выше приоритет"
-        >
-          <ArrowUp className="w-2.5 h-2.5" />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); if (!isLast) onMoveDown(); }}
-          disabled={isLast}
-          className="flex h-5 w-5 items-center justify-center transition-all disabled:opacity-20"
-          style={{
-            clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
-            background: 'rgba(0,0,0,0.5)',
-            border: '1px solid rgba(252,238,10,0.3)',
-            color: '#FCEE0A',
-            cursor: isLast ? 'default' : 'pointer',
-          }}
-          title="Ниже приоритет"
-        >
-          <ArrowDown className="w-2.5 h-2.5" />
-        </button>
-      </div>
-
       {/* Top accent strip — color gradient */}
       <div
         className="h-1 w-full"
@@ -394,7 +344,7 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveUp, onMoveDown, priori
 
       {/* Body */}
       <div className="p-3 pt-3.5">
-        {/* Type icon + unstar */}
+        {/* Type icon + unstar (Pin icon) */}
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <div
@@ -415,7 +365,7 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveUp, onMoveDown, priori
             className="p-0.5 transition-all hover:scale-110"
             title="Убрать из быстрого доступа"
           >
-            <Star className="w-3 h-3" style={{ color: '#FCEE0A', fill: '#FCEE0A' }} />
+            <Zap className="w-3 h-3" style={{ color: '#FCEE0A' }} />
           </button>
         </div>
 
@@ -436,6 +386,56 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveUp, onMoveDown, priori
             {item.trackCount}
           </span>
         </div>
+      </div>
+
+      {/* Priority number — bottom right corner */}
+      <div
+        className="absolute bottom-2 right-2 z-10 flex h-5 w-5 items-center justify-center"
+        style={{
+          clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+          background: h ? '#FCEE0A' : 'rgba(252,238,10,0.12)',
+          border: `1px solid ${h ? 'rgba(252,238,10,0.8)' : 'rgba(252,238,10,0.3)'}`,
+        }}
+      >
+        <span className="text-[9px] font-extrabold tabular-nums" style={{ color: h ? '#000' : '#FCEE0A' }}>
+          {priority}
+        </span>
+      </div>
+
+      {/* Priority controls — horizontal, bottom left, appear on hover */}
+      <div className={`absolute bottom-2 left-2 z-10 flex gap-0.5 transition-opacity duration-150 ${h ? 'opacity-100' : 'opacity-0'}`}>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); if (!isFirst) onMoveLeft(); }}
+          disabled={isFirst}
+          className="flex h-5 w-5 items-center justify-center transition-all disabled:opacity-20"
+          style={{
+            clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
+            background: 'rgba(0,0,0,0.5)',
+            border: '1px solid rgba(252,238,10,0.3)',
+            color: '#FCEE0A',
+            cursor: isFirst ? 'default' : 'pointer',
+          }}
+          title="Влево (выше приоритет)"
+        >
+          <ChevronLeft className="w-3 h-3" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); if (!isLast) onMoveRight(); }}
+          disabled={isLast}
+          className="flex h-5 w-5 items-center justify-center transition-all disabled:opacity-20"
+          style={{
+            clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
+            background: 'rgba(0,0,0,0.5)',
+            border: '1px solid rgba(252,238,10,0.3)',
+            color: '#FCEE0A',
+            cursor: isLast ? 'default' : 'pointer',
+          }}
+          title="Вправо (ниже приоритет)"
+        >
+          <ChevronRight className="w-3 h-3" />
+        </button>
       </div>
     </div>
   );
@@ -824,10 +824,10 @@ export function HomeView() {
         {quickAccessItems.length > 0 && (
           <section className="mt-8 relative overflow-hidden" style={{
             clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
-            background: 'linear-gradient(135deg, rgba(252,238,10,0.08), rgba(10,14,22,0.9))',
-            border: '1px solid rgba(252,238,10,0.2)',
+            background: 'linear-gradient(180deg, rgba(252,238,10,0.15) 0%, rgba(18,22,30,0.95) 40%)',
+            border: '1px solid rgba(252,238,10,0.25)',
             padding: '20px',
-            boxShadow: '0 0 40px rgba(252,238,10,0.06), inset 0 0 0 1px rgba(252,238,10,0.03)',
+            boxShadow: '0 0 40px rgba(252,238,10,0.08)',
           }}>
             {/* Neon top bar — yellow */}
             <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
@@ -842,18 +842,17 @@ export function HomeView() {
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center" style={{
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  background: 'rgba(252,238,10,0.12)',
-                  border: '1px solid rgba(252,238,10,0.3)',
+                  background: 'rgba(252,238,10,0.15)',
+                  border: '1px solid rgba(252,238,10,0.4)',
                 }}>
-                  <Flame className="w-3.5 h-3.5" style={{ color: '#FCEE0A' }} />
+                  <Zap className="w-3.5 h-3.5" style={{ color: '#FCEE0A' }} />
                 </div>
                 <h2 className="text-sm font-bold uppercase tracking-[0.12em]" style={{ color: '#FCEE0A', textShadow: '0 0 8px rgba(252,238,10,0.3)' }}>
                   Быстрый доступ
                 </h2>
               </div>
-              <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#FCEE0A' }}>
-                <Star className="w-3 h-3" style={{ color: '#FCEE0A', fill: '#FCEE0A' }} />
-                {quickAccessItems.length}
+              <span className="text-[11px] font-medium" style={{ color: '#FCEE0A' }}>
+                {quickAccessItems.length} активных
               </span>
             </div>
 
@@ -864,8 +863,8 @@ export function HomeView() {
                   item={item}
                   onClick={item.onOpen}
                   onUnstar={() => toggleQuickAccess(item.id)}
-                  onMoveUp={() => moveQuickAccess(item.id, 'up')}
-                  onMoveDown={() => moveQuickAccess(item.id, 'down')}
+                  onMoveLeft={() => moveQuickAccess(item.id, 'up')}
+                  onMoveRight={() => moveQuickAccess(item.id, 'down')}
                   priority={idx + 1}
                   isFirst={idx === 0}
                   isLast={idx === quickAccessItems.length - 1}
