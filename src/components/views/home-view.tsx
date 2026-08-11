@@ -60,7 +60,125 @@ interface ModalItem {
   onOpen: () => void;
 }
 
-/* ─── Project Card — dark data slab with realistic static waveform ─── */
+/* ─── Waveform Progress Bar — reusable animated audio waveform ─── */
+/* progress: 0-100 (completion %). accentColor: hex color.              */
+/* On hover: playhead sweeps 0%→progress%, filled bars equalize-bounce.  */
+/* 0% edge case: waveform stays static + dim, no animation triggers.     */
+function WaveformProgressBar({ progress, accentColor, height = 40, bars: barCount = 32 }: {
+  progress: number;
+  accentColor: string;
+  height?: number;
+  bars?: number;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [h, setH] = useState(false);
+  // Clamp + normalize
+  const pct = Math.max(0, Math.min(100, Math.round(progress)));
+  const hasProgress = pct > 0;
+  // Deterministic waveform shape (pseudo-random from accentColor + bars count for stability)
+  const waveBars = useMemo(() => {
+    const seed = accentColor.split('').reduce((a, c) => a + c.charCodeAt(0), 0) + barCount * 17;
+    return Array.from({ length: barCount }, (_, i) => {
+      const base = 0.45 + 0.35 * Math.sin((i / barCount) * Math.PI * 4 + (seed % 7));
+      const harm = 0.15 * Math.sin((i / barCount) * Math.PI * 11 + (seed % 13));
+      const noise = ((seed * (i + 3) * 7) % 23) / 100 - 0.1;
+      return Math.max(0.15, Math.min(0.95, base + harm + noise));
+    });
+  }, [accentColor, barCount]);
+
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{
+        height: `${height}px`,
+        background: 'rgba(0,0,0,0.4)',
+        borderRadius: '2px',
+        border: `0.5px solid ${hexToRgba(accentColor, 0.2)}`,
+      }}
+      onMouseEnter={() => { setHovered(true); setH(true); }}
+      onMouseLeave={() => { setHovered(false); setH(false); }}
+    >
+      {/* Center axis line */}
+      <div className="absolute left-0 right-0 top-1/2 h-px pointer-events-none" style={{ background: hexToRgba(accentColor, 0.15) }} />
+
+      {/* Waveform bars */}
+      <div className="absolute inset-0 flex items-center justify-between px-1 pointer-events-none">
+        {waveBars.map((v, i) => {
+          // Bar is "filled" if it's within the progress region (left→right)
+          const barProgressPct = ((i + 1) / barCount) * 100;
+          const isFilled = hasProgress && barProgressPct <= pct;
+          // On hover with progress, bars up to pct animate; bars beyond pct stay muted
+          const shouldAnimate = hovered && hasProgress && isFilled;
+          return (
+            <div
+              key={i}
+              style={{
+                width: '2px',
+                height: `${Math.round(v * 100)}%`,
+                background: isFilled ? accentColor : hexToRgba(accentColor, 0.18),
+                opacity: isFilled ? (h ? 1 : 0.75) : 0.5,
+                boxShadow: isFilled ? `0 0 3px ${hexToRgba(accentColor, 0.7)}` : 'none',
+                transformOrigin: 'center',
+                borderRadius: '0.5px',
+                // CSS variable for equalizer base height (so keyframe can scale around it)
+                ['--kb5-base' as string]: v,
+                animation: shouldAnimate ? `kb5-eq-bounce ${0.9 + (i % 5) * 0.18}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` : 'none',
+                transition: 'opacity 280ms ease, background 280ms ease, box-shadow 280ms ease',
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Progress divider marker (vertical line at progress boundary) — only if hasProgress */}
+      {hasProgress && (
+        <div
+          className="absolute inset-y-0 pointer-events-none"
+          style={{
+            left: `${pct}%`,
+            width: '1px',
+            background: accentColor,
+            boxShadow: `0 0 6px ${accentColor}, 0 0 3px ${accentColor}`,
+            opacity: h ? 1 : 0.6,
+            transition: 'opacity 220ms ease',
+          }}
+        />
+      )}
+
+      {/* Playhead sweep — only animates on hover AND when there's progress */}
+      {hovered && hasProgress && (
+        <div
+          className="absolute inset-y-0 pointer-events-none"
+          style={{
+            width: '24px',
+            background: `linear-gradient(90deg, transparent, ${hexToRgba(accentColor, 0.3)} 40%, ${hexToRgba('#ffffff', 0.4)} 50%, ${hexToRgba(accentColor, 0.3)} 60%, transparent)`,
+            ['--kb5-progress' as string]: `${pct}%`,
+            animation: 'kb5-playhead-sweep 1.6s ease-out',
+            boxShadow: `0 0 10px ${hexToRgba(accentColor, 0.5)}`,
+          }}
+        >
+          {/* Playhead vertical line */}
+          <div className="absolute inset-y-0 left-1/2 w-px" style={{ background: '#ffffff', boxShadow: `0 0 6px ${accentColor}` }} />
+        </div>
+      )}
+
+      {/* Progress percentage label (top-right) */}
+      <div
+        className="absolute top-0.5 right-1.5 text-[9px] font-extrabold tabular-nums font-mono pointer-events-none"
+        style={{
+          color: hasProgress ? accentColor : hexToRgba(accentColor, 0.4),
+          textShadow: hasProgress ? `0 0 4px ${hexToRgba(accentColor, 0.5)}` : 'none',
+          opacity: h ? 1 : 0.7,
+          transition: 'opacity 220ms ease',
+        }}
+      >
+        {pct}%
+      </div>
+    </div>
+  );
+}
+
+/* ─── Project Card — dark data slab with WaveformProgressBar ─── */
 function ProjectCard({ project, trackCount, onClick, onKanban }: {
   project: Project; trackCount: number; onClick: () => void; onKanban: () => void;
 }) {
@@ -70,18 +188,12 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
   const sc = stHex[project.status] || '#64748b';
   const sl = stLabel[project.status] || project.status;
   const hasKanban = !!project.kanbanTaskId;
-  // Realistic waveform: deterministic pseudo-random heights from project.id
-  // Using a smooth sinusoidal envelope so it looks like a real audio track
-  const waveBars = useMemo(() => {
-    const seed = project.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    return Array.from({ length: 32 }, (_, i) => {
-      // Combine base sinusoid + harmonics + deterministic noise → realistic waveform shape
-      const base = 0.45 + 0.35 * Math.sin((i / 32) * Math.PI * 4 + (seed % 7));
-      const harm = 0.15 * Math.sin((i / 32) * Math.PI * 11 + (seed % 13));
-      const noise = ((seed * (i + 3) * 7) % 23) / 100 - 0.1;
-      return Math.max(0.12, Math.min(0.95, base + harm + noise));
-    });
-  }, [project.id]);
+  // Compute progress %: based on track count (capped at 100) + status boost
+  const progress = useMemo(() => {
+    const trackPct = Math.min(80, trackCount * 12); // each track ~12%, capped at 80
+    const statusBoost = project.status === 'released' ? 100 : project.status === 'mastering' ? 90 : project.status === 'mixing' ? 70 : project.status === 'in_progress' ? 40 : 0;
+    return Math.max(trackPct, statusBoost);
+  }, [trackCount, project.status]);
 
   return (
     <div
@@ -160,34 +272,9 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
           {project.title}
         </h3>
 
-        {/* ── Realistic audio waveform (static, playhead sweeps on hover) ── */}
-        <div className="relative h-12 my-2.5 overflow-hidden" style={{
-          background: 'rgba(0,0,0,0.35)',
-          borderRadius: '2px',
-          border: `0.5px solid ${hexToRgba(t.color, 0.2)}`,
-        }}>
-          {/* Center axis line */}
-          <div className="absolute left-0 right-0 top-1/2 h-px" style={{ background: hexToRgba(t.color, 0.15) }} />
-          {/* Waveform bars — static heights, gentle lift on hover */}
-          <div className="absolute inset-0 flex items-center justify-between px-1">
-            {waveBars.map((v, i) => (
-              <div
-                key={i}
-                className="relative"
-                style={{
-                  width: '2px',
-                  height: `${Math.round(v * 100)}%`,
-                  background: t.color,
-                  opacity: h ? 0.95 : 0.55,
-                  boxShadow: h ? `0 0 2px ${hexToRgba(t.color, 0.6)}` : 'none',
-                  transformOrigin: 'center',
-                  animation: h ? `kb4-bar-lift ${1.6 + (i % 6) * 0.18}s ease-in-out ${(i * 0.06).toFixed(2)}s infinite` : 'none',
-                  transition: 'opacity 200ms',
-                  borderRadius: '0.5px',
-                }}
-              />
-            ))}
-          </div>
+        {/* ── Waveform Progress Bar (animated audio waveform, playhead sweeps on hover) ── */}
+        <div className="my-2.5">
+          <WaveformProgressBar progress={progress} accentColor={t.color} height={48} bars={32} />
         </div>
 
         {/* Meta row */}
@@ -232,19 +319,7 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const children = task.children || [];
   const done = children.filter(c => c.status === 'done').length;
   const pct = children.length > 0 ? Math.round((done / children.length) * 100) : 0;
-  const SEGMENTS = 10;
-  const filledSegs = Math.round((pct / 100) * SEGMENTS);
   const TypeIcon = isAuto ? Music2 : FolderKanban;
-  // Realistic kanban waveform — deterministic from task.id (like autoboard audio track)
-  const waveBars = useMemo(() => {
-    const seed = task.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    return Array.from({ length: 28 }, (_, i) => {
-      const base = 0.45 + 0.35 * Math.sin((i / 28) * Math.PI * 4 + (seed % 7));
-      const harm = 0.15 * Math.sin((i / 28) * Math.PI * 11 + (seed % 13));
-      const noise = ((seed * (i + 3) * 7) % 23) / 100 - 0.1;
-      return Math.max(0.12, Math.min(0.95, base + harm + noise));
-    });
-  }, [task.id]);
 
   return (
     <div
@@ -340,66 +415,9 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
           {task.title}
         </h3>
 
-        {/* ── Distinctive kanban sign: realistic audio waveform (like autoboard) ── */}
-        <div className="relative h-10 my-2.5 overflow-hidden" style={{
-          background: 'rgba(0,0,0,0.35)',
-          borderRadius: '2px',
-          border: `0.5px solid ${hexToRgba(color, 0.2)}`,
-        }}>
-          {/* Center axis line */}
-          <div className="absolute left-0 right-0 top-1/2 h-px" style={{ background: hexToRgba(color, 0.15) }} />
-          {/* Waveform bars — static heights, gentle lift on hover */}
-          <div className="absolute inset-0 flex items-center justify-between px-1">
-            {waveBars.map((v, i) => (
-              <div
-                key={i}
-                style={{
-                  width: '2px',
-                  height: `${Math.round(v * 100)}%`,
-                  background: color,
-                  opacity: h ? 0.95 : 0.55,
-                  boxShadow: h ? `0 0 2px ${hexToRgba(color, 0.6)}` : 'none',
-                  transformOrigin: 'center',
-                  animation: h ? `kb4-bar-lift ${1.6 + (i % 6) * 0.18}s ease-in-out ${(i * 0.06).toFixed(2)}s infinite` : 'none',
-                  transition: 'opacity 200ms',
-                  borderRadius: '0.5px',
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Chunky segmented progress bar */}
-        <div className="flex items-center gap-2 mb-2.5">
-          <div className="flex-1 flex gap-[2px]">
-            {Array.from({ length: SEGMENTS }).map((_, i) => {
-              const filled = i < filledSegs;
-              const doneColor = pct === 100 ? G : color;
-              return (
-                <div
-                  key={i}
-                  className="flex-1 h-2"
-                  style={{
-                    background: filled ? doneColor : hexToRgba(color, 0.1),
-                    boxShadow: filled ? `0 0 6px ${hexToRgba(doneColor, 0.7)}` : 'none',
-                    borderRadius: '1px',
-                    transition: `all 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 35}ms`,
-                  }}
-                />
-              );
-            })}
-          </div>
-          <span
-            className="text-[11px] font-extrabold tabular-nums font-mono"
-            style={{
-              color: pct === 100 ? G : color,
-              textShadow: `0 0 6px ${hexToRgba(pct === 100 ? G : color, 0.55)}`,
-              minWidth: '34px',
-              textAlign: 'right',
-            }}
-          >
-            {pct}%
-          </span>
+        {/* ── Waveform Progress Bar — distinctive kanban sign (animated audio waveform) ── */}
+        <div className="my-2.5">
+          <WaveformProgressBar progress={pct} accentColor={color} height={40} bars={28} />
         </div>
 
         {/* Bottom data row */}
@@ -666,16 +684,6 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
   // Priority scale: always 7 segments (max 7 cards), filled = priority level
   const SCALE_SEGS = 7;
   const filledSegs = priority; // priority is 1-based, segments 0..priority-1 are filled
-  // Realistic waveform bars (deterministic from item.id) — smooth sinusoidal shape
-  const waveBars = useMemo(() => {
-    const seed = item.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    return Array.from({ length: 24 }, (_, i) => {
-      const base = 0.45 + 0.35 * Math.sin((i / 24) * Math.PI * 4 + (seed % 7));
-      const harm = 0.15 * Math.sin((i / 24) * Math.PI * 11 + (seed % 13));
-      const noise = ((seed * (i + 3) * 7) % 23) / 100 - 0.1;
-      return Math.max(0.12, Math.min(0.95, base + harm + noise));
-    });
-  }, [item.id]);
 
   return (
     <div
@@ -745,28 +753,9 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
           </span>
         </div>
 
-        {/* ── Realistic audio waveform (static, gentle lift on hover) ── */}
-        <div className="relative h-8 mt-2.5 overflow-hidden" style={{
-          background: 'rgba(0,0,0,0.35)',
-          borderRadius: '2px',
-          border: `0.5px solid ${hexToRgba(t.color, 0.2)}`,
-        }}>
-          <div className="absolute left-0 right-0 top-1/2 h-px" style={{ background: hexToRgba(t.color, 0.15) }} />
-          <div className="absolute inset-0 flex items-center justify-between px-1">
-            {waveBars.map((v, i) => (
-              <div key={i} style={{
-                width: '1.5px',
-                height: `${Math.round(v * 100)}%`,
-                background: t.color,
-                opacity: h ? 0.95 : 0.55,
-                boxShadow: h ? `0 0 2px ${hexToRgba(t.color, 0.6)}` : 'none',
-                transformOrigin: 'center',
-                animation: h ? `kb4-bar-lift ${1.6 + (i % 6) * 0.18}s ease-in-out ${(i * 0.06).toFixed(2)}s infinite` : 'none',
-                transition: 'opacity 200ms',
-                borderRadius: '0.5px',
-              }} />
-            ))}
-          </div>
+        {/* ── Waveform Progress Bar (animated audio waveform, progress = priority-based) ── */}
+        <div className="mt-2.5">
+          <WaveformProgressBar progress={priority * 14} accentColor={t.color} height={32} bars={24} />
         </div>
       </div>
 
@@ -924,7 +913,7 @@ function AllProjectsModal({
   mode: 'auto' | 'kanban';
   items: ModalItem[];
   quickAccess: string[];
-  toggleQuickAccess: (id: string) => void;
+  toggleQuickAccess: (id: string, title?: string) => void;
 }) {
   const [sortMode, setSortMode] = useState<SortMode>('date');
 

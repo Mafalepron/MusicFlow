@@ -1573,3 +1573,58 @@ Stage Summary:
 - StatBar: segmented metallic HUD widget — 4 connected cells with #161922 bg, #2B3040 borders, cyan icons, white Rajdhani values, mono uppercase labels.
 - CREATE button: multi-layered yellow ring system with HUD schematic background lines + technical micro-text (SECURITY_ENCRYPTION, 0xFFD000, RING_SYS:ONLINE).
 - Lint clean, TypeScript clean, dev server HTTP 200, 0 console errors, all spec requirements VLM-verified.
+
+---
+Task ID: KB7-WAVEFORM-PROGRESS-BAR
+Agent: main
+Task: Refactor progress bar into dynamic animated Audio Waveform Progress Bar with playhead sweep on hover + 0% edge case
+
+Work Log:
+- Added 4 new keyframes to cyberpunk.css (kb5- prefix): kb5-eq-bounce (equalizer scaleY bounce using --kb5-base CSS var), kb5-playhead-sweep (left 0%→--kb5-progress% with opacity fade), kb5-eq-fade-in, kb5-glow-pulse.
+- Created reusable WaveformProgressBar component (home-view.tsx, before ProjectCard):
+  * Props: progress (0-100), accentColor (hex), height (default 40), bars (default 32).
+  * Uses CSS animations + CSS variables (--kb5-base, --kb5-progress) for 60fps performance, no layout thrashing.
+  * Deterministic waveform shape (sinusoidal envelope + harmonics + noise from accentColor+bars seed) — stable across renders.
+  * Bar fill logic: bar is "filled" if ((i+1)/bars)*100 <= pct. Filled bars use accentColor with glow; unfilled use hexToRgba(accentColor, 0.18) at 0.5 opacity.
+  * On hover (hovered state): filled bars animate with kb5-eq-bounce (staggered 0.05s delays, 0.9-1.8s durations); playhead overlay (24px gradient with white center line) sweeps 0%→progress% via kb5-playhead-sweep using --kb5-progress CSS var.
+  * Progress divider: vertical 1px line at left:progress% with accentColor + double boxShadow glow (only when hasProgress).
+  * Percentage label (top-right): accentColor text with text-shadow glow when hasProgress, dimmed when 0%.
+  * 0% edge case: hasProgress=false → NO playhead animation triggers, NO equalizer bounce, all bars stay muted/dim (0.5 opacity, hexToRgba 0.18), label shows "0%" in dimmed color with no text-shadow. Clearly indicates no audio/data to play.
+
+- Integrated WaveformProgressBar into ProjectCard (Auto Projects):
+  * Removed old static waveform block (waveBars useMemo + kb4-bar-lift bars).
+  * Added progress computation: trackPct (trackCount*12, capped 80) + statusBoost (released=100, mastering=90, mixing=70, in_progress=40, draft=0) → Math.max.
+  * Renders <WaveformProgressBar progress={progress} accentColor={t.color} height={48} bars={32} />.
+
+- Integrated WaveformProgressBar into KanbanCard (Kanban Projects):
+  * Removed old "Distinctive kanban sign" waveform block AND the redundant "Chunky segmented progress bar" (SEGMENTS=10 filledSegs) — waveform now serves as both the kanban sign AND the progress bar.
+  * Removed unused waveBars, SEGMENTS, filledSegs variables.
+  * Renders <WaveformProgressBar progress={pct} accentColor={color} height={40} bars={28} />.
+
+- Integrated WaveformProgressBar into QuickAccessCard:
+  * Removed old static waveform block (waveBars useMemo + kb4-bar-lift bars).
+  * Progress = priority * 14 (priority 1-7 → 14%-98%, so higher-priority cards show more filled waveform).
+  * Renders <WaveformProgressBar progress={priority * 14} accentColor={t.color} height={32} bars={24} />.
+
+- Fixed AllProjectsModal type signature: toggleQuickAccess: (id: string) => void → (id: string, title?: string) => void (to match the updated HomeView toggleQuickAccess signature from KB5).
+
+- Ran `npx tsc --noEmit` → 0 errors. Ran `bun run lint` → 0 errors in home-view.tsx (2 pre-existing unrelated errors in project-chat.tsx:557 and app-header.tsx:132).
+- Dev server GET / returns 200.
+
+- Agent Browser + VLM verification:
+  * Updated Neon Districts status→mixing (70% progress) and Glitch EP→in_progress (40%) via API PATCH to test non-zero progress.
+  * VLM auto projects: "Neon Districts 70% purple bars filled up to 70%, Glitch EP 40% cyan filled bars, 0% cards (Chrome Heart, Unity Album, ип) fully muted/dim with no filled bars, vertical divider line at progress boundary" ✓
+  * VLM hover Neon Districts (70%): "playhead vertical white line with cyan glow sweeps across waveform, filled bars (up to 70%) animating with bouncing equalizer effect, bars beyond 70% stay static and muted, active playback state" ✓
+  * VLM hover Chrome Heart (0%): "waveform entirely dim with no filled/active bars, no playhead sweeping animation, waveform stays static and dim on hover indicating no audio/data to play, 0% label visible" ✓ (edge case confirmed)
+  * VLM kanban cards: "WaveformProgressBar with vertical audio waveform bars, progress 0% shown, percentage label visible" ✓
+
+Stage Summary:
+- WaveformProgressBar reusable component accepts progress (0-100) + accentColor props, renders 32 vertical equalizer-style bars with deterministic sinusoidal shape.
+- Filled region (left→right up to progress%) uses accentColor with glow; unfilled region uses muted 20% opacity.
+- On hover: playhead sweeps 0%→progress% (1.6s ease-out), filled bars bounce with staggered equalizer animation (kb5-eq-bounce using --kb5-base CSS var).
+- 0% edge case: no animation triggers, waveform stays static + dim, clearly indicates no audio/data.
+- Vertical divider line at progress boundary with neon glow.
+- Percentage label (top-right) with accentColor glow when hasProgress, dimmed when 0%.
+- Integrated into ProjectCard (progress from track count + status), KanbanCard (pct from done children), QuickAccessCard (priority-based progress).
+- All 4 kb5- animations live in global cyberpunk.css — no inline <style> blocks.
+- Lint clean, TypeScript clean, dev server HTTP 200, 0 console errors, all spec requirements VLM-verified (including 0% edge case).
