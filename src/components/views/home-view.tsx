@@ -145,7 +145,7 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
   );
 }
 
-/* ─── Kanban Card ─── */
+/* ─── Kanban Card — interactive cyberpunk data panel ─── */
 function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const [h, setH] = useState(false);
   const isAuto = !!task.soundflowProjectId;
@@ -170,39 +170,130 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
         transform: h ? 'translateY(-3px) scale(1.01)' : 'none',
       }}
     >
-      {/* Top accent strip — color gradient */}
+      {/* Animated scanline overlay — moves on hover */}
       <div
-        className="h-1 w-full"
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: h ? `repeating-linear-gradient(0deg, transparent 0px, transparent 3px, ${hexToRgba(color, 0.03)} 3px, ${hexToRgba(color, 0.03)} 4px)` : 'none',
+          animation: h ? 'kanban-scan 2s linear infinite' : 'none',
+          zIndex: 1,
+        }}
+      />
+
+      {/* Circuit grid pattern — faint, appears on hover */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
+        style={{
+          opacity: h ? 0.4 : 0,
+          backgroundImage: `
+            linear-gradient(${hexToRgba(color, 0.06)} 1px, transparent 1px),
+            linear-gradient(90deg, ${hexToRgba(color, 0.06)} 1px, transparent 1px)
+          `,
+          backgroundSize: '12px 12px',
+          zIndex: 0,
+        }}
+      />
+
+      {/* Top accent strip — color gradient with glow */}
+      <div
+        className="h-1 w-full relative z-[2]"
         style={{
           background: `linear-gradient(90deg, transparent, ${color} 30%, ${color} 70%, transparent)`,
           boxShadow: `0 0 6px ${hexToRgba(color, 0.5)}`,
         }}
       />
-      <div className="p-4">
+
+      <div className="p-4 relative z-[2]">
         <div className="mb-2 flex items-center justify-between">
           <span
-            className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-            style={{ background: hexToRgba(color, 0.12), color, border: `1px solid ${hexToRgba(color, 0.25)}` }}
+            className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+            style={{
+              background: hexToRgba(color, 0.12),
+              color,
+              border: `1px solid ${hexToRgba(color, 0.25)}`,
+              clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+            }}
           >
+            {/* Pulsing status dot — like a live data indicator */}
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full"
+              style={{
+                background: color,
+                boxShadow: `0 0 4px ${color}`,
+                animation: 'kanban-blink 1.5s ease-in-out infinite',
+              }}
+            />
             {isAuto ? 'AUTO' : 'KANBAN'}
           </span>
-          <span className="text-[10px] text-slate-600">{task.projectType || 'general'}</span>
+          <span className="text-[10px] text-slate-600 font-mono">{task.projectType || 'general'}</span>
         </div>
-        <h3 className="mb-3 text-sm font-medium text-slate-200 line-clamp-2" style={{ minHeight: '2.5em' }}>
+
+        <h3
+          className="mb-3 text-sm font-medium line-clamp-2 transition-all"
+          style={{
+            minHeight: '2.5em',
+            color: h ? '#ffffff' : '#cbd5e1',
+            textShadow: h ? `0 0 8px ${hexToRgba(color, 0.3)}` : 'none',
+          }}
+        >
           {task.title}
         </h3>
+
+        {/* Progress bar — segmented cyberpunk style */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-1 rounded-full bg-slate-800 overflow-hidden">
+          <div className="flex-1 h-1.5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))' }}>
             <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${pct}%`, background: color, boxShadow: pct > 0 ? `0 0 4px ${hexToRgba(color, 0.5)}` : 'none' }}
-            />
+              className="h-full transition-all relative"
+              style={{
+                width: `${pct}%`,
+                background: pct === 100 ? G : color,
+                boxShadow: pct > 0 ? `0 0 4px ${hexToRgba(pct === 100 ? G : color, 0.6)}` : 'none',
+                clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
+              }}
+            >
+              {/* Shimmer effect on progress bar */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(90deg, transparent, ${hexToRgba('#ffffff', 0.3)}, transparent)`,
+                  animation: 'kanban-shimmer 2s linear infinite',
+                }}
+              />
+            </div>
           </div>
-          <span className="text-[10px] font-semibold tabular-nums" style={{ color: pct === 100 ? G : color }}>
+          <span
+            className="text-[10px] font-bold tabular-nums font-mono"
+            style={{ color: pct === 100 ? G : color, textShadow: `0 0 4px ${hexToRgba(pct === 100 ? G : color, 0.4)}` }}
+          >
             {pct}%
           </span>
         </div>
+
+        {/* Bottom data row — board count + done count */}
+        <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-slate-600">
+          <span className="flex items-center gap-1">
+            <span className="w-1 h-1 rounded-full" style={{ background: color, opacity: 0.6 }} />
+            {children.length} boards
+          </span>
+          <span>{done}/{children.length} done</span>
+        </div>
       </div>
+
+      {/* CSS animations — scoped to this card */}
+      <style>{`
+        @keyframes kanban-scan {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(4px); }
+        }
+        @keyframes kanban-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        @keyframes kanban-shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </div>
   );
 }
