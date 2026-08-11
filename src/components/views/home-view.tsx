@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FolderKanban, Music2, Lightbulb, Users, ArrowRight, Plus,
   ChevronDown, ChevronRight, ChevronLeft, Disc3, AudioLines, Zap, Clock, Star, X,
-  ArrowUp, ArrowDown, Flame, Layers, Key,
+  ArrowUp, ArrowDown, Flame, Layers, Key, Pencil, Check, AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore, useDataStore, useNavigationStore, type Project } from '@/lib/store';
 import { useKanbanStore, type Task } from '@/store/kanban-store';
@@ -18,6 +18,7 @@ const Y = '#FFC42E'; // golden sun (was #FFC42E harsh yellow)
 const C = '#00d9ff'; // cyan
 const A = '#f59e0b'; // amber
 const G = '#10b981'; // green
+const MAX_QUICK_ACCESS = 7; // maximum cards in Quick Access panel
 
 const typeMeta: Record<string, { label: string; color: string; icon: typeof Disc3 }> = {
   album:   { label: 'Альбом',  color: '#a855f7', icon: Disc3 },
@@ -183,21 +184,6 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
               />
             ))}
           </div>
-          {/* Playhead sweep — moves left→right→left on hover */}
-          {h && (
-            <div
-              className="absolute inset-y-0 pointer-events-none"
-              style={{
-                width: '36px',
-                background: `linear-gradient(90deg, transparent, ${hexToRgba(t.color, 0.25)} 40%, ${hexToRgba('#ffffff', 0.35)} 50%, ${hexToRgba(t.color, 0.25)} 60%, transparent)`,
-                animation: 'kb4-play-sweep 2.4s ease-in-out infinite',
-                boxShadow: `0 0 8px ${hexToRgba(t.color, 0.5)}`,
-              }}
-            >
-              {/* Playhead line */}
-              <div className="absolute inset-y-0 left-1/2 w-px" style={{ background: '#ffffff', boxShadow: `0 0 6px ${t.color}` }} />
-            </div>
-          )}
         </div>
 
         {/* Meta row */}
@@ -234,7 +220,7 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
   );
 }
 
-/* ─── Kanban Card — cartoon cyberpunk interactive data panel ─── */
+/* ─── Kanban Card — clean cyberpunk data slab with kanban waveform sign ─── */
 function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const [h, setH] = useState(false);
   const isAuto = !!task.soundflowProjectId;
@@ -245,152 +231,73 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const SEGMENTS = 10;
   const filledSegs = Math.round((pct / 100) * SEGMENTS);
   const TypeIcon = isAuto ? Music2 : FolderKanban;
+  // Realistic kanban waveform — deterministic from task.id (like autoboard audio track)
+  const waveBars = useMemo(() => {
+    const seed = task.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    return Array.from({ length: 28 }, (_, i) => {
+      const base = 0.45 + 0.35 * Math.sin((i / 28) * Math.PI * 4 + (seed % 7));
+      const harm = 0.15 * Math.sin((i / 28) * Math.PI * 11 + (seed % 13));
+      const noise = ((seed * (i + 3) * 7) % 23) / 100 - 0.1;
+      return Math.max(0.12, Math.min(0.95, base + harm + noise));
+    });
+  }, [task.id]);
 
   return (
-    <motion.div
+    <div
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       className="relative cursor-pointer overflow-hidden"
-      initial={{ opacity: 0, scale: 0.88, y: 12 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-      whileHover={{ scale: 1.035, y: -5 }}
-      whileTap={{ scale: 0.985 }}
       style={{
         clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
         background: `linear-gradient(135deg, ${hexToRgba(color, h ? 0.22 : 0.12)}, rgba(14,18,28,0.94))`,
         boxShadow: h
-          ? `inset 0 0 0 2px ${hexToRgba(color, 0.75)}, 0 12px 40px ${hexToRgba(color, 0.32)}, 0 0 70px ${hexToRgba(color, 0.18)}, 0 6px 18px rgba(0,0,0,0.55)`
-          : `inset 0 0 0 1.5px ${hexToRgba(color, 0.38)}, 0 4px 14px rgba(0,0,0,0.45)`,
-        transition: 'box-shadow 280ms ease, background 280ms ease',
+          ? `inset 0 0 0 1.5px ${hexToRgba(color, 0.7)}, 0 8px 28px ${hexToRgba(color, 0.25)}, 0 4px 14px rgba(0,0,0,0.5), inset 0 0 18px ${hexToRgba(color, 0.08)}`
+          : `inset 0 0 0 1px ${hexToRgba(color, 0.35)}, inset 0 0 0 4px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.4)`,
+        transition: 'box-shadow 280ms ease, background 280ms ease, transform 280ms ease',
+        transform: h ? 'translateY(-3px) scale(1.01)' : 'translateY(0)',
       }}
     >
-      {/* ── Breathing edge glow (cartoon pulsing aura) ── */}
+      {/* Inner beveled frame (static, recessed screen effect) */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-[3px] pointer-events-none transition-opacity duration-300"
         style={{
-          boxShadow: `inset 0 0 0 2px ${hexToRgba(color, h ? 0.45 : 0.15)}`,
-          animation: 'kb-breathe 2.4s ease-in-out infinite',
-          opacity: h ? 1 : 0.6,
-          zIndex: 1,
+          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+          boxShadow: h
+            ? `inset 0 0 0 1px ${hexToRgba(color, 0.3)}, inset 0 0 14px ${hexToRgba(color, 0.12)}`
+            : `inset 0 0 0 1px ${hexToRgba(color, 0.12)}`,
+          opacity: h ? 1 : 0.5,
         }}
       />
 
-      {/* ── Sweeping scan line (vertical, on hover) ── */}
-      {h && (
-        <div
-          className="absolute inset-y-0 pointer-events-none"
-          style={{
-            width: '45%',
-            left: '-45%',
-            background: `linear-gradient(90deg, transparent, ${hexToRgba(color, 0.3)}, transparent)`,
-            animation: 'kb-sweep 1.4s ease-out',
-            zIndex: 3,
-          }}
-        />
-      )}
-
-      {/* ── Circuit grid pattern — animated shift on hover ── */}
+      {/* Top accent strip */}
       <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
-        style={{
-          opacity: h ? 0.55 : 0.18,
-          backgroundImage: `
-            linear-gradient(${hexToRgba(color, 0.1)} 1px, transparent 1px),
-            linear-gradient(90deg, ${hexToRgba(color, 0.1)} 1px, transparent 1px)
-          `,
-          backgroundSize: '14px 14px',
-          animation: h ? 'kb-grid-shift 1.5s linear infinite' : 'none',
-          zIndex: 0,
-        }}
-      />
-
-      {/* ── Floating particles (cartoon sparkles) ── */}
-      {h && [
-        { id: 1, top: '18%', left: '10%', delay: '0s', size: 3 },
-        { id: 2, top: '72%', left: '14%', delay: '0.3s', size: 2 },
-        { id: 3, top: '28%', left: '86%', delay: '0.6s', size: 3 },
-        { id: 4, top: '82%', left: '80%', delay: '0.9s', size: 2 },
-        { id: 5, top: '50%', left: '6%', delay: '0.15s', size: 2 },
-      ].map(p => (
-        <div
-          key={p.id}
-          className="absolute pointer-events-none rounded-full"
-          style={{
-            top: p.top, left: p.left, width: p.size, height: p.size,
-            background: color,
-            boxShadow: `0 0 8px ${color}, 0 0 3px ${color}`,
-            animation: `kb-float 2s ease-in-out ${p.delay} infinite`,
-            zIndex: 2,
-          }}
-        />
-      ))}
-
-      {/* ── Animated corner brackets (targeting reticle, cartoon-style) ── */}
-      {[
-        { cls: 'top-1.5 left-1.5', rot: 0 },
-        { cls: 'top-1.5 right-1.5', rot: 90 },
-        { cls: 'bottom-1.5 right-1.5', rot: 180 },
-        { cls: 'bottom-1.5 left-1.5', rot: 270 },
-      ].map((c, i) => (
-        <div
-          key={i}
-          className={`absolute ${c.cls} pointer-events-none`}
-          style={{
-            width: 14, height: 14,
-            transform: `rotate(${c.rot}deg) scale(${h ? 1.1 : 0.55})`,
-            opacity: h ? 1 : 0.4,
-            transition: 'all 320ms cubic-bezier(0.34,1.56,0.64,1)',
-            animation: h ? `kb-corner-flash 1.8s ease-in-out ${i * 0.15}s infinite` : 'none',
-            zIndex: 4,
-          }}
-        >
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 2.5, background: color, boxShadow: `0 0 5px ${color}`, borderRadius: '1px' }} />
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 2.5, height: 14, background: color, boxShadow: `0 0 5px ${color}`, borderRadius: '1px' }} />
-        </div>
-      ))}
-
-      {/* ── Top accent strip — holographic gradient ── */}
-      <div
-        className="h-1 w-full relative z-[2]"
+        className="h-[2px] w-full relative z-[2]"
         style={{
           background: `linear-gradient(90deg, transparent, ${color} 30%, ${color} 70%, transparent)`,
-          boxShadow: `0 0 10px ${hexToRgba(color, 0.8)}`,
+          boxShadow: `0 0 8px ${hexToRgba(color, 0.7)}`,
         }}
       />
 
       <div className="p-4 relative z-[2]">
-        {/* Header row: holographic KANBAN badge + project type */}
+        {/* Header row: KANBAN badge + project type */}
         <div className="mb-3 flex items-center justify-between">
           <span
-            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest relative"
+            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest"
             style={{
-              background: h
-                ? `linear-gradient(90deg, ${hexToRgba(color, 0.3)}, ${hexToRgba(color, 0.18)}, ${hexToRgba(color, 0.3)})`
-                : hexToRgba(color, 0.14),
-              backgroundSize: h ? '200% 100%' : '100% 100%',
-              animation: h ? 'kb-holo-shift 1.5s ease-in-out infinite' : 'none',
+              background: hexToRgba(color, h ? 0.22 : 0.14),
               color,
               border: `1.5px solid ${hexToRgba(color, h ? 0.65 : 0.4)}`,
               clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-              boxShadow: h ? `0 0 12px ${hexToRgba(color, 0.45)}` : 'none',
+              boxShadow: h ? `0 0 10px ${hexToRgba(color, 0.4)}` : 'none',
               transition: 'all 220ms ease',
             }}
           >
-            {/* Pulsing status dot — heartbeat ping */}
-            <span className="relative inline-block w-2 h-2">
-              <span
-                className="absolute inset-0 rounded-full"
-                style={{ background: color, boxShadow: `0 0 6px ${color}` }}
-              />
-              {h && (
-                <span
-                  className="absolute inset-0 rounded-full"
-                  style={{ background: color, animation: 'kb-ping 1.5s ease-out infinite' }}
-                />
-              )}
-            </span>
+            {/* Static status dot */}
+            <span
+              className="inline-block w-2 h-2 rounded-full"
+              style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+            />
             {isAuto ? 'AUTO' : 'KANBAN'}
           </span>
           <span
@@ -401,37 +308,64 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
           </span>
         </div>
 
-        {/* Floating bobbing type icon */}
-        <motion.div
+        {/* Type icon (static, no bobbing) */}
+        <div
           className="mb-2.5 flex h-10 w-10 items-center justify-center"
           style={{
             clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
             background: h ? hexToRgba(color, 0.28) : hexToRgba(color, 0.14),
             border: `1.5px solid ${hexToRgba(color, h ? 0.65 : 0.32)}`,
             boxShadow: h ? `0 0 16px ${hexToRgba(color, 0.5)}` : 'none',
+            transition: 'all 220ms ease',
           }}
-          animate={h ? { y: [0, -3, 0], rotate: [0, -4, 4, 0] } : { y: 0, rotate: 0 }}
-          transition={{ duration: 1.2, repeat: h ? Infinity : 0, ease: 'easeInOut' }}
         >
           <TypeIcon className="w-5 h-5" style={{ color, filter: h ? `drop-shadow(0 0 4px ${color})` : 'none' }} />
-        </motion.div>
+        </div>
 
-        {/* Title — monospace with neon glow on hover */}
+        {/* Title */}
         <h3
           className="mb-3 text-sm font-bold leading-tight line-clamp-2"
           style={{
             minHeight: '2.5em',
             color: h ? '#ffffff' : '#cbd5e1',
-            textShadow: h ? `0 0 10px ${hexToRgba(color, 0.5)}, 0 0 2px ${hexToRgba(color, 0.9)}` : 'none',
+            textShadow: h ? `0 0 8px ${hexToRgba(color, 0.4)}` : 'none',
             transition: 'color 200ms ease, text-shadow 200ms ease',
-            fontFamily: 'monospace',
             letterSpacing: '0.01em',
           }}
         >
           {task.title}
         </h3>
 
-        {/* Chunky segmented progress bar — cartoon blocks */}
+        {/* ── Distinctive kanban sign: realistic audio waveform (like autoboard) ── */}
+        <div className="relative h-10 my-2.5 overflow-hidden" style={{
+          background: 'rgba(0,0,0,0.35)',
+          borderRadius: '2px',
+          border: `0.5px solid ${hexToRgba(color, 0.2)}`,
+        }}>
+          {/* Center axis line */}
+          <div className="absolute left-0 right-0 top-1/2 h-px" style={{ background: hexToRgba(color, 0.15) }} />
+          {/* Waveform bars — static heights, gentle lift on hover */}
+          <div className="absolute inset-0 flex items-center justify-between px-1">
+            {waveBars.map((v, i) => (
+              <div
+                key={i}
+                style={{
+                  width: '2px',
+                  height: `${Math.round(v * 100)}%`,
+                  background: color,
+                  opacity: h ? 0.95 : 0.55,
+                  boxShadow: h ? `0 0 2px ${hexToRgba(color, 0.6)}` : 'none',
+                  transformOrigin: 'center',
+                  animation: h ? `kb4-bar-lift ${1.6 + (i % 6) * 0.18}s ease-in-out ${(i * 0.06).toFixed(2)}s infinite` : 'none',
+                  transition: 'opacity 200ms',
+                  borderRadius: '0.5px',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Chunky segmented progress bar */}
         <div className="flex items-center gap-2 mb-2.5">
           <div className="flex-1 flex gap-[2px]">
             {Array.from({ length: SEGMENTS }).map((_, i) => {
@@ -446,7 +380,6 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
                     boxShadow: filled ? `0 0 6px ${hexToRgba(doneColor, 0.7)}` : 'none',
                     borderRadius: '1px',
                     transition: `all 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 35}ms`,
-                    transform: h && filled ? 'scaleY(1.15)' : 'scaleY(1)',
                   }}
                 />
               );
@@ -465,7 +398,7 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
           </span>
         </div>
 
-        {/* Bottom data row — chunky meta with icons */}
+        {/* Bottom data row */}
         <div className="flex items-center justify-between text-[9px] font-mono uppercase tracking-wider">
           <span className="flex items-center gap-1" style={{ color: h ? hexToRgba(color, 0.9) : 'rgba(100,116,139,0.9)' }}>
             <Layers className="w-3 h-3" style={{ color, opacity: h ? 1 : 0.65 }} />
@@ -477,14 +410,13 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
               style={{
                 background: pct === 100 ? G : color,
                 boxShadow: `0 0 5px ${pct === 100 ? G : color}`,
-                animation: 'kb-blink 1.5s ease-in-out infinite',
               }}
             />
             {done}/{children.length} done
           </span>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -516,7 +448,7 @@ function IdeaCard({ idea, onClick }: { idea: { id: string; title: string; descri
   );
 }
 
-/* ─── Stat Bar: cyberpunk 2077 chamfered yellow metric panels ─── */
+/* ─── Stat Bar: cyberpunk 2077 chamfered light-yellow metric panels ─── */
 function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number; label: string; color: string }[] }) {
   return (
     <div className="flex items-center gap-2">
@@ -528,15 +460,15 @@ function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number;
             className="flex items-center gap-2 px-3 py-2 transition-all hover:scale-[1.03]"
             style={{
               clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-              background: 'linear-gradient(135deg, #FFC42E 0%, #FFB423 50%, #FFC42E 100%)',
-              boxShadow: '0 0 14px rgba(255,196,46,0.5), 0 0 28px rgba(255,196,46,0.2), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.2)',
-              borderRight: '1px solid rgba(0,0,0,0.25)',
+              background: 'linear-gradient(135deg, #FFF7C2 0%, #FFE873 45%, #FFD93D 100%)',
+              boxShadow: '0 0 16px rgba(255,232,115,0.55), 0 0 32px rgba(255,217,61,0.22), inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 0 rgba(0,0,0,0.15)',
+              borderRight: '1px solid rgba(0,0,0,0.2)',
             }}
           >
-            <Icon className="w-3.5 h-3.5" style={{ color: '#0a0b10', filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.4))' }} />
+            <Icon className="w-3.5 h-3.5" style={{ color: '#1a1500', filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.35))' }} />
             <div className="flex flex-col leading-none">
-              <span className="text-sm font-extrabold tabular-nums" style={{ color: '#0a0b10' }}>{s.value}</span>
-              <span className="text-[8px] font-bold uppercase tracking-[0.12em] mt-0.5" style={{ color: 'rgba(10,11,16,0.7)' }}>{s.label}</span>
+              <span className="text-sm font-extrabold tabular-nums" style={{ color: '#1a1500' }}>{s.value}</span>
+              <span className="text-[8px] font-bold uppercase tracking-[0.12em] mt-0.5" style={{ color: 'rgba(26,21,0,0.65)' }}>{s.label}</span>
             </div>
           </div>
         );
@@ -679,21 +611,18 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
   );
 }
 
-/* ─── Quick Access Card — dark data slab with waveform + segmented dial ─── */
-function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }: {
-  item: ModalItem; onClick: () => void; onUnstar: () => void;
+/* ─── Quick Access Card — dark data slab with waveform + clickable priority scale ─── */
+function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
+  item: ModalItem; onClick: () => void;
   onMoveTo: (targetIdx: number) => void; priority: number; total: number;
 }) {
   const [h, setH] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const t = typeMeta[item.type] || typeMeta.general;
-  const Icon = t.icon;
   const sc = stHex[item.status] || '#64748b';
   const sl = stLabel[item.status] || item.status;
-  const triggerActive = h || menuOpen;
-  // Segmented dial — 8 segments, filled = priority/total * 8
-  const DIAL_SEGS = 8;
-  const filledDial = Math.round((priority / Math.max(total, 1)) * DIAL_SEGS);
+  // Priority scale: always 7 segments (max 7 cards), filled = priority level
+  const SCALE_SEGS = 7;
+  const filledSegs = priority; // priority is 1-based, segments 0..priority-1 are filled
   // Realistic waveform bars (deterministic from item.id) — smooth sinusoidal shape
   const waveBars = useMemo(() => {
     const seed = item.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -734,30 +663,20 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
 
       {/* Body */}
       <div className="p-3 pt-3.5 relative">
-        {/* Type icon (fragmented lightning bolt style) + unstar */}
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <div
-              className="flex h-6 w-6 items-center justify-center"
-              style={{
-                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-                background: hexToRgba(t.color, 0.18),
-                border: `1px solid ${hexToRgba(t.color, 0.5)}`,
-                boxShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.5)}` : 'none',
-              }}
-            >
-              <Zap className="w-3 h-3" style={{ color: t.color, filter: `drop-shadow(0 0 2px ${t.color})` }} />
-            </div>
-            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
-          </div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onUnstar(); }}
-            className="p-0.5 transition-all hover:scale-110"
-            title="Убрать из быстрого доступа"
+        {/* Type icon + label */}
+        <div className="mb-2 flex items-center gap-1.5">
+          <div
+            className="flex h-6 w-6 items-center justify-center"
+            style={{
+              clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+              background: hexToRgba(t.color, 0.18),
+              border: `1px solid ${hexToRgba(t.color, 0.5)}`,
+              boxShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.5)}` : 'none',
+            }}
           >
-            <Zap className="w-3 h-3" style={{ color: '#FFC42E', filter: 'drop-shadow(0 0 3px rgba(255,196,46,0.7))' }} />
-          </button>
+            <Zap className="w-3 h-3" style={{ color: t.color, filter: `drop-shadow(0 0 2px ${t.color})` }} />
+          </div>
+          <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
         </div>
 
         {/* Title */}
@@ -783,7 +702,7 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
           </span>
         </div>
 
-        {/* ── Realistic audio waveform (static, playhead sweeps on hover) ── */}
+        {/* ── Realistic audio waveform (static, gentle lift on hover) ── */}
         <div className="relative h-8 mt-2.5 overflow-hidden" style={{
           background: 'rgba(0,0,0,0.35)',
           borderRadius: '2px',
@@ -805,93 +724,43 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
               }} />
             ))}
           </div>
-          {h && (
-            <div className="absolute inset-y-0 pointer-events-none" style={{
-              width: '28px',
-              background: `linear-gradient(90deg, transparent, ${hexToRgba(t.color, 0.25)} 40%, ${hexToRgba('#ffffff', 0.35)} 50%, ${hexToRgba(t.color, 0.25)} 60%, transparent)`,
-              animation: 'kb4-play-sweep 2.4s ease-in-out infinite',
-              boxShadow: `0 0 8px ${hexToRgba(t.color, 0.5)}`,
-            }}>
-              <div className="absolute inset-y-0 left-1/2 w-px" style={{ background: '#ffffff', boxShadow: `0 0 6px ${t.color}` }} />
-            </div>
-          )}
         </div>
       </div>
 
-      {/* ── Segmented progress dial (priority indicator) — bottom right ── */}
-      <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1">
-        <div className="flex gap-[1.5px]">
-          {Array.from({ length: DIAL_SEGS }).map((_, i) => (
-            <div
-              key={i}
-              style={{
-                width: '3px',
-                height: '8px',
-                background: i < filledDial ? t.color : hexToRgba(t.color, 0.18),
-                boxShadow: i < filledDial ? `0 0 4px ${hexToRgba(t.color, 0.7)}` : 'none',
-                borderRadius: '0.5px',
-                transform: i < filledDial && h ? 'scaleY(1.15)' : 'scaleY(1)',
-                transition: `transform 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 25}ms`,
-              }}
-            />
-          ))}
+      {/* ── Clickable priority scale (bottom-left) — click segment to set priority ── */}
+      <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1.5">
+        <div className="flex gap-[2px]" title="Кликните на сегмент, чтобы изменить приоритет">
+          {Array.from({ length: SCALE_SEGS }).map((_, i) => {
+            const filled = i < filledSegs;
+            const isHover = h && filled;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMoveTo(i); }}
+                className="transition-all hover:scale-y-110"
+                style={{
+                  width: '4px',
+                  height: '12px',
+                  background: filled ? t.color : hexToRgba(t.color, 0.18),
+                  boxShadow: filled ? `0 0 4px ${hexToRgba(t.color, 0.7)}` : 'none',
+                  borderRadius: '0.5px',
+                  transform: isHover ? 'scaleY(1.15)' : 'scaleY(1)',
+                  transition: `transform 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 25}ms, background 180ms`,
+                  cursor: 'pointer',
+                }}
+                title={`Приоритет ${i + 1}`}
+                aria-label={`Установить приоритет ${i + 1}`}
+              />
+            );
+          })}
         </div>
-      </div>
-
-      {/* Priority selector — bottom right corner, dropdown of positions */}
-      <div className="absolute bottom-2 right-2 z-20">
-        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              onClick={(e) => e.stopPropagation()}
-              className="flex h-5 items-center gap-0.5 pl-1 pr-0.5 transition-all hover:scale-105"
-              style={{
-                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-                background: triggerActive ? '#FFC42E' : 'rgba(0,0,0,0.55)',
-                boxShadow: `inset 0 0 0 1px ${triggerActive ? 'rgba(255,196,46,0.85)' : 'rgba(255,196,46,0.45)'}, 0 0 8px ${triggerActive ? 'rgba(255,196,46,0.5)' : 'transparent'}`,
-                color: triggerActive ? '#000' : '#FFC42E',
-              }}
-              title="Сменить позицию"
-            >
-              <span className="text-[9px] font-extrabold tabular-nums leading-none px-0.5">{priority}</span>
-              <ChevronDown className="w-2.5 h-2.5" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            sideOffset={4}
-            className="p-1.5 w-auto min-w-[72px] rounded-none border-0 bg-transparent"
-            style={{
-              background: 'rgba(8,10,18,0.98)',
-              boxShadow: 'inset 0 0 0 1px rgba(255,196,46,0.4), 0 8px 24px rgba(0,0,0,0.5)',
-              clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex flex-col gap-0.5">
-              {Array.from({ length: total }, (_, i) => i + 1).map((pos) => {
-                const active = pos === priority;
-                return (
-                  <button
-                    key={pos}
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMoveTo(pos - 1); }}
-                    className="flex h-6 w-full items-center justify-center text-[10px] font-bold tabular-nums transition-colors"
-                    style={{
-                      clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-                      background: active ? 'rgba(255,196,46,0.18)' : 'transparent',
-                      color: active ? '#FFC42E' : '#94a3b8',
-                      boxShadow: active ? 'inset 0 0 0 1px rgba(255,196,46,0.5)' : 'none',
-                    }}
-                  >
-                    {pos}
-                  </button>
-                );
-              })}
-            </div>
-          </PopoverContent>
-        </Popover>
+        <span className="text-[9px] font-extrabold tabular-nums font-mono ml-0.5" style={{
+          color: t.color,
+          textShadow: `0 0 4px ${hexToRgba(t.color, 0.5)}`,
+        }}>
+          {priority}/{SCALE_SEGS}
+        </span>
       </div>
     </div>
   );
@@ -1137,7 +1006,7 @@ function AllProjectsModal({
                   </div>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); toggleQuickAccess(item.id); }}
+                    onClick={(e) => { e.stopPropagation(); toggleQuickAccess(item.id, item.title); }}
                     className="shrink-0 p-1.5 rounded-md transition-all hover:bg-white/[0.06]"
                     style={{ color: starred ? Y : '#475569' }}
                     title={starred ? 'Убрать из быстрого доступа' : 'В быстрый доступ'}
@@ -1151,6 +1020,168 @@ function AllProjectsModal({
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+/* ─── Manage Quick Access Modal — add/remove projects ─── */
+function ManageQuickAccessModal({
+  open, onClose, quickAccess, toggleQuickAccess, autoItems, kanbanItems, warning,
+}: {
+  open: boolean;
+  onClose: () => void;
+  quickAccess: string[];
+  toggleQuickAccess: (id: string, title?: string) => void;
+  autoItems: ModalItem[];
+  kanbanItems: ModalItem[];
+  warning: string | null;
+}) {
+  const all = [...autoItems, ...kanbanItems];
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.92, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.92, y: 10 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+            className="relative w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+            style={{
+              clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
+              background: 'linear-gradient(180deg, rgba(0,217,255,0.10), rgba(8,10,18,0.98))',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Border + top bar */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              padding: '1.5px',
+              background: 'linear-gradient(90deg, rgba(0,217,255,0.7) 0%, rgba(0,217,255,0.15) 50%, rgba(0,217,255,0.7) 100%)',
+              WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+              WebkitMaskComposite: 'xor',
+              maskComposite: 'exclude',
+              clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
+            }} />
+            <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
+              background: 'linear-gradient(90deg, transparent, #00d9ff 20%, #00d9ff 80%, transparent)',
+              boxShadow: '0 0 14px rgba(0,217,255,0.7)',
+            }} />
+
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-cyan-500/15">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center" style={{
+                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                  background: 'rgba(0,217,255,0.18)',
+                  border: '1px solid rgba(0,217,255,0.5)',
+                }}>
+                  <Pencil className="w-4 h-4" style={{ color: '#00d9ff' }} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: '#00d9ff', textShadow: '0 0 8px rgba(0,217,255,0.4)' }}>
+                    Управление быстрым доступом
+                  </h2>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {quickAccess.length}/{MAX_QUICK_ACCESS} · выберите проекты для закрепления
+                  </p>
+                </div>
+              </div>
+              <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-cyan-400 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Warning */}
+            {warning && (
+              <div className="mx-5 mt-3 px-3 py-2 flex items-center gap-2 text-[11px]" style={{
+                background: 'rgba(255,196,46,0.1)',
+                border: '1px solid rgba(255,196,46,0.4)',
+                color: '#FFC42E',
+                clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+              }}>
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>{warning}</span>
+              </div>
+            )}
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto p-5" style={{ scrollbarWidth: 'thin' }}>
+              {all.length === 0 ? (
+                <p className="text-center text-sm text-slate-600 py-8">Нет доступных проектов</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {all.map(item => {
+                    const inQuick = quickAccess.includes(item.id);
+                    const t = typeMeta[item.type] || typeMeta.general;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => toggleQuickAccess(item.id, item.title)}
+                        className="w-full flex items-center gap-3 p-2.5 transition-all hover:scale-[1.01] text-left"
+                        style={{
+                          clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+                          background: inQuick ? hexToRgba(t.color, 0.12) : 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${inQuick ? hexToRgba(t.color, 0.5) : 'rgba(255,255,255,0.05)'}`,
+                          boxShadow: inQuick ? `inset 2px 0 0 ${t.color}` : 'none',
+                        }}
+                      >
+                        <div className="flex h-7 w-7 items-center justify-center shrink-0" style={{
+                          clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                          background: hexToRgba(t.color, 0.18),
+                          border: `1px solid ${hexToRgba(t.color, 0.4)}`,
+                        }}>
+                          <t.icon className="w-3.5 h-3.5" style={{ color: t.color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: inQuick ? '#fff' : '#cbd5e1' }}>{item.title}</p>
+                          <p className="text-[10px] text-slate-500">{t.label} · {item.trackCount} треков</p>
+                        </div>
+                        <div
+                          className="flex h-6 w-6 items-center justify-center shrink-0 transition-all"
+                          style={{
+                            clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                            background: inQuick ? t.color : 'transparent',
+                            border: `1px solid ${inQuick ? t.color : hexToRgba(t.color, 0.4)}`,
+                            boxShadow: inQuick ? `0 0 8px ${hexToRgba(t.color, 0.6)}` : 'none',
+                          }}
+                        >
+                          {inQuick ? <Check className="w-3 h-3" style={{ color: '#000' }} /> : <Plus className="w-3 h-3" style={{ color: t.color }} />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-cyan-500/15 flex items-center justify-between">
+              <span className="text-[10px] text-slate-600 uppercase tracking-wider">
+                Максимум {MAX_QUICK_ACCESS} проектов
+              </span>
+              <button
+                onClick={onClose}
+                className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105"
+                style={{
+                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                  background: 'linear-gradient(135deg, #00d9ff, #00b4d4)',
+                  color: '#001824',
+                  boxShadow: '0 0 12px rgba(0,217,255,0.5)',
+                }}
+              >
+                Готово
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -1171,6 +1202,8 @@ export function HomeView() {
   const [allAutoOpen, setAllAutoOpen] = useState(false);
   const [allKanbanOpen, setAllKanbanOpen] = useState(false);
   const [quickAccess, setQuickAccess] = useState<string[]>([]);
+  const [manageQuickOpen, setManageQuickOpen] = useState(false);
+  const [quickWarning, setQuickWarning] = useState<string | null>(null);
 
   const autoProjects = useMemo(() => projects.filter(p => p.kanbanTaskId), [projects]);
   const recentIdeas = useMemo(() =>
@@ -1208,9 +1241,21 @@ export function HomeView() {
   const goToKanban = (id: string) => { if (id) { navigate('kanban'); setTimeout(() => useKanbanStore.getState().selectProject(id), 220); } };
   const toggleFolder = (k: string) => setExpandedFolders(p => ({ ...p, [k]: !p[k] }));
 
-  const toggleQuickAccess = (id: string) => {
+  const toggleQuickAccess = (id: string, title?: string) => {
     setQuickAccess(prev => {
-      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      if (prev.includes(id)) {
+        // removing — always allowed
+        const next = prev.filter(x => x !== id);
+        try { localStorage.setItem('soundflow-quick-access', JSON.stringify(next)); } catch { /* ignore */ }
+        return next;
+      }
+      // adding — enforce max 7
+      if (prev.length >= MAX_QUICK_ACCESS) {
+        setQuickWarning(`Достигнут максимум ${MAX_QUICK_ACCESS} проектов в быстром доступе. Удалите один, чтобы добавить «${title || 'проект'}».`);
+        setTimeout(() => setQuickWarning(null), 5000);
+        return prev;
+      }
+      const next = [...prev, id];
       try { localStorage.setItem('soundflow-quick-access', JSON.stringify(next)); } catch { /* ignore */ }
       return next;
     });
@@ -1401,15 +1446,31 @@ export function HomeView() {
                   Быстрый доступ
                 </h2>
               </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-1" style={{
-                color: '#00d9ff',
-                clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                background: 'rgba(0,217,255,0.08)',
-                border: '1px solid rgba(0,217,255,0.3)',
-                textShadow: '0 0 6px rgba(0,217,255,0.5)',
-              }}>
-                {quickAccessItems.length} активных
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-1" style={{
+                  color: '#00d9ff',
+                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                  background: 'rgba(0,217,255,0.08)',
+                  border: '1px solid rgba(0,217,255,0.3)',
+                  textShadow: '0 0 6px rgba(0,217,255,0.5)',
+                }}>
+                  {quickAccessItems.length}/{MAX_QUICK_ACCESS} активных
+                </span>
+                <button
+                  onClick={() => setManageQuickOpen(true)}
+                  className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 transition-all hover:scale-105"
+                  style={{
+                    color: '#00d9ff',
+                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                    background: 'rgba(0,217,255,0.08)',
+                    border: '1px solid rgba(0,217,255,0.3)',
+                    textShadow: '0 0 6px rgba(0,217,255,0.5)',
+                  }}
+                  title="Управлять быстрым доступом"
+                >
+                  <Pencil className="w-2.5 h-2.5" /> Изменить
+                </button>
+              </div>
             </div>
 
             <div className="relative" style={{ zIndex: 2 }}>
@@ -1419,7 +1480,6 @@ export function HomeView() {
                     key={item.id}
                     item={item}
                     onClick={item.onOpen}
-                    onUnstar={() => toggleQuickAccess(item.id)}
                     onMoveTo={(targetIdx) => moveQuickAccessTo(item.id, targetIdx)}
                     priority={idx + 1}
                     total={quickAccessItems.length}
@@ -1630,6 +1690,15 @@ export function HomeView() {
 
       {/* Modals & Dialogs */}
       <CreateProjectDialog open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
+      <ManageQuickAccessModal
+        open={manageQuickOpen}
+        onClose={() => setManageQuickOpen(false)}
+        quickAccess={quickAccess}
+        toggleQuickAccess={toggleQuickAccess}
+        autoItems={autoModalItems}
+        kanbanItems={kanbanModalItems}
+        warning={quickWarning}
+      />
       <AnimatePresence>
         {allAutoOpen && (
           <AllProjectsModal

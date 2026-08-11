@@ -1408,3 +1408,93 @@ Stage Summary:
 - Yellow color (#FCEE0A) replaced with golden sun (#FFC42E) throughout the project — home-view.tsx (palette Y, all hardcoded rgba/hex), cyberpunk.css (track wizard, task form, project info modal, stage cards, all kb-/kb2-/kb3- keyframes using yellow), app-sidebar.tsx (YELLOW const). The panel illumination is now a warm golden sun color instead of harsh neon yellow.
 - Lint clean for home-view.tsx, TypeScript clean, dev server HTTP 200, 0 console errors.
 - VLM-verified all 4 user requirements met.
+
+---
+Task ID: KB5-REFACTOR-4REQ
+Agent: main
+Task: 4 fixes — (1) stat cards light yellow, (2) quick access priority scale clickable + max 7 + edit modal, (3) remove playhead sweep from autoboard cards, (4) kanban cards remove aggressive animations + add waveform sign
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from KB4-WAVEFORM-CLEANUP (ProjectCard had playhead sweep + gentle wave; KanbanCard had particles/sweep/grid-shift/corner-flash/ping; QuickAccessCard had priority dropdown + unstar Zap; StatBar was golden sun #FFC42E).
+
+Req 1 — StatBar light yellow:
+- Changed StatBar background gradient from `#FFC42E → #FFB423 → #FFC42E` (golden sun) to `#FFF7C2 → #FFE873 → #FFD93D` (light cyberpunk yellow — pale cream to soft yellow to warm gold).
+- Updated boxShadow glow to `rgba(255,232,115,0.55)` + `rgba(255,217,61,0.22)` (lighter yellow glow).
+- Updated icon/text color from `#0a0b10` to `#1a1500` (very dark brown for better contrast on light yellow).
+- Inset highlight rgba(255,255,255,0.6) for soft sheen.
+
+Req 2 — Quick Access priority scale + max 7 + edit modal:
+- Added MAX_QUICK_ACCESS = 7 constant near palette.
+- Added `manageQuickOpen` and `quickWarning` state to HomeView.
+- Updated `toggleQuickAccess(id, title?)` to enforce max 7: if adding when already 7, sets warning message "Достигнут максимум 7 проектов..." and auto-clears after 5s. Removal always allowed.
+- Rewrote QuickAccessCard:
+  * Removed `onUnstar` prop and the unstar Zap button (lightning bolt).
+  * Removed the priority number dropdown (Popover with 1..N buttons).
+  * Replaced the bottom-left segmented dial (8 segments, display-only) with a CLICKABLE 7-segment priority scale: each segment is a `<button>` that calls `onMoveTo(i)` (0-based index) to set priority.
+  * Segments are 4px wide × 12px tall, filled segments glow with t.color, hover scaleY bounce, staggered 25ms transitions.
+  * Added "{priority}/{SCALE_SEGS}" text label next to scale (e.g. "3/7").
+  * Each segment has `title="Приоритет N"` and `aria-label="Установить приоритет N"`.
+- Updated QuickAccessCard usage to remove `onUnstar` prop.
+- Added "ИЗМЕНИТЬ" Edit button (with Pencil icon) to Quick Access panel header, next to the "N/7 активных" badge.
+- Changed badge text from "{N} активных" to "{N}/{MAX_QUICK_ACCESS} активных" to show max indicator.
+- Created new ManageQuickAccessModal component (before HomeView):
+  * Full-screen overlay with blur backdrop.
+  * Cyan-themed cyberpunk panel with chamfered clip-path, fractured light-trail border, neon top bar.
+  * Header: Pencil icon + "УПРАВЛЕНИЕ БЫСТРЫМ ДОСТУПОМ" title + "{N}/7 · выберите проекты для закрепления" subtitle + X close button.
+  * Warning banner (when quickWarning is set): golden AlertTriangle icon + message, chamfered clip-path, golden border.
+  * Scrollable list of ALL projects (auto + kanban), each as a toggle button:
+    - Type icon (chamfered) + title + type label + track count.
+    - Right-side toggle: filled checkmark (Check icon, colored bg) when in quick access, plus icon (Plus icon, transparent bg) when not.
+    - In-quick items have colored background tint + left accent bar.
+  * Footer: "МАКСИМУМ 7 ПРОЕКТОВ" label + "ГОТОВО" done button (cyan gradient with glow).
+- Mounted ManageQuickAccessModal in HomeView (after CreateProjectDialog).
+- Updated AllProjectsModal star toggle to pass `item.title` to `toggleQuickAccess` so warning shows project name.
+- Verified priority scale works: clicked segment 3 on second card → order changed from [A,B,C] to [A,C,B] (card moved from index 1 to index 2).
+- Verified max-7 enforcement in `toggleQuickAccess`: returns early with warning if at limit.
+
+Req 3 — Remove playhead sweep from autoboard cards:
+- In ProjectCard, removed the playhead sweep overlay (the `{h && (<div className="absolute inset-y-0 pointer-events-none" ... kb4-play-sweep ...>`) with the white center line + gradient trail).
+- Kept the gentle kb4-bar-lift wave animation (subtle scaleY 1→1.3→1 pulse on bars).
+- In QuickAccessCard, also removed the playhead sweep overlay (was 28px wide gradient with white line).
+- Waveform is now static-looking with only the gentle bar-lift on hover — no more "light line running" effect.
+
+Req 4 — KanbanCard remove aggressive animations + add waveform sign:
+- Completely rewrote KanbanCard:
+  * Removed framer-motion motion.div wrapper (was using whileHover/whileTap spring) → now a plain div with CSS transition transform.
+  * Removed breathing edge glow (kb-breathe animation).
+  * Removed sweeping scan line (kb-sweep on hover).
+  * Removed animated circuit grid (kb-grid-shift) — replaced with static inner beveled frame.
+  * Removed floating particles (5 kb-float sparkles).
+  * Removed animated corner brackets (kb-corner-flash targeting reticle).
+  * Removed holographic badge gradient shift (kb-holo-shift).
+  * Removed heartbeat ping ring on status dot (kb-ping) → replaced with static glowing dot.
+  * Removed bobbing type icon animation (motion.div y/rotate loop) → static icon with hover glow transition.
+  * Removed monospace title with RGB glitch (kb3-rgb-split) → clean title with subtle text-shadow glow.
+  * Removed scaleY bounce on filled progress segments (was scaleY 1.15 on hover).
+  * Removed kb-blink on done-count dot → static dot.
+- Added distinctive kanban sign: realistic audio waveform (same as autoboard ProjectCard):
+  * 28 bars (deterministic from task.id, sinusoidal envelope algorithm).
+  * Static heights, gentle kb4-bar-lift on hover.
+  * Dark bg container with center axis line, 0.5px border.
+  * 2px wide bars with color glow on hover.
+- Card now has: top accent strip, KANBAN/AUTO badge with static dot, static type icon, title, waveform sign, chunky segmented progress bar, bottom data row (board count + done count).
+
+- Added Pencil, Check, AlertTriangle icons to lucide-react imports.
+- Ran `npx tsc --noEmit` → 0 errors. Ran `bun run lint` → 0 errors in home-view.tsx (2 pre-existing unrelated errors in project-chat.tsx:557 and app-header.tsx:132).
+- Dev server GET / returns 200.
+
+- Agent Browser verification:
+  * Logged in, starred 3 projects via All Projects modal, confirmed Quick Access panel appears.
+  * VLM verified stat cards: "light, pale yellow (soft gold), bright and clean, chamfered shape intact, icons/numbers clearly visible dark on light yellow".
+  * VLM verified Auto Projects cards: "playhead/light-line sweep effect REMOVED, gentle bar-lift effect still visible, hex code data blocks absent".
+  * VLM verified Kanban cards: "glowing floating dots/particles REMOVED, passing background sweep/grid-shift REMOVED, distinctive audio waveform sign with vertical bars present, clean and static design".
+  * VLM verified Quick Access panel: "ИЗМЕНИТЬ button with pencil icon present, 3/7 АКТИВНЫХ displayed, vertical priority scale segments in bottom-left, priority number dropdown REMOVED, unstar lightning bolt REMOVED".
+  * VLM verified Manage modal: "УПРАВЛЕНИЕ БЫСТРЫМ ДОСТУПОМ title, 3/7 subtitle, scrollable list with add/remove toggles, filled checkmarks on in-quick items, ГОТОВО button, МАКСИМУМ 7 ПРОЕКТОВ indicator".
+  * Tested priority scale click: clicked segment 3 on second card → localStorage order changed from [A,B,C] to [A,C,B] (card moved from index 1 to index 2). Priority scale is functional.
+
+Stage Summary:
+- StatBar metric cards now use light cyberpunk yellow (#FFF7C2 → #FFE873 → #FFD93D gradient) instead of golden sun.
+- QuickAccessCard priority scale is now clickable — 7 segments, click segment N to set priority to N. Priority number dropdown removed. Unstar lightning bolt removed. Max 7 cards enforced with warning. "ИЗМЕНИТЬ" Edit button on panel opens ManageQuickAccessModal with full project list, add/remove toggles, warning banner, and max-7 indicator.
+- ProjectCard (autoboard) playhead sweep (light line) removed — only gentle bar-lift wave animation remains. Same for QuickAccessCard.
+- KanbanCard completely cleaned: removed particles, sweep, grid-shift, corner-flash, ping, holographic shift, bobbing icon, RGB glitch title, scaleY bounce. Added distinctive audio waveform sign (28 bars, sinusoidal, gentle lift on hover) matching the autoboard style.
+- Lint clean, TypeScript clean, dev server HTTP 200, 0 console errors, all 4 requirements VLM-verified.
