@@ -275,6 +275,20 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
             const isGuideHighlighted = item.isGuideHighlighted;
             const px = item.x - PANEL_W / 2;
             const py = item.y - PANEL_H / 2;
+            const clip = 8; // angular corner size
+            // Angular clip-path for board panel (cyberpunk 2077 style)
+            const panelPath = `M ${px} ${py} L ${px + PANEL_W - clip} ${py} L ${px + PANEL_W} ${py + clip} L ${px + PANEL_W} ${py + PANEL_H - clip} L ${px + PANEL_W - clip} ${py + PANEL_H} L ${px + clip} ${py + PANEL_H} L ${px} ${py + PANEL_H - clip} L ${px} ${py + clip} Z`;
+            // Angular top accent bar path
+            const accentPath = `M ${px + 4} ${py} L ${px + PANEL_W - clip - 2} ${py} L ${px + PANEL_W - 2} ${py + 2}`;
+            // Progress bar with angular corners
+            const progY = item.y + 18;
+            const progW = 60;
+            const progX = item.x - progW / 2;
+            const progClip = 2;
+            const progBgPath = `M ${progX} ${progY} L ${progX + progW - progClip} ${progY} L ${progX + progW} ${progY + progClip} L ${progX + progW} ${progY + 4} L ${progX} ${progY + 4} Z`;
+            const progFillW = item.total > 0 ? progW * (item.taskDone / item.total) : 0;
+            const progFillPath = `M ${progX} ${progY} L ${Math.max(progX + progFillW - progClip, progX)} ${progY} L ${Math.max(progX + progFillW, progX)} ${progY + Math.min(progClip, progFillW)} L ${Math.max(progX + progFillW, progX)} ${progY + 4} L ${progX} ${progY + 4} Z`;
+
             return (
               <g
                 key={item.board.id}
@@ -290,13 +304,12 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
                 data-guide-highlighted={isGuideHighlighted || undefined}
                 style={{
                   '--bc': item.board.color,
-                  '--bf': isSelected || isGuideHighlighted ? item.board.color + '25' : isGhost ? '#0a0a14' : '#111122',
-                  '--bs': isSelected || isGuideHighlighted ? item.board.color : isGhost ? item.board.color + '25' : item.board.color + '50',
+                  '--bf': isSelected || isGuideHighlighted ? item.board.color + '20' : isGhost ? '#0a0a14' : '#0d1018',
+                  '--bs': isSelected || isGuideHighlighted ? item.board.color : isGhost ? item.board.color + '30' : item.board.color + '60',
                   '--bw': isSelected || isGuideHighlighted ? '2' : isGhost ? '1' : '1.5',
                 } as React.CSSProperties}
                 onClick={() => {
                   if (isGhost && !isGhostHighlighted) {
-                    // Clicking a non-highlighted ghost board activates it
                     handleGhostClick(item.board.id);
                   } else if (!isGhost) {
                     setSelectedBoardId(item.board.id);
@@ -306,19 +319,35 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
                 {/* Ghost pulse rings */}
                 {isGhostHighlighted && (
                   <>
-                    <rect className="ghost-pulse-outer" x={px - 8} y={py - 8} width={PANEL_W + 16} height={PANEL_H + 16} rx={18} />
-                    <rect className="ghost-pulse-inner" x={px - 4} y={py - 4} width={PANEL_W + 8} height={PANEL_H + 8} rx={15} />
+                    <path className="ghost-pulse-outer" d={`M ${px - 8} ${py + 8} L ${px - 8} ${py - 8} L ${px + PANEL_W - clip + 4} ${py - 8} L ${px + PANEL_W + 4} ${py - 8 + clip} L ${px + PANEL_W + 4} ${py + PANEL_H + 4} L ${px + clip - 4} ${py + PANEL_H + 4} L ${px - 8} ${py + PANEL_H - clip + 4} Z`} fill="none" />
+                    <path className="ghost-pulse-inner" d={`M ${px - 4} ${py + 4} L ${px - 4} ${py - 4} L ${px + PANEL_W - clip + 2} ${py - 4} L ${px + PANEL_W} ${py - 4 + clip} L ${px + PANEL_W} ${py + PANEL_H} L ${px + clip - 2} ${py + PANEL_H} L ${px - 4} ${py + PANEL_H - clip + 2} Z`} fill="none" />
                   </>
                 )}
                 {/* Guide highlight glow rings */}
                 {isGuideHighlighted && (
                   <>
-                    <rect className="guide-pulse-outer" x={px - 10} y={py - 10} width={PANEL_W + 20} height={PANEL_H + 20} rx={20} />
-                    <rect className="guide-pulse-inner" x={px - 5} y={py - 5} width={PANEL_W + 10} height={PANEL_H + 10} rx={16} />
+                    <path className="guide-pulse-outer" d={`M ${px - 10} ${py + 10} L ${px - 10} ${py - 10} L ${px + PANEL_W - clip + 6} ${py - 10} L ${px + PANEL_W + 6} ${py - 10 + clip} L ${px + PANEL_W + 6} ${py + PANEL_H + 6} L ${px + clip - 6} ${py + PANEL_H + 6} L ${px - 10} ${py + PANEL_H - clip + 6} Z`} fill="none" />
+                    <path className="guide-pulse-inner" d={`M ${px - 5} ${py + 5} L ${px - 5} ${py - 5} L ${px + PANEL_W - clip + 3} ${py - 5} L ${px + PANEL_W + 3} ${py - 5 + clip} L ${px + PANEL_W + 3} ${py + PANEL_H + 3} L ${px + clip - 3} ${py + PANEL_H + 3} L ${px - 5} ${py + PANEL_H - clip + 3} Z`} fill="none" />
                   </>
                 )}
-                <rect className="board-glow" x={px - 4} y={py - 4} width={PANEL_W + 8} height={PANEL_H + 8} rx={14} fill="none" stroke={item.board.color} />
-                <rect className="board-bg" x={px} y={py} width={PANEL_W} height={PANEL_H} rx={12} />
+
+                {/* Outer glow rect (hidden by default, shows on hover/select) */}
+                <path className="board-glow" d={panelPath} fill="none" stroke={item.board.color} />
+
+                {/* Main board background — angular clip-path */}
+                <path className="board-bg" d={panelPath} />
+
+                {/* Top neon accent strip — board color gradient */}
+                <path
+                  d={accentPath}
+                  fill="none"
+                  stroke={item.board.color}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  opacity={isSelected || isGuideHighlighted ? 1 : 0.5}
+                  style={{ filter: `drop-shadow(0 0 4px ${item.board.color}80)`, transition: 'opacity 0.2s' }}
+                />
+
                 {editingId === item.board.id ? (
                   <foreignObject x={px + 6} y={item.y - 14} width={PANEL_W - 12} height={20}>
                     <input
@@ -349,15 +378,19 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
                   x={item.x} y={item.y + 8} textAnchor="middle"
                   fill={isGhost ? (isGhostHighlighted ? item.board.color : item.board.color + '40') : item.board.color}
                   fontSize={10} fontFamily="system-ui, sans-serif"
+                  fontWeight={isSelected ? 700 : 400}
                 >
                   {isGhost ? 'Призрак' : `${item.total} задач`}
                 </text>
+
+                {/* Progress bar — angular clip-path */}
                 {!isGhost && item.total > 0 && (
                   <g>
-                    <rect x={item.x - 30} y={item.y + 18} width={60} height={4} rx={2} fill="#1a1a2e" />
-                    <rect x={item.x - 30} y={item.y + 18} width={60 * (item.taskDone / item.total)} height={4} rx={2} fill={item.board.color} opacity={0.7} />
+                    <path d={progBgPath} fill="#0a0a14" stroke={item.board.color + '20'} strokeWidth={0.5} />
+                    <path d={progFillPath} fill={item.board.color} opacity={0.8} style={{ filter: `drop-shadow(0 0 3px ${item.board.color}80)` }} />
                   </g>
                 )}
+
                 {/* Ghost icon indicator */}
                 {isGhost && !isGhostHighlighted && (
                   <text x={px + PANEL_W - 14} y={py + 14} textAnchor="middle" fill={item.board.color + '30'} fontSize={10} fontFamily="system-ui">
@@ -372,7 +405,7 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
                 )}
                 {!isGhost && !isGuideHighlighted && (
                   <g className="opacity-0 hover:opacity-100" onClick={(e) => handleDelete(e, item.board.id)} style={{ cursor: 'pointer' }}>
-                    <circle cx={px + PANEL_W - 8} cy={py + 8} r={7} fill="#1a1a2e" />
+                    <circle cx={px + PANEL_W - 8} cy={py + 8} r={7} fill="#0a0a14" stroke="#f8717150" strokeWidth={0.5} />
                     <text x={px + PANEL_W - 8} y={py + 12} textAnchor="middle" fill="#f87171" fontSize={10} fontFamily="system-ui">
                       ×
                     </text>
@@ -424,25 +457,29 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
             transform-origin: center;
             transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
           }
-          .board-panel:hover { transform: scale(1.06); }
+          .board-panel:hover { transform: scale(1.08); }
           .board-panel:active { transform: scale(0.97); }
           .board-bg {
-            fill: var(--bf, #111122); stroke: var(--bs, #33415550); stroke-width: var(--bw, 1.5);
+            fill: var(--bf, #0d1018); stroke: var(--bs, #00d9ff60); stroke-width: var(--bw, 1.5);
             transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease, filter 0.2s ease;
           }
           .board-panel:hover .board-bg {
-            fill: #1a1a30; stroke: var(--bc, #00d9ff); stroke-width: 2;
-            filter: drop-shadow(0 0 6px var(--bc, #00d9ff) 0.3);
+            fill: var(--bc, #00d9ff) 15;
+            stroke: var(--bc, #00d9ff);
+            stroke-width: 2;
+            filter: drop-shadow(0 0 10px var(--bc, #00d9ff) 0.5);
           }
           .board-panel[data-selected] .board-bg {
-            filter: drop-shadow(0 0 8px var(--bc, #00d9ff) 0.4);
+            stroke: var(--bc, #00d9ff);
+            stroke-width: 2.5;
+            filter: drop-shadow(0 0 16px var(--bc, #00d9ff) 0.7);
           }
           .board-glow {
             stroke-width: 0; stroke-opacity: 0;
             transition: stroke-width 0.25s ease, stroke-opacity 0.25s ease;
           }
-          .board-panel:hover .board-glow { stroke-width: 1; stroke-opacity: 0.15; }
-          .board-panel[data-selected] .board-glow { stroke-width: 1; stroke-opacity: 0.2; }
+          .board-panel:hover .board-glow { stroke-width: 1.5; stroke-opacity: 0.25; filter: drop-shadow(0 0 8px var(--bc, #00d9ff) 0.3); }
+          .board-panel[data-selected] .board-glow { stroke-width: 2; stroke-opacity: 0.35; filter: drop-shadow(0 0 12px var(--bc, #00d9ff) 0.4); }
 
           /* Ghost panel — dimmed appearance */
           .ghost-panel {
