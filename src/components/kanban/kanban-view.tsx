@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { useKanbanStore } from '@/store/kanban-store';
+import { motion } from 'framer-motion';
+import { useKanbanStore, type Task } from '@/store/kanban-store';
 import { useHeaderActionsStore } from '@/store/header-actions-store';
 import RadialBoard from '@/components/board/radial-board';
 import TaskStrip from '@/components/board/task-strip';
@@ -13,10 +14,300 @@ import ProjectInfoModal from '@/components/kanban/project-info-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, RefreshCw, Hexagon, FolderOpen, ChevronRight, Trash2, Plus, Music, Disc3, Zap, AudioLines, Search, Pencil, LayoutGrid, Layers, Check, X, Clock } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Hexagon, FolderOpen, ChevronRight, Trash2, Plus, Music, Music2, Disc3, Zap, AudioLines, Search, Pencil, LayoutGrid, Layers, Check, X, Clock } from 'lucide-react';
 import { cn, hexToRgba } from '@/lib/utils';
 
 type FilterType = 'all' | 'kanban' | 'music';
+
+/* ─── Cartoon cyberpunk Kanban project card (kanban-view grid) ─── */
+function KanbanProjectCard({
+  project, isEditing, isConfirming, editTitle, setEditTitle,
+  onSelect, onStartEdit, onRename, onCancelEdit, onAskDelete, onConfirmDelete, onCancelDelete,
+}: {
+  project: Task;
+  isEditing: boolean;
+  isConfirming: boolean;
+  editTitle: string;
+  setEditTitle: (v: string) => void;
+  onSelect: () => void;
+  onStartEdit: (e: React.MouseEvent) => void;
+  onRename: () => void;
+  onCancelEdit: () => void;
+  onAskDelete: () => void;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+}) {
+  const [h, setH] = useState(false);
+  const isMusic = !!project.soundflowProjectId;
+  const pType = project.projectType || 'general';
+  const typeConf = isMusic
+    ? (pType === 'album' ? { color: '#a855f7', icon: Disc3, label: 'Альбом' }
+       : pType === 'ep' ? { color: '#00d9ff', icon: AudioLines, label: 'EP' }
+       : pType === 'single' ? { color: '#f59e0b', icon: Music2, label: 'Сингл' }
+       : { color: '#10b981', icon: Music2, label: 'Music' })
+    : { color: '#FCEE0A', icon: FolderOpen, label: 'Канбан' };
+  const TypeIcon = typeConf.icon;
+  const color = typeConf.color;
+  const childCount = project.children?.length || 0;
+  const doneCount = (project.children || []).filter(c => c.status === 'done').length;
+  const pct = childCount > 0 ? Math.round((doneCount / childCount) * 100) : 0;
+  const SEGMENTS = 10;
+  const filledSegs = Math.round((pct / 100) * SEGMENTS);
+  const stColor = getStatusColor(project.status);
+  const stLabel = getStatusLabel(project.status);
+  const interactive = !isEditing && !isConfirming;
+
+  return (
+    <motion.div
+      onClick={() => interactive && onSelect()}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      className="group relative cursor-pointer overflow-hidden"
+      initial={{ opacity: 0, scale: 0.9, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 240, damping: 18 }}
+      whileHover={interactive ? { scale: 1.035, y: -5 } : undefined}
+      whileTap={interactive ? { scale: 0.985 } : undefined}
+      style={{
+        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+        background: `linear-gradient(135deg, ${hexToRgba(color, h && interactive ? 0.22 : 0.12)}, rgba(14,18,28,0.94))`,
+        boxShadow: h && interactive
+          ? `inset 0 0 0 2px ${hexToRgba(color, 0.75)}, 0 12px 40px ${hexToRgba(color, 0.32)}, 0 0 70px ${hexToRgba(color, 0.18)}, 0 6px 18px rgba(0,0,0,0.55)`
+          : `inset 0 0 0 1.5px ${hexToRgba(color, 0.38)}, 0 4px 14px rgba(0,0,0,0.45)`,
+        transition: 'box-shadow 280ms ease, background 280ms ease',
+      }}
+    >
+      {/* Breathing edge glow */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          boxShadow: `inset 0 0 0 2px ${hexToRgba(color, h && interactive ? 0.45 : 0.15)}`,
+          animation: 'kb-breathe 2.4s ease-in-out infinite',
+          opacity: h && interactive ? 1 : 0.6,
+          zIndex: 1,
+        }}
+      />
+
+      {/* Sweeping scan line on hover */}
+      {h && interactive && (
+        <div
+          className="absolute inset-y-0 pointer-events-none"
+          style={{
+            width: '45%', left: '-45%',
+            background: `linear-gradient(90deg, transparent, ${hexToRgba(color, 0.3)}, transparent)`,
+            animation: 'kb-sweep 1.4s ease-out',
+            zIndex: 3,
+          }}
+        />
+      )}
+
+      {/* Animated circuit grid */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
+        style={{
+          opacity: h && interactive ? 0.55 : 0.18,
+          backgroundImage: `linear-gradient(${hexToRgba(color, 0.1)} 1px, transparent 1px), linear-gradient(90deg, ${hexToRgba(color, 0.1)} 1px, transparent 1px)`,
+          backgroundSize: '14px 14px',
+          animation: h && interactive ? 'kb-grid-shift 1.5s linear infinite' : 'none',
+          zIndex: 0,
+        }}
+      />
+
+      {/* Floating particles */}
+      {h && interactive && [
+        { id: 1, top: '18%', left: '10%', delay: '0s', size: 3 },
+        { id: 2, top: '72%', left: '14%', delay: '0.3s', size: 2 },
+        { id: 3, top: '28%', left: '86%', delay: '0.6s', size: 3 },
+        { id: 4, top: '82%', left: '80%', delay: '0.9s', size: 2 },
+      ].map(p => (
+        <div key={p.id} className="absolute pointer-events-none rounded-full" style={{
+          top: p.top, left: p.left, width: p.size, height: p.size,
+          background: color, boxShadow: `0 0 8px ${color}, 0 0 3px ${color}`,
+          animation: `kb-float 2s ease-in-out ${p.delay} infinite`, zIndex: 2,
+        }} />
+      ))}
+
+      {/* Corner brackets */}
+      {[
+        { cls: 'top-1.5 left-1.5', rot: 0 },
+        { cls: 'top-1.5 right-1.5', rot: 90 },
+        { cls: 'bottom-1.5 right-1.5', rot: 180 },
+        { cls: 'bottom-1.5 left-1.5', rot: 270 },
+      ].map((c, i) => (
+        <div key={i} className={`absolute ${c.cls} pointer-events-none`} style={{
+          width: 14, height: 14,
+          transform: `rotate(${c.rot}deg) scale(${h && interactive ? 1.1 : 0.55})`,
+          opacity: h && interactive ? 1 : 0.4,
+          transition: 'all 320ms cubic-bezier(0.34,1.56,0.64,1)',
+          animation: h && interactive ? `kb-corner-flash 1.8s ease-in-out ${i * 0.15}s infinite` : 'none',
+          zIndex: 4,
+        }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 2.5, background: color, boxShadow: `0 0 5px ${color}`, borderRadius: '1px' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 2.5, height: 14, background: color, boxShadow: `0 0 5px ${color}`, borderRadius: '1px' }} />
+        </div>
+      ))}
+
+      {/* Top accent strip */}
+      <div className="h-1 w-full relative z-[2]" style={{
+        background: `linear-gradient(90deg, transparent, ${color} 30%, ${color} 70%, transparent)`,
+        boxShadow: `0 0 10px ${hexToRgba(color, 0.8)}`,
+      }} />
+
+      {/* Cover strip — bobbing icon + holographic badge */}
+      <div className="flex items-center justify-between px-4 py-3 relative z-[2]" style={{
+        background: `linear-gradient(135deg, ${hexToRgba(color, h && interactive ? 0.28 : 0.15)}, ${hexToRgba(color, 0.02)})`,
+        borderBottom: `1px solid ${hexToRgba(color, 0.1)}`,
+      }}>
+        <div className="flex items-center gap-2">
+          <motion.div
+            className="flex h-9 w-9 items-center justify-center"
+            style={{
+              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+              background: h && interactive ? hexToRgba(color, 0.28) : hexToRgba(color, 0.14),
+              border: `1.5px solid ${hexToRgba(color, h && interactive ? 0.65 : 0.32)}`,
+              boxShadow: h && interactive ? `0 0 16px ${hexToRgba(color, 0.5)}` : 'none',
+            }}
+            animate={h && interactive ? { y: [0, -3, 0], rotate: [0, -4, 4, 0] } : { y: 0, rotate: 0 }}
+            transition={{ duration: 1.2, repeat: h && interactive ? Infinity : 0, ease: 'easeInOut' }}
+          >
+            <TypeIcon className="w-4 h-4" style={{ color, filter: h && interactive ? `drop-shadow(0 0 4px ${color})` : 'none' }} />
+          </motion.div>
+          <span className="text-[11px] font-bold" style={{ color, textShadow: h && interactive ? `0 0 6px ${hexToRgba(color, 0.4)}` : 'none' }}>{typeConf.label}</span>
+        </div>
+        <span className="flex items-center gap-1.5 px-2 py-1 text-[9px] font-extrabold uppercase tracking-widest" style={{
+          background: h && interactive
+            ? `linear-gradient(90deg, ${hexToRgba(color, 0.3)}, ${hexToRgba(color, 0.18)}, ${hexToRgba(color, 0.3)})`
+            : hexToRgba(color, 0.14),
+          backgroundSize: h && interactive ? '200% 100%' : '100% 100%',
+          animation: h && interactive ? 'kb-holo-shift 1.5s ease-in-out infinite' : 'none',
+          color, border: `1.5px solid ${hexToRgba(color, h && interactive ? 0.65 : 0.4)}`,
+          clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+          boxShadow: h && interactive ? `0 0 12px ${hexToRgba(color, 0.45)}` : 'none',
+          transition: 'all 220ms ease',
+        }}>
+          <span className="relative inline-block w-2 h-2">
+            <span className="absolute inset-0 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+            {h && interactive && (
+              <span className="absolute inset-0 rounded-full" style={{ background: color, animation: 'kb-ping 1.5s ease-out infinite' }} />
+            )}
+          </span>
+          {isMusic ? 'AUTO' : 'KANBAN'}
+        </span>
+      </div>
+
+      {/* Body */}
+      <div className="p-4 relative z-[2]">
+        {isEditing ? (
+          <input
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onRename();
+              if (e.key === 'Escape') onCancelEdit();
+            }}
+            autoFocus
+            className="w-full bg-white/[0.06] border border-yellow-500/40 rounded px-2 py-1 text-sm text-slate-100 focus:outline-none"
+          />
+        ) : (
+          <h3 className="mb-2 text-[15px] font-bold leading-snug line-clamp-2 transition-all" style={{
+            color: h ? '#ffffff' : '#e8eaed',
+            textShadow: h && interactive ? `0 0 10px ${hexToRgba(color, 0.4)}` : 'none',
+            fontFamily: 'monospace',
+          }}>
+            {project.title}
+          </h3>
+        )}
+
+        {project.description && !isEditing && (
+          <p className="mb-2 text-[11px] text-slate-500 line-clamp-1">{project.description}</p>
+        )}
+
+        {/* Chunky segmented progress bar */}
+        {!isEditing && childCount > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <div className="flex-1 flex gap-[2px]">
+              {Array.from({ length: SEGMENTS }).map((_, i) => {
+                const filled = i < filledSegs;
+                const doneColor = pct === 100 ? '#10b981' : color;
+                return (
+                  <div key={i} className="flex-1 h-2" style={{
+                    background: filled ? doneColor : hexToRgba(color, 0.1),
+                    boxShadow: filled ? `0 0 6px ${hexToRgba(doneColor, 0.7)}` : 'none',
+                    borderRadius: '1px',
+                    transition: `all 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 35}ms`,
+                    transform: h && filled && interactive ? 'scaleY(1.15)' : 'scaleY(1)',
+                  }} />
+                );
+              })}
+            </div>
+            <span className="text-[11px] font-extrabold tabular-nums font-mono" style={{
+              color: pct === 100 ? '#10b981' : color,
+              textShadow: `0 0 6px ${hexToRgba(pct === 100 ? '#10b981' : color, 0.55)}`,
+              minWidth: '34px', textAlign: 'right',
+            }}>{pct}%</span>
+          </div>
+        )}
+
+        {/* Meta row */}
+        {!isEditing && (
+          <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-wider" style={{ color: h ? hexToRgba(color, 0.85) : 'rgba(100,116,139,0.9)' }}>
+            <span className="flex items-center gap-1">
+              <Layers className="w-3 h-3" style={{ color, opacity: h ? 1 : 0.65 }} />
+              {childCount} {childCount === 1 ? 'доска' : childCount > 4 ? 'досок' : 'доски'}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full" style={{
+                background: stColor, boxShadow: `0 0 5px ${stColor}`,
+                animation: 'kb-blink 1.5s ease-in-out infinite',
+              }} />
+              {stLabel}
+            </span>
+          </div>
+        )}
+
+        {/* Edit mode */}
+        {isEditing && (
+          <div className="flex items-center gap-2 mt-3">
+            <button onClick={(e) => { e.stopPropagation(); onRename(); }} disabled={!editTitle.trim()} className="px-3 py-1 rounded text-[10px] font-bold bg-yellow-500 text-black disabled:opacity-30">Сохранить</button>
+            <button onClick={(e) => { e.stopPropagation(); onCancelEdit(); }} className="px-2 py-1 text-[10px] text-slate-500 hover:text-slate-300">Отмена</button>
+          </div>
+        )}
+
+        {/* Delete confirmation */}
+        {isConfirming && (
+          <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/30 p-2.5">
+            <p className="text-[10px] text-rose-300 mb-2">Удалить проект? Это необратимо.</p>
+            <div className="flex items-center gap-2">
+              <button onClick={(e) => { e.stopPropagation(); onConfirmDelete(); }} className="px-3 py-1 rounded text-[10px] font-bold bg-rose-600 text-white">Удалить</button>
+              <button onClick={(e) => { e.stopPropagation(); onCancelDelete(); }} className="px-2 py-1 text-[10px] text-slate-500">Отмена</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Hover actions */}
+      {!isMusic && !isEditing && !isConfirming && (
+        <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-[5]">
+          <button onClick={onStartEdit} className="p-1.5 rounded hover:bg-white/[0.08] text-slate-500 hover:text-yellow-400 transition-all" title="Переименовать">
+            <Pencil className="w-3 h-3" />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onAskDelete(); }} className="p-1.5 rounded hover:bg-white/[0.08] text-slate-500 hover:text-rose-400 transition-all" title="Удалить">
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
+      {isMusic && !isEditing && !isConfirming && (
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-[5]">
+          <span className="text-[8px] text-slate-600 bg-white/[0.06] px-1.5 py-0.5 rounded flex items-center gap-0.5" title="Создано в Projects — редактирование там">
+            <Clock className="w-2 h-2" /> только просмотр
+          </span>
+        </div>
+      )}
+    </motion.div>
+  );
+}
 
 function ProjectList() {
   const { projects, setProjects, selectProject } = useKanbanStore();
@@ -240,159 +531,24 @@ function ProjectList() {
             </div>
           )}
           {filtered.map((project) => {
-            const isMusic = !!project.soundflowProjectId;
-            const pType = project.projectType || 'general';
-            const typeConf = isMusic
-              ? (pType === 'album' ? { color: '#a855f7', icon: Disc3, label: 'Альбом' }
-                 : pType === 'ep' ? { color: '#00d9ff', icon: AudioLines, label: 'EP' }
-                 : pType === 'single' ? { color: '#f59e0b', icon: Music2, label: 'Сингл' }
-                 : { color: '#10b981', icon: Music2, label: 'Music' })
-              : { color: '#FCEE0A', icon: FolderOpen, label: 'Канбан' };
-            const TypeIcon = typeConf.icon;
-            const color = typeConf.color;
-            const childCount = project.children?.length || 0;
-            const doneCount = (project.children || []).filter(c => c.status === 'done').length;
-            const pct = childCount > 0 ? Math.round((doneCount / childCount) * 100) : 0;
             const isEditing = editingId === project.id;
             const isConfirming = confirmDeleteId === project.id;
-
             return (
-              <div
+              <KanbanProjectCard
                 key={project.id}
-                onClick={() => !isEditing && !isConfirming && selectProject(project.id)}
-                className="group relative cursor-pointer overflow-hidden"
-                style={{
-                  borderRadius: '10px',
-                  background: `linear-gradient(135deg, ${hexToRgba(color, 0.1)}, rgba(14,18,28,0.85))`,
-                  border: `1px solid ${hexToRgba(color, 0.3)}`,
-                  boxShadow: `0 0 0 1px ${hexToRgba(color, 0.08)}, 0 4px 12px rgba(0,0,0,0.3)`,
-                  transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isEditing && !isConfirming) {
-                    e.currentTarget.style.background = `linear-gradient(135deg, ${hexToRgba(color, 0.18)}, rgba(16,20,30,0.95))`;
-                    e.currentTarget.style.borderColor = hexToRgba(color, 0.6);
-                    e.currentTarget.style.boxShadow = `0 0 0 1px ${hexToRgba(color, 0.3)}, 0 8px 32px ${hexToRgba(color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)`;
-                    e.currentTarget.style.transform = 'translateY(-4px) scale(1.01)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = `linear-gradient(135deg, ${hexToRgba(color, 0.1)}, rgba(14,18,28,0.85))`;
-                  e.currentTarget.style.borderColor = hexToRgba(color, 0.3);
-                  e.currentTarget.style.boxShadow = `0 0 0 1px ${hexToRgba(color, 0.08)}, 0 4px 12px rgba(0,0,0,0.3)`;
-                  e.currentTarget.style.transform = 'none';
-                }}
-              >
-                {/* Cover strip */}
-                <div
-                  className="h-16 flex items-center justify-between px-4"
-                  style={{
-                    background: `linear-gradient(135deg, ${hexToRgba(color, 0.15)}, ${hexToRgba(color, 0.02)})`,
-                    borderBottom: `1px solid ${hexToRgba(color, 0.08)}`,
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="flex h-8 w-8 items-center justify-center rounded-lg"
-                      style={{ background: hexToRgba(color, 0.15), border: `1px solid ${hexToRgba(color, 0.25)}` }}
-                    >
-                      <TypeIcon className="w-4 h-4" style={{ color }} />
-                    </div>
-                    <span className="text-[11px] font-semibold" style={{ color }}>{typeConf.label}</span>
-                  </div>
-                  <span className="text-[9px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5" style={{ background: hexToRgba(color, 0.1), color, border: `1px solid ${hexToRgba(color, 0.2)}` }}>
-                    {isMusic ? 'AUTO' : 'KANBAN'}
-                  </span>
-                </div>
-
-                {/* Body */}
-                <div className="p-4">
-                  {isEditing ? (
-                    <input
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void handleRename(project.id);
-                        if (e.key === 'Escape') { setEditingId(null); setEditTitle(''); }
-                      }}
-                      autoFocus
-                      className="w-full bg-white/[0.06] border border-yellow-500/40 rounded px-2 py-1 text-sm text-slate-100 focus:outline-none"
-                    />
-                  ) : (
-                    <h3 className="mb-2 text-[15px] font-semibold leading-snug text-slate-200 group-hover:text-white transition-colors">
-                      {project.title}
-                    </h3>
-                  )}
-
-                  {project.description && !isEditing && (
-                    <p className="mb-2 text-[11px] text-slate-500 line-clamp-1">{project.description}</p>
-                  )}
-
-                  {/* Progress */}
-                  {!isEditing && childCount > 0 && (
-                    <div className="mb-2 flex items-center gap-2">
-                      <div className="flex-1 h-1 rounded-full bg-slate-800 overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? '#10b981' : color, boxShadow: pct > 0 ? `0 0 4px ${hexToRgba(pct === 100 ? '#10b981' : color, 0.5)}` : 'none' }} />
-                      </div>
-                      <span className="text-[10px] font-semibold tabular-nums" style={{ color: pct === 100 ? '#10b981' : color }}>{pct}%</span>
-                    </div>
-                  )}
-
-                  {/* Meta row */}
-                  {!isEditing && (
-                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <Layers className="w-3 h-3" />
-                        {childCount} {childCount === 1 ? 'доска' : childCount > 4 ? 'досок' : 'доски'}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: getStatusColor(project.status), boxShadow: `0 0 4px ${hexToRgba(getStatusColor(project.status), 0.4)}` }} />
-                        {getStatusLabel(project.status)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Edit mode */}
-                  {isEditing && (
-                    <div className="flex items-center gap-2 mt-3">
-                      <button onClick={(e) => { e.stopPropagation(); void handleRename(project.id); }} disabled={!editTitle.trim()} className="px-3 py-1 rounded text-[10px] font-bold bg-yellow-500 text-black disabled:opacity-30">Сохранить</button>
-                      <button onClick={(e) => { e.stopPropagation(); setEditingId(null); setEditTitle(''); }} className="px-2 py-1 text-[10px] text-slate-500 hover:text-slate-300">Отмена</button>
-                    </div>
-                  )}
-
-                  {/* Delete confirmation */}
-                  {isConfirming && (
-                    <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/30 p-2.5">
-                      <p className="text-[10px] text-rose-300 mb-2">Удалить проект? Это необратимо.</p>
-                      <div className="flex items-center gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); void handleDelete(project.id); }} className="px-3 py-1 rounded text-[10px] font-bold bg-rose-600 text-white">Удалить</button>
-                        <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} className="px-2 py-1 text-[10px] text-slate-500">Отмена</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Hover actions */}
-                {!isMusic && !isEditing && !isConfirming && (
-                  <div className="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => startEdit(e, project)} className="p-1.5 rounded hover:bg-white/[0.08] text-slate-500 hover:text-yellow-400 transition-all" title="Переименовать">
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }} className="p-1.5 rounded hover:bg-white/[0.08] text-slate-500 hover:text-rose-400 transition-all" title="Удалить">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
-
-                {isMusic && !isEditing && !isConfirming && (
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[8px] text-slate-600 bg-white/[0.06] px-1.5 py-0.5 rounded flex items-center gap-0.5" title="Создано в Projects — редактирование там">
-                      <Clock className="w-2 h-2" /> только просмотр
-                    </span>
-                  </div>
-                )}
-              </div>
+                project={project}
+                isEditing={isEditing}
+                isConfirming={isConfirming}
+                editTitle={editTitle}
+                setEditTitle={setEditTitle}
+                onSelect={() => selectProject(project.id)}
+                onStartEdit={(e) => startEdit(e, project)}
+                onRename={() => void handleRename(project.id)}
+                onCancelEdit={() => { setEditingId(null); setEditTitle(''); }}
+                onAskDelete={() => setConfirmDeleteId(project.id)}
+                onConfirmDelete={() => void handleDelete(project.id)}
+                onCancelDelete={() => setConfirmDeleteId(null)}
+              />
             );
           })}
         </div>

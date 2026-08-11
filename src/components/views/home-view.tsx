@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FolderKanban, Music2, Lightbulb, Users, ArrowRight, Plus,
   ChevronDown, ChevronRight, ChevronLeft, Disc3, AudioLines, Zap, Clock, Star, X,
-  ArrowUp, ArrowDown, Flame,
+  ArrowUp, ArrowDown, Flame, Layers,
 } from 'lucide-react';
 import { useAuthStore, useDataStore, useNavigationStore, type Project } from '@/lib/store';
 import { useKanbanStore, type Task } from '@/store/kanban-store';
@@ -145,7 +145,7 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
   );
 }
 
-/* ─── Kanban Card — interactive cyberpunk data panel ─── */
+/* ─── Kanban Card — cartoon cyberpunk interactive data panel ─── */
 function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const [h, setH] = useState(false);
   const isAuto = !!task.soundflowProjectId;
@@ -153,148 +153,249 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const children = task.children || [];
   const done = children.filter(c => c.status === 'done').length;
   const pct = children.length > 0 ? Math.round((done / children.length) * 100) : 0;
+  const SEGMENTS = 10;
+  const filledSegs = Math.round((pct / 100) * SEGMENTS);
+  const TypeIcon = isAuto ? Music2 : FolderKanban;
 
   return (
-    <div
+    <motion.div
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       className="relative cursor-pointer overflow-hidden"
+      initial={{ opacity: 0, scale: 0.88, y: 12 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+      whileHover={{ scale: 1.035, y: -5 }}
+      whileTap={{ scale: 0.985 }}
       style={{
-        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-        background: h ? `linear-gradient(135deg, ${hexToRgba(color, 0.15)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(color, 0.08)}, rgba(14,18,28,0.85))`,
+        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+        background: `linear-gradient(135deg, ${hexToRgba(color, h ? 0.22 : 0.12)}, rgba(14,18,28,0.94))`,
         boxShadow: h
-          ? `inset 0 0 0 1.5px ${hexToRgba(color, 0.55)}, 0 6px 24px ${hexToRgba(color, 0.15)}, 0 4px 12px rgba(0,0,0,0.35)`
-          : `inset 0 0 0 1px ${hexToRgba(color, 0.25)}, 0 4px 10px rgba(0,0,0,0.25)`,
-        transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
-        transform: h ? 'translateY(-3px) scale(1.01)' : 'none',
+          ? `inset 0 0 0 2px ${hexToRgba(color, 0.75)}, 0 12px 40px ${hexToRgba(color, 0.32)}, 0 0 70px ${hexToRgba(color, 0.18)}, 0 6px 18px rgba(0,0,0,0.55)`
+          : `inset 0 0 0 1.5px ${hexToRgba(color, 0.38)}, 0 4px 14px rgba(0,0,0,0.45)`,
+        transition: 'box-shadow 280ms ease, background 280ms ease',
       }}
     >
-      {/* Animated scanline overlay — moves on hover */}
+      {/* ── Breathing edge glow (cartoon pulsing aura) ── */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: h ? `repeating-linear-gradient(0deg, transparent 0px, transparent 3px, ${hexToRgba(color, 0.03)} 3px, ${hexToRgba(color, 0.03)} 4px)` : 'none',
-          animation: h ? 'kanban-scan 2s linear infinite' : 'none',
+          boxShadow: `inset 0 0 0 2px ${hexToRgba(color, h ? 0.45 : 0.15)}`,
+          animation: 'kb-breathe 2.4s ease-in-out infinite',
+          opacity: h ? 1 : 0.6,
           zIndex: 1,
         }}
       />
 
-      {/* Circuit grid pattern — faint, appears on hover */}
+      {/* ── Sweeping scan line (vertical, on hover) ── */}
+      {h && (
+        <div
+          className="absolute inset-y-0 pointer-events-none"
+          style={{
+            width: '45%',
+            left: '-45%',
+            background: `linear-gradient(90deg, transparent, ${hexToRgba(color, 0.3)}, transparent)`,
+            animation: 'kb-sweep 1.4s ease-out',
+            zIndex: 3,
+          }}
+        />
+      )}
+
+      {/* ── Circuit grid pattern — animated shift on hover ── */}
       <div
         className="absolute inset-0 pointer-events-none transition-opacity duration-300"
         style={{
-          opacity: h ? 0.4 : 0,
+          opacity: h ? 0.55 : 0.18,
           backgroundImage: `
-            linear-gradient(${hexToRgba(color, 0.06)} 1px, transparent 1px),
-            linear-gradient(90deg, ${hexToRgba(color, 0.06)} 1px, transparent 1px)
+            linear-gradient(${hexToRgba(color, 0.1)} 1px, transparent 1px),
+            linear-gradient(90deg, ${hexToRgba(color, 0.1)} 1px, transparent 1px)
           `,
-          backgroundSize: '12px 12px',
+          backgroundSize: '14px 14px',
+          animation: h ? 'kb-grid-shift 1.5s linear infinite' : 'none',
           zIndex: 0,
         }}
       />
 
-      {/* Top accent strip — color gradient with glow */}
+      {/* ── Floating particles (cartoon sparkles) ── */}
+      {h && [
+        { id: 1, top: '18%', left: '10%', delay: '0s', size: 3 },
+        { id: 2, top: '72%', left: '14%', delay: '0.3s', size: 2 },
+        { id: 3, top: '28%', left: '86%', delay: '0.6s', size: 3 },
+        { id: 4, top: '82%', left: '80%', delay: '0.9s', size: 2 },
+        { id: 5, top: '50%', left: '6%', delay: '0.15s', size: 2 },
+      ].map(p => (
+        <div
+          key={p.id}
+          className="absolute pointer-events-none rounded-full"
+          style={{
+            top: p.top, left: p.left, width: p.size, height: p.size,
+            background: color,
+            boxShadow: `0 0 8px ${color}, 0 0 3px ${color}`,
+            animation: `kb-float 2s ease-in-out ${p.delay} infinite`,
+            zIndex: 2,
+          }}
+        />
+      ))}
+
+      {/* ── Animated corner brackets (targeting reticle, cartoon-style) ── */}
+      {[
+        { cls: 'top-1.5 left-1.5', rot: 0 },
+        { cls: 'top-1.5 right-1.5', rot: 90 },
+        { cls: 'bottom-1.5 right-1.5', rot: 180 },
+        { cls: 'bottom-1.5 left-1.5', rot: 270 },
+      ].map((c, i) => (
+        <div
+          key={i}
+          className={`absolute ${c.cls} pointer-events-none`}
+          style={{
+            width: 14, height: 14,
+            transform: `rotate(${c.rot}deg) scale(${h ? 1.1 : 0.55})`,
+            opacity: h ? 1 : 0.4,
+            transition: 'all 320ms cubic-bezier(0.34,1.56,0.64,1)',
+            animation: h ? `kb-corner-flash 1.8s ease-in-out ${i * 0.15}s infinite` : 'none',
+            zIndex: 4,
+          }}
+        >
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 14, height: 2.5, background: color, boxShadow: `0 0 5px ${color}`, borderRadius: '1px' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 2.5, height: 14, background: color, boxShadow: `0 0 5px ${color}`, borderRadius: '1px' }} />
+        </div>
+      ))}
+
+      {/* ── Top accent strip — holographic gradient ── */}
       <div
         className="h-1 w-full relative z-[2]"
         style={{
           background: `linear-gradient(90deg, transparent, ${color} 30%, ${color} 70%, transparent)`,
-          boxShadow: `0 0 6px ${hexToRgba(color, 0.5)}`,
+          boxShadow: `0 0 10px ${hexToRgba(color, 0.8)}`,
         }}
       />
 
       <div className="p-4 relative z-[2]">
-        <div className="mb-2 flex items-center justify-between">
+        {/* Header row: holographic KANBAN badge + project type */}
+        <div className="mb-3 flex items-center justify-between">
           <span
-            className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest relative"
             style={{
-              background: hexToRgba(color, 0.12),
+              background: h
+                ? `linear-gradient(90deg, ${hexToRgba(color, 0.3)}, ${hexToRgba(color, 0.18)}, ${hexToRgba(color, 0.3)})`
+                : hexToRgba(color, 0.14),
+              backgroundSize: h ? '200% 100%' : '100% 100%',
+              animation: h ? 'kb-holo-shift 1.5s ease-in-out infinite' : 'none',
               color,
-              border: `1px solid ${hexToRgba(color, 0.25)}`,
-              clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+              border: `1.5px solid ${hexToRgba(color, h ? 0.65 : 0.4)}`,
+              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+              boxShadow: h ? `0 0 12px ${hexToRgba(color, 0.45)}` : 'none',
+              transition: 'all 220ms ease',
             }}
           >
-            {/* Pulsing status dot — like a live data indicator */}
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full"
-              style={{
-                background: color,
-                boxShadow: `0 0 4px ${color}`,
-                animation: 'kanban-blink 1.5s ease-in-out infinite',
-              }}
-            />
+            {/* Pulsing status dot — heartbeat ping */}
+            <span className="relative inline-block w-2 h-2">
+              <span
+                className="absolute inset-0 rounded-full"
+                style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+              />
+              {h && (
+                <span
+                  className="absolute inset-0 rounded-full"
+                  style={{ background: color, animation: 'kb-ping 1.5s ease-out infinite' }}
+                />
+              )}
+            </span>
             {isAuto ? 'AUTO' : 'KANBAN'}
           </span>
-          <span className="text-[10px] text-slate-600 font-mono">{task.projectType || 'general'}</span>
+          <span
+            className="text-[10px] font-mono uppercase tracking-wider transition-colors"
+            style={{ color: h ? hexToRgba(color, 0.8) : 'rgba(100,116,139,0.7)' }}
+          >
+            {task.projectType || 'general'}
+          </span>
         </div>
 
+        {/* Floating bobbing type icon */}
+        <motion.div
+          className="mb-2.5 flex h-10 w-10 items-center justify-center"
+          style={{
+            clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+            background: h ? hexToRgba(color, 0.28) : hexToRgba(color, 0.14),
+            border: `1.5px solid ${hexToRgba(color, h ? 0.65 : 0.32)}`,
+            boxShadow: h ? `0 0 16px ${hexToRgba(color, 0.5)}` : 'none',
+          }}
+          animate={h ? { y: [0, -3, 0], rotate: [0, -4, 4, 0] } : { y: 0, rotate: 0 }}
+          transition={{ duration: 1.2, repeat: h ? Infinity : 0, ease: 'easeInOut' }}
+        >
+          <TypeIcon className="w-5 h-5" style={{ color, filter: h ? `drop-shadow(0 0 4px ${color})` : 'none' }} />
+        </motion.div>
+
+        {/* Title — monospace with neon glow on hover */}
         <h3
-          className="mb-3 text-sm font-medium line-clamp-2 transition-all"
+          className="mb-3 text-sm font-bold leading-tight line-clamp-2"
           style={{
             minHeight: '2.5em',
             color: h ? '#ffffff' : '#cbd5e1',
-            textShadow: h ? `0 0 8px ${hexToRgba(color, 0.3)}` : 'none',
+            textShadow: h ? `0 0 10px ${hexToRgba(color, 0.5)}, 0 0 2px ${hexToRgba(color, 0.9)}` : 'none',
+            transition: 'color 200ms ease, text-shadow 200ms ease',
+            fontFamily: 'monospace',
+            letterSpacing: '0.01em',
           }}
         >
           {task.title}
         </h3>
 
-        {/* Progress bar — segmented cyberpunk style */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))' }}>
-            <div
-              className="h-full transition-all relative"
-              style={{
-                width: `${pct}%`,
-                background: pct === 100 ? G : color,
-                boxShadow: pct > 0 ? `0 0 4px ${hexToRgba(pct === 100 ? G : color, 0.6)}` : 'none',
-                clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
-              }}
-            >
-              {/* Shimmer effect on progress bar */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `linear-gradient(90deg, transparent, ${hexToRgba('#ffffff', 0.3)}, transparent)`,
-                  animation: 'kanban-shimmer 2s linear infinite',
-                }}
-              />
-            </div>
+        {/* Chunky segmented progress bar — cartoon blocks */}
+        <div className="flex items-center gap-2 mb-2.5">
+          <div className="flex-1 flex gap-[2px]">
+            {Array.from({ length: SEGMENTS }).map((_, i) => {
+              const filled = i < filledSegs;
+              const doneColor = pct === 100 ? G : color;
+              return (
+                <div
+                  key={i}
+                  className="flex-1 h-2"
+                  style={{
+                    background: filled ? doneColor : hexToRgba(color, 0.1),
+                    boxShadow: filled ? `0 0 6px ${hexToRgba(doneColor, 0.7)}` : 'none',
+                    borderRadius: '1px',
+                    transition: `all 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 35}ms`,
+                    transform: h && filled ? 'scaleY(1.15)' : 'scaleY(1)',
+                  }}
+                />
+              );
+            })}
           </div>
           <span
-            className="text-[10px] font-bold tabular-nums font-mono"
-            style={{ color: pct === 100 ? G : color, textShadow: `0 0 4px ${hexToRgba(pct === 100 ? G : color, 0.4)}` }}
+            className="text-[11px] font-extrabold tabular-nums font-mono"
+            style={{
+              color: pct === 100 ? G : color,
+              textShadow: `0 0 6px ${hexToRgba(pct === 100 ? G : color, 0.55)}`,
+              minWidth: '34px',
+              textAlign: 'right',
+            }}
           >
             {pct}%
           </span>
         </div>
 
-        {/* Bottom data row — board count + done count */}
-        <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-slate-600">
-          <span className="flex items-center gap-1">
-            <span className="w-1 h-1 rounded-full" style={{ background: color, opacity: 0.6 }} />
-            {children.length} boards
+        {/* Bottom data row — chunky meta with icons */}
+        <div className="flex items-center justify-between text-[9px] font-mono uppercase tracking-wider">
+          <span className="flex items-center gap-1" style={{ color: h ? hexToRgba(color, 0.9) : 'rgba(100,116,139,0.9)' }}>
+            <Layers className="w-3 h-3" style={{ color, opacity: h ? 1 : 0.65 }} />
+            {children.length} {plural(children.length, ['board', 'boards', 'boards'])}
           </span>
-          <span>{done}/{children.length} done</span>
+          <span className="flex items-center gap-1" style={{ color: h ? hexToRgba(pct === 100 ? G : color, 0.9) : 'rgba(100,116,139,0.9)' }}>
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                background: pct === 100 ? G : color,
+                boxShadow: `0 0 5px ${pct === 100 ? G : color}`,
+                animation: 'kb-blink 1.5s ease-in-out infinite',
+              }}
+            />
+            {done}/{children.length} done
+          </span>
         </div>
       </div>
-
-      {/* CSS animations — scoped to this card */}
-      <style>{`
-        @keyframes kanban-scan {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(4px); }
-        }
-        @keyframes kanban-blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-        @keyframes kanban-shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-      `}</style>
-    </div>
+    </motion.div>
   );
 }
 

@@ -1191,3 +1191,61 @@ Stage Summary:
 - The QuickAccessCard's left/right arrow priority controls and static priority badge are gone, replaced by a single Popover dropdown at the bottom-right corner: clicking opens a vertical list of positions 1..N; clicking a position calls `moveQuickAccessTo(id, targetIdx)` which splices the id to the chosen index and persists to localStorage.
 - ProjectCard and KanbanCard now use the same angular clip-path corners (`polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))`), inset box-shadow borders (1px at rest, 1.5px on hover), and a 1px gradient top accent strip — visually matching the QuickAccessCard.
 - Lint passes for home-view.tsx (the two remaining errors are pre-existing and in unrelated files). Dev server compiles the home route cleanly.
+
+---
+Task ID: KB-CARTOON-INTERACTIVE
+Agent: main
+Task: Make Kanban project cards more interactive and more cartoon design (home-view KanbanCard + kanban-view KanbanProjectCard)
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from prior tasks (HOME-PANELS-V2 etc. — KanbanCard already had clip-path, scanline, circuit grid, segmented progress, blinking dot).
+- Read /home/z/my-project/src/components/views/home-view.tsx KanbanCard (lines 148-298) — found existing angular clip-path, scanline overlay, circuit grid, top accent strip, status badge with blinking dot, shimmer progress bar.
+- Read /home/z/my-project/src/components/kanban/kanban-view.tsx project grid (lines 242-396) — found older style with borderRadius:10px + inline onMouseEnter DOM manipulation, simple rounded progress bar, no cartoon elements.
+- Added 10 new keyframes to /home/z/my-project/src/app/cyberpunk.css (appended at end, after pim-overall-progress-pct block): kb-breathe, kb-sweep, kb-float, kb-ping, kb-blink, kb-wiggle, kb-particle-orbit, kb-grid-shift, kb-holo-shift, kb-corner-flash. Using global CSS file instead of inline <style> blocks to avoid OOM issues from prior tasks.
+- Added Layers icon to home-view.tsx lucide-react imports (used in KanbanCard bottom meta row).
+- Replaced entire KanbanCard component in home-view.tsx (lines 148-298 → 148-399) with a cartoon cyberpunk interactive version featuring:
+  * framer-motion motion.div with spring entrance (initial opacity:0 scale:0.88 y:12 → animate), whileHover scale 1.035 y -5, whileTap scale 0.985
+  * Angular clip-path polygon corners (10px chamfer)
+  * Breathing edge glow (kb-breathe 2.4s infinite, inset boxShadow pulsing)
+  * Sweeping scan line on hover (kb-sweep 1.4s, 45% width gradient sweeping left→right)
+  * Animated circuit grid (kb-grid-shift 1.5s on hover, 14px grid pattern with color-tinted lines)
+  * 5 floating particle sparkles on hover (kb-float 2s with staggered delays, glowing dots at different positions)
+  * 4 animated corner brackets (L-shaped, rotate 0/90/180/270deg, scale 0.55→1.1 on hover with cubic-bezier bounce, kb-corner-flash staggered flashing)
+  * Holographic top accent strip with stronger glow (10px box-shadow)
+  * Holographic KANBAN/AUTO badge with kb-holo-shift gradient animation, 1.5px border, angular clip-path, heartbeat ping dot (kb-ping 1.5s expanding ring)
+  * Floating bobbing type icon (motion.div with y:[0,-3,0] rotate:[0,-4,4,0] animation on hover, drop-shadow glow)
+  * Monospace title with neon text-shadow glow on hover
+  * Chunky 10-segment progress bar (filled segments glow, scaleY 1.15 bounce on hover, staggered 35ms transition delay per segment, green when 100%)
+  * Bottom meta row with Layers icon + blinking done-count dot (kb-blink 1.5s)
+- Fixed pre-existing bug in kanban-view.tsx: Music2 was used but not imported (only Music was). Added Music2 to lucide-react imports.
+- Added motion import to kanban-view.tsx (framer-motion was not previously imported).
+- Created new KanbanProjectCard component in kanban-view.tsx (lines 22-320) — a standalone component extracted from the inline .map() JSX, receiving all edit/delete handlers as props. Uses the same cartoon cyberpunk style as home-view's KanbanCard:
+  * Same motion.div spring entrance + whileHover/whileTap
+  * Same clip-path, breathing glow, sweeping scanline, animated grid, particles, corner brackets
+  * Same holographic KANBAN/AUTO badge with ping dot
+  * Same floating bobbing type icon
+  * Same chunky 10-segment progress bar
+  * Same monospace title with neon glow
+  * Preserves all existing functionality: edit mode (input + Save/Cancel), delete confirmation dialog, hover action buttons (Pencil rename + Trash2 delete), "только просмотр" badge for music projects
+  * interactive flag (= !isEditing && !isConfirming) disables hover effects during edit/delete modes
+- Replaced the inline 155-line card JSX in the .map() (was lines 543-698) with a 20-line <KanbanProjectCard> usage passing all props.
+- Fixed TypeScript error: changed ProjectCardTask custom type → imported Task type from kanban-store (Task has description: string|null, projectType: string, soundflowProjectId: string|null, children: TaskChild[]). Removed unused ProjectCardTask type definition.
+- Ran `bun run lint` → 0 errors in home-view.tsx and kanban-view.tsx (2 pre-existing errors in project-chat.tsx:557 and app-header.tsx:132 are unrelated react-hooks/set-state-in-effect).
+- Ran `npx tsc --noEmit` → 0 errors.
+- Started dev server (bun run dev background), confirmed GET / returns 200.
+- Agent Browser verification:
+  * Registered demo@soundflow.app account, created "Demo Studio" group via API eval, set localStorage auth state, navigated to home page.
+  * Confirmed 3 KanbanCards render in "Канбан проекты" section with clickable cursor:pointer + tabindex.
+  * Inspected DOM: each KanbanCard has 31 child divs (layered cartoon structure) + 8 divs with width:14px (4 corner brackets × 2 bars each). clip-path polygon + linear-gradient background confirmed.
+  * Navigated to kanban view (clicked KANBAN nav button via eval). Confirmed 8 KanbanProjectCards render (matching "Все 8" filter count), each with 21 child divs + 8 corner bars.
+  * Clicked first kanban card → navigated to KanbanWorkspace (selected project, showed radial board). Interactivity confirmed.
+  * 0 console errors, 0 page errors throughout.
+- VLM verification (z-ai vision CLI):
+  * Kanban-view screenshot: VLM confirmed "angular/clipped corners", "L-shaped corner brackets", "neon yellow/cyan/purple palette", "glowing AUTO/KANBAN badges with holographic glow", "cartoon-like (Cyber-Toon/Pop UI) with thick borders, high saturation, bold typography, playful shapes, highly interactive resembling a video game interface".
+  * Home-view screenshot: VLM confirmed "angular clipped corners + corner brackets (cyan for Kanban, yellow for Auto)", "holographic KANBAN/AUTO badge with pulsing dot indicator", "floating bobbing icon", "chunky segmented progress bar with percentage", "cartoon-like and interactive, gamified tactile UX".
+
+Stage Summary:
+- KanbanCard (home-view.tsx) and KanbanProjectCard (kanban-view.tsx) now share a unified cartoon cyberpunk interactive style with: bouncy spring hover (framer-motion), breathing edge glow, sweeping scan line, animated circuit grid, 5 floating particle sparkles, 4 animated corner brackets (targeting reticle), holographic KANBAN/AUTO badge with heartbeat ping dot, floating bobbing type icon, monospace neon-glow title, and chunky 10-segment progress bar with staggered bounce fill.
+- All 10 animation keyframes live in global cyberpunk.css (kb-* prefix) — no inline <style> blocks, avoiding the OOM pattern from earlier tasks.
+- All existing functionality preserved: card click → select project → workspace, edit mode (rename), delete confirmation dialog, hover action buttons, "только просмотр" badge for music projects, filter tabs, search.
+- TypeScript clean, lint clean for modified files, dev server HTTP 200, 0 console errors, cards interactive and clickable, VLM-verified cartoon cyberpunk visual style on both pages.
