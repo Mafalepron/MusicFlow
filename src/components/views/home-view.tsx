@@ -494,45 +494,74 @@ function IdeaCard({ idea, onClick }: { idea: { id: string; title: string; descri
   );
 }
 
-/* ─── Stat Bar: cyberpunk 2077 segmented HUD widget — separate chamfered cells ─── */
+/* ─── Stat Bar: cyberpunk 2077 HUD stat cells with icon rings ─── */
 function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number; label: string; color: string }[] }) {
   return (
-    <div className="flex items-center gap-2">
-      {stats.map((s) => {
+    <div className="flex items-center gap-1.5">
+      {stats.map((s, i) => {
         const Icon = s.icon;
         return (
-          <div
-            key={s.label}
-            className="flex items-center gap-2 px-3 py-2 transition-all hover:bg-white/[0.04] relative group"
-            style={{
-              clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-              background: 'linear-gradient(180deg, #11141d 0%, #0f121a 50%, #11141d 100%)',
-              border: '1px solid #00a8c6',
-              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8)',
-            }}
-          >
-            {/* Yellow accent line on top */}
-            <div className="absolute left-1 right-1 top-0 h-px" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(199,160,8,0.4), transparent)',
-            }} />
-            <Icon className="w-4 h-4" style={{ color: '#c7a008' }} />
-            <div className="flex flex-col leading-none">
-              <span className="text-base font-extrabold tabular-nums" style={{
-                color: '#e2e8f0',
-                fontFamily: 'var(--font-rajdhani), sans-serif',
-                fontWeight: 700,
-              }}>{s.value}</span>
-              <span className="text-[8px] font-bold uppercase mt-0.5" style={{
-                color: '#718096',
-                fontFamily: 'var(--font-jetbrains-mono), monospace',
-                letterSpacing: '0.12em',
-              }}>{s.label}</span>
+          <div key={s.label} className="flex items-center">
+            {/* Tick divider between cells */}
+            {i > 0 && (
+              <div className="flex flex-col items-center mx-1 gap-0.5" style={{ opacity: 0.4 }}>
+                <div style={{ width: '1px', height: '6px', background: '#00a8c6' }} />
+                <div style={{ width: '3px', height: '3px', background: '#c7a008', borderRadius: '50%' }} />
+                <div style={{ width: '1px', height: '6px', background: '#00a8c6' }} />
+              </div>
+            )}
+            <div
+              className="relative flex items-center gap-2.5 px-3 py-2 transition-all hover:bg-white/[0.04] group"
+              style={{
+                clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+                border: '1px solid rgba(0,168,198,0.4)',
+                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
+              }}
+            >
+              {/* HUD icon with concentric ring frame */}
+              <div className="relative flex h-9 w-9 items-center justify-center shrink-0">
+                {/* Outer ring */}
+                <div className="absolute inset-0" style={{
+                  clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                  border: '1px solid rgba(0,168,198,0.5)',
+                  background: 'rgba(0,168,198,0.05)',
+                }} />
+                {/* Yellow tick marks around ring */}
+                <div className="absolute -top-px left-1/2 -translate-x-1/2 w-2 h-px" style={{ background: '#c7a008' }} />
+                <div className="absolute -bottom-px left-1/2 -translate-x-1/2 w-2 h-px" style={{ background: '#c7a008' }} />
+                <div className="absolute top-1/2 -translate-y-1/2 -left-px w-px h-2" style={{ background: '#c7a008' }} />
+                <div className="absolute top-1/2 -translate-y-1/2 -right-px w-px h-2" style={{ background: '#c7a008' }} />
+                {/* Icon */}
+                <Icon className="w-4 h-4 relative" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.4))' }} />
+              </div>
+
+              {/* Value + label */}
+              <div className="flex flex-col leading-none">
+                <span className="text-base font-extrabold tabular-nums" style={{
+                  color: '#e2e8f0',
+                  fontFamily: 'var(--font-rajdhani), sans-serif',
+                  fontWeight: 700,
+                  textShadow: '0 0 4px rgba(0,168,198,0.15)',
+                }}>{s.value}</span>
+                <span className="text-[7px] font-bold uppercase mt-0.5" style={{
+                  color: '#718096',
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  letterSpacing: '0.15em',
+                }}>{s.label}</span>
+              </div>
+
+              {/* Yellow corner bracket (bottom-right) */}
+              <div className="absolute bottom-0 right-0 w-2 h-2 pointer-events-none" style={{
+                borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+                borderRight: '1.5px solid rgba(199,160,8,0.6)',
+              }} />
+              {/* Blue corner bracket (top-left) */}
+              <div className="absolute top-0 left-0 w-2 h-2 pointer-events-none" style={{
+                borderTop: '1.5px solid rgba(0,168,198,0.6)',
+                borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+              }} />
             </div>
-            {/* Yellow corner accent (bottom-right) */}
-            <div className="absolute bottom-0 right-0 w-2 h-2" style={{
-              borderBottom: '1.5px solid rgba(199,160,8,0.5)',
-              borderRight: '1.5px solid rgba(199,160,8,0.5)',
-            }} />
           </div>
         );
       })}
