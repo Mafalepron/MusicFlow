@@ -11,6 +11,7 @@ import { useAuthStore, useDataStore, useNavigationStore, type Project } from '@/
 import { useKanbanStore, type Task } from '@/store/kanban-store';
 import { hexToRgba } from '@/lib/utils';
 import { CreateProjectDialog } from '@/components/shared/create-project-dialog';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 /* ─── palette ─── */
 const Y = '#FCEE0A'; // yellow accent
@@ -70,17 +71,26 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      className="group relative cursor-pointer"
+      className="group relative cursor-pointer overflow-hidden"
       style={{
-        borderRadius: '10px',
+        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
         background: h ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.18)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(t.color, 0.1)}, rgba(14,18,28,0.85))`,
-        border: `1px solid ${h ? hexToRgba(t.color, 0.6) : hexToRgba(t.color, 0.3)}`,
-        boxShadow: h ? `0 0 0 1px ${hexToRgba(t.color, 0.3)}, 0 8px 32px ${hexToRgba(t.color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)` : `0 0 0 1px ${hexToRgba(t.color, 0.08)}, 0 4px 12px rgba(0,0,0,0.3)`,
+        boxShadow: h
+          ? `inset 0 0 0 1.5px ${hexToRgba(t.color, 0.6)}, 0 8px 32px ${hexToRgba(t.color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)`
+          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.3)}, 0 4px 12px rgba(0,0,0,0.3)`,
         transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
         transform: h ? 'translateY(-4px) scale(1.01)' : 'translateY(0)',
-        overflow: 'hidden',
       }}
     >
+      {/* Top accent strip — color gradient */}
+      <div
+        className="h-1 w-full"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${t.color} 30%, ${t.color} 70%, transparent)`,
+          boxShadow: `0 0 6px ${hexToRgba(t.color, 0.5)}`,
+        }}
+      />
+
       {/* Cover gradient strip */}
       <div
         className="h-20 flex items-end p-3"
@@ -149,38 +159,49 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      className="cursor-pointer p-4"
+      className="relative cursor-pointer overflow-hidden"
       style={{
-        borderRadius: '10px',
+        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
         background: h ? `linear-gradient(135deg, ${hexToRgba(color, 0.15)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(color, 0.08)}, rgba(14,18,28,0.85))`,
-        border: `1px solid ${h ? hexToRgba(color, 0.55) : hexToRgba(color, 0.25)}`,
-        boxShadow: h ? `0 0 0 1px ${hexToRgba(color, 0.2)}, 0 6px 24px ${hexToRgba(color, 0.15)}, 0 4px 12px rgba(0,0,0,0.35)` : `0 0 0 1px ${hexToRgba(color, 0.05)}, 0 4px 10px rgba(0,0,0,0.25)`,
+        boxShadow: h
+          ? `inset 0 0 0 1.5px ${hexToRgba(color, 0.55)}, 0 6px 24px ${hexToRgba(color, 0.15)}, 0 4px 12px rgba(0,0,0,0.35)`
+          : `inset 0 0 0 1px ${hexToRgba(color, 0.25)}, 0 4px 10px rgba(0,0,0,0.25)`,
         transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
         transform: h ? 'translateY(-3px) scale(1.01)' : 'none',
       }}
     >
-      <div className="mb-2 flex items-center justify-between">
-        <span
-          className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-          style={{ background: hexToRgba(color, 0.12), color, border: `1px solid ${hexToRgba(color, 0.25)}` }}
-        >
-          {isAuto ? 'AUTO' : 'KANBAN'}
-        </span>
-        <span className="text-[10px] text-slate-600">{task.projectType || 'general'}</span>
-      </div>
-      <h3 className="mb-3 text-sm font-medium text-slate-200 line-clamp-2" style={{ minHeight: '2.5em' }}>
-        {task.title}
-      </h3>
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-1 rounded-full bg-slate-800 overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all"
-            style={{ width: `${pct}%`, background: color, boxShadow: pct > 0 ? `0 0 4px ${hexToRgba(color, 0.5)}` : 'none' }}
-          />
+      {/* Top accent strip — color gradient */}
+      <div
+        className="h-1 w-full"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${color} 30%, ${color} 70%, transparent)`,
+          boxShadow: `0 0 6px ${hexToRgba(color, 0.5)}`,
+        }}
+      />
+      <div className="p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <span
+            className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+            style={{ background: hexToRgba(color, 0.12), color, border: `1px solid ${hexToRgba(color, 0.25)}` }}
+          >
+            {isAuto ? 'AUTO' : 'KANBAN'}
+          </span>
+          <span className="text-[10px] text-slate-600">{task.projectType || 'general'}</span>
         </div>
-        <span className="text-[10px] font-semibold tabular-nums" style={{ color: pct === 100 ? G : color }}>
-          {pct}%
-        </span>
+        <h3 className="mb-3 text-sm font-medium text-slate-200 line-clamp-2" style={{ minHeight: '2.5em' }}>
+          {task.title}
+        </h3>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1 rounded-full bg-slate-800 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${pct}%`, background: color, boxShadow: pct > 0 ? `0 0 4px ${hexToRgba(color, 0.5)}` : 'none' }}
+            />
+          </div>
+          <span className="text-[10px] font-semibold tabular-nums" style={{ color: pct === 100 ? G : color }}>
+            {pct}%
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -246,10 +267,21 @@ function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number;
 }
 
 /* ─── Section header ─── */
-function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
+function SectionHeader({ title, action, accentColor }: { title: string; action?: React.ReactNode; accentColor?: string }) {
   return (
     <div className="mb-4 flex items-center justify-between">
-      <h2 className="text-sm font-bold tracking-wide text-slate-200">{title}</h2>
+      <div className="flex items-center gap-2">
+        {accentColor && (
+          <div className="flex h-7 w-7 items-center justify-center" style={{
+            clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+            background: hexToRgba(accentColor, 0.15),
+            border: `1px solid ${hexToRgba(accentColor, 0.4)}`,
+          }}>
+            <Zap className="w-3.5 h-3.5" style={{ color: accentColor }} />
+          </div>
+        )}
+        <h2 className="text-sm font-bold tracking-wide text-slate-200">{title}</h2>
+      </div>
       {action}
     </div>
   );
@@ -305,15 +337,17 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
 }
 
 /* ─── Quick Access Card — cyberpunk 2077 style with priority ─── */
-function QuickAccessCard({ item, onClick, onUnstar, onMoveLeft, onMoveRight, priority, isFirst, isLast }: {
+function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }: {
   item: ModalItem; onClick: () => void; onUnstar: () => void;
-  onMoveLeft: () => void; onMoveRight: () => void; priority: number; isFirst: boolean; isLast: boolean;
+  onMoveTo: (targetIdx: number) => void; priority: number; total: number;
 }) {
   const [h, setH] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const t = typeMeta[item.type] || typeMeta.general;
   const Icon = t.icon;
   const sc = stHex[item.status] || '#64748b';
   const sl = stLabel[item.status] || item.status;
+  const triggerActive = h || menuOpen;
 
   return (
     <div
@@ -388,54 +422,60 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveLeft, onMoveRight, pri
         </div>
       </div>
 
-      {/* Priority number — bottom right corner */}
-      <div
-        className="absolute bottom-2 right-2 z-10 flex h-5 w-5 items-center justify-center"
-        style={{
-          clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-          background: h ? '#FCEE0A' : 'rgba(252,238,10,0.12)',
-          border: `1px solid ${h ? 'rgba(252,238,10,0.8)' : 'rgba(252,238,10,0.3)'}`,
-        }}
-      >
-        <span className="text-[9px] font-extrabold tabular-nums" style={{ color: h ? '#000' : '#FCEE0A' }}>
-          {priority}
-        </span>
-      </div>
-
-      {/* Priority controls — horizontal, bottom left, appear on hover */}
-      <div className={`absolute bottom-2 left-2 z-10 flex gap-0.5 transition-opacity duration-150 ${h ? 'opacity-100' : 'opacity-0'}`}>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); if (!isFirst) onMoveLeft(); }}
-          disabled={isFirst}
-          className="flex h-5 w-5 items-center justify-center transition-all disabled:opacity-20"
-          style={{
-            clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
-            background: 'rgba(0,0,0,0.5)',
-            border: '1px solid rgba(252,238,10,0.3)',
-            color: '#FCEE0A',
-            cursor: isFirst ? 'default' : 'pointer',
-          }}
-          title="Влево (выше приоритет)"
-        >
-          <ChevronLeft className="w-3 h-3" />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); if (!isLast) onMoveRight(); }}
-          disabled={isLast}
-          className="flex h-5 w-5 items-center justify-center transition-all disabled:opacity-20"
-          style={{
-            clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
-            background: 'rgba(0,0,0,0.5)',
-            border: '1px solid rgba(252,238,10,0.3)',
-            color: '#FCEE0A',
-            cursor: isLast ? 'default' : 'pointer',
-          }}
-          title="Вправо (ниже приоритет)"
-        >
-          <ChevronRight className="w-3 h-3" />
-        </button>
+      {/* Priority selector — bottom right corner, dropdown of positions */}
+      <div className="absolute bottom-2 right-2 z-20">
+        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              className="flex h-5 items-center gap-0.5 pl-1 pr-0.5 transition-all hover:scale-105"
+              style={{
+                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                background: triggerActive ? '#FCEE0A' : 'rgba(0,0,0,0.55)',
+                boxShadow: `inset 0 0 0 1px ${triggerActive ? 'rgba(252,238,10,0.85)' : 'rgba(252,238,10,0.45)'}`,
+                color: triggerActive ? '#000' : '#FCEE0A',
+              }}
+              title="Сменить позицию"
+            >
+              <span className="text-[9px] font-extrabold tabular-nums leading-none px-0.5">{priority}</span>
+              <ChevronDown className="w-2.5 h-2.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            sideOffset={4}
+            className="p-1.5 w-auto min-w-[72px] rounded-none border-0 bg-transparent"
+            style={{
+              background: 'rgba(8,10,18,0.98)',
+              boxShadow: 'inset 0 0 0 1px rgba(252,238,10,0.4), 0 8px 24px rgba(0,0,0,0.5)',
+              clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-0.5">
+              {Array.from({ length: total }, (_, i) => i + 1).map((pos) => {
+                const active = pos === priority;
+                return (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMoveTo(pos - 1); }}
+                    className="flex h-6 w-full items-center justify-center text-[10px] font-bold tabular-nums transition-colors"
+                    style={{
+                      clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                      background: active ? 'rgba(252,238,10,0.18)' : 'transparent',
+                      color: active ? '#FCEE0A' : '#94a3b8',
+                      boxShadow: active ? 'inset 0 0 0 1px rgba(252,238,10,0.5)' : 'none',
+                    }}
+                  >
+                    {pos}
+                  </button>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );
@@ -773,6 +813,19 @@ export function HomeView() {
     });
   };
 
+  const moveQuickAccessTo = (id: string, targetIdx: number) => {
+    setQuickAccess(prev => {
+      const from = prev.indexOf(id);
+      if (from < 0 || from === targetIdx) return prev;
+      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(targetIdx, 0, moved);
+      try { localStorage.setItem('soundflow-quick-access', JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
   const autoModalItems: ModalItem[] = useMemo(() => autoProjects.map(p => ({
     id: p.id, title: p.title, type: p.type, status: p.status, date: p.createdAt,
     trackCount: getTrackCount(p.id),
@@ -824,34 +877,34 @@ export function HomeView() {
         {quickAccessItems.length > 0 && (
           <section className="mt-8 relative overflow-hidden" style={{
             clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
-            background: 'linear-gradient(180deg, rgba(252,238,10,0.15) 0%, rgba(18,22,30,0.95) 40%)',
-            border: '1px solid rgba(252,238,10,0.25)',
+            background: 'linear-gradient(180deg, rgba(0,217,255,0.12) 0%, rgba(12,18,26,0.95) 40%)',
+            border: '1px solid rgba(0,217,255,0.25)',
             padding: '20px',
-            boxShadow: '0 0 40px rgba(252,238,10,0.08)',
+            boxShadow: '0 0 40px rgba(0,217,255,0.08)',
           }}>
-            {/* Neon top bar — yellow */}
+            {/* Neon top bar — cyan */}
             <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
-              background: 'linear-gradient(90deg, transparent, #FCEE0A 20%, #FCEE0A 80%, transparent)',
-              boxShadow: '0 0 12px rgba(252,238,10,0.5)',
+              background: 'linear-gradient(90deg, transparent, #00d9ff 20%, #00d9ff 80%, transparent)',
+              boxShadow: '0 0 12px rgba(0,217,255,0.5)',
             }} />
-            {/* Corner accents */}
-            <div className="absolute top-0 left-0 w-3 h-3" style={{ borderTop: '2px solid #FCEE0A', borderLeft: '2px solid #FCEE0A' }} />
-            <div className="absolute top-0 right-0 w-3 h-3" style={{ borderTop: '2px solid #FCEE0A', borderRight: '2px solid #FCEE0A' }} />
+            {/* Corner accents — cyan */}
+            <div className="absolute top-0 left-0 w-3 h-3" style={{ borderTop: '2px solid #00d9ff', borderLeft: '2px solid #00d9ff' }} />
+            <div className="absolute top-0 right-0 w-3 h-3" style={{ borderTop: '2px solid #00d9ff', borderRight: '2px solid #00d9ff' }} />
 
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center" style={{
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  background: 'rgba(252,238,10,0.15)',
-                  border: '1px solid rgba(252,238,10,0.4)',
+                  background: 'rgba(0,217,255,0.15)',
+                  border: '1px solid rgba(0,217,255,0.4)',
                 }}>
-                  <Zap className="w-3.5 h-3.5" style={{ color: '#FCEE0A' }} />
+                  <Zap className="w-3.5 h-3.5" style={{ color: '#00d9ff' }} />
                 </div>
-                <h2 className="text-sm font-bold uppercase tracking-[0.12em]" style={{ color: '#FCEE0A', textShadow: '0 0 8px rgba(252,238,10,0.3)' }}>
+                <h2 className="text-sm font-bold uppercase tracking-[0.12em]" style={{ color: '#00d9ff', textShadow: '0 0 8px rgba(0,217,255,0.3)' }}>
                   Быстрый доступ
                 </h2>
               </div>
-              <span className="text-[11px] font-medium" style={{ color: '#FCEE0A' }}>
+              <span className="text-[11px] font-medium" style={{ color: '#00d9ff' }}>
                 {quickAccessItems.length} активных
               </span>
             </div>
@@ -863,11 +916,9 @@ export function HomeView() {
                   item={item}
                   onClick={item.onOpen}
                   onUnstar={() => toggleQuickAccess(item.id)}
-                  onMoveLeft={() => moveQuickAccess(item.id, 'up')}
-                  onMoveRight={() => moveQuickAccess(item.id, 'down')}
+                  onMoveTo={(targetIdx) => moveQuickAccessTo(item.id, targetIdx)}
                   priority={idx + 1}
-                  isFirst={idx === 0}
-                  isLast={idx === quickAccessItems.length - 1}
+                  total={quickAccessItems.length}
                 />
               ))}
             </Carousel>
@@ -899,6 +950,7 @@ export function HomeView() {
 
           <SectionHeader
             title="Авто проекты"
+            accentColor={Y}
             action={
               <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-yellow-400" style={{ color: 'rgba(252,238,10,0.6)' }}>
                 Все <ArrowRight className="w-3 h-3" />
@@ -939,6 +991,7 @@ export function HomeView() {
 
           <SectionHeader
             title="Канбан проекты"
+            accentColor={C}
             action={
               <button onClick={() => setAllKanbanOpen(true)} className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-cyan-400" style={{ color: 'rgba(0,217,255,0.6)' }}>
                 Все <ArrowRight className="w-3 h-3" />

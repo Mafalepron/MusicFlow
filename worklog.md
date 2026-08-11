@@ -1132,3 +1132,62 @@ Stage Summary:
 - Starred projects persist in localStorage under key `soundflow-quick-access` (JSON array of IDs). The home page shows a new "Быстрый доступ" section at the top (only when there are starred items) with horizontal-scroll cards for quick access. Clicking a QuickAccessCard navigates to the project; clicking its star button un-stars it.
 - File grew from 463 → 808 lines (slightly over the 700 soft target, but the 3 new components + state + modal + quick-access section required the additional code; everything is single-purpose and well-named).
 - All existing functionality (ProjectCard, KanbanCard, IdeaCard, StatPill, Folders, Ideas, stats, member count) is preserved.
+
+---
+Task ID: HOME-PANELS-V2
+Agent: full-stack-developer
+Task: Redesign home page panels and project cards — cyan Quick Access, Zap SectionHeaders, priority dropdown, angular clip-path cards
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from tasks 5-a, 7-a, 5-b (kanban ↔ track-detail navigation, audio context store, header actions).
+- Read /home/z/my-project/src/components/views/home-view.tsx (1077 lines) end-to-end to map: palette consts (Y/C/A/G), typeMeta, stHex/stLabel, ProjectCard, KanbanCard, IdeaCard, StatBar, SectionHeader, CreateCard, QuickAccessCard (with priority number badge + left/right arrow buttons), Carousel, AllProjectsModal, HomeView (with Quick Access / Auto Projects / Kanban Projects / Folders / Ideas sections).
+- Read /home/z/my-project/src/components/ui/popover.tsx to verify Popover/PopoverTrigger/PopoverContent export surface and default className tokens (`bg-popover text-popover-foreground ... w-72 ... rounded-md border p-4 shadow-md outline-hidden`).
+- Read /home/z/my-project/src/lib/utils.ts to confirm `hexToRgba(hex, alpha)` signature.
+- Read /home/z/my-project/eslint.config.mjs to confirm `@typescript-eslint/no-unused-vars` and `no-unused-vars` are both `off` (so leaving the now-unused `moveQuickAccess` helper in place won't trigger lint errors).
+- Added `import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';` to the top of home-view.tsx.
+- Change 1 — Quick Access panel yellow → cyan/teal:
+  * Panel gradient: `linear-gradient(180deg, rgba(252,238,10,0.15) 0%, rgba(18,22,30,0.95) 40%)` → `linear-gradient(180deg, rgba(0,217,255,0.12) 0%, rgba(12,18,26,0.95) 40%)`.
+  * Border: `rgba(252,238,10,0.25)` → `rgba(0,217,255,0.25)`.
+  * Outer boxShadow glow: `0 0 40px rgba(252,238,10,0.08)` → `0 0 40px rgba(0,217,255,0.08)`.
+  * Neon top bar gradient + glow: `#FCEE0A` stops + `rgba(252,238,10,0.5)` glow → `#00d9ff` stops + `rgba(0,217,255,0.5)` glow.
+  * Top-left & top-right corner accents: `2px solid #FCEE0A` → `2px solid #00d9ff` (both border-top/left and border-top/right).
+  * Header Zap badge: `background: 'rgba(252,238,10,0.15)'` + `border: '1px solid rgba(252,238,10,0.4)'` + `Zap color: '#FCEE0A'` → cyan equivalents (`rgba(0,217,255,...)`).
+  * Section title "Быстрый доступ": `color: '#FCEE0A'` + `textShadow: '0 0 8px rgba(252,238,10,0.3)'` → `#00d9ff` + `rgba(0,217,255,0.3)`.
+  * Count text "{N} активных": `color: '#FCEE0A'` → `color: '#00d9ff'`.
+  * Preserved yellow `#FCEE0A` on the QuickAccessCard unstar Zap button + the priority dropdown (those are inside cards, intentionally kept yellow to stand out against the cyan panel per task spec).
+- Change 2 — Zap icon in SectionHeader:
+  * Extended the `SectionHeader` signature with an optional `accentColor?: string` prop.
+  * When `accentColor` is provided, renders a 7×7 angular clip-path badge (`polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))`) with `background: hexToRgba(accentColor, 0.15)`, `border: 1px solid hexToRgba(accentColor, 0.4)`, and a `<Zap className="w-3.5 h-3.5" style={{ color: accentColor }} />` — matching the Quick Access panel header style exactly.
+  * Wrapped title `<h2>` in a `<div className="flex items-center gap-2">` so the badge sits to the left of the title.
+  * Passed `accentColor={Y}` (yellow) to the "Авто проекты" SectionHeader and `accentColor={C}` (cyan) to the "Канбан проекты" SectionHeader. Left "Мои папки" and "Лента идей" SectionHeaders without accentColor (no icon), per task scope.
+- Change 3 — Priority dropdown replacing arrow buttons:
+  * Changed QuickAccessCard props from `{ item, onClick, onUnstar, onMoveLeft, onMoveRight, priority, isFirst, isLast }` to `{ item, onClick, onUnstar, onMoveTo, priority, total }`.
+  * Added `const [menuOpen, setMenuOpen] = useState(false);` and `const triggerActive = h || menuOpen;` for hover/open highlight.
+  * Removed the static priority number badge (bottom-right) and the left/right arrow button cluster (bottom-left).
+  * Added a new `<Popover open={menuOpen} onOpenChange={setMenuOpen}>` block at the bottom-right corner (`absolute bottom-2 right-2 z-20`):
+    - Trigger: small angular clip-path button (`polygon(0 0, calc(100% - 3px) 0, 100% 3px, ...)`), shows priority number + ChevronDown icon. Background `#FCEE0A` when `triggerActive`, else `rgba(0,0,0,0.55)`. Yellow inset box-shadow ring `rgba(252,238,10,0.85)`/`rgba(252,238,10,0.45)`. Text color `#000` when active else `#FCEE0A`. Has `onClick={(e) => e.stopPropagation()}` so opening the popover doesn't trigger the card's onClick.
+    - Content: angular clip-path panel (`polygon(0 0, calc(100% - 6px) 0, 100% 6px, ...)`), dark bg `rgba(8,10,18,0.98)`, inset yellow ring + drop shadow. Maps `Array.from({ length: total }, (_, i) => i + 1)` to position buttons; active position highlighted with `rgba(252,238,10,0.18)` bg + `inset 0 0 0 1px rgba(252,238,10,0.5)` ring + `#FCEE0A` text. Each button calls `setMenuOpen(false)` then `onMoveTo(pos - 1)` (converts 1-indexed priority to 0-indexed array position).
+  * Overrode default PopoverContent classes (`p-1.5 w-auto min-w-[72px] rounded-none border-0 bg-transparent`) so the inline style fully controls the cyberpunk look.
+  * Added `moveQuickAccessTo(id, targetIdx)` helper in HomeView: looks up `from = prev.indexOf(id)`, returns early if `from < 0 || from === targetIdx || targetIdx out of range`, else splices the id out and re-inserts at `targetIdx`, persists to `localStorage`. Kept the existing `moveQuickAccess(id, dir)` helper in place (unused now but no lint error thanks to `no-unused-vars: off`).
+  * Updated the `<Carousel>` mapping in HomeView to pass `onMoveTo={(targetIdx) => moveQuickAccessTo(item.id, targetIdx)}` and `total={quickAccessItems.length}` instead of the old `onMoveLeft/onMoveRight/isFirst/isLast` props.
+- Change 4 — ProjectCard & KanbanCard match QuickAccessCard style:
+  * ProjectCard:
+    - Replaced `borderRadius: '10px'` + `border: '1px solid ...'` + `boxShadow: 0 0 0 1px ...` with `clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))'` + inset box-shadow borders (`inset 0 0 0 1.5px ...` on hover, `inset 0 0 0 1px ...` at rest).
+    - Moved `overflow: 'hidden'` from the inline style to the className (`overflow-hidden`) for consistency.
+    - Added a top accent strip (`<div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, transparent, ${t.color} 30%, ${t.color} 70%, transparent)', boxShadow: '0 0 6px ${hexToRgba(t.color, 0.5)}' }} />`) before the existing cover gradient strip — same pattern as QuickAccessCard.
+    - Kept the cover gradient strip, body, title, meta, and "Открыть Kanban" button unchanged.
+  * KanbanCard:
+    - Replaced `borderRadius: '10px'` + `border: '1px solid ...'` + `boxShadow: 0 0 0 1px ...` with `clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))'` + inset box-shadow borders (`inset 0 0 0 1.5px ...` on hover, `inset 0 0 0 1px ...` at rest).
+    - Changed className from `"cursor-pointer p-4"` (padding on outer card) to `"relative cursor-pointer overflow-hidden"` and introduced an inner `<div className="p-4">` wrapper around the body content so the top accent strip can span the full width without padding.
+    - Added the same top accent strip (`<div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, transparent, ${color} 30%, ${color} 70%, transparent)', boxShadow: '0 0 6px ${hexToRgba(color, 0.5)}' }} />`) before the p-4 body wrapper.
+    - Hit and fixed a sequencing bug in the MultiEdit: the first edit added a `<div className="p-4">` opening as part of the card-opening replacement, and the second edit (which replaced the body+closing block) ALSO added a `<div className="p-4">` opening — leaving two duplicate p-4 openings and an unbalanced card div. Fixed by collapsing the duplicate `<div className="p-4">` lines back to one with a follow-up Edit. Re-read the full KanbanCard after the fix to confirm open/close div balance (card div → top accent → p-4 → mb-2 flex → h3 → flex gap-2 → /flex gap-2 → /p-4 → /card).
+- Verified `hexToRgba` works with `0.55`, `0.6`, `0.85` etc. (it accepts any float alpha).
+- Ran `cd /home/z/my-project && bun run lint 2>&1 | grep home-view` → ✓ No home-view.tsx errors found. (Two pre-existing unrelated errors remain in `src/components/chat/project-chat.tsx:557` and `src/components/layout/app-header.tsx:132`, both `react-hooks/set-state-in-effect`, both introduced by earlier tasks — not by HOME-PANELS-V2.)
+- Tailed /home/z/my-project/dev.log: shows repeated `GET / 200` with healthy compile times (3–12s for first compile, then 2–4ms cached compiles), no errors related to home-view.tsx.
+
+Stage Summary:
+- The Quick Access panel is now cyan/teal (#00d9ff) instead of yellow — gradient, border, glow, neon top bar, corner accents, header badge, title, and count text all switched to cyan. The priority dropdown button and unstar Zap icon inside each card remain yellow (#FCEE0A) for contrast.
+- The "Авто проекты" and "Канбан проекты" SectionHeaders now lead with an angular clip-path Zap badge in their accent color (yellow / cyan respectively), matching the Quick Access panel's header style.
+- The QuickAccessCard's left/right arrow priority controls and static priority badge are gone, replaced by a single Popover dropdown at the bottom-right corner: clicking opens a vertical list of positions 1..N; clicking a position calls `moveQuickAccessTo(id, targetIdx)` which splices the id to the chosen index and persists to localStorage.
+- ProjectCard and KanbanCard now use the same angular clip-path corners (`polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))`), inset box-shadow borders (1px at rest, 1.5px on hover), and a 1px gradient top accent strip — visually matching the QuickAccessCard.
+- Lint passes for home-view.tsx (the two remaining errors are pre-existing and in unrelated files). Dev server compiles the home route cleanly.
