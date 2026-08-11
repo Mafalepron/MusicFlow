@@ -1857,3 +1857,54 @@ Stage Summary:
 - Project cards: type-specific deep fills (Album #161224 plum, EP #0e1a24 cyan, Single #1a1424) + 2px colored border-top + inset glow + chamfered 8px corners.
 - CREATE button: #12131a dark slate + HUD grid + 3 concentric yellow rings + center solid dark circle with thick gold border + micro-text 9px opacity 0.4.
 - Lint clean, TypeScript clean, dev server HTTP 200, 0 console errors, ALL spec requirements VLM-verified.
+
+---
+Task ID: KB11-UX-FIXES-4REQ
+Agent: main
+Task: 4 UX fixes — (1) move priority scale to top-right + remove fraction, (2) custom carousel arrows, (3) CREATE card cyan hover glow + scale, (4) remove "Мои папки" section entirely
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from KB10-COMPLETE-VISUAL-OVERHAUL.
+
+Req 1 — Priority scale moved to top-right, fraction removed:
+- Restructured QuickAccessCard header row from `flex items-center gap-1.5` (icon+label only) to `flex items-center justify-between` (icon+label on LEFT, priority scale on RIGHT).
+- Moved the 7-segment priority scale from `absolute bottom-2 left-2` into the header row (top-right position).
+- Removed the `{priority}/{SCALE_SEGS}` fraction span (the "3/7" text).
+- Segment dimensions: width 3px (was 4px), height 14px (was 12px) — taller and thinner for top-right placement.
+- Old absolute bottom-left priority scale block completely removed.
+
+Req 2 — Custom carousel arrows styled like panel:
+- Replaced old circular yellow arrows (borderRadius 50%, #c7a008 color, only visible when scrollable) with custom chamfered square frames matching the panel style.
+- Arrows now ALWAYS VISIBLE (not conditional on canLeft/canRight). When not scrollable: disabled state (grey #4a5568 text, #232a3b border, 0.4 opacity, cursor default). When scrollable: active state (cyan #00a8c6 text + border, 0 0 8px rgba(0,168,198,0.25) glow, 0.9 opacity, pointer cursor).
+- Frame style: background #161a24, border 1px solid #00a8c6 (active) or #232a3b (inactive), borderRadius 4px — matches header icon frames.
+- Size: h-9 w-9 (was h-10 w-10).
+- ChevronLeft/Right icons w-4 h-4 (was w-5 h-5).
+- Removed edge fade gradients (left/right gradient overlays).
+- Added disabled attribute + aria-label.
+
+Req 3 — CREATE card cyan hover glow + scale:
+- On hover: borderTop changes from #c7a008 (gold) to #00a8c6 (cyan).
+- boxShadow on hover: inset 0 1px 12px rgba(0,168,198,0.3) (cyan inset glow), inset 0 0 0 2px rgba(0,168,198,0.7) (cyan border ring), 0 0 8px rgba(0,168,198,0.3) (outer cyan glow), 0 4px 12px rgba(0,0,0,0.4) (drop shadow).
+- transform: scale(1.04) on hover (slight increase).
+- At rest: gold inset glow + gold border ring (unchanged).
+
+Req 4 — Remove "Мои папки" (My Folders) section:
+- Removed entire Folders section JSX (60+ lines): SectionHeader, grid of 4 folder cards (album/ep/single/general), expand/collapse buttons, AnimatePresence motion divs, project lists.
+- Removed `expandedFolders` state variable.
+- Removed `projectsByType` useMemo.
+- Removed `toggleFolder` function.
+- Verified: home page now shows only "Быстрый доступ | Авто проекты | Канбан проекты | Лента идей" (no "Мои папки").
+
+- Ran `npx tsc --noEmit` → 0 errors. Dev server GET / returns 200.
+- Agent Browser + VLM verification:
+  * Priority scale: "top-right corner of each card, NO fraction number next to scale" ✓
+  * Carousel arrows: "custom scroll arrows, square-framed, active arrow cyan/teal, styled to match panel" ✓
+  * CREATE hover: "distinct cyan/blue glow around card border, top border changed from gold to cyan, card scaled up" ✓
+  * Мои папки removed: "Быстрый доступ | Авто проекты | Канбан проекты | Лента идей" (no Мои папки) ✓
+
+Stage Summary:
+- Priority scale moved to top-right of QuickAccessCard header, fraction text removed.
+- Carousel arrows are custom chamfered square frames (#161a24 bg, cyan border when active, always visible, disabled when not scrollable).
+- CREATE card hover: cyan glow (border-top + inset + outer), scale 1.04.
+- "Мои папки" section completely removed from home page + codebase (state, useMemo, function, JSX).
+- Lint: 0 TypeScript errors, dev server HTTP 200, 0 console errors, all 4 requirements VLM-verified.

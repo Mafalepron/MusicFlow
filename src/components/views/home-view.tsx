@@ -566,11 +566,12 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
         minHeight: '180px',
         clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
         background: '#12131a',
-        borderTop: '2px solid #c7a008',
+        borderTop: h ? '2px solid #00a8c6' : '2px solid #c7a008',
         boxShadow: h
-          ? `inset 0 1px 12px rgba(199,160,8,0.15), inset 0 0 0 1px rgba(199,160,8,0.5), 0 4px 12px rgba(0,0,0,0.4)`
+          ? `inset 0 1px 12px rgba(0,168,198,0.3), inset 0 0 0 2px rgba(0,168,198,0.7), 0 0 8px rgba(0,168,198,0.3), 0 4px 12px rgba(0,0,0,0.4)`
           : `inset 0 1px 12px rgba(199,160,8,0.15), inset 0 0 0 1px rgba(199,160,8,0.3)`,
         transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
+        transform: h ? 'scale(1.04)' : 'scale(1)',
         cursor: 'pointer',
       }}
     >
@@ -730,20 +731,49 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
 
       {/* Body */}
       <div className="p-3 pt-3.5 relative">
-        {/* Type icon + label */}
-        <div className="mb-2 flex items-center gap-1.5">
-          <div
-            className="flex h-6 w-6 items-center justify-center"
-            style={{
-              clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-              background: hexToRgba(t.color, 0.18),
-              border: `1px solid ${hexToRgba(t.color, 0.5)}`,
-              boxShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.5)}` : 'none',
-            }}
-          >
-            <Zap className="w-3 h-3" style={{ color: t.color, filter: `drop-shadow(0 0 2px ${t.color})` }} />
+        {/* Type icon + label (left) | Priority scale (right) */}
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <div
+              className="flex h-6 w-6 items-center justify-center"
+              style={{
+                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                background: hexToRgba(t.color, 0.18),
+                border: `1px solid ${hexToRgba(t.color, 0.5)}`,
+                boxShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.5)}` : 'none',
+              }}
+            >
+              <Zap className="w-3 h-3" style={{ color: t.color, filter: `drop-shadow(0 0 2px ${t.color})` }} />
+            </div>
+            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
           </div>
-          <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
+          {/* ── Priority scale (top-right) — click segment to set priority ── */}
+          <div className="flex gap-[2px]" title="Кликните на сегмент, чтобы изменить приоритет">
+            {Array.from({ length: SCALE_SEGS }).map((_, i) => {
+              const filled = i < filledSegs;
+              const isHover = h && filled;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onMoveTo(i); }}
+                  className="transition-all hover:scale-y-110"
+                  style={{
+                    width: '3px',
+                    height: '14px',
+                    background: filled ? t.color : hexToRgba(t.color, 0.18),
+                    boxShadow: filled ? `0 0 4px ${hexToRgba(t.color, 0.7)}` : 'none',
+                    borderRadius: '0.5px',
+                    transform: isHover ? 'scaleY(1.15)' : 'scaleY(1)',
+                    transition: `transform 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 25}ms, background 180ms`,
+                    cursor: 'pointer',
+                  }}
+                  title={`Приоритет ${i + 1}`}
+                  aria-label={`Установить приоритет ${i + 1}`}
+                />
+              );
+            })}
+          </div>
         </div>
 
         {/* Title */}
@@ -773,42 +803,6 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
         <div className="mt-2.5">
           <WaveformProgressBar progress={priority * 14} accentColor={t.color} height={32} bars={24} />
         </div>
-      </div>
-
-      {/* ── Clickable priority scale (bottom-left) — click segment to set priority ── */}
-      <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1.5">
-        <div className="flex gap-[2px]" title="Кликните на сегмент, чтобы изменить приоритет">
-          {Array.from({ length: SCALE_SEGS }).map((_, i) => {
-            const filled = i < filledSegs;
-            const isHover = h && filled;
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onMoveTo(i); }}
-                className="transition-all hover:scale-y-110"
-                style={{
-                  width: '4px',
-                  height: '12px',
-                  background: filled ? t.color : hexToRgba(t.color, 0.18),
-                  boxShadow: filled ? `0 0 4px ${hexToRgba(t.color, 0.7)}` : 'none',
-                  borderRadius: '0.5px',
-                  transform: isHover ? 'scaleY(1.15)' : 'scaleY(1)',
-                  transition: `transform 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 25}ms, background 180ms`,
-                  cursor: 'pointer',
-                }}
-                title={`Приоритет ${i + 1}`}
-                aria-label={`Установить приоритет ${i + 1}`}
-              />
-            );
-          })}
-        </div>
-        <span className="text-[9px] font-extrabold tabular-nums font-mono ml-0.5" style={{
-          color: t.color,
-          textShadow: `0 0 4px ${hexToRgba(t.color, 0.5)}`,
-        }}>
-          {priority}/{SCALE_SEGS}
-        </span>
       </div>
     </div>
   );
@@ -848,27 +842,26 @@ function Carousel({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative group/carousel">
-      {/* Left arrow */}
-      {canLeft && (
-        <button
-          onClick={() => scroll('left')}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex h-10 w-10 items-center justify-center transition-all duration-200"
-          style={{
-            background: 'rgba(8,10,18,0.85)',
-            backdropFilter: 'blur(8px)',
-            borderRadius: '50%',
-            border: '1px solid rgba(199,160,8,0.3)',
-            boxShadow: '0 0 8px rgba(199,160,8,0.15)',
-            color: '#c7a008',
-            cursor: 'pointer',
-            opacity: 0.7,
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(199,160,8,0.4)'; e.currentTarget.style.borderColor = 'rgba(199,160,8,0.6)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(199,160,8,0.15)'; e.currentTarget.style.borderColor = 'rgba(199,160,8,0.3)'; }}
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-      )}
+      {/* Left arrow — custom chamfered frame, always visible */}
+      <button
+        onClick={() => scroll('left')}
+        disabled={!canLeft}
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center transition-all duration-200"
+        style={{
+          background: '#161a24',
+          border: `1px solid ${canLeft ? '#00a8c6' : '#232a3b'}`,
+          borderRadius: '4px',
+          boxShadow: canLeft ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
+          color: canLeft ? '#00a8c6' : '#4a5568',
+          cursor: canLeft ? 'pointer' : 'default',
+          opacity: canLeft ? 0.9 : 0.4,
+        }}
+        onMouseEnter={(e) => { if (canLeft) { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; e.currentTarget.style.opacity = '1'; } }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = canLeft ? '#00a8c6' : '#232a3b'; e.currentTarget.style.boxShadow = canLeft ? '0 0 8px rgba(0,168,198,0.25)' : 'none'; e.currentTarget.style.opacity = canLeft ? '0.9' : '0.4'; }}
+        aria-label="Прокрутить влево"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
 
       {/* Scrollable container — hidden scrollbar */}
       <div
@@ -882,35 +875,26 @@ function Carousel({ children }: { children: React.ReactNode }) {
         {children}
       </div>
 
-      {/* Right arrow */}
-      {canRight && (
-        <button
-          onClick={() => scroll('right')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex h-10 w-10 items-center justify-center transition-all duration-200"
-          style={{
-            background: 'rgba(8,10,18,0.85)',
-            backdropFilter: 'blur(8px)',
-            borderRadius: '50%',
-            border: '1px solid rgba(199,160,8,0.3)',
-            boxShadow: '0 0 8px rgba(199,160,8,0.15)',
-            color: '#c7a008',
-            cursor: 'pointer',
-            opacity: 0.7,
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(199,160,8,0.4)'; e.currentTarget.style.borderColor = 'rgba(199,160,8,0.6)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(199,160,8,0.15)'; e.currentTarget.style.borderColor = 'rgba(199,160,8,0.3)'; }}
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      )}
-
-      {/* Edge fade gradients */}
-      {canLeft && (
-        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 z-[5]" style={{ background: 'linear-gradient(90deg, rgba(6,8,13,0.9), transparent)' }} />
-      )}
-      {canRight && (
-        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-12 z-[5]" style={{ background: 'linear-gradient(270deg, rgba(6,8,13,0.9), transparent)' }} />
-      )}
+      {/* Right arrow — custom chamfered frame, always visible */}
+      <button
+        onClick={() => scroll('right')}
+        disabled={!canRight}
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center transition-all duration-200"
+        style={{
+          background: '#161a24',
+          border: `1px solid ${canRight ? '#00a8c6' : '#232a3b'}`,
+          borderRadius: '4px',
+          boxShadow: canRight ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
+          color: canRight ? '#00a8c6' : '#4a5568',
+          cursor: canRight ? 'pointer' : 'default',
+          opacity: canRight ? 0.9 : 0.4,
+        }}
+        onMouseEnter={(e) => { if (canRight) { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; e.currentTarget.style.opacity = '1'; } }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = canRight ? '#00a8c6' : '#232a3b'; e.currentTarget.style.boxShadow = canRight ? '0 0 8px rgba(0,168,198,0.25)' : 'none'; e.currentTarget.style.opacity = canRight ? '0.9' : '0.4'; }}
+        aria-label="Прокрутить вправо"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
 
       {/* Hidden scrollbar CSS */}
       <style>{`
@@ -1245,7 +1229,6 @@ export function HomeView() {
 
   const [memberCount, setMemberCount] = useState(0);
   const [kanbanProjects, setKanbanProjects] = useState<Task[]>([]);
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({ album: true, ep: false, single: false, general: false });
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [allAutoOpen, setAllAutoOpen] = useState(false);
   const [allKanbanOpen, setAllKanbanOpen] = useState(false);
@@ -1259,12 +1242,6 @@ export function HomeView() {
   [ideas]);
 
   const getTrackCount = (pid: string) => tracks.filter(t => t.projectId === pid).length;
-
-  const projectsByType = useMemo(() => {
-    const g: Record<string, Project[]> = { album: [], ep: [], single: [], general: [] };
-    projects.forEach(p => { const k = (p.type || 'general').toLowerCase(); (g[k] ||= []).push(p); });
-    return g;
-  }, [projects]);
 
   useEffect(() => {
     if (!currentGroupId) return;
@@ -1287,7 +1264,6 @@ export function HomeView() {
   }, []);
 
   const goToKanban = (id: string) => { if (id) { navigate('kanban'); setTimeout(() => useKanbanStore.getState().selectProject(id), 220); } };
-  const toggleFolder = (k: string) => setExpandedFolders(p => ({ ...p, [k]: !p[k] }));
 
   const toggleQuickAccess = (id: string, title?: string) => {
     setQuickAccess(prev => {
@@ -1580,76 +1556,6 @@ export function HomeView() {
             {kanbanProjects.slice(0, 3).map(task => (
               <KanbanCard key={task.id} task={task} onClick={() => goToKanban(task.id)} />
             ))}
-          </div>
-        </section>
-
-        {/* ── Folders ── */}
-        <section className="mt-8">
-          <SectionHeader title="Мои папки" />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(['album', 'ep', 'single', 'general'] as const).map(key => {
-              const list = projectsByType[key] || [];
-              const t = typeMeta[key];
-              const isOpen = !!expandedFolders[key];
-              return (
-                <div
-                  key={key}
-                  className="overflow-hidden"
-                  style={{
-                    borderRadius: '10px',
-                    background: `linear-gradient(135deg, ${hexToRgba(t.color, 0.06)}, rgba(14,18,28,0.8))`,
-                    border: `1px solid ${hexToRgba(t.color, 0.2)}`,
-                  }}
-                >
-                  <button
-                    onClick={() => toggleFolder(key)}
-                    className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-white/[0.03]"
-                  >
-                    <div
-                      className="flex h-8 w-8 items-center justify-center rounded-lg"
-                      style={{ background: hexToRgba(t.color, 0.1), border: `1px solid ${hexToRgba(t.color, 0.2)}` }}
-                    >
-                      <t.icon className="w-4 h-4" style={{ color: t.color }} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-200">{t.label}</p>
-                      <p className="text-[10px] text-slate-600">{list.length} {plural(list.length, ['проект', 'проекта', 'проектов'])}</p>
-                    </div>
-                    {isOpen ? <ChevronDown className="w-4 h-4 text-slate-600" /> : <ChevronRight className="w-4 h-4 text-slate-600" />}
-                  </button>
-                  <AnimatePresence initial={false}>
-                    {isOpen && list.length > 0 && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden border-t border-white/[0.04]"
-                      >
-                        <div className="space-y-1 p-2">
-                          {list.map(p => {
-                            const sc = stHex[p.status] || C;
-                            return (
-                              <button
-                                key={p.id}
-                                onClick={() => navigate('project-detail', p.id)}
-                                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors hover:bg-white/[0.04]"
-                              >
-                                <span className="truncate text-slate-300">{p.title}</span>
-                                <span className="flex items-center gap-1.5 shrink-0">
-                                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc }} />
-                                  <span className="text-[10px] text-slate-500">{stLabel[p.status] || p.status}</span>
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
           </div>
         </section>
 
