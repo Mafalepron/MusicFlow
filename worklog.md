@@ -1308,3 +1308,46 @@ Stage Summary:
   * CREATE button: confirmed central yellow circle + plus icon, multiple rotating concentric rings (solid + dashed + tick marks), holographic terminal appearance, circuit board pattern background, L-shaped corner brackets on panel border.
   * Header: confirmed purple/violet glow on title, 4 chamfered yellow metric cards, circuit board background texture.
 - Lint clean for modified files, TypeScript clean, dev server HTTP 200, 0 console errors.
+
+---
+Task ID: KB3-AUTOPROJECTS-GLITCH
+Agent: main
+Task: Fix Auto Projects cards to match reference image — add audio waveforms, hex code data blocks, and glitch effects
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from KB2-IMMERSIVE-REFATOR (global bg, header, Quick Access, Auto Projects panel borders, holographic CREATE button already done).
+- Analyzed reference image /home/z/my-project/upload/pasted_image_1786440062802.png with VLM focusing specifically on Auto Projects cards. Key findings: each card needs (1) audio waveform visualization (purple/cyan bar graph, 15-20 bars) in top-right of cover, (2) hex code/coordinate data block (terminal-style monospace 0x... with thin brackets), (3) glitch effects (RGB split text, scanline distortions, border jitter), (4) multi-layered beveled borders (outer glow + inner recessed screen), (5) ghost-style "Open Kanban" button with key icon.
+- Added 7 new kb3-* glitch keyframes to /home/z/my-project/src/app/cyberpunk.css: kb3-glitch-x (positional jitter), kb3-rgb-split (red+cyan text-shadow offset), kb3-scanline-sweep (horizontal sweep across card), kb3-data-flicker (terminal text opacity flicker), kb3-wave-bar (audio waveform bar animation), kb3-border-jitter (border opacity jitter), kb3-holo-shift (gradient shift).
+- Added Key icon to lucide-react imports in home-view.tsx (for "Открыть Kanban" button).
+- Completely rewrote ProjectCard component in home-view.tsx (was ~88 lines, now ~193 lines):
+  * Added useMemo for waveBars (18 pseudo-random bars, deterministic from project.id char codes) and hexBlock (addr/coord/sig hex strings, deterministic from project.id).
+  * Outer card: 10px chamfer clip-path, layered boxShadow (1.5px inset border on hover + 28px glow + 24px shadow + 22px inset glow; at rest 1px border + 4px black inset for recessed depth + 12px shadow).
+  * Scanline distortion overlay: 2px-tall horizontal gradient bar that sweeps top-to-bottom on hover (kb3-scanline-sweep 1.4s).
+  * Inner beveled frame: absolute inset-3px with 8px chamfer, inset boxShadow creating recessed screen effect, kb3-border-jitter 2.5s on hover (opacity jitter).
+  * Top accent strip: 2px gradient with 8px glow.
+  * Cover strip: now flex justify-between with type icon (left) + audio waveform (right).
+  * Audio waveform: 18 vertical bars (2.5px wide, deterministic heights from project.id), t.color background with 3px glow, kb3-wave-bar animation on hover (staggered 0.04s delays, varying 0.6-1.2s durations), kb3-glitch-x positional jitter on container.
+  * Hex code overlay (bottom-right of cover): 7px monospace text with 0.5px border, kb3-data-flicker 4s animation (terminal text flicker).
+  * Title: monospace font, kb3-rgb-split 1.2s animation on hover (red shadow left + cyan shadow right + glow).
+  * Meta row: monospace, t.color with opacity changes on hover.
+  * Full hex code data block (in body): 8px monospace, 2 lines (addr · coord · sig / TRK:NN · STS:XXXX), 1.5px left border accent, 0.5px border, dark background.
+  * "Открыть Kanban" button: ghost-style with 3px chamfer clip-path, Key icon with drop-shadow on hover, cyan color with text-shadow glow on hover, 0.5px border that intensifies on hover.
+- Created 3 test projects via API eval (Neon Districts album, Glitch EP, Chrome Heart single) to populate the Auto Projects section (was empty with only CreateCard).
+- Ran `bun run lint` → 0 errors in home-view.tsx (2 pre-existing unrelated errors remain in project-chat.tsx:557 and app-header.tsx:132).
+- Dev server GET / returns 200.
+- Agent Browser verification:
+  * Confirmed 3 ProjectCards render in Авто проекты section with clickable cursor:pointer.
+  * DOM snapshot confirmed card text content: "Сингл0xD0FD 03:15Chrome Heart0 трековЧерновик0xD0FD · 03:15 · SIG:F588TRK:00 · STS:DRAFОткрыть Kanba" — hex codes, SIG, TRK, STS all present.
+- VLM verification (z-ai vision CLI) on hovered Neon Districts card:
+  * Audio waveform: confirmed "series of vertical bars visible in top-right corner, magenta/purple, audio spectrum"
+  * Hex code data block: confirmed "dark recessed rectangular field containing monospace text: 0xCE54 · E8:5E · SIG:E8A2 on first line and TRK:00 · STS:DRAF on second"
+  * Title glitch RGB split: confirmed "distinct red shadow offset to left and cyan/blue shadow offset to right of white main text"
+  * Scanline sweep: confirmed "subtle horizontal glowing line crossing through middle of card content area"
+  * "Открыть Kanban" button: confirmed "button with key icon preceding text, purple/cyan glowing border"
+  * Multi-layered beveled borders: confirmed "bright outer glow + thin inner frame creating recessed/beveled look, high-tech HUD appearance"
+
+Stage Summary:
+- Auto Projects ProjectCard now matches reference image with all 6 key cyberpunk elements: audio waveform (18 animated bars), hex code data block (2-line terminal-style with addr/coord/sig + TRK/STS), glitch RGB split title, scanline sweep on hover, multi-layered beveled borders (recessed screen), and ghost-style "Открыть Kanban" button with key icon.
+- All 7 glitch animations live in global cyberpunk.css (kb3-* prefix) — no inline <style> blocks.
+- VLM-verified all elements visible and working on hover.
+- Lint clean for home-view.tsx, TypeScript clean, dev server HTTP 200, 0 console errors.

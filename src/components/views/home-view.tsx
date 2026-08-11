@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FolderKanban, Music2, Lightbulb, Users, ArrowRight, Plus,
   ChevronDown, ChevronRight, ChevronLeft, Disc3, AudioLines, Zap, Clock, Star, X,
-  ArrowUp, ArrowDown, Flame, Layers,
+  ArrowUp, ArrowDown, Flame, Layers, Key,
 } from 'lucide-react';
 import { useAuthStore, useDataStore, useNavigationStore, type Project } from '@/lib/store';
 import { useKanbanStore, type Task } from '@/store/kanban-store';
@@ -55,7 +55,7 @@ interface ModalItem {
   onOpen: () => void;
 }
 
-/* ─── Project Card ─── */
+/* ─── Project Card — dark data slab with waveform + hex code + glitch ─── */
 function ProjectCard({ project, trackCount, onClick, onKanban }: {
   project: Project; trackCount: number; onClick: () => void; onKanban: () => void;
 }) {
@@ -65,6 +65,20 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
   const sc = stHex[project.status] || '#64748b';
   const sl = stLabel[project.status] || project.status;
   const hasKanban = !!project.kanbanTaskId;
+  // Pseudo-random waveform bars (deterministic from project.id)
+  const waveBars = useMemo(() => {
+    const seed = project.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    return Array.from({ length: 18 }, (_, i) => 0.2 + ((seed * (i + 5) * 11) % 80) / 100);
+  }, [project.id]);
+  // Hex code data block (deterministic from project.id)
+  const hexBlock = useMemo(() => {
+    const s = project.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    return {
+      addr: '0x' + (s * 0x1A3).toString(16).toUpperCase().padStart(4, '0').slice(0, 4),
+      coord: (s % 0xFF).toString(16).toUpperCase().padStart(2, '0') + ':' + ((s * 7) % 0xFF).toString(16).toUpperCase().padStart(2, '0'),
+      sig: 'SIG:' + ((s * 0x7F) % 0xFFFF).toString(16).toUpperCase().padStart(4, '0'),
+    };
+  }, [project.id]);
 
   return (
     <div
@@ -73,70 +87,161 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
       onMouseLeave={() => setH(false)}
       className="group relative cursor-pointer overflow-hidden"
       style={{
-        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-        background: h ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.18)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(t.color, 0.1)}, rgba(14,18,28,0.85))`,
+        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+        background: h
+          ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.24)}, rgba(12,16,28,0.96))`
+          : `linear-gradient(135deg, ${hexToRgba(t.color, 0.12)}, rgba(10,14,22,0.92))`,
         boxShadow: h
-          ? `inset 0 0 0 1.5px ${hexToRgba(t.color, 0.6)}, 0 8px 32px ${hexToRgba(t.color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)`
-          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.3)}, 0 4px 12px rgba(0,0,0,0.3)`,
-        transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
+          ? `inset 0 0 0 1.5px ${hexToRgba(t.color, 0.75)}, 0 0 28px ${hexToRgba(t.color, 0.28)}, 0 8px 24px rgba(0,0,0,0.5), inset 0 0 22px ${hexToRgba(t.color, 0.1)}`
+          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.35)}, inset 0 0 0 4px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.4)`,
+        transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
         transform: h ? 'translateY(-4px) scale(1.01)' : 'translateY(0)',
       }}
     >
-      {/* Top accent strip — color gradient */}
+      {/* ── Scanline distortion overlay (sweeps on hover) ── */}
+      {h && (
+        <div
+          className="absolute inset-x-0 h-2 pointer-events-none z-[3]"
+          style={{
+            background: `linear-gradient(180deg, transparent, ${hexToRgba(t.color, 0.5)}, transparent)`,
+            animation: 'kb3-scanline-sweep 1.4s ease-out',
+          }}
+        />
+      )}
+
+      {/* ── Inner beveled frame (recessed screen effect) ── */}
       <div
-        className="h-1 w-full"
+        className="absolute inset-[3px] pointer-events-none transition-opacity duration-300"
         style={{
-          background: `linear-gradient(90deg, transparent, ${t.color} 30%, ${t.color} 70%, transparent)`,
-          boxShadow: `0 0 6px ${hexToRgba(t.color, 0.5)}`,
+          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+          boxShadow: h
+            ? `inset 0 0 0 1px ${hexToRgba(t.color, 0.35)}, inset 0 0 14px ${hexToRgba(t.color, 0.15)}`
+            : `inset 0 0 0 1px ${hexToRgba(t.color, 0.15)}`,
+          opacity: h ? 1 : 0.5,
+          animation: h ? 'kb3-border-jitter 2.5s ease-in-out infinite' : 'none',
         }}
       />
 
-      {/* Cover gradient strip */}
+      {/* Top accent strip — color gradient */}
       <div
-        className="h-20 flex items-end p-3"
+        className="h-[2px] w-full relative z-[2]"
         style={{
-          background: `linear-gradient(135deg, ${hexToRgba(t.color, h ? 0.3 : 0.18)}, ${hexToRgba(t.color, h ? 0.08 : 0.04)})`,
-          borderBottom: `1px solid ${hexToRgba(t.color, 0.1)}`,
+          background: `linear-gradient(90deg, transparent, ${t.color} 30%, ${t.color} 70%, transparent)`,
+          boxShadow: `0 0 8px ${hexToRgba(t.color, 0.7)}`,
+        }}
+      />
+
+      {/* Cover strip — with waveform overlay */}
+      <div
+        className="h-20 flex items-end justify-between p-3 relative z-[2] overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg, ${hexToRgba(t.color, h ? 0.32 : 0.18)}, ${hexToRgba(t.color, h ? 0.08 : 0.04)})`,
+          borderBottom: `1px solid ${hexToRgba(t.color, 0.12)}`,
         }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative z-[2]">
           <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg"
-            style={{ background: hexToRgba(t.color, 0.15), border: `1px solid ${hexToRgba(t.color, 0.3)}` }}
+            className="flex h-8 w-8 items-center justify-center"
+            style={{
+              clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+              background: hexToRgba(t.color, 0.2),
+              border: `1px solid ${hexToRgba(t.color, 0.5)}`,
+              boxShadow: h ? `0 0 10px ${hexToRgba(t.color, 0.5)}` : 'none',
+            }}
           >
-            <Icon className="w-4 h-4" style={{ color: t.color }} />
+            <Icon className="w-4 h-4" style={{ color: t.color, filter: `drop-shadow(0 0 2px ${t.color})` }} />
           </div>
-          <span className="text-[11px] font-semibold" style={{ color: t.color }}>{t.label}</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
+        </div>
+
+        {/* ── Audio waveform visualization (top-right of cover) ── */}
+        <div className="flex items-end gap-[1.5px] h-10 relative z-[2]" style={{ animation: h ? 'kb3-glitch-x 0.3s steps(2) infinite' : 'none' }}>
+          {waveBars.map((v, i) => (
+            <div
+              key={i}
+              style={{
+                width: '2.5px',
+                height: `${Math.round(v * 100)}%`,
+                background: t.color,
+                boxShadow: `0 0 3px ${hexToRgba(t.color, 0.7)}`,
+                transformOrigin: 'bottom',
+                animation: h ? `kb3-wave-bar ${0.6 + (i % 5) * 0.12}s ease-in-out ${(i * 0.04).toFixed(2)}s infinite` : 'none',
+                borderRadius: '0.5px',
+                opacity: h ? 1 : 0.65,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* ── Hex code data block overlay (bottom-right of cover) ── */}
+        <div
+          className="absolute bottom-1 right-2 px-1.5 py-0.5 text-[7px] font-mono leading-tight pointer-events-none"
+          style={{
+            background: 'rgba(0,0,0,0.55)',
+            border: `0.5px solid ${hexToRgba(t.color, 0.4)}`,
+            color: t.color,
+            opacity: 0.7,
+            animation: 'kb3-data-flicker 4s steps(8) infinite',
+            letterSpacing: '0.05em',
+          }}
+        >
+          {hexBlock.addr} {hexBlock.coord}
         </div>
       </div>
 
       {/* Body */}
-      <div className="p-4">
+      <div className="p-4 relative z-[2]">
+        {/* Title — glitch RGB split on hover */}
         <h3
-          className="mb-2 text-[15px] font-semibold leading-snug transition-colors"
-          style={{ color: h ? t.color : '#e8eaed' }}
+          className="mb-2 text-[15px] font-bold leading-snug"
+          style={{
+            color: h ? '#ffffff' : '#e8eaed',
+            fontFamily: 'monospace',
+            letterSpacing: '0.01em',
+            animation: h ? 'kb3-rgb-split 1.2s steps(4) infinite' : 'none',
+          }}
         >
           {project.title}
         </h3>
 
-        <div className="flex items-center gap-3 text-[11px] text-slate-500">
+        {/* Meta row */}
+        <div className="flex items-center gap-3 text-[11px]" style={{ color: h ? hexToRgba(t.color, 0.85) : '#7c8aa5', fontFamily: 'monospace' }}>
           <span className="flex items-center gap-1">
-            <Music2 className="w-3 h-3" />
+            <Music2 className="w-3 h-3" style={{ color: t.color, opacity: h ? 1 : 0.65 }} />
             {trackCount} {plural(trackCount, ['трек', 'трека', 'треков'])}
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 4px ${hexToRgba(sc, 0.5)}` }} />
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 5px ${hexToRgba(sc, 0.6)}` }} />
             {sl}
           </span>
+        </div>
+
+        {/* ── Hex code data block (full, in body) ── */}
+        <div className="mt-2.5 px-2 py-1.5 text-[8px] font-mono leading-tight" style={{
+          background: 'rgba(0,0,0,0.4)',
+          border: `0.5px solid ${hexToRgba(t.color, 0.3)}`,
+          borderLeft: `1.5px solid ${hexToRgba(t.color, 0.5)}`,
+          color: hexToRgba(t.color, 0.75),
+          letterSpacing: '0.06em',
+        }}>
+          <div>{hexBlock.addr} · {hexBlock.coord} · {hexBlock.sig}</div>
+          <div style={{ opacity: 0.6 }}>TRK:{trackCount.toString().padStart(2, '0')} · STS:{(project.status || 'draft').slice(0, 4).toUpperCase()}</div>
         </div>
 
         {hasKanban && (
           <button
             onClick={(e) => { e.stopPropagation(); onKanban(); }}
-            className="mt-3 flex items-center gap-1.5 text-[11px] font-medium transition-colors"
-            style={{ color: h ? Y : C }}
+            className="mt-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105"
+            style={{
+              color: h ? C : hexToRgba(C, 0.7),
+              textShadow: h ? `0 0 6px ${hexToRgba(C, 0.5)}` : 'none',
+              clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+              padding: '4px 8px',
+              background: h ? hexToRgba(C, 0.1) : 'transparent',
+              border: `0.5px solid ${h ? hexToRgba(C, 0.4) : hexToRgba(C, 0.2)}`,
+            }}
           >
-            <Zap className="w-3 h-3" />
+            <Key className="w-3 h-3" style={{ filter: h ? `drop-shadow(0 0 2px ${C})` : 'none' }} />
             Открыть Kanban
           </button>
         )}
