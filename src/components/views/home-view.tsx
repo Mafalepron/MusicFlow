@@ -494,7 +494,7 @@ function IdeaCard({ idea, onClick }: { idea: { id: string; title: string; descri
   );
 }
 
-/* ─── Stat Bar: cyberpunk 2077 HUD stat cells with icon rings ─── */
+/* ─── Stat Bar: cyberpunk 2077 HUD stat cells ─── */
 function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number; label: string; color: string }[] }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -511,7 +511,7 @@ function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number;
               </div>
             )}
             <div
-              className="relative flex items-center gap-2.5 px-3 py-2 transition-all hover:bg-white/[0.04] group"
+              className="relative flex items-center gap-2 px-3 py-2 transition-all hover:bg-white/[0.04] group"
               style={{
                 clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
                 background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
@@ -519,32 +519,18 @@ function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number;
                 boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
               }}
             >
-              {/* HUD icon with concentric ring frame */}
-              <div className="relative flex h-9 w-9 items-center justify-center shrink-0">
-                {/* Outer ring */}
-                <div className="absolute inset-0" style={{
-                  clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-                  border: '1px solid rgba(0,168,198,0.5)',
-                  background: 'rgba(0,168,198,0.05)',
-                }} />
-                {/* Yellow tick marks around ring */}
-                <div className="absolute -top-px left-1/2 -translate-x-1/2 w-2 h-px" style={{ background: '#c7a008' }} />
-                <div className="absolute -bottom-px left-1/2 -translate-x-1/2 w-2 h-px" style={{ background: '#c7a008' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 -left-px w-px h-2" style={{ background: '#c7a008' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 -right-px w-px h-2" style={{ background: '#c7a008' }} />
-                {/* Icon */}
-                <Icon className="w-4 h-4 relative" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.4))' }} />
-              </div>
+              {/* Icon (no frame) */}
+              <Icon className="w-5 h-5 shrink-0" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.4))' }} />
 
               {/* Value + label */}
               <div className="flex flex-col leading-none">
-                <span className="text-base font-extrabold tabular-nums" style={{
+                <span className="text-lg font-extrabold tabular-nums" style={{
                   color: '#e2e8f0',
                   fontFamily: 'var(--font-rajdhani), sans-serif',
                   fontWeight: 700,
                   textShadow: '0 0 4px rgba(0,168,198,0.15)',
                 }}>{s.value}</span>
-                <span className="text-[7px] font-bold uppercase mt-0.5" style={{
+                <span className="text-[9px] font-bold uppercase mt-0.5" style={{
                   color: '#718096',
                   fontFamily: 'var(--font-jetbrains-mono), monospace',
                   letterSpacing: '0.15em',
