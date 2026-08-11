@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FolderKanban, Music2, Lightbulb, Users, ArrowRight, Plus,
   ChevronDown, ChevronRight, ChevronLeft, Disc3, AudioLines, Zap, Clock, Star, X,
+  ArrowUp, ArrowDown, Flame,
 } from 'lucide-react';
 import { useAuthStore, useDataStore, useNavigationStore, type Project } from '@/lib/store';
 import { useKanbanStore, type Task } from '@/store/kanban-store';
@@ -303,46 +304,127 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
   );
 }
 
-/* ─── Quick Access Card ─── */
-function QuickAccessCard({ item, onClick, onUnstar }: {
+/* ─── Quick Access Card — cyberpunk 2077 style with priority ─── */
+function QuickAccessCard({ item, onClick, onUnstar, onMoveUp, onMoveDown, priority, isFirst, isLast }: {
   item: ModalItem; onClick: () => void; onUnstar: () => void;
+  onMoveUp: () => void; onMoveDown: () => void; priority: number; isFirst: boolean; isLast: boolean;
 }) {
   const [h, setH] = useState(false);
   const t = typeMeta[item.type] || typeMeta.general;
   const Icon = t.icon;
   const sc = stHex[item.status] || '#64748b';
   const sl = stLabel[item.status] || item.status;
+
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      className="group w-52 shrink-0 cursor-pointer overflow-hidden"
+      className="group relative w-56 shrink-0 cursor-pointer overflow-hidden"
       style={{
-        borderRadius: '10px',
-        background: h ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.16)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(t.color, 0.1)}, rgba(14,18,28,0.85))`,
-        border: `1px solid ${h ? hexToRgba(t.color, 0.55) : hexToRgba(t.color, 0.28)}`,
-        boxShadow: h ? `0 0 0 1px ${hexToRgba(t.color, 0.2)}, 0 6px 24px ${hexToRgba(t.color, 0.18)}` : `0 0 0 1px ${hexToRgba(t.color, 0.05)}`,
+        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+        background: h
+          ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.18)}, rgba(10,14,22,0.95))`
+          : `linear-gradient(135deg, ${hexToRgba(t.color, 0.1)}, rgba(10,14,22,0.88))`,
+        boxShadow: h
+          ? `inset 0 0 0 1.5px ${hexToRgba(t.color, 0.6)}, 0 0 24px ${hexToRgba(t.color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)`
+          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.3)}, 0 2px 8px rgba(0,0,0,0.25)`,
         transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
-        transform: h ? 'translateY(-3px) scale(1.02)' : 'none',
+        transform: h ? 'translateY(-3px)' : 'none',
       }}
     >
-      {/* Top color strip */}
-      <div className="h-10 flex items-center justify-between px-3" style={{ background: `linear-gradient(135deg, ${hexToRgba(t.color, h ? 0.25 : 0.15)}, transparent)` }}>
-        <div className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: hexToRgba(t.color, 0.15), border: `1px solid ${hexToRgba(t.color, 0.3)}` }}>
-          <Icon className="w-3 h-3" style={{ color: t.color }} />
-        </div>
+      {/* Priority number badge — top left, cyberpunk style */}
+      <div
+        className="absolute top-2 left-2 z-10 flex h-5 w-5 items-center justify-center"
+        style={{
+          clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+          background: h ? '#FCEE0A' : 'rgba(252,238,10,0.15)',
+          border: `1px solid ${h ? 'rgba(252,238,10,0.8)' : 'rgba(252,238,10,0.3)'}`,
+        }}
+      >
+        <span className="text-[9px] font-extrabold tabular-nums" style={{ color: h ? '#000' : '#FCEE0A' }}>
+          {priority}
+        </span>
+      </div>
+
+      {/* Priority controls — appear on hover */}
+      <div className={`absolute top-2 right-2 z-10 flex flex-col gap-0.5 transition-opacity duration-150 ${h ? 'opacity-100' : 'opacity-0'}`}>
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); onUnstar(); }}
-          className="p-0.5 rounded transition-all hover:bg-white/[0.1]"
-          title="Убрать из быстрого доступа"
+          onClick={(e) => { e.stopPropagation(); if (!isFirst) onMoveUp(); }}
+          disabled={isFirst}
+          className="flex h-5 w-5 items-center justify-center transition-all disabled:opacity-20"
+          style={{
+            clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
+            background: 'rgba(0,0,0,0.5)',
+            border: '1px solid rgba(252,238,10,0.3)',
+            color: '#FCEE0A',
+            cursor: isFirst ? 'default' : 'pointer',
+          }}
+          title="Выше приоритет"
         >
-          <Star className="w-3 h-3" style={{ color: Y, fill: Y }} />
+          <ArrowUp className="w-2.5 h-2.5" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); if (!isLast) onMoveDown(); }}
+          disabled={isLast}
+          className="flex h-5 w-5 items-center justify-center transition-all disabled:opacity-20"
+          style={{
+            clipPath: 'polygon(0 0, calc(100% - 2px) 0, 100% 2px, 100% 100%, 2px 100%, 0 calc(100% - 2px))',
+            background: 'rgba(0,0,0,0.5)',
+            border: '1px solid rgba(252,238,10,0.3)',
+            color: '#FCEE0A',
+            cursor: isLast ? 'default' : 'pointer',
+          }}
+          title="Ниже приоритет"
+        >
+          <ArrowDown className="w-2.5 h-2.5" />
         </button>
       </div>
-      <div className="p-3">
-        <p className="text-sm font-medium text-slate-200 line-clamp-1">{item.title}</p>
+
+      {/* Top accent strip — color gradient */}
+      <div
+        className="h-1 w-full"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${t.color} 30%, ${t.color} 70%, transparent)`,
+          boxShadow: `0 0 6px ${hexToRgba(t.color, 0.5)}`,
+        }}
+      />
+
+      {/* Body */}
+      <div className="p-3 pt-3.5">
+        {/* Type icon + unstar */}
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <div
+              className="flex h-6 w-6 items-center justify-center"
+              style={{
+                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                background: hexToRgba(t.color, 0.15),
+                border: `1px solid ${hexToRgba(t.color, 0.35)}`,
+              }}
+            >
+              <Icon className="w-3 h-3" style={{ color: t.color }} />
+            </div>
+            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: t.color }}>{t.label}</span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onUnstar(); }}
+            className="p-0.5 transition-all hover:scale-110"
+            title="Убрать из быстрого доступа"
+          >
+            <Star className="w-3 h-3" style={{ color: '#FCEE0A', fill: '#FCEE0A' }} />
+          </button>
+        </div>
+
+        {/* Title */}
+        <p className="text-sm font-medium text-slate-100 line-clamp-1" style={{ textShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.2)}` : 'none' }}>
+          {item.title}
+        </p>
+
+        {/* Meta */}
         <div className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-500">
           <span className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 4px ${hexToRgba(sc, 0.4)}` }} />
@@ -473,7 +555,7 @@ function AllProjectsModal({
   onClose: () => void;
   mode: 'auto' | 'kanban';
   items: ModalItem[];
-  quickAccess: Set<string>;
+  quickAccess: string[];
   toggleQuickAccess: (id: string) => void;
 }) {
   const [sortMode, setSortMode] = useState<SortMode>('date');
@@ -564,7 +646,7 @@ function AllProjectsModal({
               const Icon = t.icon;
               const sc = stHex[item.status] || '#64748b';
               const sl = stLabel[item.status] || item.status;
-              const starred = quickAccess.has(item.id);
+              const starred = quickAccess.includes(item.id);
               return (
                 <div
                   key={item.id}
@@ -632,7 +714,7 @@ export function HomeView() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [allAutoOpen, setAllAutoOpen] = useState(false);
   const [allKanbanOpen, setAllKanbanOpen] = useState(false);
-  const [quickAccess, setQuickAccess] = useState<Set<string>>(new Set());
+  const [quickAccess, setQuickAccess] = useState<string[]>([]);
 
   const autoProjects = useMemo(() => projects.filter(p => p.kanbanTaskId), [projects]);
   const recentIdeas = useMemo(() =>
@@ -663,7 +745,7 @@ export function HomeView() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem('soundflow-quick-access');
-      if (raw) setQuickAccess(new Set(JSON.parse(raw) as string[]));
+      if (raw) setQuickAccess(JSON.parse(raw) as string[]);
     } catch { /* ignore */ }
   }, []);
 
@@ -672,9 +754,21 @@ export function HomeView() {
 
   const toggleQuickAccess = (id: string) => {
     setQuickAccess(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      try { localStorage.setItem('soundflow-quick-access', JSON.stringify([...next])); } catch { /* ignore */ }
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      try { localStorage.setItem('soundflow-quick-access', JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const moveQuickAccess = (id: string, dir: 'up' | 'down') => {
+    setQuickAccess(prev => {
+      const idx = prev.indexOf(id);
+      if (idx < 0) return prev;
+      const target = dir === 'up' ? idx - 1 : idx + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      try { localStorage.setItem('soundflow-quick-access', JSON.stringify(next)); } catch { /* ignore */ }
       return next;
     });
   };
@@ -691,10 +785,12 @@ export function HomeView() {
     onOpen: () => { setAllKanbanOpen(false); goToKanban(t.id); },
   })), [kanbanProjects]);
 
-  const quickAccessItems: ModalItem[] = useMemo(
-    () => [...autoModalItems, ...kanbanModalItems].filter(it => quickAccess.has(it.id)),
-    [autoModalItems, kanbanModalItems, quickAccess],
-  );
+  const quickAccessItems: ModalItem[] = useMemo(() => {
+    const all = [...autoModalItems, ...kanbanModalItems];
+    return quickAccess
+      .map(id => all.find(it => it.id === id))
+      .filter((x): x is ModalItem => !!x);
+  }, [autoModalItems, kanbanModalItems, quickAccess]);
 
   const stats = [
     { icon: FolderKanban, value: projects.length, label: 'Проекты', color: Y },
@@ -724,35 +820,55 @@ export function HomeView() {
           <StatBar stats={stats} />
         </motion.div>
 
-        {/* ── Quick Access — warm amber, soft blurred panel ── */}
+        {/* ── Quick Access — cyberpunk 2077 priority panel ── */}
         {quickAccessItems.length > 0 && (
           <section className="mt-8 relative overflow-hidden" style={{
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(12,16,24,0.8))',
-            border: '1px solid rgba(245,158,11,0.25)',
+            clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
+            background: 'linear-gradient(135deg, rgba(252,238,10,0.08), rgba(10,14,22,0.9))',
+            border: '1px solid rgba(252,238,10,0.2)',
             padding: '20px',
-            boxShadow: '0 0 40px rgba(245,158,11,0.08), inset 0 1px 0 rgba(245,158,11,0.1)',
+            boxShadow: '0 0 40px rgba(252,238,10,0.06), inset 0 0 0 1px rgba(252,238,10,0.03)',
           }}>
-            {/* Amber glow orb — decorative */}
-            <div className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 rounded-full" style={{
-              background: 'radial-gradient(circle, rgba(245,158,11,0.12), transparent 70%)',
+            {/* Neon top bar — yellow */}
+            <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
+              background: 'linear-gradient(90deg, transparent, #FCEE0A 20%, #FCEE0A 80%, transparent)',
+              boxShadow: '0 0 12px rgba(252,238,10,0.5)',
             }} />
-            <SectionHeader
-              title="Быстрый доступ"
-              action={
-                <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#f59e0b' }}>
-                  <Star className="w-3 h-3" style={{ color: '#f59e0b', fill: '#f59e0b' }} />
-                  {quickAccessItems.length}
-                </span>
-              }
-            />
+            {/* Corner accents */}
+            <div className="absolute top-0 left-0 w-3 h-3" style={{ borderTop: '2px solid #FCEE0A', borderLeft: '2px solid #FCEE0A' }} />
+            <div className="absolute top-0 right-0 w-3 h-3" style={{ borderTop: '2px solid #FCEE0A', borderRight: '2px solid #FCEE0A' }} />
+
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center" style={{
+                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                  background: 'rgba(252,238,10,0.12)',
+                  border: '1px solid rgba(252,238,10,0.3)',
+                }}>
+                  <Flame className="w-3.5 h-3.5" style={{ color: '#FCEE0A' }} />
+                </div>
+                <h2 className="text-sm font-bold uppercase tracking-[0.12em]" style={{ color: '#FCEE0A', textShadow: '0 0 8px rgba(252,238,10,0.3)' }}>
+                  Быстрый доступ
+                </h2>
+              </div>
+              <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#FCEE0A' }}>
+                <Star className="w-3 h-3" style={{ color: '#FCEE0A', fill: '#FCEE0A' }} />
+                {quickAccessItems.length}
+              </span>
+            </div>
+
             <Carousel>
-              {quickAccessItems.map(item => (
+              {quickAccessItems.map((item, idx) => (
                 <QuickAccessCard
                   key={item.id}
                   item={item}
                   onClick={item.onOpen}
                   onUnstar={() => toggleQuickAccess(item.id)}
+                  onMoveUp={() => moveQuickAccess(item.id, 'up')}
+                  onMoveDown={() => moveQuickAccess(item.id, 'down')}
+                  priority={idx + 1}
+                  isFirst={idx === 0}
+                  isLast={idx === quickAccessItems.length - 1}
                 />
               ))}
             </Carousel>
