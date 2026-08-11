@@ -2032,3 +2032,15 @@ Work Log:
 6. Kanban Projects panel: replaced old left-accent-bar + glow-orb style with Quick Access glassmorphism frame (dark teal glass gradient rgba(14,26,36,0.7)→rgba(10,12,16,0.9), backdrop-blur(10px), 1px solid #00a8c6, chamfered clip-path, corner brackets).
 
 VLM-verified all 6: Quick Access title white ✓, stat borders blue + icons yellow ✓, audio waves yellow ✓, arrows no overlap ✓, blue card hover stroke yellow ✓, Kanban panel matches Quick Access ✓.
+
+---
+Task ID: KB15-QUICK-ACCESS-STATBAR-FIXES
+Agent: main
+Task: 4 fixes — (1) yellow outline layer on QA cards above blue, (2) remove arrow hover scale, (3) QA lightning/badges yellow, (4) StatBar cyberpunk redesign
+
+1. QuickAccessCard: added `inset 0 0 0 2px rgba(199,160,8,0.25)` (rest) / `inset 0 0 0 3px rgba(199,160,8,0.5)` (hover) as a layer above the blue inset border.
+2. Carousel arrows: removed `scale(1.05)` from both arrow onMouseEnter — only opacity changes now.
+3. Quick Access header: Zap icon → #c7a008, "N/7 активных" badge → #c7a008 + yellow border/bg, "Изменить" button → #c7a008 + yellow border/bg.
+4. StatBar: redesigned from single connected bar to 4 SEPARATE chamfered cells with gap-2 spacing. Each cell: clip-path 6px chamfer, dark glass gradient bg (#11141d→#0f121a), 1px blue border, inset bevel boxShadow, yellow accent line on top, yellow icon, yellow corner accent (bottom-right).
+
+VLM-verified: stat blocks separate+chamfered+spaced ✓, yellow icons+corners ✓, QA lightning yellow ✓, badges yellow ✓, card yellow outline layer above blue ✓, arrows no scale on hover ✓.

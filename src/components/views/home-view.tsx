@@ -494,38 +494,45 @@ function IdeaCard({ idea, onClick }: { idea: { id: string; title: string; descri
   );
 }
 
-/* ─── Stat Bar: segmented HUD widget (4 cells, muted borders, clean) ─── */
+/* ─── Stat Bar: cyberpunk 2077 segmented HUD widget — separate chamfered cells ─── */
 function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number; label: string; color: string }[] }) {
   return (
-    <div
-      className="flex items-stretch overflow-hidden"
-      style={{
-        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-        background: `linear-gradient(180deg, ${BG_PANEL} 0%, #161922 50%, ${BG_PANEL} 100%)`,
-        border: '1px solid #00a8c6',
-      }}
-    >
-      {stats.map((s, i) => {
+    <div className="flex items-center gap-2">
+      {stats.map((s) => {
         const Icon = s.icon;
         return (
           <div
             key={s.label}
-            className="flex items-center gap-2.5 px-3.5 py-2 transition-colors hover:bg-white/[0.03] relative group"
-            style={i < stats.length - 1 ? { borderRight: '1px solid #00a8c6' } : undefined}
+            className="flex items-center gap-2 px-3 py-2 transition-all hover:bg-white/[0.04] relative group"
+            style={{
+              clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+              background: 'linear-gradient(180deg, #11141d 0%, #0f121a 50%, #11141d 100%)',
+              border: '1px solid #00a8c6',
+              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8)',
+            }}
           >
+            {/* Yellow accent line on top */}
+            <div className="absolute left-1 right-1 top-0 h-px" style={{
+              background: 'linear-gradient(90deg, transparent, rgba(199,160,8,0.4), transparent)',
+            }} />
             <Icon className="w-4 h-4" style={{ color: '#c7a008' }} />
             <div className="flex flex-col leading-none">
               <span className="text-base font-extrabold tabular-nums" style={{
-                color: TEXT_PRIMARY,
+                color: '#e2e8f0',
                 fontFamily: 'var(--font-rajdhani), sans-serif',
                 fontWeight: 700,
               }}>{s.value}</span>
               <span className="text-[8px] font-bold uppercase mt-0.5" style={{
-                color: TEXT_SECONDARY,
+                color: '#718096',
                 fontFamily: 'var(--font-jetbrains-mono), monospace',
                 letterSpacing: '0.12em',
               }}>{s.label}</span>
             </div>
+            {/* Yellow corner accent (bottom-right) */}
+            <div className="absolute bottom-0 right-0 w-2 h-2" style={{
+              borderBottom: '1.5px solid rgba(199,160,8,0.5)',
+              borderRight: '1.5px solid rgba(199,160,8,0.5)',
+            }} />
           </div>
         );
       })}
@@ -726,8 +733,8 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
           ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.22)}, rgba(10,14,22,0.96))`
           : `linear-gradient(135deg, ${hexToRgba(t.color, 0.10)}, rgba(10,14,22,0.88))`,
         boxShadow: h
-          ? `inset 0 0 0 1.5px ${hexToRgba(t.color, 0.7)}, 0 0 28px ${hexToRgba(t.color, 0.28)}, 0 4px 16px rgba(0,0,0,0.5), inset 0 0 18px ${hexToRgba(t.color, 0.08)}`
-          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.35)}, 0 2px 10px rgba(0,0,0,0.4)`,
+          ? `inset 0 0 0 1.5px ${hexToRgba(t.color, 0.7)}, inset 0 0 0 3px ${hexToRgba('#c7a008', 0.5)}, 0 0 8px ${hexToRgba(t.color, 0.25)}, 0 4px 16px rgba(0,0,0,0.5), inset 0 0 18px ${hexToRgba(t.color, 0.08)}`
+          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.35)}, inset 0 0 0 2px ${hexToRgba('#c7a008', 0.25)}, 0 2px 10px rgba(0,0,0,0.4)`,
         transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
         transform: h ? 'translateY(-3px)' : 'none',
       }}
@@ -949,8 +956,8 @@ function Carousel({ children }: { children: React.ReactNode }) {
           cursor: 'pointer',
           opacity: 0.9,
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
         aria-label="Прокрутить влево"
       >
         <ChevronLeft className="w-4 h-4" />
@@ -981,8 +988,8 @@ function Carousel({ children }: { children: React.ReactNode }) {
           cursor: 'pointer',
           opacity: 0.9,
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.05)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
         aria-label="Прокрутить вправо"
       >
         <ChevronRight className="w-4 h-4" />
@@ -1504,11 +1511,11 @@ export function HomeView() {
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center" style={{
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  background: 'rgba(0,168,198,0.18)',
-                  border: '1px solid rgba(0,168,198,0.55)',
-                  boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+                  background: 'rgba(199,160,8,0.18)',
+                  border: '1px solid rgba(199,160,8,0.55)',
+                  boxShadow: '0 0 8px rgba(199,160,8,0.25)',
                 }}>
-                  <Zap className="w-3.5 h-3.5" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 3px rgba(0,168,198,0.25))' }} />
+                  <Zap className="w-3.5 h-3.5" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 3px rgba(199,160,8,0.25))' }} />
                 </div>
                 <h2 className="text-sm font-bold uppercase" style={{
                   color: '#ffffff',
@@ -1521,11 +1528,11 @@ export function HomeView() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold uppercase px-2 py-1" style={{
-                  color: '#00a8c6',
+                  color: '#c7a008',
                   fontFamily: 'var(--font-jetbrains-mono), monospace',
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  background: 'rgba(0,168,198,0.08)',
-                  border: '1px solid rgba(0,168,198,0.3)',
+                  background: 'rgba(199,160,8,0.08)',
+                  border: '1px solid rgba(199,160,8,0.3)',
                   opacity: 0.85,
                 }}>
                   {quickAccessItems.length}/{MAX_QUICK_ACCESS} активных
@@ -1534,11 +1541,11 @@ export function HomeView() {
                   onClick={() => setManageQuickOpen(true)}
                   className="flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 transition-all hover:scale-105"
                   style={{
-                    color: '#00a8c6',
+                    color: '#c7a008',
                     fontFamily: 'var(--font-jetbrains-mono), monospace',
                     clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                    background: 'rgba(0,168,198,0.08)',
-                    border: '1px solid rgba(0,168,198,0.3)',
+                    background: 'rgba(199,160,8,0.08)',
+                    border: '1px solid rgba(199,160,8,0.3)',
                   }}
                   title="Управлять быстрым доступом"
                 >
