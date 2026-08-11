@@ -13,16 +13,24 @@ import { hexToRgba } from '@/lib/utils';
 import { CreateProjectDialog } from '@/components/shared/create-project-dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
-/* ─── palette (Cyberpunk 2077 spec) ─── */
-const Y = '#FFD000'; // cyberpunk industrial yellow/gold
-const Y2 = '#FFB700'; // darker gold
-const C = '#00E5FF'; // cyber electric teal/cyan
-const C2 = '#00B4D8'; // darker cyan
-const P = '#9D4EDD'; // deep neon purple
-const P2 = '#7B2CBF'; // darker purple
-const A = '#f59e0b'; // amber
-const G = '#10b981'; // green
+/* ─── palette (muted HUD tokens — strict spec) ─── */
+const Y = '#c7a008';   // industrial desaturated gold (--accent-yellow)
+const Y2 = '#9e7c06';  // darker gold
+const C = '#00a8c6';   // controlled cyan (--accent-cyan)
+const C2 = '#0085a0';  // darker cyan
+const P = '#7b2cbf';   // deep violet (--accent-purple)
+const P2 = '#5a1d8f';  // darker purple
+const A = '#718096';   // muted grey (text-secondary)
+const G = '#4a8d6f';   // muted green (for done state)
 const MAX_QUICK_ACCESS = 7; // maximum cards in Quick Access panel
+// Background tokens
+const BG_MAIN = '#0a0c10';
+const BG_PANEL = '#11141d';
+const BG_CARD_PURPLE = '#161224';
+const BG_CARD_TEAL = '#0e1a24';
+const BORDER_MUTED = '#1f2633';
+const TEXT_PRIMARY = '#e2e8f0';
+const TEXT_SECONDARY = '#718096';
 
 const typeMeta: Record<string, { label: string; color: string; icon: typeof Disc3 }> = {
   album:   { label: 'Альбом',  color: '#a855f7', icon: Disc3 },
@@ -470,17 +478,15 @@ function IdeaCard({ idea, onClick }: { idea: { id: string; title: string; descri
   );
 }
 
-/* ─── Stat Bar: segmented metallic HUD status widget (4 connected cells) ─── */
+/* ─── Stat Bar: segmented HUD widget (4 cells, muted borders, clean) ─── */
 function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number; label: string; color: string }[] }) {
   return (
     <div
       className="flex items-stretch overflow-hidden"
       style={{
-        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
-        background: 'linear-gradient(180deg, #1A1D28 0%, #161922 50%, #12141D 100%)',
-        boxShadow: '0 0 12px rgba(0,229,255,0.15), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.4)',
-        backdropFilter: 'blur(8px)',
-        border: '1px solid rgba(74,18,107,0.4)',
+        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+        background: `linear-gradient(180deg, ${BG_PANEL} 0%, #161922 50%, ${BG_PANEL} 100%)`,
+        border: `1px solid ${BORDER_MUTED}`,
       }}
     >
       {stats.map((s, i) => {
@@ -488,21 +494,18 @@ function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number;
         return (
           <div
             key={s.label}
-            className="flex items-center gap-2.5 px-3.5 py-2 transition-all hover:bg-white/[0.04] relative group"
-            style={i < stats.length - 1 ? { borderRight: '1px solid #2B3040' } : undefined}
+            className="flex items-center gap-2.5 px-3.5 py-2 transition-colors hover:bg-white/[0.03] relative group"
+            style={i < stats.length - 1 ? { borderRight: `1px solid ${BORDER_MUTED}` } : undefined}
           >
-            {/* Hover accent line */}
-            <div className="absolute top-0 left-0 right-0 h-px opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: `linear-gradient(90deg, transparent, ${C}, transparent)` }} />
-            <Icon className="w-4 h-4" style={{ color: C, filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.6))' }} />
+            <Icon className="w-4 h-4" style={{ color: C }} />
             <div className="flex flex-col leading-none">
               <span className="text-base font-extrabold tabular-nums" style={{
-                color: '#ffffff',
+                color: TEXT_PRIMARY,
                 fontFamily: 'var(--font-rajdhani), sans-serif',
                 fontWeight: 700,
-                textShadow: '0 0 6px rgba(0,229,255,0.3)',
               }}>{s.value}</span>
               <span className="text-[8px] font-bold uppercase mt-0.5" style={{
-                color: '#8b95a5',
+                color: TEXT_SECONDARY,
                 fontFamily: 'var(--font-jetbrains-mono), monospace',
                 letterSpacing: '0.12em',
               }}>{s.label}</span>
@@ -549,49 +552,46 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
         minHeight: '180px',
         clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
         background: h
-          ? 'radial-gradient(circle at center, rgba(255,208,0,0.14), rgba(10,14,22,0.92))'
-          : 'radial-gradient(circle at center, rgba(255,208,0,0.06), rgba(10,14,22,0.7))',
+          ? 'radial-gradient(circle at center, rgba(199,160,8,0.14), rgba(10,14,22,0.92))'
+          : 'radial-gradient(circle at center, rgba(199,160,8,0.06), rgba(10,14,22,0.7))',
         boxShadow: h
-          ? `inset 0 0 0 1.5px rgba(255,208,0,0.6), 0 0 28px rgba(255,208,0,0.25), inset 0 0 22px rgba(255,208,0,0.1)`
-          : `inset 0 0 0 1px rgba(255,208,0,0.25)`,
+          ? `inset 0 0 0 1.5px rgba(199,160,8,0.6), 0 0 28px rgba(199,160,8,0.25), inset 0 0 22px rgba(199,160,8,0.1)`
+          : `inset 0 0 0 1px rgba(199,160,8,0.25)`,
         transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
         cursor: 'pointer',
       }}
     >
-      {/* Circuit board pattern background — HUD schematic lines */}
+      {/* Subtle HUD grid background (low-opacity, clean) */}
       <div
-        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          opacity: h ? 0.35 : 0.15,
+          opacity: h ? 0.20 : 0.08,
           backgroundImage: `
-            linear-gradient(rgba(255,208,0,0.12) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,208,0,0.12) 1px, transparent 1px),
-            linear-gradient(135deg, transparent 49%, rgba(255,208,0,0.08) 49%, rgba(255,208,0,0.08) 50%, transparent 50%),
-            linear-gradient(45deg, transparent 49%, rgba(255,208,0,0.08) 49%, rgba(255,208,0,0.08) 50%, transparent 50%)
+            linear-gradient(rgba(199,160,8,0.10) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(199,160,8,0.10) 1px, transparent 1px)
           `,
-          backgroundSize: '14px 14px, 14px 14px, 80px 80px, 60px 60px',
+          backgroundSize: '14px 14px',
         }}
       />
 
-      {/* Technical micro-text labels (top-left + bottom-right) */}
+      {/* Subtle low-opacity technical micro-text (SECURITY ENCRYPTION ACTIVE) */}
       <div className="absolute top-2 left-2.5 pointer-events-none" style={{
         fontFamily: 'var(--font-jetbrains-mono), monospace',
         fontSize: '7px',
-        color: 'rgba(255,208,0,0.45)',
+        color: 'rgba(199,160,8,0.20)',
         letterSpacing: '0.1em',
         lineHeight: '1.4',
       }}>
         <div>SECURITY_ENCRYPTION</div>
-        <div>0xFFD000 · ACTIVE</div>
+        <div>ACTIVE</div>
       </div>
       <div className="absolute bottom-2 right-2.5 pointer-events-none text-right" style={{
         fontFamily: 'var(--font-jetbrains-mono), monospace',
         fontSize: '7px',
-        color: 'rgba(255,208,0,0.45)',
+        color: 'rgba(199,160,8,0.20)',
         letterSpacing: '0.1em',
         lineHeight: '1.4',
       }}>
-        <div>SYNC: 0x00B4D8</div>
         <div>RING_SYS:ONLINE</div>
       </div>
 
@@ -602,8 +602,8 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
           className="absolute rounded-full pointer-events-none"
           style={{
             width: '88px', height: '88px',
-            border: '1px solid rgba(255,208,0,0.35)',
-            boxShadow: '0 0 14px rgba(255,208,0,0.3)',
+            border: '1px solid rgba(199,160,8,0.35)',
+            boxShadow: '0 0 8px rgba(199,160,8,0.25)',
             opacity: h ? 1 : 0.55,
             transition: 'opacity 280ms',
           }}
@@ -615,10 +615,10 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
             width: '68px', height: '68px',
             top: '50%', left: '50%',
             borderRadius: '50%',
-            border: '1.5px dashed rgba(255,208,0,0.7)',
+            border: '1.5px dashed rgba(199,160,8,0.7)',
             background: 'transparent',
             animation: 'kb2-ring-spin-cw 8s linear infinite',
-            boxShadow: '0 0 12px rgba(255,208,0,0.4)',
+            boxShadow: '0 0 8px rgba(199,160,8,0.25)',
             opacity: h ? 1 : 0.65,
             transition: 'opacity 280ms',
           }}
@@ -630,7 +630,7 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
             width: '52px', height: '52px',
             top: '50%', left: '50%',
             borderRadius: '50%',
-            background: `conic-gradient(from 0deg, transparent 0deg, transparent 15deg, rgba(255,208,0,0.6) 16deg, rgba(255,208,0,0.6) 18deg, transparent 19deg, transparent 45deg, rgba(255,208,0,0.6) 46deg, rgba(255,208,0,0.6) 48deg, transparent 49deg, transparent 90deg, rgba(255,208,0,0.6) 91deg, rgba(255,208,0,0.6) 93deg, transparent 94deg, transparent 135deg, rgba(255,208,0,0.6) 136deg, rgba(255,208,0,0.6) 138deg, transparent 139deg, transparent 180deg, rgba(255,208,0,0.6) 181deg, rgba(255,208,0,0.6) 183deg, transparent 184deg, transparent 225deg, rgba(255,208,0,0.6) 226deg, rgba(255,208,0,0.6) 228deg, transparent 229deg, transparent 270deg, rgba(255,208,0,0.6) 271deg, rgba(255,208,0,0.6) 273deg, transparent 274deg, transparent 315deg, rgba(255,208,0,0.6) 316deg, rgba(255,208,0,0.6) 318deg, transparent 319deg)`,
+            background: `conic-gradient(from 0deg, transparent 0deg, transparent 15deg, rgba(199,160,8,0.6) 16deg, rgba(199,160,8,0.6) 18deg, transparent 19deg, transparent 45deg, rgba(199,160,8,0.6) 46deg, rgba(199,160,8,0.6) 48deg, transparent 49deg, transparent 90deg, rgba(199,160,8,0.6) 91deg, rgba(199,160,8,0.6) 93deg, transparent 94deg, transparent 135deg, rgba(199,160,8,0.6) 136deg, rgba(199,160,8,0.6) 138deg, transparent 139deg, transparent 180deg, rgba(199,160,8,0.6) 181deg, rgba(199,160,8,0.6) 183deg, transparent 184deg, transparent 225deg, rgba(199,160,8,0.6) 226deg, rgba(199,160,8,0.6) 228deg, transparent 229deg, transparent 270deg, rgba(199,160,8,0.6) 271deg, rgba(199,160,8,0.6) 273deg, transparent 274deg, transparent 315deg, rgba(199,160,8,0.6) 316deg, rgba(199,160,8,0.6) 318deg, transparent 319deg)`,
             mask: 'radial-gradient(circle, transparent 22px, #000 23px, #000 25px, transparent 26px)',
             WebkitMask: 'radial-gradient(circle, transparent 22px, #000 23px, #000 25px, transparent 26px)',
             animation: 'kb2-ring-spin-ccw 6s linear infinite',
@@ -643,8 +643,8 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
           className="relative flex items-center justify-center rounded-full"
           style={{
             width: '40px', height: '40px',
-            background: 'linear-gradient(135deg, #FFD000 0%, #FFB700 50%, #FFD000 100%)',
-            boxShadow: '0 0 18px rgba(255,208,0,0.6), inset 0 1px 0 rgba(255,255,255,0.5)',
+            background: 'linear-gradient(135deg, #c7a008 0%, #9e7c06 50%, #c7a008 100%)',
+            boxShadow: '0 0 8px rgba(199,160,8,0.25), inset 0 1px 0 rgba(255,255,255,0.25)',
             animation: 'kb2-core-pulse 2.4s ease-in-out infinite',
           }}
         >
@@ -652,7 +652,7 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
             className="w-6 h-6"
             style={{
               color: '#0a0b10',
-              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.4))',
+              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.25))',
             }}
           />
         </div>
@@ -661,8 +661,8 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
       <span
         className="mt-4 text-[11px] font-extrabold uppercase tracking-[0.18em]"
         style={{
-          color: '#FFD000',
-          textShadow: '0 0 8px rgba(255,208,0,0.6), 0 0 4px rgba(255,208,0,0.9)',
+          color: '#c7a008',
+          textShadow: '0 0 8px rgba(199,160,8,0.25), 0 0 4px rgba(199,160,8,0.25)',
           animation: h ? 'kb2-holo-text 1.8s ease-in-out infinite' : 'none',
         }}
       >
@@ -841,14 +841,14 @@ function Carousel({ children }: { children: React.ReactNode }) {
             background: 'rgba(8,10,18,0.85)',
             backdropFilter: 'blur(8px)',
             borderRadius: '50%',
-            border: '1px solid rgba(255,208,0,0.3)',
-            boxShadow: '0 0 16px rgba(255,208,0,0.15)',
-            color: '#FFD000',
+            border: '1px solid rgba(199,160,8,0.3)',
+            boxShadow: '0 0 8px rgba(199,160,8,0.15)',
+            color: '#c7a008',
             cursor: 'pointer',
             opacity: 0.7,
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(255,208,0,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,208,0,0.6)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(255,208,0,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,208,0,0.3)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(199,160,8,0.4)'; e.currentTarget.style.borderColor = 'rgba(199,160,8,0.6)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(199,160,8,0.15)'; e.currentTarget.style.borderColor = 'rgba(199,160,8,0.3)'; }}
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -875,14 +875,14 @@ function Carousel({ children }: { children: React.ReactNode }) {
             background: 'rgba(8,10,18,0.85)',
             backdropFilter: 'blur(8px)',
             borderRadius: '50%',
-            border: '1px solid rgba(255,208,0,0.3)',
-            boxShadow: '0 0 16px rgba(255,208,0,0.15)',
-            color: '#FFD000',
+            border: '1px solid rgba(199,160,8,0.3)',
+            boxShadow: '0 0 8px rgba(199,160,8,0.15)',
+            color: '#c7a008',
             cursor: 'pointer',
             opacity: 0.7,
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(255,208,0,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,208,0,0.6)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(255,208,0,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,208,0,0.3)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 24px rgba(199,160,8,0.4)'; e.currentTarget.style.borderColor = 'rgba(199,160,8,0.6)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; e.currentTarget.style.boxShadow = '0 0 16px rgba(199,160,8,0.15)'; e.currentTarget.style.borderColor = 'rgba(199,160,8,0.3)'; }}
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -1087,22 +1087,22 @@ function ManageQuickAccessModal({
             className="relative w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
             style={{
               clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-              background: 'linear-gradient(180deg, rgba(0,229,255,0.10), rgba(8,10,18,0.98))',
+              background: 'linear-gradient(180deg, rgba(0,168,198,0.10), rgba(8,10,18,0.98))',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Border + top bar */}
             <div className="absolute inset-0 pointer-events-none" style={{
               padding: '1.5px',
-              background: 'linear-gradient(90deg, rgba(0,229,255,0.7) 0%, rgba(0,229,255,0.15) 50%, rgba(0,229,255,0.7) 100%)',
+              background: 'linear-gradient(90deg, rgba(0,168,198,0.7) 0%, rgba(0,168,198,0.15) 50%, rgba(0,168,198,0.7) 100%)',
               WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
               WebkitMaskComposite: 'xor',
               maskComposite: 'exclude',
               clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
             }} />
             <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
-              background: 'linear-gradient(90deg, transparent, #00E5FF 20%, #00E5FF 80%, transparent)',
-              boxShadow: '0 0 14px rgba(0,229,255,0.7)',
+              background: 'linear-gradient(90deg, transparent, #00a8c6 20%, #00a8c6 80%, transparent)',
+              boxShadow: '0 0 8px rgba(0,168,198,0.25)',
             }} />
 
             {/* Header */}
@@ -1110,13 +1110,13 @@ function ManageQuickAccessModal({
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center" style={{
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  background: 'rgba(0,229,255,0.18)',
-                  border: '1px solid rgba(0,229,255,0.5)',
+                  background: 'rgba(0,168,198,0.18)',
+                  border: '1px solid rgba(0,168,198,0.5)',
                 }}>
-                  <Pencil className="w-4 h-4" style={{ color: '#00E5FF' }} />
+                  <Pencil className="w-4 h-4" style={{ color: '#00a8c6' }} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: '#00E5FF', textShadow: '0 0 8px rgba(0,229,255,0.4)' }}>
+                  <h2 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: '#00a8c6', textShadow: '0 0 8px rgba(0,168,198,0.25)' }}>
                     Управление быстрым доступом
                   </h2>
                   <p className="text-[10px] text-slate-500 mt-0.5">
@@ -1132,9 +1132,9 @@ function ManageQuickAccessModal({
             {/* Warning */}
             {warning && (
               <div className="mx-5 mt-3 px-3 py-2 flex items-center gap-2 text-[11px]" style={{
-                background: 'rgba(255,208,0,0.1)',
-                border: '1px solid rgba(255,208,0,0.4)',
-                color: '#FFD000',
+                background: 'rgba(199,160,8,0.1)',
+                border: '1px solid rgba(199,160,8,0.4)',
+                color: '#c7a008',
                 clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
               }}>
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
@@ -1202,9 +1202,9 @@ function ManageQuickAccessModal({
                 className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105"
                 style={{
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  background: 'linear-gradient(135deg, #00E5FF, #00b4d4)',
+                  background: 'linear-gradient(135deg, #00a8c6, #00b4d4)',
                   color: '#001824',
-                  boxShadow: '0 0 12px rgba(0,229,255,0.5)',
+                  boxShadow: '0 0 8px rgba(0,168,198,0.25)',
                 }}
               >
                 Готово
@@ -1346,53 +1346,20 @@ export function HomeView() {
   ];
 
   return (
-    <div className="min-h-full relative" style={{ background: '#0B0C10' }}>
-      {/* ── Global background: ultra-faint HUD grid + circuit traces + grid coordinates ── */}
+    <div className="min-h-full relative" style={{ background: BG_MAIN }}>
+      {/* ── Global background: clean dark graphite + ultra-faint HUD grid (no glitch/circuit traces) ── */}
       <div
         className="pointer-events-none fixed inset-0"
         style={{
           zIndex: 0,
-          backgroundColor: '#0B0C10',
+          backgroundColor: BG_MAIN,
           backgroundImage: `
-            radial-gradient(ellipse at 50% 30%, rgba(157,78,221,0.10) 0%, transparent 55%),
-            radial-gradient(ellipse at 80% 70%, rgba(0,229,255,0.06) 0%, transparent 50%),
-            linear-gradient(rgba(24,30,41,0.20) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(24,30,41,0.20) 1px, transparent 1px),
-            repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(24,30,41,0.15) 39px, rgba(24,30,41,0.15) 40px),
-            repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(24,30,41,0.15) 39px, rgba(24,30,41,0.15) 40px)
+            linear-gradient(rgba(31,38,51,0.15) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(31,38,51,0.15) 1px, transparent 1px)
           `,
-          backgroundSize: '100% 100%, 100% 100%, 40px 40px, 40px 40px, 40px 40px, 40px 40px',
+          backgroundSize: '40px 40px, 40px 40px',
         }}
       />
-      {/* ── Faint circuit trace lines (decorative, 15% opacity) ── */}
-      <div
-        className="pointer-events-none fixed inset-0"
-        style={{
-          zIndex: 0,
-          opacity: 0.15,
-          backgroundImage: `
-            linear-gradient(135deg, transparent 49%, rgba(0,229,255,0.3) 49%, rgba(0,229,255,0.3) 50%, transparent 50%),
-            linear-gradient(45deg, transparent 49%, rgba(157,78,221,0.25) 49%, rgba(157,78,221,0.25) 50%, transparent 50%)
-          `,
-          backgroundSize: '120px 120px, 180px 180px',
-          backgroundPosition: '0 0, 60px 90px',
-        }}
-      />
-      {/* ── Grid coordinates along margins (faint monospace labels) ── */}
-      <div
-        className="pointer-events-none fixed inset-0"
-        style={{
-          zIndex: 0,
-          opacity: 0.10,
-          fontFamily: 'var(--font-jetbrains-mono), monospace',
-          fontSize: '8px',
-          color: '#00E5FF',
-        }}
-      >
-        <div style={{ position: 'absolute', top: '5%', left: '4px', writingMode: 'vertical-rl', letterSpacing: '0.3em' }}>X:00A1 · Y:0FF0 · GRID:7B</div>
-        <div style={{ position: 'absolute', top: '5%', right: '4px', writingMode: 'vertical-rl', letterSpacing: '0.3em' }}>SEC:04 · ENC:ACTIVE · 0x9D4E</div>
-        <div style={{ position: 'absolute', bottom: '4px', left: '10%', letterSpacing: '0.3em' }}>SECTOR_07 · TRACE_OK · 0xFFD000</div>
-      </div>
 
       <div className="relative mx-auto max-w-6xl px-5 py-6 lg:px-8 lg:py-8" style={{ zIndex: 1 }}>
         {/* ── Header + Stats in one row ── */}
@@ -1404,19 +1371,17 @@ export function HomeView() {
         >
           <div>
             <h1 className="text-xl font-bold lg:text-2xl" style={{
-              color: '#e8eaf2',
+              color: TEXT_PRIMARY,
               fontFamily: 'var(--font-rajdhani), sans-serif',
               fontWeight: 700,
               letterSpacing: '0.04em',
-              textShadow: '0 0 10px rgba(157,78,221,0.55), 0 0 20px rgba(157,78,221,0.3)',
             }}>
               Привет, {user?.displayName || 'музыкант'}
             </h1>
             <p className="mt-0.5 text-sm" style={{
-              color: '#7c8aa5',
+              color: TEXT_SECONDARY,
               fontFamily: 'var(--font-jetbrains-mono), monospace',
               letterSpacing: '0.08em',
-              textShadow: '0 0 6px rgba(0,229,255,0.2)',
             }}>
               {currentGroup?.name || 'SoundFlow'}{currentGroup?.genre ? ` · ${currentGroup.genre}` : ''}
             </p>
@@ -1429,7 +1394,7 @@ export function HomeView() {
         {quickAccessItems.length > 0 && (
           <section className="mt-8 relative overflow-hidden" style={{
             clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-            background: 'linear-gradient(180deg, rgba(0,229,255,0.10) 0%, rgba(12,18,26,0.95) 40%)',
+            background: 'linear-gradient(180deg, rgba(0,168,198,0.10) 0%, rgba(12,18,26,0.95) 40%)',
             padding: '22px',
           }}>
             {/* ── Multi-layered fractured light-trail border (cyan) ── */}
@@ -1437,14 +1402,14 @@ export function HomeView() {
               className="absolute inset-0 pointer-events-none"
               style={{
                 padding: '1.5px',
-                background: 'linear-gradient(90deg, rgba(0,229,255,0.7) 0%, rgba(0,229,255,0.15) 15%, rgba(0,229,255,0.7) 25%, rgba(157,78,221,0.55) 50%, rgba(0,229,255,0.7) 75%, rgba(0,229,255,0.15) 85%, rgba(0,229,255,0.7) 100%)',
+                background: 'linear-gradient(90deg, rgba(0,168,198,0.7) 0%, rgba(0,168,198,0.15) 15%, rgba(0,168,198,0.7) 25%, rgba(123,44,191,0.55) 50%, rgba(0,168,198,0.7) 75%, rgba(0,168,198,0.15) 85%, rgba(0,168,198,0.7) 100%)',
                 backgroundSize: '200% 100%',
                 animation: 'kb2-trail-cyan 6s linear infinite',
                 WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
                 WebkitMaskComposite: 'xor',
                 maskComposite: 'exclude',
                 clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-                boxShadow: '0 0 28px rgba(0,229,255,0.25), inset 0 0 22px rgba(0,229,255,0.08)',
+                boxShadow: '0 0 8px rgba(0,168,198,0.25), inset 0 0 8px rgba(0,168,198,0.08)',
                 zIndex: 1,
               }}
             />
@@ -1453,7 +1418,7 @@ export function HomeView() {
               className="absolute inset-[3px] pointer-events-none"
               style={{
                 clipPath: 'polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px))',
-                border: '1px solid rgba(0,229,255,0.18)',
+                border: '1px solid rgba(0,168,198,0.18)',
                 animation: 'kb2-pulse-cyan 3s ease-in-out infinite',
                 zIndex: 1,
               }}
@@ -1461,36 +1426,36 @@ export function HomeView() {
 
             {/* Neon top bar — cyan */}
             <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
-              background: 'linear-gradient(90deg, transparent, #00E5FF 20%, #00E5FF 80%, transparent)',
-              boxShadow: '0 0 14px rgba(0,229,255,0.7)',
+              background: 'linear-gradient(90deg, transparent, #00a8c6 20%, #00a8c6 80%, transparent)',
+              boxShadow: '0 0 8px rgba(0,168,198,0.25)',
             }} />
             {/* Corner accents — cyan, larger fractured style */}
-            <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #00E5FF', borderLeft: '2.5px solid #00E5FF', boxShadow: '0 0 8px rgba(0,229,255,0.6)' }} />
-            <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #00E5FF', borderRight: '2.5px solid #00E5FF', boxShadow: '0 0 8px rgba(0,229,255,0.6)' }} />
-            <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #00E5FF', borderLeft: '2.5px solid #00E5FF', boxShadow: '0 0 8px rgba(0,229,255,0.6)' }} />
-            <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #00E5FF', borderRight: '2.5px solid #00E5FF', boxShadow: '0 0 8px rgba(0,229,255,0.6)' }} />
+            <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #00a8c6', borderLeft: '2.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
+            <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #00a8c6', borderRight: '2.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
+            <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #00a8c6', borderLeft: '2.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
+            <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #00a8c6', borderRight: '2.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
 
             <div className="mb-4 flex items-center justify-between relative" style={{ zIndex: 2 }}>
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center" style={{
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  background: 'rgba(0,229,255,0.18)',
-                  border: '1px solid rgba(0,229,255,0.55)',
-                  boxShadow: '0 0 12px rgba(0,229,255,0.3)',
+                  background: 'rgba(0,168,198,0.18)',
+                  border: '1px solid rgba(0,168,198,0.55)',
+                  boxShadow: '0 0 8px rgba(0,168,198,0.25)',
                 }}>
-                  <Zap className="w-3.5 h-3.5" style={{ color: '#00E5FF', filter: 'drop-shadow(0 0 3px rgba(0,229,255,0.8))' }} />
+                  <Zap className="w-3.5 h-3.5" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 3px rgba(0,168,198,0.25))' }} />
                 </div>
-                <h2 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: '#00E5FF', textShadow: '0 0 10px rgba(0,229,255,0.5), 0 0 4px rgba(0,229,255,0.8)' }}>
+                <h2 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: '#00a8c6', textShadow: '0 0 8px rgba(0,168,198,0.25), 0 0 4px rgba(0,168,198,0.25)' }}>
                   Быстрый доступ
                 </h2>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-1" style={{
-                  color: '#00E5FF',
+                  color: '#00a8c6',
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  background: 'rgba(0,229,255,0.08)',
-                  border: '1px solid rgba(0,229,255,0.3)',
-                  textShadow: '0 0 6px rgba(0,229,255,0.5)',
+                  background: 'rgba(0,168,198,0.08)',
+                  border: '1px solid rgba(0,168,198,0.3)',
+                  textShadow: '0 0 6px rgba(0,168,198,0.25)',
                 }}>
                   {quickAccessItems.length}/{MAX_QUICK_ACCESS} активных
                 </span>
@@ -1498,11 +1463,11 @@ export function HomeView() {
                   onClick={() => setManageQuickOpen(true)}
                   className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 transition-all hover:scale-105"
                   style={{
-                    color: '#00E5FF',
+                    color: '#00a8c6',
                     clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                    background: 'rgba(0,229,255,0.08)',
-                    border: '1px solid rgba(0,229,255,0.3)',
-                    textShadow: '0 0 6px rgba(0,229,255,0.5)',
+                    background: 'rgba(0,168,198,0.08)',
+                    border: '1px solid rgba(0,168,198,0.3)',
+                    textShadow: '0 0 6px rgba(0,168,198,0.25)',
                   }}
                   title="Управлять быстрым доступом"
                 >
@@ -1531,7 +1496,7 @@ export function HomeView() {
         {/* ── Auto Projects — pulsating yellow fractured light-trail panel ── */}
         <section className="mt-8 relative overflow-hidden" style={{
           clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-          background: 'linear-gradient(180deg, rgba(255,208,0,0.10) 0%, rgba(12,16,24,0.95) 40%)',
+          background: 'linear-gradient(180deg, rgba(199,160,8,0.10) 0%, rgba(12,16,24,0.95) 40%)',
           padding: '22px',
         }}>
           {/* ── Multi-layered fractured light-trail border (yellow, pulsating) ── */}
@@ -1539,7 +1504,7 @@ export function HomeView() {
             className="absolute inset-0 pointer-events-none"
             style={{
               padding: '1.5px',
-              background: 'linear-gradient(90deg, rgba(255,208,0,0.8) 0%, rgba(255,208,0,0.15) 12%, rgba(255,208,0,0.8) 22%, rgba(157,78,221,0.5) 50%, rgba(255,208,0,0.8) 78%, rgba(255,208,0,0.15) 88%, rgba(255,208,0,0.8) 100%)',
+              background: 'linear-gradient(90deg, rgba(199,160,8,0.8) 0%, rgba(199,160,8,0.15) 12%, rgba(199,160,8,0.8) 22%, rgba(123,44,191,0.5) 50%, rgba(199,160,8,0.8) 78%, rgba(199,160,8,0.15) 88%, rgba(199,160,8,0.8) 100%)',
               backgroundSize: '200% 100%',
               animation: 'kb2-trail-yellow 7s linear infinite, kb2-pulse-yellow 2.8s ease-in-out infinite',
               WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
@@ -1554,7 +1519,7 @@ export function HomeView() {
             className="absolute inset-[3px] pointer-events-none"
             style={{
               clipPath: 'polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px))',
-              border: '1px solid rgba(255,208,0,0.22)',
+              border: '1px solid rgba(199,160,8,0.22)',
               animation: 'kb2-pulse-yellow 2.8s ease-in-out infinite',
               zIndex: 1,
             }}
@@ -1562,21 +1527,21 @@ export function HomeView() {
 
           {/* Neon top accent — yellow */}
           <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
-            background: 'linear-gradient(90deg, transparent, #FFD000 20%, #FFD000 80%, transparent)',
-            boxShadow: '0 0 16px rgba(255,208,0,0.7)',
+            background: 'linear-gradient(90deg, transparent, #c7a008 20%, #c7a008 80%, transparent)',
+            boxShadow: '0 0 8px rgba(199,160,8,0.25)',
           }} />
           {/* Corner accents — yellow, fractured style */}
-          <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #FFD000', borderLeft: '2.5px solid #FFD000', boxShadow: '0 0 8px rgba(255,208,0,0.6)' }} />
-          <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #FFD000', borderRight: '2.5px solid #FFD000', boxShadow: '0 0 8px rgba(255,208,0,0.6)' }} />
-          <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #FFD000', borderLeft: '2.5px solid #FFD000', boxShadow: '0 0 8px rgba(255,208,0,0.6)' }} />
-          <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #FFD000', borderRight: '2.5px solid #FFD000', boxShadow: '0 0 8px rgba(255,208,0,0.6)' }} />
+          <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #c7a008', borderLeft: '2.5px solid #c7a008', boxShadow: '0 0 8px rgba(199,160,8,0.25)' }} />
+          <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #c7a008', borderRight: '2.5px solid #c7a008', boxShadow: '0 0 8px rgba(199,160,8,0.25)' }} />
+          <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #c7a008', borderLeft: '2.5px solid #c7a008', boxShadow: '0 0 8px rgba(199,160,8,0.25)' }} />
+          <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #c7a008', borderRight: '2.5px solid #c7a008', boxShadow: '0 0 8px rgba(199,160,8,0.25)' }} />
 
           <div className="relative" style={{ zIndex: 2 }}>
             <SectionHeader
               title="Авто проекты"
               accentColor={Y}
               action={
-                <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105" style={{ color: 'rgba(255,208,0,0.85)', textShadow: '0 0 6px rgba(255,208,0,0.4)' }}>
+                <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105" style={{ color: 'rgba(199,160,8,0.85)', textShadow: '0 0 6px rgba(199,160,8,0.25)' }}>
                   Все <ArrowRight className="w-3 h-3" />
                 </button>
               }
@@ -1599,26 +1564,26 @@ export function HomeView() {
         {/* ── Kanban Projects — cyan, left accent bar style ── */}
         <section className="mt-6 relative" style={{
           borderRadius: '14px',
-          background: 'linear-gradient(135deg, rgba(0,229,255,0.1), rgba(12,16,24,0.85))',
-          border: '1px solid rgba(0,229,255,0.18)',
+          background: 'linear-gradient(135deg, rgba(0,168,198,0.1), rgba(12,16,24,0.85))',
+          border: '1px solid rgba(0,168,198,0.18)',
           padding: '20px 20px 20px 24px',
-          boxShadow: '0 4px 32px rgba(0,229,255,0.06)',
+          boxShadow: '0 4px 8px rgba(0,168,198,0.06)',
         }}>
           {/* Left accent bar — cyan, full height */}
           <div className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full" style={{
-            background: 'linear-gradient(180deg, transparent, #00E5FF 20%, #00E5FF 80%, transparent)',
-            boxShadow: '0 0 12px rgba(0,229,255,0.5)',
+            background: 'linear-gradient(180deg, transparent, #00a8c6 20%, #00a8c6 80%, transparent)',
+            boxShadow: '0 0 8px rgba(0,168,198,0.25)',
           }} />
           {/* Cyan glow orb — decorative */}
           <div className="pointer-events-none absolute -bottom-10 -left-10 w-28 h-28 rounded-full" style={{
-            background: 'radial-gradient(circle, rgba(0,229,255,0.08), transparent 70%)',
+            background: 'radial-gradient(circle, rgba(0,168,198,0.08), transparent 70%)',
           }} />
 
           <SectionHeader
             title="Канбан проекты"
             accentColor={C}
             action={
-              <button onClick={() => setAllKanbanOpen(true)} className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-cyan-400" style={{ color: 'rgba(0,229,255,0.6)' }}>
+              <button onClick={() => setAllKanbanOpen(true)} className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-cyan-400" style={{ color: 'rgba(0,168,198,0.6)' }}>
                 Все <ArrowRight className="w-3 h-3" />
               </button>
             }

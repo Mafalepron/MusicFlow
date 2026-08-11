@@ -7,7 +7,7 @@
  *
  * Dynamic board color values are provided via CSS custom properties
  * set on each component's root element:
- *   --bc       = board color (raw hex, e.g. #00E5FF)
+ *   --bc       = board color (raw hex, e.g. #00a8c6)
  *   --bc-012   = hexToRgba(boardColor, 0.012)
  *   --bc-02    = hexToRgba(boardColor, 0.02)
  *   --bc-025   = hexToRgba(boardColor, 0.025)
@@ -126,7 +126,7 @@ height: 3px;
 flex-shrink: 0;
 position: relative;
 z-index: 2;
-background: linear-gradient(90deg, transparent, #00E5FF 20%, #FFD000 50%, #00E5FF 80%, transparent);
+background: linear-gradient(90deg, transparent, #00a8c6 20%, #c7a008 50%, #00a8c6 80%, transparent);
 box-shadow: 0 0 12px rgba(255, 196, 46, 0.5), 0 0 24px rgba(255, 196, 46, 0.2);
 animation: tw-pulse-neon 3s ease-in-out infinite;
 }
@@ -221,7 +221,7 @@ clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 cal
 }
 .tf-input:focus, .tf-input:focus-visible {
 outline: none;
-border-color: #FFD000;
+border-color: #c7a008;
 box-shadow: 0 0 8px rgba(255, 196, 46, 0.2);
 }
 .tf-input::placeholder { color: rgb(71, 85, 105); }
@@ -240,7 +240,7 @@ clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 cal
 transition: all 150ms;
 }
 .tf-select-trigger:focus, .tf-select-trigger[data-state=open] {
-border-color: #FFD000 !important;
+border-color: #c7a008 !important;
 box-shadow: 0 0 8px rgba(255, 196, 46, 0.2);
 }
 .tf-select-content {
@@ -255,7 +255,7 @@ background: var(--bc-12);
 }
 .tf-btn-primary {
 color: #000;
-background: linear-gradient(135deg, #FFD000, #FFB700);
+background: linear-gradient(135deg, #c7a008, #9e7c06);
 box-shadow: 0 0 12px rgba(255, 196, 46, 0.4), inset 0 1px 0 rgba(255,255,255,0.3);
 clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
 text-shadow: 0 1px 0 rgba(255,255,255,0.3);
@@ -383,7 +383,7 @@ flex-shrink: 0;
 border: 1px solid transparent;
 }
 .cp-icon-btn:hover {
-color: #FFD000;
+color: #c7a008;
 border-color: rgba(255, 196, 46, 0.4);
 background: rgba(255, 196, 46, 0.1);
 box-shadow: 0 0 8px rgba(255, 196, 46, 0.15);
@@ -544,7 +544,7 @@ box-shadow: inset 0 0 6px var(--bc-04);
 }
 .cp-subtask-row:hover {
 background: rgba(255, 196, 46, 0.06);
-border-left-color: #FFD000;
+border-left-color: #c7a008;
 border-left-width: 4px;
 border-color: rgba(255, 196, 46, 0.35);
 box-shadow: 0 0 20px rgba(255, 196, 46, 0.12), inset 0 0 10px rgba(255, 196, 46, 0.03);
@@ -569,7 +569,7 @@ border: 1px solid transparent;
 filter: drop-shadow(0 0 3px var(--bc-2));
 }
 .cp-arrow-btn:hover {
-color: #FFD000;
+color: #c7a008;
 border-color: rgba(255, 196, 46, 0.4);
 background: rgba(255, 196, 46, 0.08);
 filter: drop-shadow(0 0 5px rgba(255, 196, 46, 0.5));
@@ -610,7 +610,7 @@ box-shadow: 0 0 6px var(--bc-12);
 text-shadow: 0 0 4px var(--bc-25);
 }
 .cp-add-btn:hover {
-color: #FFD000;
+color: #c7a008;
 border-color: rgba(255, 196, 46, 0.6);
 background: rgba(255, 196, 46, 0.1);
 box-shadow: 0 0 16px rgba(255, 196, 46, 0.2), inset 0 0 10px rgba(255, 196, 46, 0.04);
@@ -789,8 +789,8 @@ left: 0;
 top: 12px;
 bottom: 12px;
 width: 2px;
-background: #00E5FF;
-box-shadow: 0 0 8px #00E5FF, 0 0 16px var(--bc-3);
+background: #00a8c6;
+box-shadow: 0 0 8px #00a8c6, 0 0 16px var(--bc-3);
 }
 .pim-header-left {
 display: flex;
@@ -836,7 +836,7 @@ letter-spacing: 0.12em;
 text-transform: uppercase;
 padding: 3px 8px;
 color: #000;
-background: linear-gradient(135deg, #FFD000, #fbbf24);
+background: linear-gradient(135deg, #c7a008, #fbbf24);
 clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
 box-shadow: 0 0 8px rgba(255, 196, 46, 0.4);
 text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
@@ -870,8 +870,8 @@ cursor: pointer;
 }
 .pim-close:hover {
 color: #000;
-background: #FFD000;
-border-color: #FFD000;
+background: #c7a008;
+border-color: #c7a008;
 box-shadow: 0 0 12px rgba(255, 196, 46, 0.5);
 }
 
@@ -890,7 +890,7 @@ gap: 6px;
 margin-bottom: 10px;
 }
 .pim-label-row svg {
-color: #FFD000;
+color: #c7a008;
 filter: drop-shadow(0 0 4px rgba(255, 196, 46, 0.4));
 }
 .pim-label {
@@ -898,7 +898,7 @@ font-size: 10px;
 font-weight: 800;
 letter-spacing: 0.12em;
 text-transform: uppercase;
-color: #FFD000;
+color: #c7a008;
 text-shadow: 0 0 6px rgba(255, 196, 46, 0.3);
 }
 .pim-label-block {
@@ -911,7 +911,7 @@ font-size: 9px;
 font-weight: 700;
 letter-spacing: 0.05em;
 padding: 2px 7px;
-color: #00E5FF;
+color: #00a8c6;
 background: var(--bc-1);
 border: 1px solid var(--bc-3);
 clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
@@ -1021,7 +1021,7 @@ margin-bottom: 6px;
 .pim-track-title {
 font-size: 12px;
 font-weight: 700;
-color: #FFD000;
+color: #c7a008;
 text-shadow: 0 0 6px rgba(255, 196, 46, 0.15);
 word-break: break-word;
 }
@@ -1077,7 +1077,7 @@ gap: 4px;
 font-size: 9px;
 font-weight: 600;
 padding: 2px 6px;
-color: #00E5FF;
+color: #00a8c6;
 background: var(--bc-1);
 border: 1px solid var(--bc-25);
 clip-path: polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px));
@@ -1176,7 +1176,7 @@ margin-bottom: 4px;
 .pim-concert-title {
 font-size: 12px;
 font-weight: 700;
-color: #FFD000;
+color: #c7a008;
 word-break: break-word;
 }
 .pim-concert-meta {
@@ -1207,7 +1207,7 @@ font-size: 9px;
 font-weight: 700;
 letter-spacing: 0.08em;
 text-transform: uppercase;
-color: #FFD000;
+color: #c7a008;
 background: transparent;
 border: none;
 padding: 2px 4px;
@@ -1276,7 +1276,7 @@ font-weight: 800;
 letter-spacing: 0.08em;
 text-transform: uppercase;
 color: #000;
-background: #FFD000;
+background: #c7a008;
 border: none;
 padding: 4px 10px;
 cursor: pointer;
@@ -1393,7 +1393,7 @@ letter-spacing: 0.04em;
 color: #94a3b8;
 }
 .pim-board-task-assignee {
-color: #00E5FF;
+color: #00a8c6;
 }
 .pim-empty-inline-board {
 padding: 10px 12px;
@@ -1451,7 +1451,7 @@ text-overflow: ellipsis;
 font-size: 10px;
 font-weight: 800;
 font-family: monospace;
-color: #FFD000;
+color: #c7a008;
 text-shadow: 0 0 6px rgba(255, 196, 46, 0.3);
 min-width: 32px;
 text-align: right;
@@ -1576,8 +1576,8 @@ font-size: 18px;
   100% { background-position: 200% 0; }
 }
 @keyframes kb2-pulse-yellow {
-  0%, 100% { opacity: 0.55; box-shadow: 0 0 18px rgba(255,208,0,0.18), inset 0 0 18px rgba(255,208,0,0.08); }
-  50% { opacity: 1; box-shadow: 0 0 32px rgba(255,208,0,0.42), inset 0 0 28px rgba(255,208,0,0.18); }
+  0%, 100% { opacity: 0.55; box-shadow: 0 0 18px rgba(199,160,8,0.18), inset 0 0 18px rgba(199,160,8,0.08); }
+  50% { opacity: 1; box-shadow: 0 0 32px rgba(199,160,8,0.42), inset 0 0 28px rgba(199,160,8,0.18); }
 }
 @keyframes kb2-pulse-cyan {
   0%, 100% { opacity: 0.6; }
@@ -1598,12 +1598,12 @@ font-size: 18px;
   50% { opacity: 1; }
 }
 @keyframes kb2-core-pulse {
-  0%, 100% { box-shadow: 0 0 24px rgba(255,208,0,0.5), 0 0 50px rgba(255,208,0,0.25), inset 0 0 16px rgba(255,255,255,0.3); }
-  50% { box-shadow: 0 0 38px rgba(255,208,0,0.8), 0 0 80px rgba(255,208,0,0.4), inset 0 0 24px rgba(255,255,255,0.5); }
+  0%, 100% { box-shadow: 0 0 24px rgba(199,160,8,0.5), 0 0 50px rgba(199,160,8,0.25), inset 0 0 16px rgba(255,255,255,0.3); }
+  50% { box-shadow: 0 0 38px rgba(199,160,8,0.8), 0 0 80px rgba(199,160,8,0.4), inset 0 0 24px rgba(255,255,255,0.5); }
 }
 @keyframes kb2-holo-text {
-  0%, 100% { text-shadow: 0 0 6px rgba(255,208,0,0.8), 0 0 12px rgba(255,208,0,0.4); }
-  50% { text-shadow: 0 0 10px rgba(255,208,0,1), 0 0 20px rgba(255,208,0,0.6), 0 0 30px rgba(255,208,0,0.3); }
+  0%, 100% { text-shadow: 0 0 6px rgba(199,160,8,0.8), 0 0 12px rgba(199,160,8,0.4); }
+  50% { text-shadow: 0 0 10px rgba(199,160,8,1), 0 0 20px rgba(199,160,8,0.6), 0 0 30px rgba(199,160,8,0.3); }
 }
 
 /* ── Glitch-glow hover for interactive elements ── */
@@ -1637,9 +1637,9 @@ font-size: 18px;
 }
 @keyframes kb3-rgb-split {
   0%, 100% { text-shadow: 0 0 4px currentColor; }
-  25% { text-shadow: -1px 0 0 rgba(255,0,80,0.7), 1px 0 0 rgba(0,229,255,0.7), 0 0 4px currentColor; }
-  50% { text-shadow: 1px 0 0 rgba(255,0,80,0.7), -1px 0 0 rgba(0,229,255,0.7), 0 0 6px currentColor; }
-  75% { text-shadow: -0.5px 0 0 rgba(255,0,80,0.5), 0.5px 0 0 rgba(0,229,255,0.5), 0 0 4px currentColor; }
+  25% { text-shadow: -1px 0 0 rgba(255,0,80,0.7), 1px 0 0 rgba(0,168,198,0.7), 0 0 4px currentColor; }
+  50% { text-shadow: 1px 0 0 rgba(255,0,80,0.7), -1px 0 0 rgba(0,168,198,0.7), 0 0 6px currentColor; }
+  75% { text-shadow: -0.5px 0 0 rgba(255,0,80,0.5), 0.5px 0 0 rgba(0,168,198,0.5), 0 0 4px currentColor; }
 }
 @keyframes kb3-scanline-sweep {
   0% { transform: translateY(-100%); opacity: 0; }

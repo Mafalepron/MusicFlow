@@ -209,26 +209,26 @@ export function AppHeader() {
       <header
         className="sticky top-0 z-30 flex h-14 items-center gap-2 px-3 lg:px-6 relative"
         style={{
-          background: 'linear-gradient(180deg, #11131C 0%, #0A0B10 100%)',
-          borderBottom: '1px solid rgba(74,18,107,0.6)',
-          borderTop: '1px solid rgba(74,18,107,0.4)',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+          background: 'linear-gradient(180deg, #11141d 0%, #0a0c10 100%)',
+          borderBottom: '1px solid rgba(31,38,51,0.6)',
+          borderTop: '1px solid rgba(31,38,51,0.4)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
         }}
       >
         {/* Center neon-purple underline glow */}
         <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-0 h-px" style={{
           width: '40%',
-          background: 'linear-gradient(90deg, transparent, #9D4EDD 30%, #9D4EDD 70%, transparent)',
-          boxShadow: '0 0 10px #9D4EDD, 0 0 4px #9D4EDD',
+          background: 'linear-gradient(90deg, transparent, #7b2cbf 30%, #7b2cbf 70%, transparent)',
+          boxShadow: '0 0 8px #7b2cbf, 0 0 4px #7b2cbf',
         }} />
         {/* Etched circuit traces (left + right decorative) */}
         <div className="pointer-events-none absolute bottom-0 left-0 h-px" style={{
           width: '25%',
-          background: 'linear-gradient(90deg, rgba(157,78,221,0.4), transparent)',
+          background: 'linear-gradient(90deg, rgba(123,44,191,0.4), transparent)',
         }} />
         <div className="pointer-events-none absolute bottom-0 right-0 h-px" style={{
           width: '25%',
-          background: 'linear-gradient(90deg, transparent, rgba(157,78,221,0.4))',
+          background: 'linear-gradient(90deg, transparent, rgba(123,44,191,0.4))',
         }} />
 
         {/* Mobile: hamburger menu */}
@@ -238,9 +238,9 @@ export function AppHeader() {
               variant="ghost"
               size="icon"
               className="lg:hidden h-9 w-9 hover:bg-[#1E1E28] shrink-0"
-              style={{ color: '#00E5FF' }}
+              style={{ color: '#00a8c6' }}
             >
-              <Menu className="h-5 w-5" style={{ filter: 'drop-shadow(0 0 4px rgba(0,229,255,0.6))' }} />
+              <Menu className="h-5 w-5" style={{ filter: 'drop-shadow(0 0 4px rgba(0,168,198,0.25))' }} />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0 bg-sidebar border-sidebar-border">
@@ -263,15 +263,15 @@ export function AppHeader() {
         <div className="flex items-center gap-2 lg:hidden">
           <div className="relative flex h-7 w-7 items-center justify-center">
             {/* Holographic double-ring icon */}
-            <div className="absolute inset-0 rounded-full" style={{ border: '1.5px solid #00E5FF', boxShadow: '0 0 8px rgba(0,229,255,0.6)' }} />
-            <div className="absolute inset-[3px] rounded-full" style={{ border: '1px solid #9D4EDD', boxShadow: '0 0 6px rgba(157,78,221,0.5)' }} />
-            <Music className="h-3 w-3 relative" style={{ color: '#00E5FF', filter: 'drop-shadow(0 0 2px rgba(0,229,255,0.8))' }} />
+            <div className="absolute inset-0 rounded-full" style={{ border: '1.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
+            <div className="absolute inset-[3px] rounded-full" style={{ border: '1px solid #7b2cbf', boxShadow: '0 0 6px rgba(123,44,191,0.25)' }} />
+            <Music className="h-3 w-3 relative" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 2px rgba(0,168,198,0.25))' }} />
           </div>
           <span className="text-lg font-bold" style={{
-            color: '#00E5FF',
+            color: '#00a8c6',
             fontFamily: 'var(--font-rajdhani), sans-serif',
             letterSpacing: '0.06em',
-            textShadow: '0 0 8px rgba(0,229,255,0.5)',
+            textShadow: '0 0 8px rgba(0,168,198,0.25)',
           }}>SoundFlow</span>
         </div>
 
@@ -344,10 +344,10 @@ export function AppHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-[#00E5FF] shrink-0 transition-all"
+                className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-[#00a8c6] shrink-0 transition-all"
                 style={{
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  border: '1px solid rgba(0,229,255,0.15)',
+                  border: '1px solid rgba(0,168,198,0.15)',
                 }}
                 onClick={() => setSearchOpen(!searchOpen)}
               >
@@ -402,11 +402,11 @@ export function AppHeader() {
                         >
                           <div className={cn(
                             'w-7 h-7 rounded-md flex items-center justify-center shrink-0',
-                            result.type === 'project' ? 'bg-primary/15' : 'bg-[#00E5FF]/15'
+                            result.type === 'project' ? 'bg-primary/15' : 'bg-[#00a8c6]/15'
                           )}>
                             {result.type === 'project'
                               ? <FolderOpen className="h-3.5 w-3.5 text-primary" />
-                              : <Music className="h-3.5 w-3.5 text-[#00E5FF]" />
+                              : <Music className="h-3.5 w-3.5 text-[#00a8c6]" />
                             }
                           </div>
                           <div className="min-w-0 flex-1">
@@ -417,7 +417,7 @@ export function AppHeader() {
                           </div>
                           <span className={cn(
                             'text-[9px] px-1.5 py-0.5 rounded shrink-0',
-                            result.type === 'project' ? 'bg-primary/15 text-primary' : 'bg-[#00E5FF]/15 text-[#00E5FF]'
+                            result.type === 'project' ? 'bg-primary/15 text-primary' : 'bg-[#00a8c6]/15 text-[#00a8c6]'
                           )}>
                             {result.type}
                           </span>
@@ -444,10 +444,10 @@ export function AppHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-[#00E5FF] shrink-0 relative transition-all"
+                  className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-[#00a8c6] shrink-0 relative transition-all"
                   style={{
                     clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                    border: '1px solid rgba(0,229,255,0.15)',
+                    border: '1px solid rgba(0,168,198,0.15)',
                   }}
                   onClick={() => setNotifOpen(!notifOpen)}
                 >
@@ -460,9 +460,9 @@ export function AppHeader() {
                         exit={{ scale: 0 }}
                         className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold"
                         style={{
-                          background: '#9D4EDD',
+                          background: '#7b2cbf',
                           color: '#fff',
-                          boxShadow: '0 0 6px rgba(157,78,221,0.8)',
+                          boxShadow: '0 0 6px rgba(123,44,191,0.25)',
                         }}
                       >
                         {notificationCount > 99 ? '99+' : notificationCount}
@@ -545,8 +545,8 @@ export function AppHeader() {
                 style={{
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
                   border: chatOpen
-                    ? '1px solid rgba(0,229,255,0.5)'
-                    : '1px solid rgba(0,229,255,0.15)',
+                    ? '1px solid rgba(0,168,198,0.5)'
+                    : '1px solid rgba(0,168,198,0.15)',
                 }}
               >
                 {/* Pulsing aura when there are unread messages */}
@@ -590,15 +590,15 @@ export function AppHeader() {
                     <div className="relative h-7 w-7" style={{
                       clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
                       padding: '1.5px',
-                      background: 'linear-gradient(135deg, #00E5FF, #9D4EDD)',
-                      boxShadow: '0 0 8px rgba(0,229,255,0.4)',
+                      background: 'linear-gradient(135deg, #00a8c6, #7b2cbf)',
+                      boxShadow: '0 0 8px rgba(0,168,198,0.25)',
                     }}>
                       <Avatar className="h-full w-full" style={{
                         clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
                         borderRadius: 0,
                       }}>
                         <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
-                        <AvatarFallback className="bg-[#0B0C10] text-[#00E5FF] text-xs">
+                        <AvatarFallback className="bg-[#0a0c10] text-[#00a8c6] text-xs">
                           {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
@@ -637,7 +637,7 @@ export function AppHeader() {
               <p className="text-sm font-medium text-foreground truncate mb-1.5">{groupName}</p>
               {inviteCode && (
                 <div className="flex items-center gap-1.5">
-                  <code className="flex-1 rounded bg-background px-2 py-1 text-xs text-[#00E5FF] font-mono">
+                  <code className="flex-1 rounded bg-background px-2 py-1 text-xs text-[#00a8c6] font-mono">
                     {inviteCode}
                   </code>
                   <Button
@@ -716,7 +716,7 @@ function MobileNavContent({
           <p className="text-sm font-medium text-foreground truncate">{groupName}</p>
           {inviteCode && (
             <div className="mt-2 flex items-center gap-1.5">
-              <code className="flex-1 rounded bg-background px-2 py-0.5 text-xs text-[#00E5FF] font-mono">
+              <code className="flex-1 rounded bg-background px-2 py-0.5 text-xs text-[#00a8c6] font-mono">
                 {inviteCode}
               </code>
               <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-[#2A2A36]" onClick={onCopyCode}>
