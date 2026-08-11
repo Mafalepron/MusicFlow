@@ -1249,3 +1249,62 @@ Stage Summary:
 - All 10 animation keyframes live in global cyberpunk.css (kb-* prefix) — no inline <style> blocks, avoiding the OOM pattern from earlier tasks.
 - All existing functionality preserved: card click → select project → workspace, edit mode (rename), delete confirmation dialog, hover action buttons, "только просмотр" badge for music projects, filter tabs, search.
 - TypeScript clean, lint clean for modified files, dev server HTTP 200, 0 console errors, cards interactive and clickable, VLM-verified cartoon cyberpunk visual style on both pages.
+
+---
+Task ID: KB2-IMMERSIVE-REFATOR
+Agent: main
+Task: Completely refactor CSS/styling to advanced immersive Cyberpunk 2077 aesthetic per reference image (circuit board bg, neon purple header glow, chamfered yellow metric cards, fractured light-trail borders, holographic CREATE button with rotating rings, data slab cards with waveforms)
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from KB-CARTOON-INTERACTIVE (KanbanCard already had clip-path, scanline, circuit grid, segmented progress, blinking dot, particles, corner brackets).
+- Analyzed reference image /home/z/my-project/upload/pasted_image_1786440062802.png with VLM. Key requirements: deep #0a0b10 bg with circuit board pattern + hex data stream overlay, neon purple glow on header title, chamfered yellow metric cards, fractured light-trail borders (cyan for Quick Access, pulsating yellow for Auto Projects), holographic CREATE button with rotating concentric rings, dark data slab project cards with purple/teal glowing borders, glitch-glow hover states.
+- Added 15 new keyframes to /home/z/my-project/src/app/cyberpunk.css (kb2- prefix): kb2-hex-scroll, kb2-circuit-pulse, kb2-scan-sweep, kb2-trail-cyan, kb2-trail-yellow, kb2-pulse-yellow, kb2-pulse-cyan, kb2-ring-spin-cw, kb2-ring-spin-ccw, kb2-ring-pulse, kb2-core-pulse, kb2-holo-text, kb2-glitch, kb2-wave, kb2-slab-edge.
+- Global background refactor (home-view.tsx HomeView return): replaced `bg-[#06080d]` with relative wrapper containing 3 fixed pointer-events-none layers:
+  * Layer 1: radial purple glow at center + 40px cyan grid + 2 repeating-linear-gradient patterns (kb2-circuit-pulse 8s infinite)
+  * Layer 2: hex data stream (vertical repeating-linear-gradient, monospace, cyan, 6% opacity, kb2-hex-scroll 30s)
+  * Layer 3: slow scanning sweep line (kb2-scan-sweep 14s, 24px tall cyan gradient)
+- Header refactor: title now has neon purple glow (textShadow rgba(168,85,247,0.55) + 0.3), letterSpacing 0.03em. Subtitle purple-tinted with letterSpacing 0.08em.
+- StatBar refactor: replaced single merged clip-path bar with 4 separate chamfered yellow panels (clip-path polygon 6px, linear-gradient #FCEE0A→#F1E100→#FCEE0A, boxShadow glow 14px + 28px, inset highlights, hover:scale-[1.03], black icons/text, bold tracking-[0.12em] labels).
+- Quick Access panel refactor: replaced simple border + corner accents with multi-layered fractured light-trail border (cyan):
+  * Outer: 1.5px padding gradient (cyan 70% → 15% → 70% → purple 55% → 70%) with 200% backgroundSize + kb2-trail-cyan 6s animation, WebkitMask content-box xor trick to render as border only, clip-path 14px chamfer, boxShadow 28px glow + inset 22px.
+  * Inner: 1px border inset 3px with kb2-pulse-cyan 3s animation.
+  * 4 corner accents (2.5px solid cyan, 4x4 w/ boxShadow 8px glow) at all corners.
+  * Section header: 7x7 Zap badge with stronger glow, tracking-[0.18em] uppercase title with double text-shadow glow, HUD-style "N активных" pill badge.
+- QuickAccessCard refactor: dark data slab with beveled edges:
+  * 10px chamfer clip-path, layered boxShadow (1.5px inset border on hover + 28px glow + 16px shadow + 18px inset glow).
+  * Top accent strip (2px gradient with 8px glow).
+  * Fragmented lightning bolt type icon (Zap instead of type icon) with drop-shadow.
+  * Monospace title with neon text-shadow on hover.
+  * 14-bar audio waveform visualization (deterministic pseudo-random heights based on item.id, kb2-wave animation on hover with staggered delays).
+  * Hex code data block (decorative 0x... · 0xFF... · 0x... monospace text at 35% opacity).
+  * 8-segment progress dial (bottom-left, filled = priority/total * 8, scaleY bounce on hover, staggered 25ms transitions).
+  * Priority dropdown trigger with 8px glow when active.
+- Auto Projects panel refactor: pulsating yellow fractured light-trail border (matching Quick Access style but yellow):
+  * Outer: kb2-trail-yellow 7s + kb2-pulse-yellow 2.8s dual animation, gradient with purple midpoint at 50%.
+  * Inner glow border with kb2-pulse-yellow.
+  * 4 corner accents (2.5px solid yellow).
+  * Wrapped content in relative z-[2] div so border layers sit behind.
+- CreateCard refactor (CRUCIAL): replaced simple yellow circle + dashed border with holographic terminal:
+  * 10px chamfer clip-path, radial-gradient background (yellow center → dark, intensifies on hover).
+  * Circuit board pattern background (14px grid, intensifies on hover from 15% → 50% opacity).
+  * 88x88 holographic ring system with 4 layers:
+    1. Outer thin ring (88px, 1px solid yellow 35%, 14px glow, opacity 0.55→1 on hover)
+    2. Middle dashed data ring (68px, 1.5px dashed yellow 70%, kb2-ring-spin-cw 8s clockwise, 12px glow)
+    3. Inner conic-gradient tick-mark ring (52px, 8 tick marks at 45° intervals, kb2-ring-spin-ccw 6s counter-clockwise, radial mask to make it ring-shaped)
+    4. Central solid gold core (40px, linear-gradient #FCEE0A→#F1E100→#FCEE0A, kb2-core-pulse 2.4s boxShadow pulse, black Plus icon)
+  * "Создать" label: bold uppercase tracking-[0.18em] yellow with kb2-holo-text 1.8s animation on hover (pulsing text-shadow).
+- Ran `bun run lint` → 0 errors in home-view.tsx (2 pre-existing errors in project-chat.tsx:557 and app-header.tsx:132 are unrelated react-hooks/set-state-in-effect).
+- Dev server GET / returns 200, compile time 78ms.
+
+Stage Summary:
+- Home page now has immersive Cyberpunk 2077 aesthetic matching reference image:
+  * Global: deep #0a0b10 bg with pulsing cyan circuit grid + scrolling hex data stream + slow scan sweep
+  * Header: neon purple glow title + 4 chamfered yellow metric panels with strong glow
+  * Quick Access: fractured cyan light-trail border (animated, multi-layered) + dark data slab cards with audio waveforms + 8-segment priority dials + hex code data blocks
+  * Auto Projects: pulsating yellow fractured light-trail border + holographic CREATE button with 4-layer rotating concentric ring system (outer thin + middle dashed CW + inner tick-marks CCW + pulsing gold core)
+- All 15 new animations live in global cyberpunk.css (kb2-* prefix) — no inline <style> blocks, avoiding OOM pattern.
+- VLM verification (z-ai vision CLI):
+  * Full page: 9/10 cyberpunk aesthetic rating. Confirmed: circuit board bg, purple header glow, chamfered yellow metric cards, pulsating yellow Auto Projects border, holographic CREATE with rotating concentric rings, dark data slab project cards with glowing borders.
+  * CREATE button: confirmed central yellow circle + plus icon, multiple rotating concentric rings (solid + dashed + tick marks), holographic terminal appearance, circuit board pattern background, L-shaped corner brackets on panel border.
+  * Header: confirmed purple/violet glow on title, 4 chamfered yellow metric cards, circuit board background texture.
+- Lint clean for modified files, TypeScript clean, dev server HTTP 200, 0 console errors.

@@ -427,29 +427,27 @@ function IdeaCard({ idea, onClick }: { idea: { id: string; title: string; descri
   );
 }
 
-/* ─── Stat Bar: cyberpunk 2077 style inline stats ─── */
+/* ─── Stat Bar: cyberpunk 2077 chamfered yellow metric panels ─── */
 function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number; label: string; color: string }[] }) {
   return (
-    <div
-      className="flex items-center gap-0 overflow-hidden"
-      style={{
-        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-        background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
-        boxShadow: '0 0 14px rgba(252,238,10,0.3), 0 0 28px rgba(252,238,10,0.1), inset 0 1px 0 rgba(255,255,255,0.4)',
-      }}
-    >
-      {stats.map((s, i) => {
+    <div className="flex items-center gap-2">
+      {stats.map((s) => {
         const Icon = s.icon;
         return (
           <div
             key={s.label}
-            className="flex items-center gap-2 px-3 py-2 transition-all hover:bg-black/10"
-            style={i < stats.length - 1 ? { borderRight: '1px solid rgba(0,0,0,0.15)' } : undefined}
+            className="flex items-center gap-2 px-3 py-2 transition-all hover:scale-[1.03]"
+            style={{
+              clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+              background: 'linear-gradient(135deg, #FCEE0A 0%, #F1E100 50%, #FCEE0A 100%)',
+              boxShadow: '0 0 14px rgba(252,238,10,0.5), 0 0 28px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.2)',
+              borderRight: '1px solid rgba(0,0,0,0.25)',
+            }}
           >
-            <Icon className="w-3.5 h-3.5" style={{ color: '#000' }} />
-            <div className="flex items-baseline gap-1">
-              <span className="text-sm font-extrabold tabular-nums" style={{ color: '#000' }}>{s.value}</span>
-              <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'rgba(0,0,0,0.5)' }}>{s.label}</span>
+            <Icon className="w-3.5 h-3.5" style={{ color: '#0a0b10', filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.4))' }} />
+            <div className="flex flex-col leading-none">
+              <span className="text-sm font-extrabold tabular-nums" style={{ color: '#0a0b10' }}>{s.value}</span>
+              <span className="text-[8px] font-bold uppercase tracking-[0.12em] mt-0.5" style={{ color: 'rgba(10,11,16,0.7)' }}>{s.label}</span>
             </div>
           </div>
         );
@@ -479,7 +477,7 @@ function SectionHeader({ title, action, accentColor }: { title: string; action?:
   );
 }
 
-/* ─── Create Card ("+") ─── */
+/* ─── Create Card — holographic terminal with rotating concentric rings ─── */
 function CreateCard({ onClick, label }: { onClick: () => void; label: string }) {
   const [h, setH] = useState(false);
   return (
@@ -488,39 +486,103 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      className="group relative flex flex-col items-center justify-center"
+      className="group relative flex flex-col items-center justify-center overflow-hidden"
       style={{
         minHeight: '180px',
-        borderRadius: '10px',
-        background: h ? 'rgba(252,238,10,0.08)' : 'rgba(10,14,22,0.5)',
-        border: `1px dashed ${h ? 'rgba(252,238,10,0.6)' : 'rgba(252,238,10,0.3)'}`,
-        boxShadow: h ? `0 0 24px ${hexToRgba(Y, 0.15)}` : 'none',
-        transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
+        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+        background: h
+          ? 'radial-gradient(circle at center, rgba(252,238,10,0.14), rgba(10,14,22,0.92))'
+          : 'radial-gradient(circle at center, rgba(252,238,10,0.06), rgba(10,14,22,0.7))',
+        boxShadow: h
+          ? `inset 0 0 0 1.5px rgba(252,238,10,0.6), 0 0 28px rgba(252,238,10,0.25), inset 0 0 22px rgba(252,238,10,0.1)`
+          : `inset 0 0 0 1px rgba(252,238,10,0.25)`,
+        transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
         cursor: 'pointer',
       }}
     >
+      {/* Circuit board pattern background on hover */}
       <div
-        className="flex h-12 w-12 items-center justify-center rounded-full"
+        className="absolute inset-0 pointer-events-none transition-opacity duration-300"
         style={{
-          background: h ? hexToRgba(Y, 0.15) : hexToRgba(Y, 0.08),
-          border: `1px solid ${h ? hexToRgba(Y, 0.5) : hexToRgba(Y, 0.3)}`,
-          transition: 'all 220ms',
-          transform: h ? 'scale(1.1)' : 'scale(1)',
-          boxShadow: h ? `0 0 16px ${hexToRgba(Y, 0.4)}` : `0 0 6px ${hexToRgba(Y, 0.15)}`,
+          opacity: h ? 0.5 : 0.15,
+          backgroundImage: `
+            linear-gradient(rgba(252,238,10,0.12) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(252,238,10,0.12) 1px, transparent 1px)
+          `,
+          backgroundSize: '14px 14px',
         }}
-      >
-        <Plus
-          className="w-8 h-8"
+      />
+
+      {/* ── Holographic terminal: central ring core with rotating concentric data rings ── */}
+      <div className="relative flex items-center justify-center" style={{ width: '88px', height: '88px' }}>
+        {/* Outer thin ring */}
+        <div
+          className="absolute rounded-full pointer-events-none"
           style={{
-            color: Y,
-            filter: h ? `drop-shadow(0 0 4px ${Y})` : 'none',
-            transition: 'all 220ms',
+            width: '88px', height: '88px',
+            border: '1px solid rgba(252,238,10,0.35)',
+            boxShadow: '0 0 14px rgba(252,238,10,0.3)',
+            opacity: h ? 1 : 0.55,
+            transition: 'opacity 280ms',
           }}
         />
+        {/* Middle dashed data ring — rotating clockwise */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: '68px', height: '68px',
+            top: '50%', left: '50%',
+            borderRadius: '50%',
+            border: '1.5px dashed rgba(252,238,10,0.7)',
+            background: 'transparent',
+            animation: 'kb2-ring-spin-cw 8s linear infinite',
+            boxShadow: '0 0 12px rgba(252,238,10,0.4)',
+            opacity: h ? 1 : 0.65,
+            transition: 'opacity 280ms',
+          }}
+        />
+        {/* Inner solid gold ring — rotating counter-clockwise with data tick marks */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: '52px', height: '52px',
+            top: '50%', left: '50%',
+            borderRadius: '50%',
+            background: `conic-gradient(from 0deg, transparent 0deg, transparent 15deg, rgba(252,238,10,0.6) 16deg, rgba(252,238,10,0.6) 18deg, transparent 19deg, transparent 45deg, rgba(252,238,10,0.6) 46deg, rgba(252,238,10,0.6) 48deg, transparent 49deg, transparent 90deg, rgba(252,238,10,0.6) 91deg, rgba(252,238,10,0.6) 93deg, transparent 94deg, transparent 135deg, rgba(252,238,10,0.6) 136deg, rgba(252,238,10,0.6) 138deg, transparent 139deg, transparent 180deg, rgba(252,238,10,0.6) 181deg, rgba(252,238,10,0.6) 183deg, transparent 184deg, transparent 225deg, rgba(252,238,10,0.6) 226deg, rgba(252,238,10,0.6) 228deg, transparent 229deg, transparent 270deg, rgba(252,238,10,0.6) 271deg, rgba(252,238,10,0.6) 273deg, transparent 274deg, transparent 315deg, rgba(252,238,10,0.6) 316deg, rgba(252,238,10,0.6) 318deg, transparent 319deg)`,
+            mask: 'radial-gradient(circle, transparent 22px, #000 23px, #000 25px, transparent 26px)',
+            WebkitMask: 'radial-gradient(circle, transparent 22px, #000 23px, #000 25px, transparent 26px)',
+            animation: 'kb2-ring-spin-ccw 6s linear infinite',
+            opacity: h ? 1 : 0.7,
+            transition: 'opacity 280ms',
+          }}
+        />
+        {/* Central solid gold core with Plus icon */}
+        <div
+          className="relative flex items-center justify-center rounded-full"
+          style={{
+            width: '40px', height: '40px',
+            background: 'linear-gradient(135deg, #FCEE0A 0%, #F1E100 50%, #FCEE0A 100%)',
+            boxShadow: '0 0 18px rgba(252,238,10,0.6), inset 0 1px 0 rgba(255,255,255,0.5)',
+            animation: 'kb2-core-pulse 2.4s ease-in-out infinite',
+          }}
+        >
+          <Plus
+            className="w-6 h-6"
+            style={{
+              color: '#0a0b10',
+              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.4))',
+            }}
+          />
+        </div>
       </div>
+
       <span
-        className="mt-3 text-[11px] font-semibold uppercase tracking-wider transition-colors"
-        style={{ color: h ? Y : '#94a3b8' }}
+        className="mt-4 text-[11px] font-extrabold uppercase tracking-[0.18em]"
+        style={{
+          color: '#FCEE0A',
+          textShadow: '0 0 8px rgba(252,238,10,0.6), 0 0 4px rgba(252,238,10,0.9)',
+          animation: h ? 'kb2-holo-text 1.8s ease-in-out infinite' : 'none',
+        }}
       >
         {label}
       </span>
@@ -528,7 +590,7 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
   );
 }
 
-/* ─── Quick Access Card — cyberpunk 2077 style with priority ─── */
+/* ─── Quick Access Card — dark data slab with waveform + segmented dial ─── */
 function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }: {
   item: ModalItem; onClick: () => void; onUnstar: () => void;
   onMoveTo: (targetIdx: number) => void; priority: number; total: number;
@@ -540,50 +602,59 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
   const sc = stHex[item.status] || '#64748b';
   const sl = stLabel[item.status] || item.status;
   const triggerActive = h || menuOpen;
+  // Segmented dial — 8 segments, filled = priority/total * 8
+  const DIAL_SEGS = 8;
+  const filledDial = Math.round((priority / Math.max(total, 1)) * DIAL_SEGS);
+  // Audio waveform bars (deterministic pseudo-random based on item.id)
+  const waveBars = useMemo(() => {
+    const seed = item.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    return Array.from({ length: 14 }, (_, i) => 0.25 + ((seed * (i + 3) * 7) % 75) / 100);
+  }, [item.id]);
 
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      className="group relative w-56 shrink-0 cursor-pointer overflow-hidden"
+      className="group relative w-60 shrink-0 cursor-pointer overflow-hidden"
       style={{
-        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
         background: h
-          ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.18)}, rgba(10,14,22,0.95))`
-          : `linear-gradient(135deg, ${hexToRgba(t.color, 0.1)}, rgba(10,14,22,0.88))`,
+          ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.22)}, rgba(10,14,22,0.96))`
+          : `linear-gradient(135deg, ${hexToRgba(t.color, 0.10)}, rgba(10,14,22,0.88))`,
         boxShadow: h
-          ? `inset 0 0 0 1.5px ${hexToRgba(t.color, 0.6)}, 0 0 24px ${hexToRgba(t.color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)`
-          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.3)}, 0 2px 8px rgba(0,0,0,0.25)`,
-        transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
+          ? `inset 0 0 0 1.5px ${hexToRgba(t.color, 0.7)}, 0 0 28px ${hexToRgba(t.color, 0.28)}, 0 4px 16px rgba(0,0,0,0.5), inset 0 0 18px ${hexToRgba(t.color, 0.08)}`
+          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.35)}, 0 2px 10px rgba(0,0,0,0.4)`,
+        transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
         transform: h ? 'translateY(-3px)' : 'none',
       }}
     >
-      {/* Top accent strip — color gradient */}
+      {/* Beveled edge glow — top accent strip */}
       <div
-        className="h-1 w-full"
+        className="h-[2px] w-full"
         style={{
           background: `linear-gradient(90deg, transparent, ${t.color} 30%, ${t.color} 70%, transparent)`,
-          boxShadow: `0 0 6px ${hexToRgba(t.color, 0.5)}`,
+          boxShadow: `0 0 8px ${hexToRgba(t.color, 0.7)}`,
         }}
       />
 
       {/* Body */}
-      <div className="p-3 pt-3.5">
-        {/* Type icon + unstar (Pin icon) */}
+      <div className="p-3 pt-3.5 relative">
+        {/* Type icon (fragmented lightning bolt style) + unstar */}
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <div
               className="flex h-6 w-6 items-center justify-center"
               style={{
                 clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-                background: hexToRgba(t.color, 0.15),
-                border: `1px solid ${hexToRgba(t.color, 0.35)}`,
+                background: hexToRgba(t.color, 0.18),
+                border: `1px solid ${hexToRgba(t.color, 0.5)}`,
+                boxShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.5)}` : 'none',
               }}
             >
-              <Icon className="w-3 h-3" style={{ color: t.color }} />
+              <Zap className="w-3 h-3" style={{ color: t.color, filter: `drop-shadow(0 0 2px ${t.color})` }} />
             </div>
-            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: t.color }}>{t.label}</span>
+            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
           </div>
           <button
             type="button"
@@ -591,19 +662,24 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
             className="p-0.5 transition-all hover:scale-110"
             title="Убрать из быстрого доступа"
           >
-            <Zap className="w-3 h-3" style={{ color: '#FCEE0A' }} />
+            <Zap className="w-3 h-3" style={{ color: '#FCEE0A', filter: 'drop-shadow(0 0 3px rgba(252,238,10,0.7))' }} />
           </button>
         </div>
 
         {/* Title */}
-        <p className="text-sm font-medium text-slate-100 line-clamp-1" style={{ textShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.2)}` : 'none' }}>
+        <p className="text-sm font-bold line-clamp-1" style={{
+          color: h ? '#ffffff' : '#cbd5e1',
+          letterSpacing: '0.02em',
+          fontFamily: 'monospace',
+          textShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.4)}` : 'none',
+        }}>
           {item.title}
         </p>
 
         {/* Meta */}
-        <div className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-500">
+        <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: h ? hexToRgba(t.color, 0.85) : '#64748b', fontFamily: 'monospace' }}>
           <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 4px ${hexToRgba(sc, 0.4)}` }} />
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 4px ${hexToRgba(sc, 0.5)}` }} />
             {sl}
           </span>
           <span>·</span>
@@ -611,6 +687,50 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
             <Music2 className="w-3 h-3" />
             {item.trackCount}
           </span>
+        </div>
+
+        {/* ── Audio waveform visualization ── */}
+        <div className="mt-2.5 flex items-end gap-[1.5px] h-6">
+          {waveBars.map((v, i) => (
+            <div
+              key={i}
+              className="flex-1"
+              style={{
+                height: `${Math.round(v * 100)}%`,
+                background: h ? t.color : hexToRgba(t.color, 0.5),
+                boxShadow: h ? `0 0 4px ${hexToRgba(t.color, 0.6)}` : 'none',
+                animation: h ? `kb2-wave ${0.8 + (i % 4) * 0.15}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` : 'none',
+                transformOrigin: 'bottom',
+                borderRadius: '0.5px',
+                transition: 'background 200ms',
+              }}
+            />
+          ))}
+        </div>
+
+        {/* ── Hex code data block (faint, decorative) ── */}
+        <div className="mt-2 text-[8px] font-mono leading-tight" style={{ color: hexToRgba(t.color, 0.35), letterSpacing: '0.05em' }}>
+          0x{(item.id.charCodeAt(0) * 0x1A3).toString(16).toUpperCase().padStart(4, '0').slice(0, 4)} · 0xFF{(item.id.charCodeAt(1) || 65).toString(16).toUpperCase()} · 0x{(priority * 0x1F).toString(16).toUpperCase().padStart(2, '0')}
+        </div>
+      </div>
+
+      {/* ── Segmented progress dial (priority indicator) — bottom right ── */}
+      <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1">
+        <div className="flex gap-[1.5px]">
+          {Array.from({ length: DIAL_SEGS }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                width: '3px',
+                height: '8px',
+                background: i < filledDial ? t.color : hexToRgba(t.color, 0.18),
+                boxShadow: i < filledDial ? `0 0 4px ${hexToRgba(t.color, 0.7)}` : 'none',
+                borderRadius: '0.5px',
+                transform: i < filledDial && h ? 'scaleY(1.15)' : 'scaleY(1)',
+                transition: `transform 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 25}ms`,
+              }}
+            />
+          ))}
         </div>
       </div>
 
@@ -625,7 +745,7 @@ function QuickAccessCard({ item, onClick, onUnstar, onMoveTo, priority, total }:
               style={{
                 clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
                 background: triggerActive ? '#FCEE0A' : 'rgba(0,0,0,0.55)',
-                boxShadow: `inset 0 0 0 1px ${triggerActive ? 'rgba(252,238,10,0.85)' : 'rgba(252,238,10,0.45)'}`,
+                boxShadow: `inset 0 0 0 1px ${triggerActive ? 'rgba(252,238,10,0.85)' : 'rgba(252,238,10,0.45)'}, 0 0 8px ${triggerActive ? 'rgba(252,238,10,0.5)' : 'transparent'}`,
                 color: triggerActive ? '#000' : '#FCEE0A',
               }}
               title="Сменить позицию"
@@ -1045,8 +1165,52 @@ export function HomeView() {
   ];
 
   return (
-    <div className="min-h-full bg-[#06080d]">
-      <div className="mx-auto max-w-6xl px-5 py-6 lg:px-8 lg:py-8">
+    <div className="min-h-full relative" style={{ background: '#0a0b10' }}>
+      {/* ── Global background: circuit board pattern + hex data stream ── */}
+      <div
+        className="pointer-events-none fixed inset-0"
+        style={{
+          zIndex: 0,
+          backgroundColor: '#0a0b10',
+          backgroundImage: `
+            radial-gradient(ellipse at center, rgba(75,30,150,0.18) 0%, transparent 55%),
+            linear-gradient(rgba(0,217,255,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,217,255,0.04) 1px, transparent 1px),
+            repeating-linear-gradient(0deg, transparent 0px, transparent 38px, rgba(0,217,255,0.025) 38px, rgba(0,217,255,0.025) 40px),
+            repeating-linear-gradient(90deg, transparent 0px, transparent 38px, rgba(0,217,255,0.025) 38px, rgba(0,217,255,0.025) 40px)
+          `,
+          backgroundSize: '100% 100%, 40px 40px, 40px 40px, 40px 40px, 40px 40px',
+          animation: 'kb2-circuit-pulse 8s ease-in-out infinite',
+        }}
+      />
+      {/* ── Hex code data stream overlay (faint vertical columns) ── */}
+      <div
+        className="pointer-events-none fixed inset-0"
+        style={{
+          zIndex: 0,
+          opacity: 0.06,
+          fontFamily: 'monospace',
+          fontSize: '10px',
+          lineHeight: '20px',
+          color: '#00d9ff',
+          backgroundImage: `repeating-linear-gradient(0deg, transparent 0px, transparent 18px, rgba(0,217,255,0.6) 18px, rgba(0,217,255,0.6) 20px)`,
+          backgroundSize: '20px 20px',
+          animation: 'kb2-hex-scroll 30s linear infinite',
+          textShadow: '0 0 4px rgba(0,217,255,0.8)',
+        }}
+      />
+      {/* ── Scanning sweep line (subtle, slow) ── */}
+      <div
+        className="pointer-events-none fixed left-0 right-0 h-24"
+        style={{
+          zIndex: 0,
+          top: 0,
+          background: 'linear-gradient(180deg, transparent, rgba(0,217,255,0.06), transparent)',
+          animation: 'kb2-scan-sweep 14s linear infinite',
+        }}
+      />
+
+      <div className="relative mx-auto max-w-6xl px-5 py-6 lg:px-8 lg:py-8" style={{ zIndex: 1 }}>
         {/* ── Header + Stats in one row ── */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -1055,111 +1219,178 @@ export function HomeView() {
           className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
-            <h1 className="text-xl font-bold text-slate-100 lg:text-2xl">
+            <h1 className="text-xl font-bold lg:text-2xl" style={{
+              color: '#e8eaf2',
+              letterSpacing: '0.03em',
+              textShadow: '0 0 8px rgba(168,85,247,0.55), 0 0 18px rgba(168,85,247,0.3)',
+            }}>
               Привет, {user?.displayName || 'музыкант'}
             </h1>
-            <p className="mt-0.5 text-sm text-slate-500">
+            <p className="mt-0.5 text-sm" style={{
+              color: '#7c8aa5',
+              letterSpacing: '0.08em',
+              textShadow: '0 0 6px rgba(168,85,247,0.25)',
+            }}>
               {currentGroup?.name || 'SoundFlow'}{currentGroup?.genre ? ` · ${currentGroup.genre}` : ''}
             </p>
           </div>
           <StatBar stats={stats} />
         </motion.div>
 
-        {/* ── Quick Access — cyberpunk 2077 priority panel ── */}
+
+        {/* ── Quick Access — fractured neon-blue light-trail border ── */}
         {quickAccessItems.length > 0 && (
           <section className="mt-8 relative overflow-hidden" style={{
-            clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
-            background: 'linear-gradient(180deg, rgba(0,217,255,0.12) 0%, rgba(12,18,26,0.95) 40%)',
-            border: '1px solid rgba(0,217,255,0.25)',
-            padding: '20px',
-            boxShadow: '0 0 40px rgba(0,217,255,0.08)',
+            clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
+            background: 'linear-gradient(180deg, rgba(0,217,255,0.10) 0%, rgba(12,18,26,0.95) 40%)',
+            padding: '22px',
           }}>
+            {/* ── Multi-layered fractured light-trail border (cyan) ── */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                padding: '1.5px',
+                background: 'linear-gradient(90deg, rgba(0,217,255,0.7) 0%, rgba(0,217,255,0.15) 15%, rgba(0,217,255,0.7) 25%, rgba(168,85,247,0.55) 50%, rgba(0,217,255,0.7) 75%, rgba(0,217,255,0.15) 85%, rgba(0,217,255,0.7) 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'kb2-trail-cyan 6s linear infinite',
+                WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+                WebkitMaskComposite: 'xor',
+                maskComposite: 'exclude',
+                clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
+                boxShadow: '0 0 28px rgba(0,217,255,0.25), inset 0 0 22px rgba(0,217,255,0.08)',
+                zIndex: 1,
+              }}
+            />
+            {/* Inner glow layer */}
+            <div
+              className="absolute inset-[3px] pointer-events-none"
+              style={{
+                clipPath: 'polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px))',
+                border: '1px solid rgba(0,217,255,0.18)',
+                animation: 'kb2-pulse-cyan 3s ease-in-out infinite',
+                zIndex: 1,
+              }}
+            />
+
             {/* Neon top bar — cyan */}
             <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
               background: 'linear-gradient(90deg, transparent, #00d9ff 20%, #00d9ff 80%, transparent)',
-              boxShadow: '0 0 12px rgba(0,217,255,0.5)',
+              boxShadow: '0 0 14px rgba(0,217,255,0.7)',
             }} />
-            {/* Corner accents — cyan */}
-            <div className="absolute top-0 left-0 w-3 h-3" style={{ borderTop: '2px solid #00d9ff', borderLeft: '2px solid #00d9ff' }} />
-            <div className="absolute top-0 right-0 w-3 h-3" style={{ borderTop: '2px solid #00d9ff', borderRight: '2px solid #00d9ff' }} />
+            {/* Corner accents — cyan, larger fractured style */}
+            <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #00d9ff', borderLeft: '2.5px solid #00d9ff', boxShadow: '0 0 8px rgba(0,217,255,0.6)' }} />
+            <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #00d9ff', borderRight: '2.5px solid #00d9ff', boxShadow: '0 0 8px rgba(0,217,255,0.6)' }} />
+            <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #00d9ff', borderLeft: '2.5px solid #00d9ff', boxShadow: '0 0 8px rgba(0,217,255,0.6)' }} />
+            <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #00d9ff', borderRight: '2.5px solid #00d9ff', boxShadow: '0 0 8px rgba(0,217,255,0.6)' }} />
 
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between relative" style={{ zIndex: 2 }}>
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center" style={{
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  background: 'rgba(0,217,255,0.15)',
-                  border: '1px solid rgba(0,217,255,0.4)',
+                  background: 'rgba(0,217,255,0.18)',
+                  border: '1px solid rgba(0,217,255,0.55)',
+                  boxShadow: '0 0 12px rgba(0,217,255,0.3)',
                 }}>
-                  <Zap className="w-3.5 h-3.5" style={{ color: '#00d9ff' }} />
+                  <Zap className="w-3.5 h-3.5" style={{ color: '#00d9ff', filter: 'drop-shadow(0 0 3px rgba(0,217,255,0.8))' }} />
                 </div>
-                <h2 className="text-sm font-bold uppercase tracking-[0.12em]" style={{ color: '#00d9ff', textShadow: '0 0 8px rgba(0,217,255,0.3)' }}>
+                <h2 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: '#00d9ff', textShadow: '0 0 10px rgba(0,217,255,0.5), 0 0 4px rgba(0,217,255,0.8)' }}>
                   Быстрый доступ
                 </h2>
               </div>
-              <span className="text-[11px] font-medium" style={{ color: '#00d9ff' }}>
+              <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-1" style={{
+                color: '#00d9ff',
+                clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                background: 'rgba(0,217,255,0.08)',
+                border: '1px solid rgba(0,217,255,0.3)',
+                textShadow: '0 0 6px rgba(0,217,255,0.5)',
+              }}>
                 {quickAccessItems.length} активных
               </span>
             </div>
 
-            <Carousel>
-              {quickAccessItems.map((item, idx) => (
-                <QuickAccessCard
-                  key={item.id}
-                  item={item}
-                  onClick={item.onOpen}
-                  onUnstar={() => toggleQuickAccess(item.id)}
-                  onMoveTo={(targetIdx) => moveQuickAccessTo(item.id, targetIdx)}
-                  priority={idx + 1}
-                  total={quickAccessItems.length}
-                />
-              ))}
-            </Carousel>
+            <div className="relative" style={{ zIndex: 2 }}>
+              <Carousel>
+                {quickAccessItems.map((item, idx) => (
+                  <QuickAccessCard
+                    key={item.id}
+                    item={item}
+                    onClick={item.onOpen}
+                    onUnstar={() => toggleQuickAccess(item.id)}
+                    onMoveTo={(targetIdx) => moveQuickAccessTo(item.id, targetIdx)}
+                    priority={idx + 1}
+                    total={quickAccessItems.length}
+                  />
+                ))}
+              </Carousel>
+            </div>
           </section>
         )}
 
-        {/* ── Auto Projects — yellow, angular cyberpunk panel ── */}
-        <section className="mt-8 relative" style={{
-          borderRadius: '14px',
-          background: 'linear-gradient(180deg, rgba(252,238,10,0.1) 0%, rgba(12,16,24,0.85) 100%)',
-          border: '1px solid rgba(252,238,10,0.2)',
-          padding: '20px',
-          boxShadow: '0 4px 32px rgba(252,238,10,0.06)',
+        {/* ── Auto Projects — pulsating yellow fractured light-trail panel ── */}
+        <section className="mt-8 relative overflow-hidden" style={{
+          clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
+          background: 'linear-gradient(180deg, rgba(252,238,10,0.10) 0%, rgba(12,16,24,0.95) 40%)',
+          padding: '22px',
         }}>
-          {/* Neon top accent — yellow */}
-          <div className="absolute left-0 right-0 top-0 h-[2px] rounded-t-[14px]" style={{
-            background: 'linear-gradient(90deg, transparent, rgba(252,238,10,0.6) 20%, #FCEE0A 50%, rgba(252,238,10,0.6) 80%, transparent)',
-            boxShadow: '0 0 12px rgba(252,238,10,0.4)',
-          }} />
-          {/* Corner accents — yellow */}
-          <div className="absolute top-0 left-0 w-3 h-3 rounded-tl-[14px]" style={{
-            borderTop: '2px solid rgba(252,238,10,0.7)',
-            borderLeft: '2px solid rgba(252,238,10,0.7)',
-          }} />
-          <div className="absolute top-0 right-0 w-3 h-3 rounded-tr-[14px]" style={{
-            borderTop: '2px solid rgba(252,238,10,0.7)',
-            borderRight: '2px solid rgba(252,238,10,0.7)',
-          }} />
-
-          <SectionHeader
-            title="Авто проекты"
-            accentColor={Y}
-            action={
-              <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-yellow-400" style={{ color: 'rgba(252,238,10,0.6)' }}>
-                Все <ArrowRight className="w-3 h-3" />
-              </button>
-            }
+          {/* ── Multi-layered fractured light-trail border (yellow, pulsating) ── */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              padding: '1.5px',
+              background: 'linear-gradient(90deg, rgba(252,238,10,0.8) 0%, rgba(252,238,10,0.15) 12%, rgba(252,238,10,0.8) 22%, rgba(168,85,247,0.5) 50%, rgba(252,238,10,0.8) 78%, rgba(252,238,10,0.15) 88%, rgba(252,238,10,0.8) 100%)',
+              backgroundSize: '200% 100%',
+              animation: 'kb2-trail-yellow 7s linear infinite, kb2-pulse-yellow 2.8s ease-in-out infinite',
+              WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+              WebkitMaskComposite: 'xor',
+              maskComposite: 'exclude',
+              clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
+              zIndex: 1,
+            }}
           />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <CreateCard onClick={() => setCreateProjectOpen(true)} label="Создать" />
-            {autoProjects.slice(0, 3).map(p => (
-              <ProjectCard
-                key={p.id}
-                project={p}
-                trackCount={getTrackCount(p.id)}
-                onClick={() => navigate('project-detail', p.id)}
-                onKanban={() => p.kanbanTaskId && goToKanban(p.kanbanTaskId)}
-              />
-            ))}
+          {/* Inner glow border */}
+          <div
+            className="absolute inset-[3px] pointer-events-none"
+            style={{
+              clipPath: 'polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px))',
+              border: '1px solid rgba(252,238,10,0.22)',
+              animation: 'kb2-pulse-yellow 2.8s ease-in-out infinite',
+              zIndex: 1,
+            }}
+          />
+
+          {/* Neon top accent — yellow */}
+          <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
+            background: 'linear-gradient(90deg, transparent, #FCEE0A 20%, #FCEE0A 80%, transparent)',
+            boxShadow: '0 0 16px rgba(252,238,10,0.7)',
+          }} />
+          {/* Corner accents — yellow, fractured style */}
+          <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #FCEE0A', borderLeft: '2.5px solid #FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.6)' }} />
+          <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #FCEE0A', borderRight: '2.5px solid #FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.6)' }} />
+          <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #FCEE0A', borderLeft: '2.5px solid #FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.6)' }} />
+          <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #FCEE0A', borderRight: '2.5px solid #FCEE0A', boxShadow: '0 0 8px rgba(252,238,10,0.6)' }} />
+
+          <div className="relative" style={{ zIndex: 2 }}>
+            <SectionHeader
+              title="Авто проекты"
+              accentColor={Y}
+              action={
+                <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105" style={{ color: 'rgba(252,238,10,0.85)', textShadow: '0 0 6px rgba(252,238,10,0.4)' }}>
+                  Все <ArrowRight className="w-3 h-3" />
+                </button>
+              }
+            />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <CreateCard onClick={() => setCreateProjectOpen(true)} label="Создать" />
+              {autoProjects.slice(0, 3).map(p => (
+                <ProjectCard
+                  key={p.id}
+                  project={p}
+                  trackCount={getTrackCount(p.id)}
+                  onClick={() => navigate('project-detail', p.id)}
+                  onKanban={() => p.kanbanTaskId && goToKanban(p.kanbanTaskId)}
+                />
+              ))}
+            </div>
           </div>
         </section>
 

@@ -1547,3 +1547,82 @@ font-size: 18px;
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
 }
+
+/* ============================================================
+   IMMERSIVE CYBERPUNK 2077 — dashboard refactor (kb2- prefix)
+   ============================================================ */
+
+/* ── Global background: circuit board + hex data stream ── */
+@keyframes kb2-hex-scroll {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 0 -200px, 0 -400px; }
+}
+@keyframes kb2-circuit-pulse {
+  0%, 100% { opacity: 0.18; }
+  50% { opacity: 0.32; }
+}
+@keyframes kb2-scan-sweep {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+/* ── Fractured light-trail border (cyan + yellow variants) ── */
+@keyframes kb2-trail-cyan {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes kb2-trail-yellow {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes kb2-pulse-yellow {
+  0%, 100% { opacity: 0.55; box-shadow: 0 0 18px rgba(252,238,10,0.18), inset 0 0 18px rgba(252,238,10,0.08); }
+  50% { opacity: 1; box-shadow: 0 0 32px rgba(252,238,10,0.42), inset 0 0 28px rgba(252,238,10,0.18); }
+}
+@keyframes kb2-pulse-cyan {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ── Holographic CREATE button — rotating concentric rings ── */
+@keyframes kb2-ring-spin-cw {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes kb2-ring-spin-ccw {
+  0% { transform: translate(-50%, -50%) rotate(360deg); }
+  100% { transform: translate(-50%, -50%) rotate(0deg); }
+}
+@keyframes kb2-ring-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+@keyframes kb2-core-pulse {
+  0%, 100% { box-shadow: 0 0 24px rgba(252,238,10,0.5), 0 0 50px rgba(252,238,10,0.25), inset 0 0 16px rgba(255,255,255,0.3); }
+  50% { box-shadow: 0 0 38px rgba(252,238,10,0.8), 0 0 80px rgba(252,238,10,0.4), inset 0 0 24px rgba(255,255,255,0.5); }
+}
+@keyframes kb2-holo-text {
+  0%, 100% { text-shadow: 0 0 6px rgba(252,238,10,0.8), 0 0 12px rgba(252,238,10,0.4); }
+  50% { text-shadow: 0 0 10px rgba(252,238,10,1), 0 0 20px rgba(252,238,10,0.6), 0 0 30px rgba(252,238,10,0.3); }
+}
+
+/* ── Glitch-glow hover for interactive elements ── */
+@keyframes kb2-glitch {
+  0%, 100% { transform: translate(0); filter: drop-shadow(0 0 4px currentColor); }
+  20% { transform: translate(-1px, 1px); filter: drop-shadow(0 0 6px currentColor); }
+  40% { transform: translate(1px, -1px); filter: drop-shadow(0 0 8px currentColor); }
+  60% { transform: translate(-1px, -1px); filter: drop-shadow(0 0 6px currentColor); }
+  80% { transform: translate(1px, 1px); filter: drop-shadow(0 0 8px currentColor); }
+}
+
+/* ── Audio waveform bars ── */
+@keyframes kb2-wave {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+/* ── Data slab hover lift + neon edge ── */
+@keyframes kb2-slab-edge {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
