@@ -1498,28 +1498,24 @@ export function HomeView() {
         </motion.div>
 
 
-        {/* ── Quick Access — dark teal glass fill + cut-corner cyan border + corner brackets ── */}
+        {/* ── Quick Access — stat-panel style border ── */}
         {quickAccessItems.length > 0 && (
           <section className="mt-8 relative overflow-hidden" style={{
-            clipPath: 'polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)',
-            background: 'linear-gradient(180deg, rgba(14,26,36,0.7) 0%, rgba(10,12,16,0.9) 100%)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            border: '1px solid #00a8c6',
-            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8)',
+            clipPath: 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)',
+            background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+            border: '1px solid rgba(0,168,198,0.4)',
+            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
             padding: '22px',
           }}>
-            {/* Top-right corner bracket */}
-            <div className="absolute top-2 right-2 pointer-events-none" style={{
-              width: '14px', height: '14px',
-              borderTop: '2px solid #00a8c6',
-              borderRight: '2px solid #00a8c6',
+            {/* Blue corner bracket (top-left) */}
+            <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+              borderTop: '1.5px solid rgba(0,168,198,0.6)',
+              borderLeft: '1.5px solid rgba(0,168,198,0.6)',
             }} />
-            {/* Bottom-left corner bracket */}
-            <div className="absolute bottom-2 left-2 pointer-events-none" style={{
-              width: '14px', height: '14px',
-              borderBottom: '2px solid #00a8c6',
-              borderLeft: '2px solid #00a8c6',
+            {/* Yellow corner bracket (bottom-right) */}
+            <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+              borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+              borderRight: '1.5px solid rgba(199,160,8,0.6)',
             }} />
 
             <div className="mb-4 flex items-center justify-between relative" style={{ zIndex: 2 }}>
@@ -1586,27 +1582,23 @@ export function HomeView() {
           </section>
         )}
 
-        {/* ── Auto Projects — dark industrial gold glass fill + cut-corner gold border ── */}
+        {/* ── Auto Projects — stat-panel style border ── */}
         <section className="mt-8 relative overflow-hidden" style={{
-          clipPath: 'polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)',
-          background: 'linear-gradient(180deg, rgba(25,22,12,0.7) 0%, rgba(10,12,16,0.9) 100%)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          border: '1px solid #c7a008',
-          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8)',
+          clipPath: 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)',
+          background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+          border: '1px solid rgba(199,160,8,0.4)',
+          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
           padding: '22px',
         }}>
-          {/* Top-right corner bracket */}
-          <div className="absolute top-2 right-2 pointer-events-none" style={{
-            width: '14px', height: '14px',
-            borderTop: '2px solid #c7a008',
-            borderRight: '2px solid #c7a008',
+          {/* Blue corner bracket (top-left) */}
+          <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+            borderTop: '1.5px solid rgba(0,168,198,0.6)',
+            borderLeft: '1.5px solid rgba(0,168,198,0.6)',
           }} />
-          {/* Bottom-left corner bracket */}
-          <div className="absolute bottom-2 left-2 pointer-events-none" style={{
-            width: '14px', height: '14px',
-            borderBottom: '2px solid #c7a008',
-            borderLeft: '2px solid #c7a008',
+          {/* Yellow corner bracket (bottom-right) */}
+          <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+            borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+            borderRight: '1.5px solid rgba(199,160,8,0.6)',
           }} />
 
           <div className="relative" style={{ zIndex: 2 }}>
@@ -1638,27 +1630,23 @@ export function HomeView() {
           </div>
         </section>
 
-        {/* ── Kanban Projects — glassmorphism HUD panel matching Quick Access ── */}
+        {/* ── Kanban Projects — stat-panel style border ── */}
         <section className="mt-6 relative overflow-hidden" style={{
-          clipPath: 'polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)',
-          background: 'linear-gradient(180deg, rgba(14,26,36,0.7) 0%, rgba(10,12,16,0.9) 100%)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          border: '1px solid #00a8c6',
-          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8)',
+          clipPath: 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)',
+          background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+          border: '1px solid rgba(0,168,198,0.4)',
+          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
           padding: '22px',
         }}>
-          {/* Top-right corner bracket */}
-          <div className="absolute top-2 right-2 pointer-events-none" style={{
-            width: '14px', height: '14px',
-            borderTop: '2px solid #00a8c6',
-            borderRight: '2px solid #00a8c6',
+          {/* Blue corner bracket (top-left) */}
+          <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+            borderTop: '1.5px solid rgba(0,168,198,0.6)',
+            borderLeft: '1.5px solid rgba(0,168,198,0.6)',
           }} />
-          {/* Bottom-left corner bracket */}
-          <div className="absolute bottom-2 left-2 pointer-events-none" style={{
-            width: '14px', height: '14px',
-            borderBottom: '2px solid #00a8c6',
-            borderLeft: '2px solid #00a8c6',
+          {/* Yellow corner bracket (bottom-right) */}
+          <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+            borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+            borderRight: '1.5px solid rgba(199,160,8,0.6)',
           }} />
 
           <SectionHeader
