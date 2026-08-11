@@ -215,9 +215,9 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
       style={{
         clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
         background: project.type === 'album' ? '#0e1a24' : project.type === 'ep' ? '#161224' : '#0e1a24',
-        borderTop: `2px solid ${t.color}`,
+        borderTop: `2px solid ${h ? '#c7a008' : t.color}`,
         boxShadow: h
-          ? `inset 0 1px 12px ${hexToRgba(t.color, 0.15)}, inset 0 0 0 1px ${hexToRgba(t.color, 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
+          ? `inset 0 1px 12px ${hexToRgba('#c7a008', 0.15)}, inset 0 0 0 1px ${hexToRgba('#c7a008', 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
           : `inset 0 1px 12px ${hexToRgba(t.color, 0.15)}, inset 0 0 0 1px ${hexToRgba(t.color, 0.3)}`,
         transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
         transform: h ? 'translateY(-3px)' : 'translateY(0)',
@@ -284,7 +284,7 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
 
         {/* ── Waveform Progress Bar (animated audio waveform, playhead sweeps on hover) ── */}
         <div className="my-2.5">
-          <WaveformProgressBar progress={progress} accentColor={t.color} height={48} bars={32} />
+          <WaveformProgressBar progress={progress} accentColor="#c7a008" height={48} bars={32} />
         </div>
 
         {/* Meta row — monospace 11px opacity 0.6 per spec */}
@@ -353,9 +353,9 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
       style={{
         clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
         background: isAuto ? '#0e1a24' : '#161224',
-        borderTop: `2px solid ${color}`,
+        borderTop: `2px solid ${h ? '#c7a008' : color}`,
         boxShadow: h
-          ? `inset 0 1px 12px ${hexToRgba(color, 0.15)}, inset 0 0 0 1px ${hexToRgba(color, 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
+          ? `inset 0 1px 12px ${hexToRgba('#c7a008', 0.15)}, inset 0 0 0 1px ${hexToRgba('#c7a008', 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
           : `inset 0 1px 12px ${hexToRgba(color, 0.15)}, inset 0 0 0 1px ${hexToRgba(color, 0.3)}`,
         transition: 'box-shadow 280ms ease, transform 280ms ease',
         transform: h ? 'translateY(-3px)' : 'translateY(0)',
@@ -441,7 +441,7 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
 
         {/* ── Waveform Progress Bar — distinctive kanban sign (animated audio waveform) ── */}
         <div className="my-2.5">
-          <WaveformProgressBar progress={pct} accentColor={color} height={40} bars={28} />
+          <WaveformProgressBar progress={pct} accentColor="#c7a008" height={40} bars={28} />
         </div>
 
         {/* Bottom data row */}
@@ -502,7 +502,7 @@ function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number;
       style={{
         clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
         background: `linear-gradient(180deg, ${BG_PANEL} 0%, #161922 50%, ${BG_PANEL} 100%)`,
-        border: `1px solid ${BORDER_MUTED}`,
+        border: '1px solid #00a8c6',
       }}
     >
       {stats.map((s, i) => {
@@ -511,9 +511,9 @@ function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number;
           <div
             key={s.label}
             className="flex items-center gap-2.5 px-3.5 py-2 transition-colors hover:bg-white/[0.03] relative group"
-            style={i < stats.length - 1 ? { borderRight: `1px solid ${BORDER_MUTED}` } : undefined}
+            style={i < stats.length - 1 ? { borderRight: '1px solid #00a8c6' } : undefined}
           >
-            <Icon className="w-4 h-4" style={{ color: C }} />
+            <Icon className="w-4 h-4" style={{ color: '#c7a008' }} />
             <div className="flex flex-col leading-none">
               <span className="text-base font-extrabold tabular-nums" style={{
                 color: TEXT_PRIMARY,
@@ -895,7 +895,7 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
 
         {/* ── Waveform Progress Bar (animated audio waveform, progress = priority-based) ── */}
         <div className="mt-2.5">
-          <WaveformProgressBar progress={priority * 14} accentColor={t.color} height={32} bars={24} />
+          <WaveformProgressBar progress={priority * 14} accentColor="#c7a008" height={32} bars={24} />
         </div>
       </div>
     </div>
@@ -935,7 +935,7 @@ function Carousel({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="relative group/carousel">
+    <div className="relative group/carousel" style={{ padding: '0 44px' }}>
       {/* Left arrow — custom chamfered frame, always active */}
       <button
         onClick={() => scroll('left')}
@@ -1511,7 +1511,7 @@ export function HomeView() {
                   <Zap className="w-3.5 h-3.5" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 3px rgba(0,168,198,0.25))' }} />
                 </div>
                 <h2 className="text-sm font-bold uppercase" style={{
-                  color: '#00a8c6',
+                  color: '#ffffff',
                   fontFamily: 'var(--font-rajdhani), sans-serif',
                   fontWeight: 700,
                   letterSpacing: '2px',
@@ -1616,29 +1616,38 @@ export function HomeView() {
           </div>
         </section>
 
-        {/* ── Kanban Projects — cyan, left accent bar style ── */}
-        <section className="mt-6 relative" style={{
-          borderRadius: '14px',
-          background: 'linear-gradient(135deg, rgba(0,168,198,0.1), rgba(12,16,24,0.85))',
-          border: '1px solid rgba(0,168,198,0.18)',
-          padding: '20px 20px 20px 24px',
-          boxShadow: '0 4px 8px rgba(0,168,198,0.06)',
+        {/* ── Kanban Projects — glassmorphism HUD panel matching Quick Access ── */}
+        <section className="mt-6 relative overflow-hidden" style={{
+          clipPath: 'polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)',
+          background: 'linear-gradient(180deg, rgba(14,26,36,0.7) 0%, rgba(10,12,16,0.9) 100%)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid #00a8c6',
+          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8)',
+          padding: '22px',
         }}>
-          {/* Left accent bar — cyan, full height */}
-          <div className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full" style={{
-            background: 'linear-gradient(180deg, transparent, #00a8c6 20%, #00a8c6 80%, transparent)',
-            boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+          {/* Top-right corner bracket */}
+          <div className="absolute top-2 right-2 pointer-events-none" style={{
+            width: '14px', height: '14px',
+            borderTop: '2px solid #00a8c6',
+            borderRight: '2px solid #00a8c6',
           }} />
-          {/* Cyan glow orb — decorative */}
-          <div className="pointer-events-none absolute -bottom-10 -left-10 w-28 h-28 rounded-full" style={{
-            background: 'radial-gradient(circle, rgba(0,168,198,0.08), transparent 70%)',
+          {/* Bottom-left corner bracket */}
+          <div className="absolute bottom-2 left-2 pointer-events-none" style={{
+            width: '14px', height: '14px',
+            borderBottom: '2px solid #00a8c6',
+            borderLeft: '2px solid #00a8c6',
           }} />
 
           <SectionHeader
             title="Канбан проекты"
             accentColor={C}
             action={
-              <button onClick={() => setAllKanbanOpen(true)} className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-cyan-400" style={{ color: 'rgba(0,168,198,0.6)' }}>
+              <button onClick={() => setAllKanbanOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase transition-all hover:scale-105" style={{
+                color: '#00a8c6',
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                letterSpacing: '1px',
+              }}>
                 Все <ArrowRight className="w-3 h-3" />
               </button>
             }

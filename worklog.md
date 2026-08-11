@@ -2017,3 +2017,18 @@ Stage Summary:
 - Applied to: type labels, type icons, Music2/Layers icons, status dots, "Открыть Kanban" buttons, priority scale segments, meta row text, KANBAN/AUTO badges, done count.
 - Waveform progress bars keep the card border color for visual contrast (not remapped to content color).
 - Lint: 0 TypeScript errors, dev server HTTP 200, 0 console errors, all requirements VLM-verified.
+
+---
+Task ID: KB14-COLOR-FIXES-6REQ
+Agent: main
+Task: 6 color/layout fixes — (1) Quick Access title white, (2) StatBar blue border + yellow icons, (3) audio waves yellow, (4) carousel arrows ergonomic, (5) blue card hover stroke yellow, (6) Kanban panel frame match Quick Access
+
+Work Log:
+1. Quick Access title "Быстрый доступ" → color '#ffffff' (was '#00a8c6').
+2. StatBar: border '1px solid #00a8c6' (was BORDER_MUTED), borderRight dividers '#00a8c6', icons color '#c7a008' (yellow, was C cyan).
+3. All WaveformProgressBar accentColor → '#c7a008' (yellow): ProjectCard, KanbanCard, QuickAccessCard.
+4. Carousel container: added padding: '0 44px' so arrows sit outside the scroll area, no card overlap.
+5. ProjectCard + KanbanCard: on hover, borderTop + boxShadow use '#c7a008' (yellow) instead of t.color/color; at rest use card's accent color.
+6. Kanban Projects panel: replaced old left-accent-bar + glow-orb style with Quick Access glassmorphism frame (dark teal glass gradient rgba(14,26,36,0.7)→rgba(10,12,16,0.9), backdrop-blur(10px), 1px solid #00a8c6, chamfered clip-path, corner brackets).
+
+VLM-verified all 6: Quick Access title white ✓, stat borders blue + icons yellow ✓, audio waves yellow ✓, arrows no overlap ✓, blue card hover stroke yellow ✓, Kanban panel matches Quick Access ✓.
