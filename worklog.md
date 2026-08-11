@@ -1780,3 +1780,80 @@ Stage Summary:
 - Открыть Kanban: cyan monospace with Key icon, no glow.
 - CREATE button: concentric yellow rings + faint corner technical text (SECURITY ENCRYPTION ACTIVE, PROJECTION: 60, CODE: 1-00000.F0) at opacity 0.35.
 - Lint clean, TypeScript clean, dev server HTTP 200, 0 console errors, all spec requirements VLM-verified.
+
+---
+Task ID: KB10-COMPLETE-VISUAL-OVERHAUL
+Agent: main
+Task: Complete visual overhaul — custom dark cybernetic header, type-specific card fills, exact spec gradients, full CREATE ring system
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from KB9-GLASSMORPHISM-DEPTH.
+
+Change 1 — Header overhaul (app-header.tsx):
+- Replaced gradient bg + borderBottom/borderTop with spec #0f121a solid dark background.
+- Applied clip-path: polygon(0 0, 100% 0, 98% 100%, 2% 100%) — chamfered bottom corners (angled cuts).
+- Replaced center bottom underline glow with embedded neon-purple line: 2px height, 120px width, background #9d4edd, boxShadow 0 0 10px #9d4edd + 0 0 4px #9d4edd, opacity 0.8, positioned center via absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2.
+- Removed etched circuit traces (left/right decorative purple gradients).
+- Updated ALL icon frames (Search, Notifications, Chat) via bulk sed: background #12151f → #161a24, border 1px solid #1a202c → 1px solid #232a3b, borderRadius 4px (unchanged). Hover: borderColor #00a8c6 + boxShadow 0 0 8px rgba(0,168,198,0.25).
+- Updated avatar to spec hexagon: clip-path polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%) (was 25%/75%), background #00a8c6 (thin teal border, no gradient, no glow), fallback bg #161a24.
+
+Change 2 — Quick Access panel (home-view.tsx):
+- Replaced glassmorphism gradient with spec: background linear-gradient(180deg, rgba(14,26,36,0.7) 0%, rgba(10,12,16,0.9) 100%) — dark teal/slate glass.
+- backdrop-filter: blur(10px) (was 12px).
+- border: 1px solid #00a8c6 (solid dark cyan, was rgba 0.25).
+- boxShadow: inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8) — ambient bevel only (removed outer glow).
+- Added CSS corner brackets: top-right (borderTop + borderRight 2px solid #00a8c6, 14x14px) + bottom-left (borderBottom + borderLeft 2px solid #00a8c6, 14x14px).
+
+Change 3 — Auto Projects panel (home-view.tsx):
+- Replaced glassmorphism gradient with spec: background linear-gradient(180deg, rgba(25,22,12,0.7) 0%, rgba(10,12,16,0.9) 100%) — dark industrial gold glass.
+- backdrop-filter: blur(10px).
+- border: 1px solid #c7a008 (solid muted gold).
+- boxShadow: inset bevel only.
+- Added CSS corner brackets: top-right + bottom-left (2px solid #c7a008).
+
+Change 4 — ProjectCard type-specific fills (home-view.tsx):
+- Replaced generic gradient bg with type-specific deep solid fills:
+  * album → background #161224 (deep dark plum)
+  * ep → background #0e1a24 (deep dark cyan)
+  * single → background #1a1424 (dark amber/plum)
+- Added borderTop: 2px solid ${t.color} (purple #7b2cbf for album, cyan #00a8c6 for EP, amber for single).
+- boxShadow: inset 0 1px 12px rgba(t.color, 0.15) (inset glow per spec) + inset 0 0 0 1px rgba(t.color, 0.3-0.5) (border ring).
+- clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px)) — chamfered corners per spec.
+- Removed old inner beveled frame overlay (no longer needed).
+- transform: translateY(-3px) on hover (removed scale).
+
+Change 5 — KanbanCard type-specific fills (home-view.tsx):
+- Same treatment: background isAuto ? #161224 : #0e1a24.
+- borderTop 2px solid color.
+- inset glow boxShadow.
+- chamfered clip-path 8px corners.
+
+Change 6 — CreateCard spec compliance (home-view.tsx):
+- background: #12131a (dark slate, was radial gradient).
+- borderTop: 2px solid #c7a008.
+- boxShadow: inset 0 1px 12px rgba(199,160,8,0.15) + inset border ring.
+- chamfered clip-path 8px corners.
+- Micro-text updated to spec: fontSize 9px (was 8px), color #c7a008 (was rgba), opacity 0.4 (was 0.35).
+- Kept corner technical text: SECURITY ENCRYPTION ACTIVE, PROJECTION: 60 (top-left); CODE: 1-00000.F0, RING_SYS:ONLINE (bottom-right).
+- Ring system unchanged: outer thin ring + middle dashed CW + inner conic-gradient tick-marks CCW + central solid gold core.
+
+- Ran `npx tsc --noEmit` → 0 errors. Ran `bun run lint` → 0 errors in home-view.tsx/app-header.tsx (1 pre-existing unrelated error in app-header.tsx:132).
+- Dev server GET / returns 200.
+
+- Agent Browser + VLM verification (all 5 strict specs PASS):
+  1. Header: #0f121a bg, chamfered clip-path bottom, 2px neon purple #9d4edd line with glow centered ✓
+  2. Header icons: recessed square frames #161a24 bg + #232a3b border + 4px radius ✓
+  3. Avatar: hexagonal clip-path polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%) + cyan #00a8c6 border ✓
+  4. Quick Access: dark teal glass rgba(14,26,36,0.7)→rgba(10,12,16,0.9), backdrop-blur, 1px solid #00a8c6 border, corner brackets ✓
+  5. Auto Projects: dark gold glass rgba(25,22,12,0.7)→rgba(10,12,16,0.9), 1px solid #c7a008 border ✓
+  6. Project cards: Album #161224 plum + 2px purple border-top, EP #0e1a24 cyan + 2px cyan border-top, chamfered corners, inset glow ✓
+  7. CREATE button: #12131a dark slate bg + HUD grid, concentric yellow rings, center solid dark circle with thick gold border + СОЗДАТЬ, micro-text 9px opacity 0.4 ✓
+
+Stage Summary:
+- Header: custom dark cybernetic bar #0f121a with chamfered clip-path bottom corners + embedded 2px neon purple #9d4edd line with glow.
+- Icons: ALL (Search/Bell/Chat) in recessed square frames #161a24 bg + #232a3b border + 4px radius. Avatar hexagonal with cyan border.
+- Quick Access: dark teal glass rgba(14,26,36,0.7)→rgba(10,12,16,0.9) + backdrop-blur(10px) + 1px solid #00a8c6 + corner brackets.
+- Auto Projects: dark gold glass rgba(25,22,12,0.7)→rgba(10,12,16,0.9) + backdrop-blur(10px) + 1px solid #c7a008 + corner brackets.
+- Project cards: type-specific deep fills (Album #161224 plum, EP #0e1a24 cyan, Single #1a1424) + 2px colored border-top + inset glow + chamfered 8px corners.
+- CREATE button: #12131a dark slate + HUD grid + 3 concentric yellow rings + center solid dark circle with thick gold border + micro-text 9px opacity 0.4.
+- Lint clean, TypeScript clean, dev server HTTP 200, 0 console errors, ALL spec requirements VLM-verified.

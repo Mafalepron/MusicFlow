@@ -210,15 +210,14 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
       onMouseLeave={() => setH(false)}
       className="group relative cursor-pointer overflow-hidden"
       style={{
-        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
-        background: h
-          ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.24)}, rgba(12,16,28,0.96))`
-          : `linear-gradient(135deg, ${hexToRgba(t.color, 0.12)}, rgba(10,14,22,0.92))`,
+        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+        background: project.type === 'album' ? '#161224' : project.type === 'ep' ? '#0e1a24' : '#1a1424',
+        borderTop: `2px solid ${t.color}`,
         boxShadow: h
-          ? `inset 0 0 0 1.5px ${hexToRgba(t.color, 0.75)}, 0 0 28px ${hexToRgba(t.color, 0.28)}, 0 8px 24px rgba(0,0,0,0.5), inset 0 0 22px ${hexToRgba(t.color, 0.1)}`
-          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.35)}, inset 0 0 0 4px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.4)`,
+          ? `inset 0 1px 12px ${hexToRgba(t.color, 0.15)}, inset 0 0 0 1px ${hexToRgba(t.color, 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
+          : `inset 0 1px 12px ${hexToRgba(t.color, 0.15)}, inset 0 0 0 1px ${hexToRgba(t.color, 0.3)}`,
         transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
-        transform: h ? 'translateY(-4px) scale(1.01)' : 'translateY(0)',
+        transform: h ? 'translateY(-3px)' : 'translateY(0)',
       }}
     >
       {/* ── Inner beveled frame (recessed screen effect) ── */}
@@ -345,13 +344,14 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
       onMouseLeave={() => setH(false)}
       className="relative cursor-pointer overflow-hidden"
       style={{
-        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
-        background: `linear-gradient(135deg, ${hexToRgba(color, h ? 0.22 : 0.12)}, rgba(14,18,28,0.94))`,
+        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+        background: isAuto ? '#161224' : '#0e1a24',
+        borderTop: `2px solid ${color}`,
         boxShadow: h
-          ? `inset 0 0 0 1.5px ${hexToRgba(color, 0.7)}, 0 8px 28px ${hexToRgba(color, 0.25)}, 0 4px 14px rgba(0,0,0,0.5), inset 0 0 18px ${hexToRgba(color, 0.08)}`
-          : `inset 0 0 0 1px ${hexToRgba(color, 0.35)}, inset 0 0 0 4px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.4)`,
-        transition: 'box-shadow 280ms ease, background 280ms ease, transform 280ms ease',
-        transform: h ? 'translateY(-3px) scale(1.01)' : 'translateY(0)',
+          ? `inset 0 1px 12px ${hexToRgba(color, 0.15)}, inset 0 0 0 1px ${hexToRgba(color, 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
+          : `inset 0 1px 12px ${hexToRgba(color, 0.15)}, inset 0 0 0 1px ${hexToRgba(color, 0.3)}`,
+        transition: 'box-shadow 280ms ease, transform 280ms ease',
+        transform: h ? 'translateY(-3px)' : 'translateY(0)',
       }}
     >
       {/* Inner beveled frame (static, recessed screen effect) */}
@@ -564,18 +564,17 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
       className="group relative flex flex-col items-center justify-center overflow-hidden"
       style={{
         minHeight: '180px',
-        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
-        background: h
-          ? 'radial-gradient(circle at center, rgba(199,160,8,0.14), rgba(10,14,22,0.92))'
-          : 'radial-gradient(circle at center, rgba(199,160,8,0.06), rgba(10,14,22,0.7))',
+        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+        background: '#12131a',
+        borderTop: '2px solid #c7a008',
         boxShadow: h
-          ? `inset 0 0 0 1.5px rgba(199,160,8,0.6), 0 0 28px rgba(199,160,8,0.25), inset 0 0 22px rgba(199,160,8,0.1)`
-          : `inset 0 0 0 1px rgba(199,160,8,0.25)`,
+          ? `inset 0 1px 12px rgba(199,160,8,0.15), inset 0 0 0 1px rgba(199,160,8,0.5), 0 4px 12px rgba(0,0,0,0.4)`
+          : `inset 0 1px 12px rgba(199,160,8,0.15), inset 0 0 0 1px rgba(199,160,8,0.3)`,
         transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
         cursor: 'pointer',
       }}
     >
-      {/* Subtle HUD grid background (low-opacity, clean) */}
+      {/* Fine HUD grid overlay lines */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -588,11 +587,12 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
         }}
       />
 
-      {/* Faint corner technical text overlays (opacity 0.35, monospace) */}
+      {/* Faint corner technical text overlays (opacity 0.4, 9px monospace) */}
       <div className="absolute top-2 left-2.5 pointer-events-none" style={{
         fontFamily: 'var(--font-jetbrains-mono), monospace',
-        fontSize: '8px',
-        color: 'rgba(199,160,8,0.35)',
+        fontSize: '9px',
+        color: '#c7a008',
+        opacity: 0.4,
         letterSpacing: '0.08em',
         lineHeight: '1.5',
       }}>
@@ -601,8 +601,9 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
       </div>
       <div className="absolute bottom-2 right-2.5 pointer-events-none text-right" style={{
         fontFamily: 'var(--font-jetbrains-mono), monospace',
-        fontSize: '8px',
-        color: 'rgba(199,160,8,0.35)',
+        fontSize: '9px',
+        color: '#c7a008',
+        opacity: 0.4,
         letterSpacing: '0.08em',
         lineHeight: '1.5',
       }}>
@@ -1407,24 +1408,28 @@ export function HomeView() {
         </motion.div>
 
 
-        {/* ── Quick Access — glassmorphism HUD panel with chamfered corners ── */}
+        {/* ── Quick Access — dark teal glass fill + cut-corner cyan border + corner brackets ── */}
         {quickAccessItems.length > 0 && (
           <section className="mt-8 relative overflow-hidden" style={{
             clipPath: 'polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)',
-            background: 'linear-gradient(135deg, rgba(18,20,29,0.85) 0%, rgba(10,12,16,0.95) 100%)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px rgba(0,168,198,0.15)',
-            border: '1px solid rgba(0,168,198,0.25)',
+            background: 'linear-gradient(180deg, rgba(14,26,36,0.7) 0%, rgba(10,12,16,0.9) 100%)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid #00a8c6',
+            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8)',
             padding: '22px',
           }}>
-            {/* Inner ambient bevel highlight (top edge) */}
-            <div className="absolute left-0 right-0 top-0 h-px pointer-events-none" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 50%, transparent)',
+            {/* Top-right corner bracket */}
+            <div className="absolute top-2 right-2 pointer-events-none" style={{
+              width: '14px', height: '14px',
+              borderTop: '2px solid #00a8c6',
+              borderRight: '2px solid #00a8c6',
             }} />
-            {/* Bottom edge bevel shadow */}
-            <div className="absolute left-0 right-0 bottom-0 h-px pointer-events-none" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.5) 50%, transparent)',
+            {/* Bottom-left corner bracket */}
+            <div className="absolute bottom-2 left-2 pointer-events-none" style={{
+              width: '14px', height: '14px',
+              borderBottom: '2px solid #00a8c6',
+              borderLeft: '2px solid #00a8c6',
             }} />
 
             <div className="mb-4 flex items-center justify-between relative" style={{ zIndex: 2 }}>
@@ -1491,23 +1496,27 @@ export function HomeView() {
           </section>
         )}
 
-        {/* ── Auto Projects — glassmorphism HUD panel with chamfered corners ── */}
+        {/* ── Auto Projects — dark industrial gold glass fill + cut-corner gold border ── */}
         <section className="mt-8 relative overflow-hidden" style={{
           clipPath: 'polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)',
-          background: 'linear-gradient(135deg, rgba(18,20,29,0.85) 0%, rgba(10,12,16,0.95) 100%)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px rgba(199,160,8,0.12)',
-          border: '1px solid rgba(199,160,8,0.25)',
+          background: 'linear-gradient(180deg, rgba(25,22,12,0.7) 0%, rgba(10,12,16,0.9) 100%)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid #c7a008',
+          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8)',
           padding: '22px',
         }}>
-          {/* Inner ambient bevel highlight (top edge) */}
-          <div className="absolute left-0 right-0 top-0 h-px pointer-events-none" style={{
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 50%, transparent)',
+          {/* Top-right corner bracket */}
+          <div className="absolute top-2 right-2 pointer-events-none" style={{
+            width: '14px', height: '14px',
+            borderTop: '2px solid #c7a008',
+            borderRight: '2px solid #c7a008',
           }} />
-          {/* Bottom edge bevel shadow */}
-          <div className="absolute left-0 right-0 bottom-0 h-px pointer-events-none" style={{
-            background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.5) 50%, transparent)',
+          {/* Bottom-left corner bracket */}
+          <div className="absolute bottom-2 left-2 pointer-events-none" style={{
+            width: '14px', height: '14px',
+            borderBottom: '2px solid #c7a008',
+            borderLeft: '2px solid #c7a008',
           }} />
 
           <div className="relative" style={{ zIndex: 2 }}>

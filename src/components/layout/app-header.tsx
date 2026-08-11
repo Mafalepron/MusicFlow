@@ -205,30 +205,22 @@ export function AppHeader() {
 
   return (
     <>
-      {/* Unified Header — chamfered cyberpunk HUD bar */}
+      {/* Unified Header — custom dark cybernetic bar with chamfered bottom */}
       <header
         className="sticky top-0 z-30 flex h-14 items-center gap-2 px-3 lg:px-6 relative"
         style={{
-          background: 'linear-gradient(180deg, #11141d 0%, #0a0c10 100%)',
-          borderBottom: '1px solid rgba(31,38,51,0.6)',
-          borderTop: '1px solid rgba(31,38,51,0.4)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+          background: '#0f121a',
+          clipPath: 'polygon(0 0, 100% 0, 98% 100%, 2% 100%)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
         }}
       >
-        {/* Center neon-purple underline glow */}
-        <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-0 h-px" style={{
-          width: '40%',
-          background: 'linear-gradient(90deg, transparent, #7b2cbf 30%, #7b2cbf 70%, transparent)',
-          boxShadow: '0 0 8px #7b2cbf, 0 0 4px #7b2cbf',
-        }} />
-        {/* Etched circuit traces (left + right decorative) */}
-        <div className="pointer-events-none absolute bottom-0 left-0 h-px" style={{
-          width: '25%',
-          background: 'linear-gradient(90deg, rgba(123,44,191,0.4), transparent)',
-        }} />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-px" style={{
-          width: '25%',
-          background: 'linear-gradient(90deg, transparent, rgba(123,44,191,0.4))',
+        {/* Embedded neon-purple line centered in header */}
+        <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2" style={{
+          width: '120px',
+          height: '2px',
+          background: '#9d4edd',
+          boxShadow: '0 0 10px #9d4edd, 0 0 4px #9d4edd',
+          opacity: 0.8,
         }} />
 
         {/* Mobile: hamburger menu */}
@@ -346,8 +338,8 @@ export function AppHeader() {
                 size="icon"
                 className="h-9 w-9 hover:text-[#00a8c6] shrink-0 transition-all"
                 style={{
-                  background: '#12151f',
-                  border: '1px solid #1a202c',
+                  background: '#161a24',
+                  border: '1px solid #232a3b',
                   borderRadius: '4px',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; }}
@@ -449,8 +441,8 @@ export function AppHeader() {
                   size="icon"
                   className="h-9 w-9 hover:text-[#00a8c6] shrink-0 relative transition-all"
                   style={{
-                    background: '#12151f',
-                    border: '1px solid #1a202c',
+                    background: '#161a24',
+                    border: '1px solid #232a3b',
                     borderRadius: '4px',
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; }}
@@ -549,7 +541,7 @@ export function AppHeader() {
                       : 'text-muted-foreground/40 cursor-not-allowed',
                 )}
                 style={{
-                  background: '#12151f',
+                  background: '#161a24',
                   border: chatOpen ? '1px solid #00a8c6' : '1px solid #1a202c',
                   borderRadius: '4px',
                   boxShadow: chatOpen ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
@@ -586,7 +578,7 @@ export function AppHeader() {
           </Tooltip>
         </TooltipProvider>
 
-        {/* Profile dropdown — hexagonal avatar with thin teal border */}
+        {/* Profile dropdown — hexagonal avatar with cyan border */}
         <Popover open={profileOpen} onOpenChange={setProfileOpen}>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
@@ -594,16 +586,16 @@ export function AppHeader() {
                 <PopoverTrigger asChild>
                   <button className="flex items-center gap-2 pl-1 pr-2 py-1 hover:bg-white/[0.04] transition-colors shrink-0">
                     <div className="relative h-7 w-7" style={{
-                      clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
+                      clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)',
                       padding: '1.5px',
                       background: '#00a8c6',
                     }}>
                       <Avatar className="h-full w-full" style={{
-                        clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
+                        clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)',
                         borderRadius: 0,
                       }}>
                         <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
-                        <AvatarFallback className="bg-[#12151f] text-[#00a8c6] text-xs">
+                        <AvatarFallback className="bg-[#161a24] text-[#00a8c6] text-xs">
                           {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
