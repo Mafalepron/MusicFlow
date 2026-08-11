@@ -266,9 +266,9 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
                     y1={layout.cy + r1 * Math.sin(angle)}
                     x2={layout.cx + r2 * Math.cos(angle)}
                     y2={layout.cy + r2 * Math.sin(angle)}
-                    stroke={isMajor ? '#FCEE0A' : '#00d9ff'}
+                    stroke={isMajor ? '#00d9ff' : '#00d9ff'}
                     strokeWidth={isMajor ? 1.5 : 0.5}
-                    strokeOpacity={isMajor ? 0.6 : 0.3}
+                    strokeOpacity={isMajor ? 0.7 : 0.3}
                   />
                 );
               })}
@@ -277,32 +277,32 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
             {/* Counter-rotating inner ring — dashed */}
             <circle
               cx={layout.cx} cy={layout.cy} r={CENTER_R + 6}
-              fill="none" stroke="#00d9ff" strokeWidth={0.5} strokeOpacity={0.25}
+              fill="none" stroke="#00d9ff" strokeWidth={0.5} strokeOpacity={0.3}
               strokeDasharray="2 6"
               className="center-rotate-ring-reverse"
               style={{ transformOrigin: `${layout.cx}px ${layout.cy}px` }}
             />
 
             {/* Pulsing glow circle — behind */}
-            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R + 3} fill="none" stroke="#FCEE0A" strokeWidth={1} strokeOpacity={0.12} className="center-pulse-glow" />
+            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R + 3} fill="none" stroke="#00d9ff" strokeWidth={1} strokeOpacity={0.15} className="center-pulse-glow" />
 
             {/* Main circle — dark with neon border */}
-            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R} fill="#0a0e16" stroke="#FCEE0A" strokeWidth={1.5} className="center-hex" />
+            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R} fill="#0a0e16" stroke="#00d9ff" strokeWidth={1.5} className="center-hex" />
             <circle cx={layout.cx} cy={layout.cy} r={CENTER_R} fill="url(#centerGradient)" />
 
             {/* Bottom arc accent — cyberpunk HUD bracket */}
             <path
               d={`M ${layout.cx - CENTER_R * 0.5} ${layout.cy + CENTER_R * 0.85} A ${CENTER_R * 0.5} ${CENTER_R * 0.5} 0 0 0 ${layout.cx + CENTER_R * 0.5} ${layout.cy + CENTER_R * 0.85}`}
-              fill="none" stroke="#FCEE0A" strokeWidth={1} strokeOpacity={0.4}
+              fill="none" stroke="#00d9ff" strokeWidth={1} strokeOpacity={0.5}
             />
 
             {/* Project name */}
-            <text x={layout.cx} y={layout.cy - 2} textAnchor="middle" fill="#e2e8f0" fontSize={12} fontWeight={700} fontFamily="system-ui, sans-serif" style={{ filter: 'drop-shadow(0 0 4px rgba(252,238,10,0.2))' }}>
+            <text x={layout.cx} y={layout.cy - 2} textAnchor="middle" fill="#e2e8f0" fontSize={12} fontWeight={700} fontFamily="system-ui, sans-serif" style={{ filter: 'drop-shadow(0 0 4px rgba(0,217,255,0.3))' }}>
               {projectName.length > 13 ? projectName.slice(0, 13) + '...' : projectName}
             </text>
 
             {/* "ПРОЕКТ" label */}
-            <text x={layout.cx} y={layout.cy + 12} textAnchor="middle" fill="#FCEE0A" fontSize={8} fontWeight={600} fontFamily="system-ui, sans-serif" letterSpacing="0.15em" opacity={0.7}>
+            <text x={layout.cx} y={layout.cy + 12} textAnchor="middle" fill="#00d9ff" fontSize={8} fontWeight={600} fontFamily="system-ui, sans-serif" letterSpacing="0.15em" opacity={0.8}>
               ПРОЕКТ
             </text>
 
@@ -312,7 +312,7 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
                 x={layout.cx - 10} y={layout.cy + 24}
                 width={20} height={20}
                 fill="#0a0a14"
-                stroke="#FCEE0A"
+                stroke="#00d9ff"
                 strokeWidth={1}
                 className="plus-bg"
                 rx={0}
@@ -477,12 +477,12 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
             transition: filter 0.3s ease;
           }
           .center-circle:hover {
-            filter: drop-shadow(0 0 20px rgba(252, 238, 10, 0.4)) drop-shadow(0 0 8px rgba(0, 217, 255, 0.2));
+            filter: drop-shadow(0 0 20px rgba(0, 217, 255, 0.4)) drop-shadow(0 0 8px rgba(0, 217, 255, 0.2));
           }
           .center-circle:hover .center-hex {
-            stroke: #FCEE0A;
+            stroke: #00d9ff;
             stroke-width: 2.5;
-            filter: drop-shadow(0 0 12px rgba(252, 238, 10, 0.6));
+            filter: drop-shadow(0 0 12px rgba(0, 217, 255, 0.6));
           }
           .center-circle:hover text {
             fill: #ffffff;
@@ -528,17 +528,17 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
           .center-plus:hover { transform: scale(1.3); }
           .center-plus:active { transform: scale(1.1); }
           .plus-bg {
-            fill: #0a0a14; stroke: #FCEE0A; stroke-width: 1;
+            fill: #0a0a14; stroke: #00d9ff; stroke-width: 1;
             transition: fill 0.3s ease, stroke 0.3s ease, stroke-width 0.3s ease;
           }
           .plus-line {
-            stroke: #FCEE0A; stroke-width: 1.5; stroke-linecap: round;
+            stroke: #00d9ff; stroke-width: 1.5; stroke-linecap: round;
             transition: stroke 0.3s ease, stroke-width 0.3s ease;
-            filter: drop-shadow(0 0 3px rgba(252,238,10,0.5));
+            filter: drop-shadow(0 0 3px rgba(0,217,255,0.5));
           }
-          .center-plus:hover .plus-bg { fill: rgba(252,238,10,0.15); stroke: #FCEE0A; stroke-width: 1.5; }
-          .center-plus:hover .plus-line { stroke: #FCEE0A; stroke-width: 2; filter: drop-shadow(0 0 6px rgba(252,238,10,0.8)); }
-          .center-plus[data-pressed] .plus-bg { fill: rgba(252,238,10,0.3); stroke: #FCEE0A; stroke-width: 1.5; }
+          .center-plus:hover .plus-bg { fill: rgba(0,217,255,0.15); stroke: #00d9ff; stroke-width: 1.5; }
+          .center-plus:hover .plus-line { stroke: #00d9ff; stroke-width: 2; filter: drop-shadow(0 0 6px rgba(0,217,255,0.8)); }
+          .center-plus[data-pressed] .plus-bg { fill: rgba(0,217,255,0.3); stroke: #00d9ff; stroke-width: 1.5; }
           .center-plus[data-pressed] .plus-line { stroke: #ffffff; stroke-width: 2; }
           .center-pulse .plus-bg { animation: pulseGlow 2s ease-in-out infinite; }
           .center-pulse .plus-line { animation: pulseGlow 2s ease-in-out infinite; }
@@ -689,8 +689,8 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
 
         <defs>
           <radialGradient id="centerGradient" cx="50%" cy="35%" r="60%">
-            <stop offset="0%" stopColor="#FCEE0A" stopOpacity={0.12} />
-            <stop offset="40%" stopColor="#00d9ff" stopOpacity={0.06} />
+            <stop offset="0%" stopColor="#00d9ff" stopOpacity={0.12} />
+            <stop offset="40%" stopColor="#00d9ff" stopOpacity={0.04} />
             <stop offset="100%" stopColor="transparent" stopOpacity={0} />
           </radialGradient>
         </defs>
