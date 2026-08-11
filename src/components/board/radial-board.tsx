@@ -250,20 +250,69 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
             </g>
           ))}
 
-          {/* Center circle — clickable to show project info */}
+          {/* Center circle — cyberpunk 2077 style, clickable to show project info */}
           <g className="center-circle" onClick={() => onCenterClick?.()} style={{ cursor: onCenterClick ? 'pointer' : 'default' }}>
-            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R} fill="#1a1a2e" stroke="#2a2a4a" strokeWidth={2} />
-            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R} fill="url(#centerGradient)" />
-            <text x={layout.cx} y={layout.cy - 6} textAnchor="middle" fill="#e2e8f0" fontSize={13} fontWeight={700} fontFamily="system-ui, sans-serif">
-              {projectName.length > 14 ? projectName.slice(0, 14) + '...' : projectName}
+            {/* Outer rotating ring — animated */}
+            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R + 8} fill="none" stroke="#FCEE0A" strokeWidth={0.5} strokeOpacity={0.2} strokeDasharray="4 8" className="center-rotate-ring" />
+
+            {/* Pulsing glow circle — behind */}
+            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R + 4} fill="none" stroke="#FCEE0A" strokeWidth={1} strokeOpacity={0.15} className="center-pulse-glow" />
+
+            {/* Main hexagon shape — angular cyberpunk */}
+            <polygon
+              points={`${layout.cx},${layout.cy - CENTER_R} ${layout.cx + CENTER_R * 0.866},${layout.cy - CENTER_R * 0.5} ${layout.cx + CENTER_R * 0.866},${layout.cy + CENTER_R * 0.5} ${layout.cx},${layout.cy + CENTER_R} ${layout.cx - CENTER_R * 0.866},${layout.cy + CENTER_R * 0.5} ${layout.cx - CENTER_R * 0.866},${layout.cy - CENTER_R * 0.5}`}
+              fill="#0a0e16"
+              stroke="#FCEE0A"
+              strokeWidth={1.5}
+              className="center-hex"
+            />
+
+            {/* Inner gradient fill */}
+            <polygon
+              points={`${layout.cx},${layout.cy - CENTER_R + 4} ${layout.cx + CENTER_R * 0.866 - 4},${layout.cy - CENTER_R * 0.5 + 2} ${layout.cx + CENTER_R * 0.866 - 4},${layout.cy + CENTER_R * 0.5 - 2} ${layout.cx},${layout.cy + CENTER_R - 4} ${layout.cx - CENTER_R * 0.866 + 4},${layout.cy + CENTER_R * 0.5 - 2} ${layout.cx - CENTER_R * 0.866 + 4},${layout.cy - CENTER_R * 0.5 + 2}`}
+              fill="url(#centerGradient)"
+            />
+
+            {/* Top accent line — neon yellow */}
+            <line
+              x1={layout.cx - CENTER_R * 0.6} y1={layout.cy - CENTER_R + 2}
+              x2={layout.cx + CENTER_R * 0.6} y2={layout.cy - CENTER_R + 2}
+              stroke="#FCEE0A" strokeWidth={2} strokeLinecap="round"
+              opacity={0.6}
+              style={{ filter: 'drop-shadow(0 0 4px #FCEE0A)' }}
+            />
+
+            {/* Project name */}
+            <text x={layout.cx} y={layout.cy - 4} textAnchor="middle" fill="#e2e8f0" fontSize={12} fontWeight={700} fontFamily="system-ui, sans-serif" style={{ filter: 'drop-shadow(0 0 4px rgba(252,238,10,0.2))' }}>
+              {projectName.length > 12 ? projectName.slice(0, 12) + '...' : projectName}
             </text>
-            <text x={layout.cx} y={layout.cy + 12} textAnchor="middle" fill="#64748b" fontSize={9} fontFamily="system-ui, sans-serif">
+
+            {/* "ПРОЕКТ" label */}
+            <text x={layout.cx} y={layout.cy + 10} textAnchor="middle" fill="#FCEE0A" fontSize={8} fontWeight={600} fontFamily="system-ui, sans-serif" letterSpacing="0.15em" opacity={0.7}>
               ПРОЕКТ
             </text>
+
+            {/* Corner accent dots — cyberpunk detail */}
+            <circle cx={layout.cx + CENTER_R * 0.6} cy={layout.cy - CENTER_R * 0.35} r={1.5} fill="#FCEE0A" opacity={0.5} />
+            <circle cx={layout.cx - CENTER_R * 0.6} cy={layout.cy - CENTER_R * 0.35} r={1.5} fill="#00d9ff" opacity={0.5} />
+            <circle cx={layout.cx + CENTER_R * 0.6} cy={layout.cy + CENTER_R * 0.35} r={1.5} fill="#00d9ff" opacity={0.5} />
+            <circle cx={layout.cx - CENTER_R * 0.6} cy={layout.cy + CENTER_R * 0.35} r={1.5} fill="#FCEE0A" opacity={0.5} />
+
+            {/* Plus button — cyberpunk angular style */}
             <g className={cn('center-plus', boards.length === 0 && 'center-pulse')} onClick={(e) => { e.stopPropagation(); handlePlusClick(); }} data-pressed={plusPressed || undefined}>
-              <circle cx={layout.cx} cy={layout.cy + 30} r={10} className="plus-bg" />
-              <line x1={layout.cx - 4} y1={layout.cy + 30} x2={layout.cx + 4} y2={layout.cy + 30} className="plus-line" />
-              <line x1={layout.cx} y1={layout.cy + 26} x2={layout.cx} y2={layout.cy + 34} className="plus-line" />
+              {/* Angular plus button background */}
+              <rect
+                x={layout.cx - 10} y={layout.cy + 24}
+                width={20} height={20}
+                fill="#0a0a14"
+                stroke="#FCEE0A"
+                strokeWidth={1}
+                className="plus-bg"
+                rx={0}
+                style={{ clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))' }}
+              />
+              <line x1={layout.cx - 4} y1={layout.cy + 34} x2={layout.cx + 4} y2={layout.cy + 34} className="plus-line" />
+              <line x1={layout.cx} y1={layout.cy + 30} x2={layout.cx} y2={layout.cy + 38} className="plus-line" />
             </g>
           </g>
 
@@ -418,30 +467,65 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
 
         <style>{`
           .center-circle {
-            transition: filter 0.2s ease;
+            transition: filter 0.3s ease;
           }
           .center-circle:hover {
-            filter: drop-shadow(0 0 12px rgba(252, 238, 10, 0.3));
+            filter: drop-shadow(0 0 20px rgba(252, 238, 10, 0.4)) drop-shadow(0 0 8px rgba(0, 217, 255, 0.2));
           }
+          .center-circle:hover .center-hex {
+            stroke: #FCEE0A;
+            stroke-width: 2.5;
+            filter: drop-shadow(0 0 12px rgba(252, 238, 10, 0.6));
+          }
+          .center-circle:hover text {
+            fill: #ffffff;
+          }
+
+          /* Rotating outer ring */
+          .center-rotate-ring {
+            transform-origin: center;
+            transform-box: fill-box;
+            animation: center-rotate 20s linear infinite;
+          }
+          @keyframes center-rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+
+          /* Pulsing glow */
+          .center-pulse-glow {
+            animation: center-glow-pulse 3s ease-in-out infinite;
+          }
+          @keyframes center-glow-pulse {
+            0%, 100% { stroke-opacity: 0.1; r: 59; }
+            50% { stroke-opacity: 0.3; r: 62; }
+          }
+
+          /* Hexagon transition */
+          .center-hex {
+            transition: stroke 0.3s ease, stroke-width 0.3s ease, filter 0.3s ease;
+          }
+
           .center-plus {
             cursor: pointer;
             transform-box: fill-box;
             transform-origin: center;
             transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
           }
-          .center-plus:hover { transform: scale(1.35); }
-          .center-plus:active { transform: scale(1.15); }
+          .center-plus:hover { transform: scale(1.3); }
+          .center-plus:active { transform: scale(1.1); }
           .plus-bg {
-            fill: #0a0a0a; stroke: #334155; stroke-width: 1;
+            fill: #0a0a14; stroke: #FCEE0A; stroke-width: 1;
             transition: fill 0.3s ease, stroke 0.3s ease, stroke-width 0.3s ease;
           }
           .plus-line {
-            stroke: #64748b; stroke-width: 1.5; stroke-linecap: round;
+            stroke: #FCEE0A; stroke-width: 1.5; stroke-linecap: round;
             transition: stroke 0.3s ease, stroke-width 0.3s ease;
+            filter: drop-shadow(0 0 3px rgba(252,238,10,0.5));
           }
-          .center-plus:hover .plus-bg { stroke: #00d9ff; stroke-width: 1.5; }
-          .center-plus:hover .plus-line { stroke: #00d9ff; stroke-width: 2; }
-          .center-plus[data-pressed] .plus-bg { fill: #0e7490; stroke: #00d9ff; stroke-width: 1.5; }
+          .center-plus:hover .plus-bg { fill: rgba(252,238,10,0.15); stroke: #FCEE0A; stroke-width: 1.5; }
+          .center-plus:hover .plus-line { stroke: #FCEE0A; stroke-width: 2; filter: drop-shadow(0 0 6px rgba(252,238,10,0.8)); }
+          .center-plus[data-pressed] .plus-bg { fill: rgba(252,238,10,0.3); stroke: #FCEE0A; stroke-width: 1.5; }
           .center-plus[data-pressed] .plus-line { stroke: #ffffff; stroke-width: 2; }
           .center-pulse .plus-bg { animation: pulseGlow 2s ease-in-out infinite; }
           .center-pulse .plus-line { animation: pulseGlow 2s ease-in-out infinite; }
@@ -591,8 +675,9 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
         `}</style>
 
         <defs>
-          <radialGradient id="centerGradient" cx="50%" cy="40%" r="50%">
-            <stop offset="0%" stopColor="#2a2a4a" stopOpacity={0.5} />
+          <radialGradient id="centerGradient" cx="50%" cy="35%" r="60%">
+            <stop offset="0%" stopColor="#FCEE0A" stopOpacity={0.12} />
+            <stop offset="40%" stopColor="#00d9ff" stopOpacity={0.06} />
             <stop offset="100%" stopColor="transparent" stopOpacity={0} />
           </radialGradient>
         </defs>
