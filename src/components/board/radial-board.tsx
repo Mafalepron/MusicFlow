@@ -250,57 +250,64 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
             </g>
           ))}
 
-          {/* Center circle — cyberpunk 2077 style, clickable to show project info */}
+          {/* Center circle — cyberpunk 2077 spinning chip ring */}
           <g className="center-circle" onClick={() => onCenterClick?.()} style={{ cursor: onCenterClick ? 'pointer' : 'default' }}>
-            {/* Outer rotating ring — animated */}
-            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R + 8} fill="none" stroke="#FCEE0A" strokeWidth={0.5} strokeOpacity={0.2} strokeDasharray="4 8" className="center-rotate-ring" />
+            {/* Outer rotating ring with tick marks — like a cyberpunk HUD */}
+            <g className="center-rotate-ring" style={{ transformOrigin: `${layout.cx}px ${layout.cy}px` }}>
+              {Array.from({ length: 36 }).map((_, i) => {
+                const angle = (i * 10 - 90) * Math.PI / 180;
+                const isMajor = i % 9 === 0;
+                const r1 = CENTER_R + 10;
+                const r2 = CENTER_R + (isMajor ? 16 : 13);
+                return (
+                  <line
+                    key={i}
+                    x1={layout.cx + r1 * Math.cos(angle)}
+                    y1={layout.cy + r1 * Math.sin(angle)}
+                    x2={layout.cx + r2 * Math.cos(angle)}
+                    y2={layout.cy + r2 * Math.sin(angle)}
+                    stroke={isMajor ? '#FCEE0A' : '#00d9ff'}
+                    strokeWidth={isMajor ? 1.5 : 0.5}
+                    strokeOpacity={isMajor ? 0.6 : 0.3}
+                  />
+                );
+              })}
+            </g>
+
+            {/* Counter-rotating inner ring — dashed */}
+            <circle
+              cx={layout.cx} cy={layout.cy} r={CENTER_R + 6}
+              fill="none" stroke="#00d9ff" strokeWidth={0.5} strokeOpacity={0.25}
+              strokeDasharray="2 6"
+              className="center-rotate-ring-reverse"
+              style={{ transformOrigin: `${layout.cx}px ${layout.cy}px` }}
+            />
 
             {/* Pulsing glow circle — behind */}
-            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R + 4} fill="none" stroke="#FCEE0A" strokeWidth={1} strokeOpacity={0.15} className="center-pulse-glow" />
+            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R + 3} fill="none" stroke="#FCEE0A" strokeWidth={1} strokeOpacity={0.12} className="center-pulse-glow" />
 
-            {/* Main hexagon shape — angular cyberpunk */}
-            <polygon
-              points={`${layout.cx},${layout.cy - CENTER_R} ${layout.cx + CENTER_R * 0.866},${layout.cy - CENTER_R * 0.5} ${layout.cx + CENTER_R * 0.866},${layout.cy + CENTER_R * 0.5} ${layout.cx},${layout.cy + CENTER_R} ${layout.cx - CENTER_R * 0.866},${layout.cy + CENTER_R * 0.5} ${layout.cx - CENTER_R * 0.866},${layout.cy - CENTER_R * 0.5}`}
-              fill="#0a0e16"
-              stroke="#FCEE0A"
-              strokeWidth={1.5}
-              className="center-hex"
-            />
+            {/* Main circle — dark with neon border */}
+            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R} fill="#0a0e16" stroke="#FCEE0A" strokeWidth={1.5} className="center-hex" />
+            <circle cx={layout.cx} cy={layout.cy} r={CENTER_R} fill="url(#centerGradient)" />
 
-            {/* Inner gradient fill */}
-            <polygon
-              points={`${layout.cx},${layout.cy - CENTER_R + 4} ${layout.cx + CENTER_R * 0.866 - 4},${layout.cy - CENTER_R * 0.5 + 2} ${layout.cx + CENTER_R * 0.866 - 4},${layout.cy + CENTER_R * 0.5 - 2} ${layout.cx},${layout.cy + CENTER_R - 4} ${layout.cx - CENTER_R * 0.866 + 4},${layout.cy + CENTER_R * 0.5 - 2} ${layout.cx - CENTER_R * 0.866 + 4},${layout.cy - CENTER_R * 0.5 + 2}`}
-              fill="url(#centerGradient)"
-            />
-
-            {/* Top accent line — neon yellow */}
-            <line
-              x1={layout.cx - CENTER_R * 0.6} y1={layout.cy - CENTER_R + 2}
-              x2={layout.cx + CENTER_R * 0.6} y2={layout.cy - CENTER_R + 2}
-              stroke="#FCEE0A" strokeWidth={2} strokeLinecap="round"
-              opacity={0.6}
-              style={{ filter: 'drop-shadow(0 0 4px #FCEE0A)' }}
+            {/* Bottom arc accent — cyberpunk HUD bracket */}
+            <path
+              d={`M ${layout.cx - CENTER_R * 0.5} ${layout.cy + CENTER_R * 0.85} A ${CENTER_R * 0.5} ${CENTER_R * 0.5} 0 0 0 ${layout.cx + CENTER_R * 0.5} ${layout.cy + CENTER_R * 0.85}`}
+              fill="none" stroke="#FCEE0A" strokeWidth={1} strokeOpacity={0.4}
             />
 
             {/* Project name */}
-            <text x={layout.cx} y={layout.cy - 4} textAnchor="middle" fill="#e2e8f0" fontSize={12} fontWeight={700} fontFamily="system-ui, sans-serif" style={{ filter: 'drop-shadow(0 0 4px rgba(252,238,10,0.2))' }}>
-              {projectName.length > 12 ? projectName.slice(0, 12) + '...' : projectName}
+            <text x={layout.cx} y={layout.cy - 2} textAnchor="middle" fill="#e2e8f0" fontSize={12} fontWeight={700} fontFamily="system-ui, sans-serif" style={{ filter: 'drop-shadow(0 0 4px rgba(252,238,10,0.2))' }}>
+              {projectName.length > 13 ? projectName.slice(0, 13) + '...' : projectName}
             </text>
 
             {/* "ПРОЕКТ" label */}
-            <text x={layout.cx} y={layout.cy + 10} textAnchor="middle" fill="#FCEE0A" fontSize={8} fontWeight={600} fontFamily="system-ui, sans-serif" letterSpacing="0.15em" opacity={0.7}>
+            <text x={layout.cx} y={layout.cy + 12} textAnchor="middle" fill="#FCEE0A" fontSize={8} fontWeight={600} fontFamily="system-ui, sans-serif" letterSpacing="0.15em" opacity={0.7}>
               ПРОЕКТ
             </text>
 
-            {/* Corner accent dots — cyberpunk detail */}
-            <circle cx={layout.cx + CENTER_R * 0.6} cy={layout.cy - CENTER_R * 0.35} r={1.5} fill="#FCEE0A" opacity={0.5} />
-            <circle cx={layout.cx - CENTER_R * 0.6} cy={layout.cy - CENTER_R * 0.35} r={1.5} fill="#00d9ff" opacity={0.5} />
-            <circle cx={layout.cx + CENTER_R * 0.6} cy={layout.cy + CENTER_R * 0.35} r={1.5} fill="#00d9ff" opacity={0.5} />
-            <circle cx={layout.cx - CENTER_R * 0.6} cy={layout.cy + CENTER_R * 0.35} r={1.5} fill="#FCEE0A" opacity={0.5} />
-
             {/* Plus button — cyberpunk angular style */}
             <g className={cn('center-plus', boards.length === 0 && 'center-pulse')} onClick={(e) => { e.stopPropagation(); handlePlusClick(); }} data-pressed={plusPressed || undefined}>
-              {/* Angular plus button background */}
               <rect
                 x={layout.cx - 10} y={layout.cy + 24}
                 width={20} height={20}
@@ -481,15 +488,21 @@ export default function RadialBoard({ projectName, onAddBoard, onCenterClick }: 
             fill: #ffffff;
           }
 
-          /* Rotating outer ring */
+          /* Rotating outer ring — tick marks */
           .center-rotate-ring {
-            transform-origin: center;
-            transform-box: fill-box;
-            animation: center-rotate 20s linear infinite;
+            animation: center-rotate 30s linear infinite;
+          }
+          /* Counter-rotating inner ring — dashed */
+          .center-rotate-ring-reverse {
+            animation: center-rotate-rev 20s linear infinite;
           }
           @keyframes center-rotate {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
+          }
+          @keyframes center-rotate-rev {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
           }
 
           /* Pulsing glow */
