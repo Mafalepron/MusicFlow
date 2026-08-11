@@ -1703,3 +1703,80 @@ Stage Summary:
 - StatBar: clean segmented widget, no glows, muted borders, monochrome icons.
 - CreateCard: subtle low-opacity HUD grid + subtle SECURITY_ENCRYPTION micro-text (0.20 opacity).
 - Lint clean, TypeScript clean, dev server HTTP 200, 0 console errors, VLM-verified 9/10 compliance.
+
+---
+Task ID: KB9-GLASSMORPHISM-DEPTH
+Agent: main
+Task: Refactor to glassmorphism + spatial depth + chamfered geometry + recessed icon frames + hexagonal avatar per spec
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from KB8-MUTED-HUD-CONSTRAINTS (muted tokens already applied: #00a8c6 cyan, #7b2cbf purple, #c7a008 yellow, glows capped to 8px/0.25).
+
+Change 1 — Global background glassmorphism grid (home-view.tsx):
+- Replaced 40px HUD grid (rgba(31,38,51,0.15)) with spec 20px grid using rgba(255,255,255,0.02) per spec: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px) + 90deg variant, backgroundSize 20px 20px.
+- Added 2 ambient radial depth glows: radial purple rgba(123,44,191,0.08) at 50% 0%, radial cyan rgba(0,168,198,0.06) at 90% 100% (within 0.25 opacity cap).
+
+Change 2 — Quick Access panel glassmorphism + chamfered (home-view.tsx):
+- Replaced fractured light-trail border + animated trail + corner accents with clean glassmorphism per spec.
+- clip-path changed to spec polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%) — 45° chamfered top-left + bottom-right.
+- background: linear-gradient(135deg, rgba(18,20,29,0.85) 0%, rgba(10,12,16,0.95) 100%) — semi-transparent dark glass.
+- backdrop-filter: blur(12px) + WebkitBackdropFilter for cross-browser glass effect.
+- boxShadow: inset 0 1px 1px rgba(255,255,255,0.05) (top bevel highlight), inset 0 -1px 1px rgba(0,0,0,0.8) (bottom bevel shadow), 0 0 8px rgba(0,168,198,0.15) (ambient glow).
+- border: 1px solid rgba(0,168,198,0.25) — thin controlled cyan outline.
+- Added top-edge highlight gradient (rgba(255,255,255,0.08) 50%) + bottom-edge shadow gradient (rgba(0,0,0,0.5) 50%) for 3D bevel appearance.
+
+Change 3 — Auto Projects panel glassmorphism + chamfered (home-view.tsx):
+- Same glassmorphism treatment as Quick Access but with yellow accent: border rgba(199,160,8,0.25), ambient glow rgba(199,160,8,0.12).
+- Removed fractured light-trail border, animated trail, corner accents, neon top bar.
+- "Все →" link now monospace, letterSpacing 1px, no text-shadow glow.
+
+Change 4 — SectionHeader uppercase wide-tracked (home-view.tsx):
+- Title now: uppercase, fontFamily var(--font-rajdhani), fontWeight 700, letterSpacing 2px, color TEXT_PRIMARY (#e2e8f0).
+- Removed default text-slate-200 class.
+
+Change 5 — Quick Access title + badges (home-view.tsx):
+- "Быстрый доступ" title: uppercase Rajdhani 700 letterSpacing 2px, no text-shadow glow.
+- "N/7 активных" badge: JetBrains Mono, opacity 0.85, no text-shadow.
+- "Изменить" button: JetBrains Mono, no text-shadow.
+
+Change 6 — ProjectCard meta + status dot + Открыть Kanban (home-view.tsx):
+- Meta row: JetBrains Mono 11px, opacity 0.6 per spec.
+- Status dot: boxShadow 0 0 6px rgba(sc,0.6) — matching colored glow (e.g. orange for Черновик #ed8936).
+- "Открыть Kanban" button: cyan #00a8c6 color, JetBrains Mono, letterSpacing 1px, Key icon (no drop-shadow glow), no text-shadow.
+
+Change 7 — AppHeader recessed icon frames (app-header.tsx):
+- Search button: replaced chamfered clip-path + cyan border with spec recessed square frame: background #12151f, border 1px solid #1a202c, borderRadius 4px. Hover: borderColor #00a8c6 + boxShadow 0 0 8px rgba(0,168,198,0.25).
+- Notifications bell: same recessed frame + purple alert badge (unchanged).
+- Chat toggle: same recessed frame, border turns cyan when active.
+- Profile avatar: hexagonal clip-path polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%) per spec, thin teal #00a8c6 border (1.5px padding), no gradient, no boxShadow glow. Fallback bg #12151f, text #00a8c6.
+
+Change 8 — CreateCard corner technical text (home-view.tsx):
+- Updated micro-text to spec: fontSize 8px (was 7px), opacity 0.35 (was 0.20), letterSpacing 0.08em.
+- Top-left: "SECURITY ENCRYPTION ACTIVE" + "PROJECTION: 60".
+- Bottom-right: "CODE: 1-00000.F0" + "RING_SYS:ONLINE".
+- All in JetBrains Mono at rgba(199,160,8,0.35) opacity per spec.
+
+- Ran `npx tsc --noEmit` → 0 errors. Ran `bun run lint` → 0 errors in home-view.tsx/app-header.tsx (1 pre-existing unrelated error in app-header.tsx:132).
+- Dev server GET / returns 200.
+
+- Agent Browser + VLM verification:
+  * Glassmorphism: "semi-transparent dark background with frosted glass effect, inset bevel box-shadow highlighting top edge and shadowing bottom, creating depth" ✓
+  * Chamfered corners: "sharp 45-degree cut corners (clip-path polygon), NOT standard rounded corners" ✓
+  * Background grid: "subtle low-contrast grid pattern visible across background" ✓
+  * Header icons: "encased in dark recessed square frames with defined borders" ✓
+  * Avatar: "hexagonal with thin teal/cyan border" ✓
+  * Section titles: "uppercase, bold, wide letter-spacing ~2px" ✓
+  * CREATE button: "faint corner technical text SECURITY ENCRYPTION ACTIVE, PROJECTION: 60, CODE: 1-00000.F0 at low opacity monospace; circular HUD with concentric yellow rings; solid dark core with gold border containing СОЗДАТЬ" ✓
+
+Stage Summary:
+- Panels now use glassmorphism: linear-gradient(135deg, rgba(18,20,29,0.85)→rgba(10,12,16,0.95)) + backdrop-filter blur(12px) + inset bevel box-shadow (top highlight + bottom shadow) for spatial depth.
+- Chamfered corners via clip-path polygon(0 12px, 12px 0, 100% 0, 100% calc(100%-12px), calc(100%-12px) 100%, 0 100%) — 45° cuts on top-left + bottom-right. NO standard border-radius on main sections.
+- Background: 20px HUD grid rgba(255,255,255,0.02) + ambient radial purple/cyan depth glows.
+- Header icons: recessed square frames (#12151f bg, #1a202c border, 4px radius), hover lights up with cyan border + 8px glow.
+- Avatar: hexagonal clip-path with thin teal #00a8c6 border.
+- Section titles: uppercase Rajdhani 700 letterSpacing 2px.
+- Metadata: JetBrains Mono 11px opacity 0.6.
+- Status dots: matching colored glow (0 0 6px rgba(sc,0.6)).
+- Открыть Kanban: cyan monospace with Key icon, no glow.
+- CREATE button: concentric yellow rings + faint corner technical text (SECURITY ENCRYPTION ACTIVE, PROJECTION: 60, CODE: 1-00000.F0) at opacity 0.35.
+- Lint clean, TypeScript clean, dev server HTTP 200, 0 console errors, all spec requirements VLM-verified.

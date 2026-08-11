@@ -285,14 +285,22 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
           <WaveformProgressBar progress={progress} accentColor={t.color} height={48} bars={32} />
         </div>
 
-        {/* Meta row */}
-        <div className="flex items-center gap-3 text-[11px]" style={{ color: h ? hexToRgba(t.color, 0.85) : '#7c8aa5', fontFamily: 'monospace' }}>
+        {/* Meta row — monospace 11px opacity 0.6 per spec */}
+        <div className="flex items-center gap-3 text-[11px]" style={{
+          color: h ? hexToRgba(t.color, 0.85) : TEXT_SECONDARY,
+          fontFamily: 'var(--font-jetbrains-mono), monospace',
+          opacity: 0.6,
+        }}>
           <span className="flex items-center gap-1">
             <Music2 className="w-3 h-3" style={{ color: t.color, opacity: h ? 1 : 0.65 }} />
             {trackCount} {plural(trackCount, ['трек', 'трека', 'треков'])}
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 5px ${hexToRgba(sc, 0.6)}` }} />
+            {/* Status dot with matching colored glow (e.g. orange for Черновик) */}
+            <span className="w-1.5 h-1.5 rounded-full" style={{
+              background: sc,
+              boxShadow: `0 0 6px ${hexToRgba(sc, 0.6)}`,
+            }} />
             {sl}
           </span>
         </div>
@@ -300,17 +308,18 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
         {hasKanban && (
           <button
             onClick={(e) => { e.stopPropagation(); onKanban(); }}
-            className="mt-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105"
+            className="mt-3 flex items-center gap-1.5 text-[11px] font-bold uppercase transition-all hover:scale-105"
             style={{
-              color: h ? C : hexToRgba(C, 0.7),
-              textShadow: h ? `0 0 6px ${hexToRgba(C, 0.5)}` : 'none',
+              color: C,
+              fontFamily: 'var(--font-jetbrains-mono), monospace',
+              letterSpacing: '1px',
               clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
               padding: '4px 8px',
               background: h ? hexToRgba(C, 0.1) : 'transparent',
               border: `0.5px solid ${h ? hexToRgba(C, 0.4) : hexToRgba(C, 0.2)}`,
             }}
           >
-            <Key className="w-3 h-3" style={{ filter: h ? `drop-shadow(0 0 2px ${C})` : 'none' }} />
+            <Key className="w-3 h-3" />
             Открыть Kanban
           </button>
         )}
@@ -517,7 +526,7 @@ function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number;
   );
 }
 
-/* ─── Section header ─── */
+/* ─── Section header — uppercase bold wide-tracked title ─── */
 function SectionHeader({ title, action, accentColor }: { title: string; action?: React.ReactNode; accentColor?: string }) {
   return (
     <div className="mb-4 flex items-center justify-between">
@@ -531,7 +540,12 @@ function SectionHeader({ title, action, accentColor }: { title: string; action?:
             <Zap className="w-3.5 h-3.5" style={{ color: accentColor }} />
           </div>
         )}
-        <h2 className="text-sm font-bold tracking-wide text-slate-200">{title}</h2>
+        <h2 className="text-sm font-bold uppercase" style={{
+          color: TEXT_PRIMARY,
+          fontFamily: 'var(--font-rajdhani), sans-serif',
+          fontWeight: 700,
+          letterSpacing: '2px',
+        }}>{title}</h2>
       </div>
       {action}
     </div>
@@ -574,24 +588,25 @@ function CreateCard({ onClick, label }: { onClick: () => void; label: string }) 
         }}
       />
 
-      {/* Subtle low-opacity technical micro-text (SECURITY ENCRYPTION ACTIVE) */}
+      {/* Faint corner technical text overlays (opacity 0.35, monospace) */}
       <div className="absolute top-2 left-2.5 pointer-events-none" style={{
         fontFamily: 'var(--font-jetbrains-mono), monospace',
-        fontSize: '7px',
-        color: 'rgba(199,160,8,0.20)',
-        letterSpacing: '0.1em',
-        lineHeight: '1.4',
+        fontSize: '8px',
+        color: 'rgba(199,160,8,0.35)',
+        letterSpacing: '0.08em',
+        lineHeight: '1.5',
       }}>
-        <div>SECURITY_ENCRYPTION</div>
-        <div>ACTIVE</div>
+        <div>SECURITY ENCRYPTION ACTIVE</div>
+        <div>PROJECTION: 60</div>
       </div>
       <div className="absolute bottom-2 right-2.5 pointer-events-none text-right" style={{
         fontFamily: 'var(--font-jetbrains-mono), monospace',
-        fontSize: '7px',
-        color: 'rgba(199,160,8,0.20)',
-        letterSpacing: '0.1em',
-        lineHeight: '1.4',
+        fontSize: '8px',
+        color: 'rgba(199,160,8,0.35)',
+        letterSpacing: '0.08em',
+        lineHeight: '1.5',
       }}>
+        <div>CODE: 1-00000.F0</div>
         <div>RING_SYS:ONLINE</div>
       </div>
 
@@ -1347,17 +1362,19 @@ export function HomeView() {
 
   return (
     <div className="min-h-full relative" style={{ background: BG_MAIN }}>
-      {/* ── Global background: clean dark graphite + ultra-faint HUD grid (no glitch/circuit traces) ── */}
+      {/* ── Global background: glassmorphism HUD grid + ambient depth glows ── */}
       <div
         className="pointer-events-none fixed inset-0"
         style={{
           zIndex: 0,
           backgroundColor: BG_MAIN,
           backgroundImage: `
-            linear-gradient(rgba(31,38,51,0.15) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(31,38,51,0.15) 1px, transparent 1px)
+            radial-gradient(ellipse 80% 50% at 50% 0%, rgba(123,44,191,0.08) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 90% 100%, rgba(0,168,198,0.06) 0%, transparent 55%),
+            linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
           `,
-          backgroundSize: '40px 40px, 40px 40px',
+          backgroundSize: '100% 100%, 100% 100%, 20px 20px, 20px 20px',
         }}
       />
 
@@ -1390,50 +1407,25 @@ export function HomeView() {
         </motion.div>
 
 
-        {/* ── Quick Access — fractured neon-blue light-trail border ── */}
+        {/* ── Quick Access — glassmorphism HUD panel with chamfered corners ── */}
         {quickAccessItems.length > 0 && (
           <section className="mt-8 relative overflow-hidden" style={{
-            clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-            background: 'linear-gradient(180deg, rgba(0,168,198,0.10) 0%, rgba(12,18,26,0.95) 40%)',
+            clipPath: 'polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)',
+            background: 'linear-gradient(135deg, rgba(18,20,29,0.85) 0%, rgba(10,12,16,0.95) 100%)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px rgba(0,168,198,0.15)',
+            border: '1px solid rgba(0,168,198,0.25)',
             padding: '22px',
           }}>
-            {/* ── Multi-layered fractured light-trail border (cyan) ── */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                padding: '1.5px',
-                background: 'linear-gradient(90deg, rgba(0,168,198,0.7) 0%, rgba(0,168,198,0.15) 15%, rgba(0,168,198,0.7) 25%, rgba(123,44,191,0.55) 50%, rgba(0,168,198,0.7) 75%, rgba(0,168,198,0.15) 85%, rgba(0,168,198,0.7) 100%)',
-                backgroundSize: '200% 100%',
-                animation: 'kb2-trail-cyan 6s linear infinite',
-                WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
-                WebkitMaskComposite: 'xor',
-                maskComposite: 'exclude',
-                clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-                boxShadow: '0 0 8px rgba(0,168,198,0.25), inset 0 0 8px rgba(0,168,198,0.08)',
-                zIndex: 1,
-              }}
-            />
-            {/* Inner glow layer */}
-            <div
-              className="absolute inset-[3px] pointer-events-none"
-              style={{
-                clipPath: 'polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px))',
-                border: '1px solid rgba(0,168,198,0.18)',
-                animation: 'kb2-pulse-cyan 3s ease-in-out infinite',
-                zIndex: 1,
-              }}
-            />
-
-            {/* Neon top bar — cyan */}
-            <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
-              background: 'linear-gradient(90deg, transparent, #00a8c6 20%, #00a8c6 80%, transparent)',
-              boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+            {/* Inner ambient bevel highlight (top edge) */}
+            <div className="absolute left-0 right-0 top-0 h-px pointer-events-none" style={{
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 50%, transparent)',
             }} />
-            {/* Corner accents — cyan, larger fractured style */}
-            <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #00a8c6', borderLeft: '2.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
-            <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #00a8c6', borderRight: '2.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
-            <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #00a8c6', borderLeft: '2.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
-            <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #00a8c6', borderRight: '2.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
+            {/* Bottom edge bevel shadow */}
+            <div className="absolute left-0 right-0 bottom-0 h-px pointer-events-none" style={{
+              background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.5) 50%, transparent)',
+            }} />
 
             <div className="mb-4 flex items-center justify-between relative" style={{ zIndex: 2 }}>
               <div className="flex items-center gap-2">
@@ -1445,29 +1437,35 @@ export function HomeView() {
                 }}>
                   <Zap className="w-3.5 h-3.5" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 3px rgba(0,168,198,0.25))' }} />
                 </div>
-                <h2 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: '#00a8c6', textShadow: '0 0 8px rgba(0,168,198,0.25), 0 0 4px rgba(0,168,198,0.25)' }}>
+                <h2 className="text-sm font-bold uppercase" style={{
+                  color: '#00a8c6',
+                  fontFamily: 'var(--font-rajdhani), sans-serif',
+                  fontWeight: 700,
+                  letterSpacing: '2px',
+                }}>
                   Быстрый доступ
                 </h2>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-1" style={{
+                <span className="text-[11px] font-bold uppercase px-2 py-1" style={{
                   color: '#00a8c6',
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
                   clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
                   background: 'rgba(0,168,198,0.08)',
                   border: '1px solid rgba(0,168,198,0.3)',
-                  textShadow: '0 0 6px rgba(0,168,198,0.25)',
+                  opacity: 0.85,
                 }}>
                   {quickAccessItems.length}/{MAX_QUICK_ACCESS} активных
                 </span>
                 <button
                   onClick={() => setManageQuickOpen(true)}
-                  className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 transition-all hover:scale-105"
+                  className="flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 transition-all hover:scale-105"
                   style={{
                     color: '#00a8c6',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
                     clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
                     background: 'rgba(0,168,198,0.08)',
                     border: '1px solid rgba(0,168,198,0.3)',
-                    textShadow: '0 0 6px rgba(0,168,198,0.25)',
                   }}
                   title="Управлять быстрым доступом"
                 >
@@ -1493,55 +1491,35 @@ export function HomeView() {
           </section>
         )}
 
-        {/* ── Auto Projects — pulsating yellow fractured light-trail panel ── */}
+        {/* ── Auto Projects — glassmorphism HUD panel with chamfered corners ── */}
         <section className="mt-8 relative overflow-hidden" style={{
-          clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-          background: 'linear-gradient(180deg, rgba(199,160,8,0.10) 0%, rgba(12,16,24,0.95) 40%)',
+          clipPath: 'polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%)',
+          background: 'linear-gradient(135deg, rgba(18,20,29,0.85) 0%, rgba(10,12,16,0.95) 100%)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px rgba(199,160,8,0.12)',
+          border: '1px solid rgba(199,160,8,0.25)',
           padding: '22px',
         }}>
-          {/* ── Multi-layered fractured light-trail border (yellow, pulsating) ── */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              padding: '1.5px',
-              background: 'linear-gradient(90deg, rgba(199,160,8,0.8) 0%, rgba(199,160,8,0.15) 12%, rgba(199,160,8,0.8) 22%, rgba(123,44,191,0.5) 50%, rgba(199,160,8,0.8) 78%, rgba(199,160,8,0.15) 88%, rgba(199,160,8,0.8) 100%)',
-              backgroundSize: '200% 100%',
-              animation: 'kb2-trail-yellow 7s linear infinite, kb2-pulse-yellow 2.8s ease-in-out infinite',
-              WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
-              WebkitMaskComposite: 'xor',
-              maskComposite: 'exclude',
-              clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
-              zIndex: 1,
-            }}
-          />
-          {/* Inner glow border */}
-          <div
-            className="absolute inset-[3px] pointer-events-none"
-            style={{
-              clipPath: 'polygon(0 0, calc(100% - 11px) 0, 100% 11px, 100% 100%, 11px 100%, 0 calc(100% - 11px))',
-              border: '1px solid rgba(199,160,8,0.22)',
-              animation: 'kb2-pulse-yellow 2.8s ease-in-out infinite',
-              zIndex: 1,
-            }}
-          />
-
-          {/* Neon top accent — yellow */}
-          <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
-            background: 'linear-gradient(90deg, transparent, #c7a008 20%, #c7a008 80%, transparent)',
-            boxShadow: '0 0 8px rgba(199,160,8,0.25)',
+          {/* Inner ambient bevel highlight (top edge) */}
+          <div className="absolute left-0 right-0 top-0 h-px pointer-events-none" style={{
+            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 50%, transparent)',
           }} />
-          {/* Corner accents — yellow, fractured style */}
-          <div className="absolute top-0 left-0 w-4 h-4" style={{ borderTop: '2.5px solid #c7a008', borderLeft: '2.5px solid #c7a008', boxShadow: '0 0 8px rgba(199,160,8,0.25)' }} />
-          <div className="absolute top-0 right-0 w-4 h-4" style={{ borderTop: '2.5px solid #c7a008', borderRight: '2.5px solid #c7a008', boxShadow: '0 0 8px rgba(199,160,8,0.25)' }} />
-          <div className="absolute bottom-0 left-0 w-4 h-4" style={{ borderBottom: '2.5px solid #c7a008', borderLeft: '2.5px solid #c7a008', boxShadow: '0 0 8px rgba(199,160,8,0.25)' }} />
-          <div className="absolute bottom-0 right-0 w-4 h-4" style={{ borderBottom: '2.5px solid #c7a008', borderRight: '2.5px solid #c7a008', boxShadow: '0 0 8px rgba(199,160,8,0.25)' }} />
+          {/* Bottom edge bevel shadow */}
+          <div className="absolute left-0 right-0 bottom-0 h-px pointer-events-none" style={{
+            background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.5) 50%, transparent)',
+          }} />
 
           <div className="relative" style={{ zIndex: 2 }}>
             <SectionHeader
               title="Авто проекты"
               accentColor={Y}
               action={
-                <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105" style={{ color: 'rgba(199,160,8,0.85)', textShadow: '0 0 6px rgba(199,160,8,0.25)' }}>
+                <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase transition-all hover:scale-105" style={{
+                  color: 'rgba(199,160,8,0.85)',
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  letterSpacing: '1px',
+                }}>
                   Все <ArrowRight className="w-3 h-3" />
                 </button>
               }

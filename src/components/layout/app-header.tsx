@@ -337,18 +337,21 @@ export function AppHeader() {
           </AnimatePresence>
         </div>
 
-        {/* Search — hexagonal icon frame */}
+        {/* Search — recessed square icon frame */}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-[#00a8c6] shrink-0 transition-all"
+                className="h-9 w-9 hover:text-[#00a8c6] shrink-0 transition-all"
                 style={{
-                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  border: '1px solid rgba(0,168,198,0.15)',
+                  background: '#12151f',
+                  border: '1px solid #1a202c',
+                  borderRadius: '4px',
                 }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#1a202c'; e.currentTarget.style.boxShadow = 'none'; }}
                 onClick={() => setSearchOpen(!searchOpen)}
               >
                 <Search className="h-4 w-4" />
@@ -436,7 +439,7 @@ export function AppHeader() {
           )}
         </AnimatePresence>
 
-        {/* Notifications — hexagonal icon frame with purple alert badge */}
+        {/* Notifications — recessed square icon frame with purple alert badge */}
         <div className="relative" ref={notifRef}>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
@@ -444,11 +447,14 @@ export function AppHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-[#00a8c6] shrink-0 relative transition-all"
+                  className="h-9 w-9 hover:text-[#00a8c6] shrink-0 relative transition-all"
                   style={{
-                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                    border: '1px solid rgba(0,168,198,0.15)',
+                    background: '#12151f',
+                    border: '1px solid #1a202c',
+                    borderRadius: '4px',
                   }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#1a202c'; e.currentTarget.style.boxShadow = 'none'; }}
                   onClick={() => setNotifOpen(!notifOpen)}
                 >
                   <Bell className="h-4 w-4" />
@@ -527,7 +533,7 @@ export function AppHeader() {
           </AnimatePresence>
         </div>
 
-        {/* Chat toggle — hexagonal icon frame */}
+        {/* Chat toggle — recessed square icon frame */}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -537,17 +543,19 @@ export function AppHeader() {
                 className={cn(
                   'relative h-9 w-9 flex items-center justify-center transition-all duration-200 shrink-0',
                   chatOpen
-                    ? 'bg-cyan-500/15 text-cyan-400'
+                    ? 'text-cyan-400'
                     : activeChatProjectId
-                      ? 'text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/10'
+                      ? 'text-muted-foreground hover:text-cyan-400'
                       : 'text-muted-foreground/40 cursor-not-allowed',
                 )}
                 style={{
-                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                  border: chatOpen
-                    ? '1px solid rgba(0,168,198,0.5)'
-                    : '1px solid rgba(0,168,198,0.15)',
+                  background: '#12151f',
+                  border: chatOpen ? '1px solid #00a8c6' : '1px solid #1a202c',
+                  borderRadius: '4px',
+                  boxShadow: chatOpen ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
                 }}
+                onMouseEnter={(e) => { if (activeChatProjectId && !chatOpen) { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; } }}
+                onMouseLeave={(e) => { if (!chatOpen) { e.currentTarget.style.borderColor = '#1a202c'; e.currentTarget.style.boxShadow = 'none'; } }}
               >
                 {/* Pulsing aura when there are unread messages */}
                 {chatUnread > 0 && !chatOpen && activeChatProjectId && (
@@ -578,27 +586,24 @@ export function AppHeader() {
           </Tooltip>
         </TooltipProvider>
 
-        {/* Profile dropdown — hexagonal chamfered avatar frame with cyan gradient border */}
+        {/* Profile dropdown — hexagonal avatar with thin teal border */}
         <Popover open={profileOpen} onOpenChange={setProfileOpen}>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 pl-1 pr-2 py-1 hover:bg-[#1E1E28] transition-colors shrink-0" style={{
-                    clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-                  }}>
+                  <button className="flex items-center gap-2 pl-1 pr-2 py-1 hover:bg-white/[0.04] transition-colors shrink-0">
                     <div className="relative h-7 w-7" style={{
-                      clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+                      clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
                       padding: '1.5px',
-                      background: 'linear-gradient(135deg, #00a8c6, #7b2cbf)',
-                      boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+                      background: '#00a8c6',
                     }}>
                       <Avatar className="h-full w-full" style={{
-                        clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+                        clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
                         borderRadius: 0,
                       }}>
                         <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
-                        <AvatarFallback className="bg-[#0a0c10] text-[#00a8c6] text-xs">
+                        <AvatarFallback className="bg-[#12151f] text-[#00a8c6] text-xs">
                           {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
