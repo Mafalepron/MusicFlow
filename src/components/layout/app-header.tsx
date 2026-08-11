@@ -205,17 +205,42 @@ export function AppHeader() {
 
   return (
     <>
-      {/* Unified Header */}
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/80 backdrop-blur-xl px-3 lg:px-6">
+      {/* Unified Header — chamfered cyberpunk HUD bar */}
+      <header
+        className="sticky top-0 z-30 flex h-14 items-center gap-2 px-3 lg:px-6 relative"
+        style={{
+          background: 'linear-gradient(180deg, #11131C 0%, #0A0B10 100%)',
+          borderBottom: '1px solid rgba(74,18,107,0.6)',
+          borderTop: '1px solid rgba(74,18,107,0.4)',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+        }}
+      >
+        {/* Center neon-purple underline glow */}
+        <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-0 h-px" style={{
+          width: '40%',
+          background: 'linear-gradient(90deg, transparent, #9D4EDD 30%, #9D4EDD 70%, transparent)',
+          boxShadow: '0 0 10px #9D4EDD, 0 0 4px #9D4EDD',
+        }} />
+        {/* Etched circuit traces (left + right decorative) */}
+        <div className="pointer-events-none absolute bottom-0 left-0 h-px" style={{
+          width: '25%',
+          background: 'linear-gradient(90deg, rgba(157,78,221,0.4), transparent)',
+        }} />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-px" style={{
+          width: '25%',
+          background: 'linear-gradient(90deg, transparent, rgba(157,78,221,0.4))',
+        }} />
+
         {/* Mobile: hamburger menu */}
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground shrink-0"
+              className="lg:hidden h-9 w-9 hover:bg-[#1E1E28] shrink-0"
+              style={{ color: '#00E5FF' }}
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5" style={{ filter: 'drop-shadow(0 0 4px rgba(0,229,255,0.6))' }} />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0 bg-sidebar border-sidebar-border">
@@ -236,13 +261,22 @@ export function AppHeader() {
 
         {/* Logo — mobile only (desktop has sidebar) */}
         <div className="flex items-center gap-2 lg:hidden">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20">
-            <Music className="h-4 w-4 text-primary" />
+          <div className="relative flex h-7 w-7 items-center justify-center">
+            {/* Holographic double-ring icon */}
+            <div className="absolute inset-0 rounded-full" style={{ border: '1.5px solid #00E5FF', boxShadow: '0 0 8px rgba(0,229,255,0.6)' }} />
+            <div className="absolute inset-[3px] rounded-full" style={{ border: '1px solid #9D4EDD', boxShadow: '0 0 6px rgba(157,78,221,0.5)' }} />
+            <Music className="h-3 w-3 relative" style={{ color: '#00E5FF', filter: 'drop-shadow(0 0 2px rgba(0,229,255,0.8))' }} />
           </div>
+          <span className="text-lg font-bold" style={{
+            color: '#00E5FF',
+            fontFamily: 'var(--font-rajdhani), sans-serif',
+            letterSpacing: '0.06em',
+            textShadow: '0 0 8px rgba(0,229,255,0.5)',
+          }}>SoundFlow</span>
         </div>
 
         {/* Breadcrumbs */}
-        <nav className="hidden sm:flex items-center gap-1 text-sm min-w-0 flex-1">
+        <nav className="hidden sm:flex items-center gap-1 text-sm min-w-0 flex-1" style={{ fontFamily: 'var(--font-rajdhani), sans-serif' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={breadcrumbs.map(b => b.label).join('/')}
@@ -303,14 +337,18 @@ export function AppHeader() {
           </AnimatePresence>
         </div>
 
-        {/* Search */}
+        {/* Search — hexagonal icon frame */}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground shrink-0"
+                className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-[#00E5FF] shrink-0 transition-all"
+                style={{
+                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                  border: '1px solid rgba(0,229,255,0.15)',
+                }}
                 onClick={() => setSearchOpen(!searchOpen)}
               >
                 <Search className="h-4 w-4" />
@@ -398,7 +436,7 @@ export function AppHeader() {
           )}
         </AnimatePresence>
 
-        {/* Notifications */}
+        {/* Notifications — hexagonal icon frame with purple alert badge */}
         <div className="relative" ref={notifRef}>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
@@ -406,7 +444,11 @@ export function AppHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground shrink-0 relative"
+                  className="h-9 w-9 hover:bg-[#1E1E28] text-muted-foreground hover:text-[#00E5FF] shrink-0 relative transition-all"
+                  style={{
+                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                    border: '1px solid rgba(0,229,255,0.15)',
+                  }}
                   onClick={() => setNotifOpen(!notifOpen)}
                 >
                   <Bell className="h-4 w-4" />
@@ -416,7 +458,12 @@ export function AppHeader() {
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
-                        className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground"
+                        className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold"
+                        style={{
+                          background: '#9D4EDD',
+                          color: '#fff',
+                          boxShadow: '0 0 6px rgba(157,78,221,0.8)',
+                        }}
                       >
                         {notificationCount > 99 ? '99+' : notificationCount}
                       </motion.span>
@@ -480,7 +527,7 @@ export function AppHeader() {
           </AnimatePresence>
         </div>
 
-        {/* Chat toggle — innovative animated button */}
+        {/* Chat toggle — hexagonal icon frame */}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -488,13 +535,19 @@ export function AppHeader() {
                 onClick={toggleChat}
                 disabled={!activeChatProjectId}
                 className={cn(
-                  'relative h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0',
+                  'relative h-9 w-9 flex items-center justify-center transition-all duration-200 shrink-0',
                   chatOpen
-                    ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                    ? 'bg-cyan-500/15 text-cyan-400'
                     : activeChatProjectId
-                      ? 'text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/20'
-                      : 'text-muted-foreground/40 cursor-not-allowed border border-transparent',
+                      ? 'text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/10'
+                      : 'text-muted-foreground/40 cursor-not-allowed',
                 )}
+                style={{
+                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                  border: chatOpen
+                    ? '1px solid rgba(0,229,255,0.5)'
+                    : '1px solid rgba(0,229,255,0.15)',
+                }}
               >
                 {/* Pulsing aura when there are unread messages */}
                 {chatUnread > 0 && !chatOpen && activeChatProjectId && (
@@ -525,19 +578,31 @@ export function AppHeader() {
           </Tooltip>
         </TooltipProvider>
 
-        {/* Profile dropdown */}
+        {/* Profile dropdown — hexagonal chamfered avatar frame with cyan gradient border */}
         <Popover open={profileOpen} onOpenChange={setProfileOpen}>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-lg pl-1 pr-2 py-1 hover:bg-[#1E1E28] transition-colors shrink-0">
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
-                      <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                        {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
+                  <button className="flex items-center gap-2 pl-1 pr-2 py-1 hover:bg-[#1E1E28] transition-colors shrink-0" style={{
+                    clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+                  }}>
+                    <div className="relative h-7 w-7" style={{
+                      clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+                      padding: '1.5px',
+                      background: 'linear-gradient(135deg, #00E5FF, #9D4EDD)',
+                      boxShadow: '0 0 8px rgba(0,229,255,0.4)',
+                    }}>
+                      <Avatar className="h-full w-full" style={{
+                        clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
+                        borderRadius: 0,
+                      }}>
+                        <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
+                        <AvatarFallback className="bg-[#0B0C10] text-[#00E5FF] text-xs">
+                          {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
                     <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
                   </button>
                 </PopoverTrigger>
