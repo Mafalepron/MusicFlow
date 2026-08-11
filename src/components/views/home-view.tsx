@@ -352,7 +352,7 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
       className="relative cursor-pointer overflow-hidden"
       style={{
         clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-        background: isAuto ? '#0e1a24' : '#161224',
+        background: '#0e1a24',
         borderTop: `2px solid ${h ? '#c7a008' : color}`,
         boxShadow: h
           ? `inset 0 1px 12px ${hexToRgba('#c7a008', 0.15)}, inset 0 0 0 1px ${hexToRgba('#c7a008', 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
