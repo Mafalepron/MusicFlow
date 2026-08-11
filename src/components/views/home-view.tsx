@@ -196,6 +196,9 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
   const sc = stHex[project.status] || '#64748b';
   const sl = stLabel[project.status] || project.status;
   const hasKanban = !!project.kanbanTaskId;
+  // Content color rule: if card is blue (cyan), inner content is yellow. If purple, stays purple.
+  const isBlueCard = t.color === C;
+  const contentColor = isBlueCard ? Y : t.color;
   // Compute progress %: based on track count (capped at 100) + status boost
   const progress = useMemo(() => {
     const trackPct = Math.min(80, trackCount * 12); // each track ~12%, capped at 80
@@ -254,14 +257,14 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
             className="flex h-8 w-8 items-center justify-center"
             style={{
               clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-              background: hexToRgba(t.color, 0.2),
-              border: `1px solid ${hexToRgba(t.color, 0.5)}`,
-              boxShadow: h ? `0 0 10px ${hexToRgba(t.color, 0.5)}` : 'none',
+              background: hexToRgba(contentColor, 0.2),
+              border: `1px solid ${hexToRgba(contentColor, 0.5)}`,
+              boxShadow: h ? `0 0 10px ${hexToRgba(contentColor, 0.5)}` : 'none',
             }}
           >
-            <Icon className="w-4 h-4" style={{ color: t.color, filter: `drop-shadow(0 0 2px ${t.color})` }} />
+            <Icon className="w-4 h-4" style={{ color: contentColor, filter: `drop-shadow(0 0 2px ${contentColor})` }} />
           </div>
-          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: contentColor, textShadow: `0 0 4px ${hexToRgba(contentColor, 0.4)}` }}>{t.label}</span>
         </div>
       </div>
 
@@ -286,19 +289,19 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
 
         {/* Meta row — monospace 11px opacity 0.6 per spec */}
         <div className="flex items-center gap-3 text-[11px]" style={{
-          color: h ? hexToRgba(t.color, 0.85) : TEXT_SECONDARY,
+          color: h ? hexToRgba(contentColor, 0.85) : TEXT_SECONDARY,
           fontFamily: 'var(--font-jetbrains-mono), monospace',
           opacity: 0.6,
         }}>
           <span className="flex items-center gap-1">
-            <Music2 className="w-3 h-3" style={{ color: t.color, opacity: h ? 1 : 0.65 }} />
+            <Music2 className="w-3 h-3" style={{ color: contentColor, opacity: h ? 1 : 0.65 }} />
             {trackCount} {plural(trackCount, ['трек', 'трека', 'треков'])}
           </span>
           <span className="flex items-center gap-1.5">
-            {/* Status dot with matching colored glow (e.g. orange for Черновик) */}
+            {/* Status dot with matching colored glow */}
             <span className="w-1.5 h-1.5 rounded-full" style={{
-              background: sc,
-              boxShadow: `0 0 6px ${hexToRgba(sc, 0.6)}`,
+              background: contentColor,
+              boxShadow: `0 0 6px ${hexToRgba(contentColor, 0.6)}`,
             }} />
             {sl}
           </span>
@@ -309,13 +312,13 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
             onClick={(e) => { e.stopPropagation(); onKanban(); }}
             className="mt-3 flex items-center gap-1.5 text-[11px] font-bold uppercase transition-all hover:scale-105"
             style={{
-              color: C,
+              color: contentColor,
               fontFamily: 'var(--font-jetbrains-mono), monospace',
               letterSpacing: '1px',
               clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
               padding: '4px 8px',
-              background: h ? hexToRgba(C, 0.1) : 'transparent',
-              border: `0.5px solid ${h ? hexToRgba(C, 0.4) : hexToRgba(C, 0.2)}`,
+              background: h ? hexToRgba(contentColor, 0.1) : 'transparent',
+              border: `0.5px solid ${h ? hexToRgba(contentColor, 0.4) : hexToRgba(contentColor, 0.2)}`,
             }}
           >
             <Key className="w-3 h-3" />
@@ -333,6 +336,9 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const isAuto = !!task.soundflowProjectId;
   // Yellow→Blue remap per spec: auto cards were yellow, now blue. Kanban cards stay cyan.
   const color = isAuto ? C : C;
+  // Content color rule: if card is blue (cyan), inner content is yellow. If purple, stays purple.
+  const isBlueCard = color === C;
+  const contentColor = isBlueCard ? Y : color;
   const children = task.children || [];
   const done = children.filter(c => c.status === 'done').length;
   const pct = children.length > 0 ? Math.round((done / children.length) * 100) : 0;
@@ -382,24 +388,24 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
           <span
             className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest"
             style={{
-              background: hexToRgba(color, h ? 0.22 : 0.14),
-              color,
-              border: `1.5px solid ${hexToRgba(color, h ? 0.65 : 0.4)}`,
+              background: hexToRgba(contentColor, h ? 0.22 : 0.14),
+              color: contentColor,
+              border: `1.5px solid ${hexToRgba(contentColor, h ? 0.65 : 0.4)}`,
               clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-              boxShadow: h ? `0 0 10px ${hexToRgba(color, 0.4)}` : 'none',
+              boxShadow: h ? `0 0 10px ${hexToRgba(contentColor, 0.4)}` : 'none',
               transition: 'all 220ms ease',
             }}
           >
             {/* Static status dot */}
             <span
               className="inline-block w-2 h-2 rounded-full"
-              style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+              style={{ background: contentColor, boxShadow: `0 0 6px ${contentColor}` }}
             />
             {isAuto ? 'AUTO' : 'KANBAN'}
           </span>
           <span
             className="text-[10px] font-mono uppercase tracking-wider transition-colors"
-            style={{ color: h ? hexToRgba(color, 0.8) : 'rgba(100,116,139,0.7)' }}
+            style={{ color: h ? hexToRgba(contentColor, 0.8) : 'rgba(100,116,139,0.7)' }}
           >
             {task.projectType || 'general'}
           </span>
@@ -410,13 +416,13 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
           className="mb-2.5 flex h-10 w-10 items-center justify-center"
           style={{
             clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-            background: h ? hexToRgba(color, 0.28) : hexToRgba(color, 0.14),
-            border: `1.5px solid ${hexToRgba(color, h ? 0.65 : 0.32)}`,
-            boxShadow: h ? `0 0 16px ${hexToRgba(color, 0.5)}` : 'none',
+            background: h ? hexToRgba(contentColor, 0.28) : hexToRgba(contentColor, 0.14),
+            border: `1.5px solid ${hexToRgba(contentColor, h ? 0.65 : 0.32)}`,
+            boxShadow: h ? `0 0 16px ${hexToRgba(contentColor, 0.5)}` : 'none',
             transition: 'all 220ms ease',
           }}
         >
-          <TypeIcon className="w-5 h-5" style={{ color, filter: h ? `drop-shadow(0 0 4px ${color})` : 'none' }} />
+          <TypeIcon className="w-5 h-5" style={{ color: contentColor, filter: h ? `drop-shadow(0 0 4px ${contentColor})` : 'none' }} />
         </div>
 
         {/* Title */}
@@ -425,7 +431,7 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
           style={{
             minHeight: '2.5em',
             color: h ? '#ffffff' : '#cbd5e1',
-            textShadow: h ? `0 0 8px ${hexToRgba(color, 0.4)}` : 'none',
+            textShadow: h ? `0 0 8px ${hexToRgba(contentColor, 0.4)}` : 'none',
             transition: 'color 200ms ease, text-shadow 200ms ease',
             letterSpacing: '0.01em',
           }}
@@ -440,16 +446,16 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
 
         {/* Bottom data row */}
         <div className="flex items-center justify-between text-[9px] font-mono uppercase tracking-wider">
-          <span className="flex items-center gap-1" style={{ color: h ? hexToRgba(color, 0.9) : 'rgba(100,116,139,0.9)' }}>
-            <Layers className="w-3 h-3" style={{ color, opacity: h ? 1 : 0.65 }} />
+          <span className="flex items-center gap-1" style={{ color: h ? hexToRgba(contentColor, 0.9) : 'rgba(100,116,139,0.9)' }}>
+            <Layers className="w-3 h-3" style={{ color: contentColor, opacity: h ? 1 : 0.65 }} />
             {children.length} {plural(children.length, ['board', 'boards', 'boards'])}
           </span>
-          <span className="flex items-center gap-1" style={{ color: h ? hexToRgba(pct === 100 ? G : color, 0.9) : 'rgba(100,116,139,0.9)' }}>
+          <span className="flex items-center gap-1" style={{ color: h ? hexToRgba(pct === 100 ? G : contentColor, 0.9) : 'rgba(100,116,139,0.9)' }}>
             <span
               className="w-1.5 h-1.5 rounded-full"
               style={{
-                background: pct === 100 ? G : color,
-                boxShadow: `0 0 5px ${pct === 100 ? G : color}`,
+                background: pct === 100 ? G : contentColor,
+                boxShadow: `0 0 5px ${pct === 100 ? G : contentColor}`,
               }}
             />
             {done}/{children.length} done
@@ -701,6 +707,9 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
   const t = typeMeta[item.type] || typeMeta.general;
   const sc = stHex[item.status] || '#64748b';
   const sl = stLabel[item.status] || item.status;
+  // Content color rule: if card is blue (cyan), inner content is yellow. If purple, stays purple.
+  const isBlueCard = t.color === C;
+  const contentColor = isBlueCard ? Y : t.color;
   // Priority scale: always 7 segments (max 7 cards), filled = priority level
   const SCALE_SEGS = 7;
   const filledSegs = priority; // priority is 1-based, segments 0..priority-1 are filled
@@ -741,14 +750,14 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
               className="flex h-6 w-6 items-center justify-center"
               style={{
                 clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-                background: hexToRgba(t.color, 0.18),
-                border: `1px solid ${hexToRgba(t.color, 0.5)}`,
-                boxShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.5)}` : 'none',
+                background: hexToRgba(contentColor, 0.18),
+                border: `1px solid ${hexToRgba(contentColor, 0.5)}`,
+                boxShadow: h ? `0 0 8px ${hexToRgba(contentColor, 0.5)}` : 'none',
               }}
             >
-              <Zap className="w-3 h-3" style={{ color: t.color, filter: `drop-shadow(0 0 2px ${t.color})` }} />
+              <Zap className="w-3 h-3" style={{ color: contentColor, filter: `drop-shadow(0 0 2px ${contentColor})` }} />
             </div>
-            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: t.color, textShadow: `0 0 4px ${hexToRgba(t.color, 0.4)}` }}>{t.label}</span>
+            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: contentColor, textShadow: `0 0 4px ${hexToRgba(contentColor, 0.4)}` }}>{t.label}</span>
           </div>
           {/* ── Priority scale (top-right) — click opens popup for convenient selection ── */}
             <Popover open={priorityOpen} onOpenChange={(open) => { setPriorityOpen(open); if (open) setPendingPriority(priority); }}>
@@ -769,8 +778,8 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
                         style={{
                           width: '3px',
                           height: '14px',
-                          background: filled ? t.color : hexToRgba(t.color, 0.18),
-                          boxShadow: filled ? `0 0 4px ${hexToRgba(t.color, 0.7)}` : 'none',
+                          background: filled ? contentColor : hexToRgba(contentColor, 0.18),
+                          boxShadow: filled ? `0 0 4px ${hexToRgba(contentColor, 0.7)}` : 'none',
                           borderRadius: '0.5px',
                           transition: `transform 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 25}ms, background 180ms`,
                           transform: h && filled ? 'scaleY(1.15)' : 'scaleY(1)',
@@ -866,20 +875,20 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
           color: h ? '#ffffff' : '#cbd5e1',
           letterSpacing: '0.02em',
           fontFamily: 'monospace',
-          textShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.4)}` : 'none',
+          textShadow: h ? `0 0 8px ${hexToRgba(contentColor, 0.4)}` : 'none',
         }}>
           {item.title}
         </p>
 
         {/* Meta */}
-        <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: h ? hexToRgba(t.color, 0.85) : '#64748b', fontFamily: 'monospace' }}>
+        <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: h ? hexToRgba(contentColor, 0.85) : '#64748b', fontFamily: 'monospace' }}>
           <span className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 4px ${hexToRgba(sc, 0.5)}` }} />
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: contentColor, boxShadow: `0 0 4px ${hexToRgba(contentColor, 0.5)}` }} />
             {sl}
           </span>
           <span>·</span>
           <span className="flex items-center gap-1">
-            <Music2 className="w-3 h-3" />
+            <Music2 className="w-3 h-3" style={{ color: contentColor }} />
             {item.trackCount}
           </span>
         </div>

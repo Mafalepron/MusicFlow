@@ -1959,3 +1959,61 @@ Stage Summary:
 - Priority scale now opens a popup popover with: title + value, interactive 7-bar scale to preview selection, Apply + Cancel buttons. Apply changes priority order, Cancel discards.
 - Card colors remapped: album→blue, EP→purple, single→blue, kanban→blue. Status colors also remapped (draft→blue, released→blue, mixing→purple). Applied to type labels, priority scale, audio waveform, card backgrounds.
 - Lint: 0 TypeScript errors, dev server HTTP 200, 0 console errors, all 3 requirements VLM-verified.
+
+---
+Task ID: KB13-CONTENT-COLOR-RULE
+Agent: main
+Task: In cards, if card is blue (cyan), inner sub-headers/icons/buttons should be yellow. If purple, stay purple.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from KB12-UX-3REQ (album→blue, EP→purple color remap already done).
+
+Change 1 — ProjectCard content color rule:
+- Added `isBlueCard = t.color === C` and `contentColor = isBlueCard ? Y : t.color` variables.
+- Updated all inner elements to use `contentColor` instead of `t.color`:
+  * Type icon container (background, border, boxShadow) → contentColor
+  * Type icon itself → contentColor + drop-shadow
+  * Type label text (Альбом/EP/Сингл) → contentColor + textShadow
+  * Music2 icon in meta row → contentColor
+  * Status dot → contentColor (was using `sc` status color, now uses contentColor for consistency)
+  * Status dot boxShadow → contentColor
+  * Meta row text color → contentColor (was t.color)
+  * "Открыть Kanban" button → contentColor (was C), border + background use contentColor
+- Result: blue cards (album, single, general) have yellow content; purple cards (EP) have purple content.
+
+Change 2 — KanbanCard content color rule:
+- Added same `isBlueCard` and `contentColor` variables.
+- Updated all inner elements:
+  * KANBAN/AUTO badge (background, color, border, boxShadow) → contentColor
+  * Status dot in badge → contentColor
+  * Project type label → contentColor
+  * Type icon container + icon → contentColor
+  * Title textShadow → contentColor
+  * Layers icon → contentColor
+  * Board count text → contentColor
+  * Done count dot + text → contentColor
+  * Waveform accentColor stays `color` (card border color) for visual contrast
+
+Change 3 — QuickAccessCard content color rule:
+- Added same `isBlueCard` and `contentColor` variables.
+- Updated all inner elements:
+  * Type icon container (Zap) → contentColor
+  * Type label → contentColor
+  * Priority scale segments → contentColor (both filled and unfilled)
+  * Title textShadow → contentColor
+  * Meta row status dot → contentColor (was using `sc` status color)
+  * Music2 icon → contentColor (was default/inherit)
+  * Meta row text color → contentColor
+  * Waveform accentColor stays `t.color` (card border color) for visual contrast
+
+- Ran `npx tsc --noEmit` → 0 errors. Dev server GET / returns 200.
+- Agent Browser + VLM verification:
+  * Quick Access: "BLUE cards (Chrome Heart, Neon Districts) inner elements colored YELLOW. PURPLE card (Glitch EP) inner elements colored PURPLE." ✓
+  * Auto Projects: "BLUE cards inner elements (AUTO label, Music2 icon, status dots) colored YELLOW." ✓
+  * Kanban Projects: "Cards blue/cyan. Inner elements (KANBAN badge, type icon, Layers icon, status dot, done count) all colored YELLOW." ✓
+
+Stage Summary:
+- Content color rule implemented across ProjectCard, KanbanCard, QuickAccessCard: if card border is blue (cyan #00a8c6), inner sub-headers/icons/buttons use yellow (#c7a008). If card is purple (#7b2cbf), inner content stays purple.
+- Applied to: type labels, type icons, Music2/Layers icons, status dots, "Открыть Kanban" buttons, priority scale segments, meta row text, KANBAN/AUTO badges, done count.
+- Waveform progress bars keep the card border color for visual contrast (not remapped to content color).
+- Lint: 0 TypeScript errors, dev server HTTP 200, 0 console errors, all requirements VLM-verified.
