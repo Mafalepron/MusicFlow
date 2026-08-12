@@ -247,7 +247,10 @@ interface CommentNode extends Comment {
   replies: CommentNode[];
 }
 
-function buildCommentTree(comments: Comment[]): CommentNode[] {
+function buildCommentTree(
+  comments: Comment[],
+  rootComparator?: (a: CommentNode, b: CommentNode) => number
+): CommentNode[] {
   const map = new Map<string, CommentNode>();
   const roots: CommentNode[] = [];
   
@@ -262,7 +265,13 @@ function buildCommentTree(comments: Comment[]): CommentNode[] {
       roots.push(node);
     }
   }
-  roots.sort((a, b) => a.timestampMs - b.timestampMs);
+  // Sort root comments — caller may pass a custom comparator (e.g. by date/author/status).
+  // Default: ascending by timestampMs (oldest first) — preserves the original behavior.
+  if (rootComparator) {
+    roots.sort(rootComparator);
+  } else {
+    roots.sort((a, b) => a.timestampMs - b.timestampMs);
+  }
   for (const r of roots) {
     r.replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }
@@ -284,7 +293,38 @@ const statusDotColors: Record<string, string> = {
   recording: '#00a8c6',
   mixing: '#7b2cbf',
   final: '#4a8d6f',
+  // Cyberpunk 2077 status palette — muted colors per HUD spec
+  draft: '#00a8c6',
+  in_progress: '#00a8c6',
+  mastering: '#4a8d6f',
+  released: '#00a8c6',
+  review: '#c7a008',
 };
+
+// Russian labels for track statuses (Cyberpunk 2077 HUD)
+const statusLabels: Record<string, string> = {
+  draft: 'Черновик',
+  in_progress: 'В работе',
+  mixing: 'Сведение',
+  mastering: 'Мастеринг',
+  released: 'Релиз',
+  recording: 'Запись',
+  review: 'Проверка',
+  // Legacy statuses (backward compat with existing data)
+  idea: 'Идея',
+  final: 'Финал',
+};
+
+// Ordered list of statuses shown in the Select dropdown
+const STATUS_OPTIONS: string[] = [
+  'draft',
+  'in_progress',
+  'mixing',
+  'mastering',
+  'released',
+  'recording',
+  'review',
+];
 
 // --- Helpers ---
 
@@ -342,7 +382,7 @@ function normalizeComment(raw: any): Comment {
     versionId: raw.versionId ?? raw.version?.id ?? undefined,
     parentId: raw.parentId ?? undefined,
     userId: raw.userId,
-    userName: raw.userName ?? raw.user?.displayName ?? 'Unknown',
+    userName: raw.userName ?? raw.user?.displayName ?? 'Неизвестный',
     timestampMs: raw.timestampMs ?? 0,
     rangeEndMs: raw.rangeEndMs ?? undefined,
     text: raw.text ?? '',
@@ -405,7 +445,7 @@ function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStr
       >
         <Lightbulb className="h-3.5 w-3.5 text-[#c7a008]" />
         <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-          Ideas
+          Идеи
         </span>
         <span className="text-[10px] text-muted-foreground/40">{ideas.length}</span>
       </motion.div>
@@ -454,7 +494,7 @@ function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStr
                         <div className="min-w-0 flex-1">
                           {isSource && (
                             <span className="mb-1 inline-block rounded bg-[#c7a008]/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#c7a008]">
-                              Source Idea
+                              Исходная идея
                             </span>
                           )}
                           <h4 className="text-sm font-semibold text-foreground leading-tight truncate">
@@ -659,6 +699,9 @@ export function TrackDetailView() {
   const [commentTimestamp, setCommentTimestamp] = useState(0);
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
   const commentsEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Comment sort mode — drives the order of root comments in the comments panel
+  const [sortBy, setSortBy] = useState<'date' | 'time' | 'author' | 'status'>('time');
 
   // Marker mode: 'point' for single-timestamp, 'range' for start→end
   const [markerMode, setMarkerMode] = useState<'point' | 'range'>('point');
@@ -926,7 +969,7 @@ export function TrackDetailView() {
       setHeaderActions([
         {
           id: 'open-in-kanban',
-          label: 'Open in Kanban',
+          label: 'Открыть в Канбане',
           icon: <LayoutDashboard className="h-3.5 w-3.5" />,
           variant: 'outline',
           onClick: () => {
@@ -1330,9 +1373,9 @@ export function TrackDetailView() {
       setEditCommentText('');
       // Emit socket event
       socketRef.current?.emit('comment:edit', { trackId: selectedTrackId, commentId, text: updated.text });
-      toast({ description: 'Comment updated' });
+      toast({ description: 'Комментарий обновлён' });
     } catch {
-      toast({ description: 'Failed to update comment', variant: 'destructive' });
+      toast({ description: 'Не удалось обновить комментарий', variant: 'destructive' });
     }
   }, [editCommentText, selectedTrackId, updateCommentStore, toast]);
 
@@ -1348,9 +1391,9 @@ export function TrackDetailView() {
       if (focusedCommentId === commentId) setFocusedCommentId(null);
       // Emit socket event
       socketRef.current?.emit('comment:delete', { trackId: selectedTrackId, commentId });
-      toast({ description: 'Comment deleted' });
+      toast({ description: 'Комментарий удалён' });
     } catch {
-      toast({ description: 'Failed to delete comment', variant: 'destructive' });
+      toast({ description: 'Не удалось удалить комментарий', variant: 'destructive' });
     }
   }, [selectedTrackId, removeCommentStore, focusedCommentId, toast]);
 
@@ -1617,6 +1660,28 @@ export function TrackDetailView() {
     return map;
   }, [comments, activeVersion]);
 
+  // Sorted comment tree — applies the user-selected sort mode (date / time / author / status).
+  // Defaults to "По времени" (timestamp ascending) so original behavior is preserved.
+  const sortedTree = useMemo(() => {
+    const versionComments = comments.filter((c) => activeVersion?.id && c.versionId === activeVersion.id);
+    return buildCommentTree(versionComments, (a, b) => {
+      switch (sortBy) {
+        case 'date':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'author':
+          // Locale-aware alphabetical sort by user display name
+          return a.userName.localeCompare(b.userName, 'ru');
+        case 'status':
+          // Resolved-first, then by timestampMs (preserves a sensible secondary order)
+          if (a.isResolved !== b.isResolved) return a.isResolved ? -1 : 1;
+          return a.timestampMs - b.timestampMs;
+        case 'time':
+        default:
+          return a.timestampMs - b.timestampMs;
+      }
+    });
+  }, [comments, activeVersion, sortBy]);
+
   // --- Render ---
 
   const progress = duration > 0 ? currentTime / duration : 0;
@@ -1635,7 +1700,7 @@ export function TrackDetailView() {
         >
           <CornerBrackets size={12} />
           <Music2 className="h-12 w-12" style={{ color: hexToRgba(Y, 0.5) }} />
-          <p className="text-sm" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>No track selected</p>
+          <p className="text-sm" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Нет выбранного трека</p>
           <Button
             variant="outline"
             size="sm"
@@ -1650,7 +1715,7 @@ export function TrackDetailView() {
             onClick={() => navigate('project-detail', selectedProjectId ?? undefined)}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Project
+            Назад к проекту
           </Button>
         </div>
       </div>
@@ -1658,7 +1723,26 @@ export function TrackDetailView() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="flex h-full flex-col"
+      style={{
+        // Override global purple (#8A2BE2) defaults — these CSS variables cascade
+        // to all shadcn components (Select, Tooltip, Badge, Button) inside this view
+        // so popups/tooltips/hover states read as cyberpunk 2077 HUD instead of
+        // the default purple theme defined in globals.css.
+        ['--primary' as any]: Y,
+        ['--primary-foreground' as any]: '#0a0b10',
+        ['--accent' as any]: BG_MAIN,
+        ['--accent-foreground' as any]: C,
+        ['--ring' as any]: Y,
+        ['--popover' as any]: BG_PANEL,
+        ['--popover-foreground' as any]: TEXT_PRIMARY,
+        ['--secondary' as any]: BG_PANEL,
+        ['--secondary-foreground' as any]: TEXT_PRIMARY,
+        ['--muted' as any]: BG_MAIN,
+        ['--muted-foreground' as any]: TEXT_SECONDARY,
+      } as React.CSSProperties}
+    >
       {/* Contextual row — ideas strip + status selector.
           Back button, title, and "Open in Kanban" action have moved to the
           unified AppHeader (breadcrumbs + header-actions store). */}
@@ -1678,47 +1762,72 @@ export function TrackDetailView() {
           />
         </div>
 
-        {/* Status selector */}
+        {/* Status selector — Cyberpunk 2077 HUD: dark bg, cyan border, chamfered,
+            yellow monospace text, cyan-on-hover options */}
         <Select value={track.status} onValueChange={handleStatusChange}>
           <SelectTrigger
             size="sm"
-            className="w-[130px] shrink-0 text-xs"
+            className="w-[150px] shrink-0 h-8 border-0 rounded-none hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
+            style={{
+              background: BG_PANEL,
+              border: `1px solid ${hexToRgba(C, 0.5)}`,
+              clipPath: CHAMFER_4,
+              color: Y,
+              fontFamily: 'var(--font-jetbrains-mono), monospace',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              boxShadow: INSET_BEVEL_SHADOW,
+            }}
           >
             <div className="flex items-center gap-1.5">
               <span
-                className="h-2 w-2 rounded-full"
+                className="h-1.5 w-1.5 rounded-full"
                 style={{
-                  backgroundColor: statusDotColors[track.status] || '#718096',
+                  backgroundColor: statusDotColors[track.status] || A,
+                  boxShadow: `0 0 4px ${hexToRgba(statusDotColors[track.status] || A, 0.8)}`,
                 }}
               />
               <SelectValue />
+              <ChevronDown className="h-3 w-3 ml-auto opacity-70" style={{ color: Y }} />
             </div>
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="idea">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#c7a008]" />
-                Idea
-              </span>
-            </SelectItem>
-            <SelectItem value="recording">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#00a8c6]" />
-                Recording
-              </span>
-            </SelectItem>
-            <SelectItem value="mixing">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#7b2cbf]" />
-                Mixing
-              </span>
-            </SelectItem>
-            <SelectItem value="final">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#4a8d6f]" />
-                Final
-              </span>
-            </SelectItem>
+          <SelectContent
+            className="border-0 rounded-none p-1 min-w-[180px]"
+            style={{
+              background: BG_PANEL,
+              border: `1px solid ${hexToRgba(C, 0.5)}`,
+              clipPath: CHAMFER_4,
+              boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
+            }}
+          >
+            {STATUS_OPTIONS.map((status) => (
+              <SelectItem
+                key={status}
+                value={status}
+                className="focus:!bg-[#0a0c10] focus:!text-[#00a8c6] data-[highlighted]:!bg-[#0a0c10] data-[highlighted]:!text-[#00a8c6] hover:!bg-[#0a0c10] hover:!text-[#00a8c6] !text-[#c7a008] border-0 rounded-none"
+                style={{
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.5px',
+                  clipPath: CHAMFER_3,
+                  padding: '4px 8px',
+                }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{
+                      backgroundColor: statusDotColors[status] || A,
+                      boxShadow: `0 0 4px ${hexToRgba(statusDotColors[status] || A, 0.6)}`,
+                    }}
+                  />
+                  {statusLabels[status] || status}
+                </span>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </motion.div>
@@ -2012,7 +2121,7 @@ export function TrackDetailView() {
                       }
                 }
               >
-                <span>{v.version === 1 && !v.label ? 'Original' : v.label || `v${v.version}`}</span>
+                <span>{v.version === 1 && !v.label ? 'Оригинал' : v.label || `v${v.version}`}</span>
                 {v.commentCount !== undefined && v.commentCount > 0 && (
                   <span
                     className={`ml-2 px-1.5 py-0.5 text-[9px] ${
@@ -2051,13 +2160,13 @@ export function TrackDetailView() {
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.5); }}
           >
             <Plus className="h-3.5 w-3.5" />
-            Add Version
+            Добавить версию
           </motion.button>
         </div>
         {/* Current version info */}
         {activeVersion && (
           <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: `${TEXT_SECONDARY}b3`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-            <span>Version {activeVersion.version}</span>
+            <span>Версия {activeVersion.version}</span>
             <span style={{ color: Y }}>·</span>
             <span>{activeVersion.label || `v${activeVersion.version}`}</span>
             {activeVersion.durationMs && (
@@ -2069,7 +2178,7 @@ export function TrackDetailView() {
             {activeVersion.commentCount !== undefined && (
               <>
                 <span style={{ color: Y }}>·</span>
-                <span>{activeVersion.commentCount} comment{activeVersion.commentCount !== 1 ? 's' : ''}</span>
+                <span>{activeVersion.commentCount} комм.</span>
               </>
             )}
           </div>
@@ -2100,48 +2209,104 @@ export function TrackDetailView() {
                 }}
               >
                 <CornerBrackets size={12} />
-                {/* Seek bar */}
-                <div className="mb-4">
-                  <div
-                    className="group relative h-2 w-full cursor-pointer"
-                    style={{
-                      background: BG_MAIN,
-                      clipPath: CHAMFER_3,
-                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                    }}
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const x = e.clientX - rect.left;
-                      const p = x / rect.width;
-                      seekTo(p * duration);
-                    }}
-                  >
-                    {/* Background track — purple→cyan gradient fill with yellow glow */}
-                    <div
-                      className="absolute inset-y-0 left-0 transition-all duration-100"
-                      style={{
-                        width: `${progress * 100}%`,
-                        background: `linear-gradient(to right, ${P}, ${Y})`,
-                        boxShadow: `0 0 8px ${hexToRgba(Y, 0.6)}, 0 0 4px ${hexToRgba(Y, 0.4)}`,
-                        clipPath: CHAMFER_3,
-                      }}
-                    />
-                    {/* Thumb */}
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-4 w-4 rounded-full bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
-                      style={{
-                        left: `${progress * 100}%`,
-                        boxShadow: `0 0 8px ${hexToRgba(C, 0.6)}`,
-                      }}
-                    />
+                {/* Segmented seek bar — 10 HUD equalizer segments, each chamfered.
+                    Filled segments use yellow→cyan gradient with glow; unfilled dark grey. */}
+                <div className="mb-3">
+                  <div className="flex h-3 gap-1.5">
+                    {Array.from({ length: 10 }).map((_, i) => {
+                      const segProgress = progress * 10;
+                      const isFilled = i < Math.floor(segProgress);
+                      const isPartial = i === Math.floor(segProgress) && segProgress > i;
+                      const partialWidth = isPartial ? (segProgress - i) * 100 : (isFilled ? 100 : 0);
+                      return (
+                        <div
+                          key={i}
+                          className="group/seg relative flex-1 cursor-pointer"
+                          style={{
+                            background: BG_MAIN,
+                            clipPath: CHAMFER_4,
+                            boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                            border: `0.5px solid ${hexToRgba(BORDER_MUTED, 0.8)}`,
+                          }}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            // Map click position within segment to overall progress
+                            const segPct = (i + x / rect.width) / 10;
+                            seekTo(segPct * duration);
+                          }}
+                          title={`Перейти к ${Math.round(((i + 0.5) / 10) * 100)}%`}
+                        >
+                          {/* Filled fill — yellow→cyan gradient with glow */}
+                          <div
+                            className="absolute inset-0 transition-all duration-150"
+                            style={{
+                              width: `${partialWidth}%`,
+                              background: `linear-gradient(to right, ${Y}, ${C})`,
+                              clipPath: CHAMFER_4,
+                              boxShadow: partialWidth > 0
+                                ? `0 0 6px ${hexToRgba(Y, 0.6)}, 0 0 3px ${hexToRgba(C, 0.5)}`
+                                : 'none',
+                            }}
+                          />
+                          {/* Empty segment dim indicator */}
+                          {partialWidth === 0 && (
+                            <div
+                              className="absolute inset-0 opacity-15"
+                              style={{
+                                background: `linear-gradient(to right, ${hexToRgba(A, 0.4)}, ${hexToRgba(A, 0.2)})`,
+                                clipPath: CHAMFER_4,
+                              }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="mt-1.5 flex justify-between text-[11px]" style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                    <span>{formatDuration(currentTime)}</span>
-                    <span>{formatDuration(displayDuration)}</span>
+                  {/* Time display row — large yellow current / smaller grey total + percentage badge */}
+                  <div className="mt-2 flex items-baseline justify-between gap-2">
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        color: Y,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        textShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {formatDuration(currentTime)}
+                    </span>
+                    <span
+                      className="px-2 py-0.5 tabular-nums"
+                      style={{
+                        color: Y,
+                        background: hexToRgba(Y, 0.12),
+                        border: `0.5px solid ${hexToRgba(Y, 0.5)}`,
+                        clipPath: CHAMFER_3,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {Math.round(progress * 100)}%
+                    </span>
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        color: TEXT_SECONDARY,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '11px',
+                      }}
+                    >
+                      {formatDuration(displayDuration)}
+                    </span>
                   </div>
                 </div>
 
-                {/* Controls row */}
+                {/* Controls row — transport buttons + volume + hint */}
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1">
                     <Tooltip>
@@ -2161,24 +2326,25 @@ export function TrackDetailView() {
                           <SkipBack className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Back 5s</TooltipContent>
+                      <TooltipContent>Назад 5с</TooltipContent>
                     </Tooltip>
 
                     <Button
                       size="icon"
-                      className="h-11 w-11 rounded-none border-0"
+                      className="h-12 w-12 rounded-none border-0"
                       style={{
                         clipPath: CHAMFER_4,
-                        background: `linear-gradient(135deg, ${P} 0%, ${P2} 100%)`,
-                        boxShadow: `0 0 12px ${hexToRgba(P, 0.5)}, 0 0 4px ${hexToRgba(Y, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
-                        border: `1.5px solid ${hexToRgba(Y, 0.4)}`,
+                        // Purple→yellow gradient bg per cyberpunk 2077 spec
+                        background: `linear-gradient(135deg, ${P} 0%, ${Y} 100%)`,
+                        boxShadow: `0 0 16px ${hexToRgba(Y, 0.55)}, 0 0 8px ${hexToRgba(P, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+                        border: `1.5px solid ${hexToRgba(Y, 0.5)}`,
                       }}
                       onClick={togglePlay}
                     >
                       {isPlaying ? (
-                        <Pause className="h-5 w-5" style={{ color: '#fff', filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.5))' }} />
+                        <Pause className="h-5 w-5" style={{ color: '#fff', filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.6))' }} />
                       ) : (
-                        <Play className="h-5 w-5 ml-0.5" style={{ color: Y, filter: `drop-shadow(0 0 2px ${Y})` }} />
+                        <Play className="h-5 w-5 ml-0.5" style={{ color: Y, filter: `drop-shadow(0 0 3px ${Y})` }} />
                       )}
                     </Button>
 
@@ -2199,22 +2365,23 @@ export function TrackDetailView() {
                           <SkipForward className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Forward 5s</TooltipContent>
+                      <TooltipContent>Вперёд 5с</TooltipContent>
                     </Tooltip>
                   </div>
 
-                  {/* Volume */}
+                  {/* Volume — chamfered slider with yellow fill */}
                   <div className="flex items-center gap-2 ml-2">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 rounded-none border-0 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+                          className="h-8 w-8 rounded-none border-0 hover:bg-[#c7a008]/10"
                           style={{
                             clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(C, 0.3)}`,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
                             background: BG_MAIN,
+                            color: Y,
                           }}
                           onClick={() => setIsMuted(!isMuted)}
                         >
@@ -2226,15 +2393,16 @@ export function TrackDetailView() {
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {isMuted ? 'Unmute' : 'Mute'}
+                        {isMuted ? 'Включить звук' : 'Выключить звук'}
                       </TooltipContent>
                     </Tooltip>
                     <div
-                      className="group relative h-1.5 w-24 cursor-pointer"
+                      className="group relative h-2 w-24 cursor-pointer"
                       style={{
                         background: BG_MAIN,
                         clipPath: CHAMFER_3,
                         boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                        border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
                       }}
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -2247,8 +2415,9 @@ export function TrackDetailView() {
                         className="absolute inset-y-0 left-0 transition-all"
                         style={{
                           width: `${(isMuted ? 0 : volume) * 100}%`,
-                          background: `linear-gradient(to right, ${C2}, ${C})`,
+                          background: `linear-gradient(to right, ${Y2}, ${Y})`,
                           clipPath: CHAMFER_3,
+                          boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}`,
                         }}
                       />
                     </div>
@@ -2256,7 +2425,7 @@ export function TrackDetailView() {
 
                   {/* Keyboard shortcut hint */}
                   <p className="ml-auto hidden text-[11px] lg:block" style={{ color: `${Y}cc`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                    Space: Play/Pause · ←→: Skip 5s
+                    Пробел: Играть/Пауза · ←→: Перемотка 5с
                   </p>
                 </div>
               </div>
@@ -2266,7 +2435,7 @@ export function TrackDetailView() {
                 {/* Marker mode toolbar — always visible near waveform */}
                 <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Marker:</span>
+                    <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Маркер:</span>
                     <div
                       className="flex items-center border p-0.5"
                       style={{
@@ -2316,14 +2485,14 @@ export function TrackDetailView() {
                     </div>
                     <span className="text-[10px]" style={{ color: `${TEXT_SECONDARY}b3` }}>
                       {markerMode === 'range'
-                        ? 'Click waveform to set start, then click again for end'
-                        : 'Click on waveform to place a pin marker'}
+                        ? 'Кликните волну для начала, затем снова для конца'
+                        : 'Кликните волну для маркера'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     {markerMode === 'range' && isSelectingRange && rangeStartMs > 0 && (
                       <Badge variant="outline" className="border-[#c7a008]/30 text-[#c7a008] text-[10px] animate-pulse">
-                        Start: {formatTimestamp(rangeStartMs)} — click end point…
+                        Начало: {formatTimestamp(rangeStartMs)} — кликните конец…
                       </Badge>
                     )}
                     {markerMode === 'range' && !isSelectingRange && rangeEndMsState > rangeStartMs && rangeStartMs > 0 && (
@@ -2382,7 +2551,7 @@ export function TrackDetailView() {
                     <div className="flex h-24 items-center justify-center">
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#7b2cbf] border-t-transparent" />
                       <span className="ml-2 text-xs text-muted-foreground">
-                        Loading waveform...
+                        Загрузка волны...
                       </span>
                     </div>
                   )}
@@ -2627,8 +2796,8 @@ export function TrackDetailView() {
                   </div>
                   <p className="mt-1.5 text-center text-[10px] text-muted-foreground/50">
                     {currentAudioUrl
-                      ? `Click on waveform to seek · ${markerMode === 'range' ? 'First click sets range start, second click sets end' : 'Click to place a marker at that position'}`
-                      : 'Upload audio to enable waveform interaction'}
+                      ? `Кликните по волне для перемотки · ${markerMode === 'range' ? 'Первый клик — начало, второй — конец' : 'Кликните для маркера в этой позиции'}`
+                      : 'Загрузите аудио для взаимодействия с волной'}
                   </p>
                 </div>
               </div>
@@ -2751,7 +2920,7 @@ export function TrackDetailView() {
                           }}
                         >
                           <Pencil className="h-2.5 w-2.5" />
-                          Edit
+                          Изменить
                         </button>
                         {/* Resolve button — cyan styled */}
                         <button
@@ -2770,7 +2939,7 @@ export function TrackDetailView() {
                           }}
                         >
                           {comment.isResolved ? <DoubleCheckIcon className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
-                          {comment.isResolved ? 'Unresolve' : 'Resolve'}
+                          {comment.isResolved ? 'Отменить' : 'Решено'}
                         </button>
                         {/* Delete button — yellow styled with red hover hint */}
                         <button
@@ -2800,12 +2969,12 @@ export function TrackDetailView() {
                           }}
                         >
                           <Trash2 className="h-2.5 w-2.5" />
-                          Delete
+                          Удалить
                         </button>
                       </div>
                       {isPinned && (
                         <div className="mt-1.5 text-center text-[9px] uppercase tracking-widest" style={{ color: hexToRgba(Y, 0.6), fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                          ◆ Pinned — click × to close
+                          ◆ Закреплено — кликните × для закрытия
                         </div>
                       )}
                     </motion.div>
@@ -2858,72 +3027,87 @@ export function TrackDetailView() {
                     }}
                   >
                     <Plus className="h-3 w-3" />
-                    Add Comment
+                    Добавить комментарий
                   </Button>
                 </div>
 
-                {/* Participant presence — online indicators (chat moved to global floating widget) */}
-                {groupMembers.length > 0 && (
-                  <div
-                    className="relative mb-3 flex items-center gap-2 px-3 py-2"
-                    style={{
-                      background: BG_PANEL,
-                      border: `1px solid ${hexToRgba(C, 0.4)}`,
-                      clipPath: CHAMFER_5,
-                      boxShadow: INSET_BEVEL_SHADOW,
-                    }}
+                {/* Comment sort bar — replaces the removed participant presence panel.
+                    Cyberpunk HUD: dark bg, cyan border, chamfered corners, yellow active. */}
+                <div
+                  className="relative mb-3 flex items-center gap-2 px-3 py-2"
+                  style={{
+                    background: BG_PANEL,
+                    border: `1px solid ${hexToRgba(C, 0.4)}`,
+                    clipPath: CHAMFER_5,
+                    boxShadow: INSET_BEVEL_SHADOW,
+                  }}
+                >
+                  <CornerBrackets size={8} />
+                  <span
+                    className="text-[10px] uppercase tracking-widest"
+                    style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}
                   >
-                    <CornerBrackets size={8} />
-                    <div className="flex items-center">
-                      {groupMembers.slice(0, 6).map((member, idx) => {
-                        const isOnline = onlineUserIds.has(member.userId);
-                        return (
-                          <div
-                            key={member.userId}
-                            className="relative"
-                            style={{ marginLeft: idx > 0 ? '-6px' : '0', zIndex: 6 - idx }}
-                          >
-                            <Avatar className="h-6 w-6 border-2 border-background">
-                              <AvatarFallback
-                                className={`text-[8px] ${
-                                  isOnline
-                                    ? 'bg-[#4a8d6f]/20 text-[#4a8d6f]'
-                                    : 'bg-[#161224] text-muted-foreground'
-                                }`}
-                              >
-                                {getInitials(member.displayName)}
-                              </AvatarFallback>
-                            </Avatar>
-                            {/* Online indicator dot */}
-                            <div
-                              className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-background ${
-                                isOnline ? 'bg-[#4a8d6f]' : 'bg-[#718096]'
-                              }`}
-                            />
-                          </div>
-                        );
-                      })}
-                      {groupMembers.length > 6 && (
-                        <div
-                          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#161224] border-2 border-background text-[8px] font-medium text-muted-foreground"
-                          style={{ marginLeft: '-6px', zIndex: 0 }}
+                    Сортировка:
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {([
+                      { id: 'date', label: 'По дате' },
+                      { id: 'time', label: 'По времени' },
+                      { id: 'author', label: 'По автору' },
+                      { id: 'status', label: 'По статусу' },
+                    ] as const).map((opt) => {
+                      const isActive = sortBy === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => setSortBy(opt.id)}
+                          className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-all"
+                          style={
+                            isActive
+                              ? {
+                                  color: '#0a0b10',
+                                  background: `linear-gradient(135deg, ${Y} 0%, ${Y2} 100%)`,
+                                  clipPath: CHAMFER_3,
+                                  boxShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
+                                  border: '0.5px solid transparent',
+                                }
+                              : {
+                                  color: TEXT_SECONDARY,
+                                  background: BG_MAIN,
+                                  border: `0.5px solid ${hexToRgba(BORDER_MUTED, 1)}`,
+                                  clipPath: CHAMFER_3,
+                                }
+                          }
+                          onMouseEnter={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.color = Y;
+                              e.currentTarget.style.borderColor = hexToRgba(Y, 0.5);
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.color = TEXT_SECONDARY;
+                              e.currentTarget.style.borderColor = hexToRgba(BORDER_MUTED, 1);
+                            }
+                          }}
                         >
-                          +{groupMembers.length - 6}
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[10px]" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                      <span style={{ color: G }}>{onlineUserIds.size} online</span> · {groupMembers.length} member{groupMembers.length !== 1 ? 's' : ''}
-                    </span>
+                          {opt.label}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-
+                  <span
+                    className="ml-auto text-[10px] tabular-nums"
+                    style={{ color: hexToRgba(Y, 0.7), fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                  >
+                    {sortedTree.length} комм.
+                  </span>
+                </div>
 
                 <ScrollArea className="flex-1" style={{ minHeight: 0 }}>
                   <div className="space-y-2 pb-4">
                     {(() => {
-                      const versionComments = comments.filter((c) => activeVersion?.id && c.versionId === activeVersion.id);
-                      const tree = buildCommentTree(versionComments);
+                      const tree = sortedTree;
                       if (tree.length === 0) return (
                         <div
                           className="relative flex flex-col items-center justify-center py-8"
@@ -2937,7 +3121,7 @@ export function TrackDetailView() {
                         >
                           <CornerBrackets size={10} />
                           <MessageCircle className="mb-2 h-8 w-8" style={{ color: hexToRgba(Y, 0.5) }} />
-                          <p className="text-xs" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>No comments yet. Click the waveform to add one.</p>
+                          <p className="text-xs" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Нет комментариев. Кликните по волне, чтобы добавить.</p>
                         </div>
                       );
                       return tree.map((comment) => (
@@ -3028,7 +3212,7 @@ export function TrackDetailView() {
                                           <DoubleCheckIcon className="h-3.5 w-3.5" />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent>{comment.isResolved ? 'Unresolve' : 'Resolve'}</TooltipContent>
+                                      <TooltipContent>{comment.isResolved ? 'Отменить' : 'Решено'}</TooltipContent>
                                     </Tooltip>
                                   )}
                                   {/* Timestamp — yellow monospace, top-right of bubble */}
@@ -3060,7 +3244,7 @@ export function TrackDetailView() {
                                           <Pencil className="h-3 w-3" />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Edit comment</TooltipContent>
+                                      <TooltipContent>Изменить комментарий</TooltipContent>
                                     </Tooltip>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -3071,7 +3255,7 @@ export function TrackDetailView() {
                                           <Trash2 className="h-3 w-3" />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Delete comment</TooltipContent>
+                                      <TooltipContent>Удалить комментарий</TooltipContent>
                                     </Tooltip>
                                   </div>
                                 </div>
@@ -3109,10 +3293,10 @@ export function TrackDetailView() {
                                               cancelEditingComment();
                                             }
                                           }}
-                                          placeholder="Edit your comment..."
+                                          placeholder="Измените комментарий..."
                                         />
                                         <div className="flex items-center justify-between mt-1.5">
-                                          <span className="text-[9px] text-muted-foreground/40">⌘+Enter to save</span>
+                                          <span className="text-[9px] text-muted-foreground/40">⌘+Enter для сохранения</span>
                                           <div className="flex gap-1.5">
                                             <Button
                                               variant="ghost"
@@ -3120,7 +3304,7 @@ export function TrackDetailView() {
                                               className="h-6 px-2 text-[10px]"
                                               onClick={cancelEditingComment}
                                             >
-                                              Cancel
+                                              Отмена
                                             </Button>
                                             <Button
                                               size="sm"
@@ -3136,7 +3320,7 @@ export function TrackDetailView() {
                                               disabled={!editCommentText.trim()}
                                             >
                                               <Check className="h-2.5 w-2.5" />
-                                              Save
+                                              Сохранить
                                             </Button>
                                           </div>
                                         </div>
@@ -3173,10 +3357,10 @@ export function TrackDetailView() {
                                           onClick={() => seekTo(comment.timestampMs / 1000)}
                                         >
                                           <LocateFixed className="h-3 w-3" />
-                                          Jump to
+                                          Перейти к
                                         </Button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Jump to this timestamp</TooltipContent>
+                                      <TooltipContent>Перейти к этому таймстемпу</TooltipContent>
                                     </Tooltip>
                                     {/* Reply button — small yellow ghost button at bottom of bubble */}
                                     {!comment.isResolved && (
@@ -3200,14 +3384,14 @@ export function TrackDetailView() {
                                             }}
                                           >
                                             <Reply className="h-3 w-3" />
-                                            Reply
+                                            Ответить
                                           </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>Reply to this comment</TooltipContent>
+                                        <TooltipContent>Ответить на комментарий</TooltipContent>
                                       </Tooltip>
                                     )}
                                     {comment.isResolved && (
-                                      <span className="text-[9px] text-[#4a8d6f]/60 italic">Thread closed</span>
+                                      <span className="text-[9px] text-[#4a8d6f]/60 italic">Тема закрыта</span>
                                     )}
                                   </div>
                                 </div>
@@ -3222,7 +3406,7 @@ export function TrackDetailView() {
                                       style={{ borderColor: hexToRgba(Y, 0.4) }}
                                     >
                                       <Input
-                                        placeholder={`Reply to ${comment.userName}...`}
+                                        placeholder={`Ответить ${comment.userName}...`}
                                         value={replyText}
                                         onChange={(e) => setReplyText(e.target.value)}
                                         onKeyDown={(e) => {
@@ -3249,7 +3433,7 @@ export function TrackDetailView() {
                                             setReplyText('');
                                           }}
                                         >
-                                          Cancel
+                                          Отмена
                                         </Button>
                                         <Button
                                           size="sm"
@@ -3265,7 +3449,7 @@ export function TrackDetailView() {
                                           disabled={!replyText.trim()}
                                         >
                                           <Send className="h-2.5 w-2.5" />
-                                          Reply
+                                          Ответить
                                         </Button>
                                       </div>
                                     </motion.div>
@@ -3364,7 +3548,7 @@ export function TrackDetailView() {
                                                   <Pencil className="h-2.5 w-2.5" />
                                                 </button>
                                               </TooltipTrigger>
-                                              <TooltipContent>Edit</TooltipContent>
+                                              <TooltipContent>Изменить</TooltipContent>
                                             </Tooltip>
                                             <Tooltip>
                                               <TooltipTrigger asChild>
@@ -3375,7 +3559,7 @@ export function TrackDetailView() {
                                                   <Trash2 className="h-2.5 w-2.5" />
                                                 </button>
                                               </TooltipTrigger>
-                                              <TooltipContent>Delete</TooltipContent>
+                                              <TooltipContent>Удалить</TooltipContent>
                                             </Tooltip>
                                           </div>
                                         </div>
@@ -3411,10 +3595,10 @@ export function TrackDetailView() {
                                                     }
                                                     if (e.key === 'Escape') cancelEditingComment();
                                                   }}
-                                                  placeholder="Edit reply..."
+                                                  placeholder="Изменить ответ..."
                                                 />
                                                 <div className="flex justify-end gap-1 mt-1">
-                                                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={cancelEditingComment}>Cancel</Button>
+                                                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={cancelEditingComment}>Отмена</Button>
                                                   <Button
                                                     size="sm"
                                                     className="h-5 gap-0.5 border-0 rounded-none px-1.5 text-[9px]"
@@ -3428,7 +3612,7 @@ export function TrackDetailView() {
                                                     onClick={() => handleEditComment(reply.id)}
                                                     disabled={!editCommentText.trim()}
                                                   >
-                                                    <Check className="h-2 w-2" /> Save
+                                                    <Check className="h-2 w-2" /> Сохранить
                                                   </Button>
                                                 </div>
                                               </div>
@@ -3459,7 +3643,7 @@ export function TrackDetailView() {
                                               if (editingCommentId === reply.id) cancelEditingComment();
                                             }}
                                           >
-                                            <Reply className="inline h-2.5 w-2.5" /> Reply
+                                            <Reply className="inline h-2.5 w-2.5" /> Ответить
                                           </button>
                                         )}
                                         {/* Inline reply input for reply-to-reply — hidden when parent resolved */}
@@ -3472,7 +3656,7 @@ export function TrackDetailView() {
                                               className="mt-1 overflow-hidden"
                                             >
                                               <Input
-                                                placeholder={`Reply to ${reply.userName}...`}
+                                                placeholder={`Ответить ${reply.userName}...`}
                                                 value={replyText}
                                                 onChange={(e) => setReplyText(e.target.value)}
                                                 onKeyDown={(e) => {
@@ -3490,7 +3674,7 @@ export function TrackDetailView() {
                                                 autoFocus
                                               />
                                               <div className="flex justify-end gap-1">
-                                                <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Cancel</Button>
+                                                <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Отмена</Button>
                                                 <Button
                                                   size="sm"
                                                   className="h-5 gap-0.5 border-0 rounded-none px-1.5 text-[9px]"
@@ -3504,7 +3688,7 @@ export function TrackDetailView() {
                                                   onClick={handleReply}
                                                   disabled={!replyText.trim()}
                                                 >
-                                                  <Send className="h-2 w-2" /> Reply
+                                                  <Send className="h-2 w-2" /> Ответить
                                                 </Button>
                                               </div>
                                             </motion.div>
@@ -3609,7 +3793,7 @@ export function TrackDetailView() {
                                   className="border-[#c7a008]/30 text-[#c7a008] text-[10px] animate-pulse"
                                   style={{ clipPath: CHAMFER_3 }}
                                 >
-                                  Click end point…
+                                  Кликните конец…
                                 </Badge>
                               ) : rangeEndMsState > 0 ? (
                                 <Badge
@@ -3621,7 +3805,7 @@ export function TrackDetailView() {
                                 </Badge>
                               ) : (
                                 <span className="text-[10px]" style={{ color: `${Y}99` }}>
-                                  Click start on waveform
+                                  Кликните начало на волне
                                 </span>
                               )}
                               {rangeEndMsState > rangeStartMs && (
@@ -3642,7 +3826,7 @@ export function TrackDetailView() {
                           {/* Range selection in-progress hint chip */}
                           {markerMode === 'range' && isSelectingRange && (
                             <span className="text-[10px] font-bold" style={{ color: Y }}>
-                              📍 Range start set — click waveform to set end
+                              📍 Начало диапазона — кликните волну для конца
                             </span>
                           )}
                           {/* Cancel (X) button — right side of chip row */}
@@ -3664,7 +3848,7 @@ export function TrackDetailView() {
                         {/* Composer row — input (flex-1) + send button, chat-style */}
                         <div className="flex items-center gap-2">
                           <Input
-                            placeholder="Write a comment at this timestamp..."
+                            placeholder="Комментарий в этом таймстемпе..."
                             value={newCommentText}
                             onChange={(e) => setNewCommentText(e.target.value)}
                             onKeyDown={(e) => {
@@ -3769,10 +3953,10 @@ function AddVersionDialog({
             className="uppercase"
             style={SECTION_TITLE_STYLE}
           >
-            Add New Version
+            Добавить новую версию
           </DialogTitle>
           <DialogDescription style={{ color: TEXT_SECONDARY }}>
-            Upload an audio file to create a new version of this track.
+            Загрузите аудиофайл для создания новой версии трека.
           </DialogDescription>
         </DialogHeader>
 
@@ -3788,7 +3972,7 @@ function AddVersionDialog({
                 letterSpacing: '1.5px',
               }}
             >
-              Audio File *
+              Аудиофайл *
             </label>
             <div
               className={`flex items-center gap-3 border border-dashed p-4 transition-colors cursor-pointer ${
@@ -3823,7 +4007,7 @@ function AddVersionDialog({
                   </>
                 ) : (
                   <>
-                    <p className="text-sm" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Click to select an audio file</p>
+                    <p className="text-sm" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Кликните для выбора аудиофайла</p>
                     <p className="text-[10px]" style={{ color: `${TEXT_SECONDARY}99`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>MP3, WAV, OGG, FLAC...</p>
                   </>
                 )}
@@ -3854,7 +4038,7 @@ function AddVersionDialog({
                 letterSpacing: '1.5px',
               }}
             >
-              Version Label
+              Метка версии
             </label>
             <Input
               value={dialogState.label}
@@ -3872,7 +4056,7 @@ function AddVersionDialog({
           {isUploading && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-[10px]" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                <span>Uploading...</span>
+                <span>Загрузка...</span>
                 <span style={{ color: Y }}>{uploadProgress}%</span>
               </div>
               <div
@@ -3908,7 +4092,7 @@ function AddVersionDialog({
                 textTransform: 'uppercase',
               }}
             >
-              Cancel
+              Отмена
             </Button>
             <Button
               size="sm"
@@ -3926,12 +4110,12 @@ function AddVersionDialog({
               {isUploading ? (
                 <>
                   <div className="mr-1.5 h-3 w-3 animate-spin rounded-full border-2 border-black/70 border-t-transparent" />
-                  Uploading...
+                  Загрузка...
                 </>
               ) : (
                 <>
                   <Upload className="mr-1.5 h-3.5 w-3.5" />
-                  Upload Version
+                  Загрузить версию
                 </>
               )}
             </Button>

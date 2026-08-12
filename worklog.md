@@ -2331,3 +2331,59 @@ Stage Summary:
 - Marker tooltip renders on hover AND on click (click pins it open), is positioned correctly inside the viewport (fixed the `relative fixed` className bug + the `translateX(100%)` off-screen bug), and uses cyberpunk 2077 yellow-border styling with yellow/cyan chamfered action buttons.
 - Comment cards are redesigned as chat-style rows: yellow-stripe bubble on the right of each avatar, yellow #N chip, yellow monospace timestamps, hover-revealed edit/delete icons, green checkmark + strikethrough + dimmed opacity for resolved state, indented reply thread with vertical yellow line connector, smaller cyan-stripe reply bubbles. The Add Comment input is now a chat composer bar (Input + Send icon button) at the BOTTOM of the comments section.
 - All functionality intact (audio, markers, comments, replies, socket.io, versions, keyboard shortcuts, header-actions).
+
+---
+Task ID: TD7-FIX5-V2
+Agent: full-stack-developer
+Task: Fix 5 issues in /home/z/my-project/src/components/views/track-detail-view.tsx (cyberpunk 2077 HUD restyle + Russian translation)
+
+Work Log:
+- Read worklog.md + first 150 lines of track-detail-view.tsx to get palette constants (Y, C, P, G, A, BG_*, BORDER_MUTED, TEXT_*).
+- Read entire 3942-line file in chunks to map out all 5 issues and locate every English string + every Select/Tooltip/Badge usage.
+- Verified globals.css defines `--primary: #8A2BE2`, `--accent: #8A2BE2`, `--ring: #8A2BE2` (the source of the inherited purple popups); confirmed there were no `#8A2BE2` / `#6366F1` / `bg-purple-*` / `violet-*` leftovers in the file itself — the purple leaks were purely from CSS-variable inheritance.
+
+Issue 1 — Status Select cyberpunk styling:
+- Extended `statusDotColors` map to include `draft`, `in_progress`, `mixing`, `mastering`, `released`, `recording`, `review` (legacy `idea`/`final` kept for backward compat). Per spec: draft=C, in_progress=C, mixing=P, mastering=G, released=C; recording=C, review=Y.
+- Added `statusLabels` map (Russian): draft→Черновик, in_progress→В работе, mixing→Сведение, mastering→Мастеринг, released→Релиз, recording→Запись, review→Проверка.
+- Added `STATUS_OPTIONS` ordered array.
+- Replaced the bare `<Select>` block with a fully cyberpunk-styled version: SelectTrigger gets BG_PANEL bg, 1px cyan border, CHAMFER_4, yellow monospace text, INSET_BEVEL_SHADOW, ChevronDown icon; SelectContent gets BG_PANEL bg + cyan border + CHAMFER_4 + 16px glow; SelectItems use `!text-[#c7a008]` (yellow) at rest + `focus:!text-[#00a8c6] hover:!text-[#00a8c6] data-[highlighted]:!text-[#00a8c6]` (cyan) on hover/focus. Each item carries a colored status dot with muted color + 4px glow.
+
+Issue 2 — Purple popup override:
+- Wrapped the TrackDetailView return `<div>` with an inline `style` that overrides the inherited CSS variables: `--primary=Y`, `--primary-foreground=#0a0b10`, `--accent=BG_MAIN`, `--accent-foreground=C`, `--ring=Y`, `--popover=BG_PANEL`, `--popover-foreground=TEXT_PRIMARY`, `--secondary/-foreground`, `--muted/-foreground`. These cascade to every shadcn Select/Tooltip/Badge/Button inside the view so the global purple defaults no longer leak through. This is the single-source fix — no per-component `!important` overrides needed for hover/focus colors.
+- All `#8A2BE2` / `#6366F1` / `bg-purple-*` / `violet-*` searches return no matches (no leftover instances to replace).
+
+Issue 3 — Audio player redesign:
+- Replaced the single-track seek bar with a 10-segment HUD equalizer. Each segment is a flex-1 div with BG_MAIN bg, CHAMFER_4 corners, 0.5px BORDER_MUTED border, and inset shadow. Filled segments render a yellow→cyan gradient (`linear-gradient(to right, ${Y}, ${C})`) with 6px yellow + 3px cyan glow; partially-filled segment shows proportional fill width; empty segments show a dim 15% grey gradient overlay.
+- Each segment is clickable: maps click X within segment to overall progress (`(i + x/width) / 10 * duration`) and seeks.
+- Added a time display row: large 16px bold yellow current time with text-shadow glow, a 10px yellow percentage badge (CHAMFER_3, 12% bg, 50% border) showing `Math.round(progress * 100)%`, and smaller 11px grey total duration — all in JetBrains-mono.
+- Reskinned transport buttons: SkipBack/SkipForward already had chamfered yellow frames (kept as-is); Play/Pause button enlarged to h-12 w-12 with purple→yellow gradient bg (`linear-gradient(135deg, ${P} 0%, ${Y} 100%)`), 16px yellow + 8px purple glow, 1.5px yellow border (per spec).
+- Volume button changed from cyan border to yellow border + yellow icon; volume slider fill changed from cyan (`C2→C`) to yellow (`Y2→Y`) with 4px yellow glow; added 0.5px yellow border.
+- Kept the existing HUD panel wrapper (BG_PANEL→BG_MAIN gradient, CHAMFER_8, 1px yellow border, 8px glow, INSET_BEVEL_SHADOW, CornerBrackets size=12).
+
+Issue 4 — Remove participant panel + add comment sort bar:
+- Added `const [sortBy, setSortBy] = useState<'date' | 'time' | 'author' | 'status'>('time')` to component state.
+- Extended `buildCommentTree` to accept an optional `rootComparator?: (a, b) => number`. When omitted, falls back to the original `timestampMs` ascending sort (no behavior change for other call sites).
+- Added a `sortedTree` useMemo before the render block that filters version comments, then calls `buildCommentTree` with a comparator that switches on `sortBy`: date→createdAt asc; author→localeCompare(userName, 'ru'); status→resolved-first then timestampMs; time→timestampMs asc (default).
+- Removed the entire 50-line participant presence JSX block (the `{groupMembers.length > 0 && (...)}` panel with avatars + online dots).
+- Replaced it with a comment sort bar styled as cyberpunk HUD: BG_PANEL bg, cyan border, CHAMFER_5 corners, INSET_BEVEL_SHADOW, CornerBrackets size=8. Contains a "Сортировка:" label + 4 chamfered buttons (По дате / По времени / По автору / По статусу). Active button uses yellow gradient bg + 6px glow; inactive uses BG_MAIN + BORDER_MUTED; hover turns text+border yellow. A right-aligned counter shows `{sortedTree.length} комм.`.
+- Updated the JSX render loop to consume `sortedTree` directly instead of computing `buildCommentTree(versionComments)` inline. Empty-state message translated.
+- Kept all participant state (`groupMembers`, `onlineUserIds`, the fetch useEffect) intact per the "keep state" constraint — they just no longer render.
+- Updated empty-state copy: "No comments yet..." → "Нет комментариев. Кликните по волне, чтобы добавить."
+
+Issue 5 — Russian translation sweep:
+Translated every remaining English UI string in the file (including toast messages, tooltips, placeholders, dialog labels):
+- Header / nav: "Ideas"→"Идеи", "Source Idea"→"Исходная идея", "No track selected"→"Нет выбранного трека", "Back to Project"→"Назад к проекту", "Open in Kanban"→"Открыть в Канбане".
+- Versions: "Add Version"→"Добавить версию", "Version {n}"→"Версия {n}", "Original"→"Оригинал", "{n} comments"→"{n} комм.", "Add New Version"→"Добавить новую версию", "Upload an audio file..."→"Загрузите аудиофайл для создания новой версии трека.", "Audio File *"→"Аудиофайл *", "Click to select an audio file"→"Кликните для выбора аудиофайла", "Version Label"→"Метка версии", "Uploading..."→"Загрузка...", "Upload Version"→"Загрузить версию".
+- Audio player: "Back 5s"→"Назад 5с", "Forward 5s"→"Вперёд 5с", "Space: Play/Pause · ←→: Skip 5s"→"Пробел: Играть/Пауза · ←→: Перемотка 5с", "Mute/Unmute"→"Выключить звук/Включить звук", "Loading waveform..."→"Загрузка волны...", "No audio..."→"Нет аудио..." (already Russian), "Click on waveform to seek · ..."→"Кликните по волне для перемотки · ...", "Upload audio to enable waveform interaction"→"Загрузите аудио для взаимодействия с волной".
+- Markers: "Marker:"→"Маркер:", "Point"→"Точка", "Range"→"Диапазон", "Click waveform to set start..."→"Кликните волну для начала...", "Click on waveform to place a pin marker"→"Кликните волну для маркера", "Start: ... — click end point…"→"Начало: ... — кликните конец…", "Click end point…"→"Кликните конец…", "Click start on waveform"→"Кликните начало на волне", "Range start set..."→"Начало диапазона...".
+- Comments: "Add Comment"→"Добавить комментарий", "Post comment"→"Отправить" (aria-label), "Reply"→"Ответить", "Reply to {name}..."→"Ответить {name}...", "Edit"→"Изменить", "Edit comment"→"Изменить комментарий", "Edit your comment..."→"Измените комментарий...", "Edit reply..."→"Изменить ответ...", "Delete"→"Удалить", "Delete comment"→"Удалить комментарий", "Cancel"→"Отмена", "Save"→"Сохранить", "Resolve"→"Решено", "Unresolve"→"Отменить", "Jump to"→"Перейти к", "Jump to this timestamp"→"Перейти к этому таймстемпу", "Reply to this comment"→"Ответить на комментарий", "Thread closed"→"Тема закрыта", "⌘+Enter to save"→"⌘+Enter для сохранения", "Pinned — click × to close"→"Закреплено — кликните × для закрытия", "Write a comment at this timestamp..."→"Комментарий в этом таймстемпе...", "No comments yet..."→"Нет комментариев. Кликните по волне, чтобы добавить.".
+- Toasts: "Comment updated"→"Комментарий обновлён", "Failed to update comment"→"Не удалось обновить комментарий", "Comment deleted"→"Комментарий удалён", "Failed to delete comment"→"Не удалось удалить комментарий".
+- Fallback "Unknown" user name → "Неизвестный".
+
+Critical constraints honored:
+- All imports, state, hooks, handlers, and effects preserved (including the now-unused `groupMembers`/`onlineUserIds` state, the socket connection, the participant-fetch effect — left intact per "keep state" instruction).
+- No new dependencies added.
+- No functionality broken: seek bar still calls `seekTo`, volume still calls `setVolume`, all reply/edit/delete handlers unchanged.
+- `npx tsc --noEmit` reports ZERO errors in `track-detail-view.tsx` (the only tsc errors are pre-existing in unrelated files: examples/websocket/server.ts, skills/image-edit, skills/stock-analysis-skill, src/app/api/boards/route.ts, src/components/ui/sidebar.tsx).
+- `bun run lint` reports ZERO errors for `track-detail-view.tsx` (all 9 lint errors are pre-existing in project-chat.tsx, app-header.tsx, home-view.tsx).
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` returns 200.
