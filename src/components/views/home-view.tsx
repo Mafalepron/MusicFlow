@@ -33,10 +33,10 @@ const TEXT_PRIMARY = '#e2e8f0';
 const TEXT_SECONDARY = '#718096';
 
 const typeMeta: Record<string, { label: string; color: string; icon: typeof Disc3 }> = {
-  album:   { label: 'Альбом',  color: C,         icon: Disc3 },       // blue
-  ep:      { label: 'EP',      color: P,         icon: AudioLines },  // purple
-  single:  { label: 'Сингл',   color: C,         icon: Music2 },       // blue
-  general: { label: 'Канбан',  color: C,         icon: FolderKanban },// blue
+  album:   { label: 'Альбом',  color: P,         icon: Disc3 },       // purple card
+  ep:      { label: 'EP',      color: P,         icon: AudioLines },  // purple card
+  single:  { label: 'Сингл',   color: P,         icon: Music2 },       // purple card
+  general: { label: 'Канбан',  color: C,         icon: FolderKanban },// blue card (kanban)
 };
 
 const stHex: Record<string, string> = {
@@ -196,9 +196,9 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
   const sc = stHex[project.status] || '#64748b';
   const sl = stLabel[project.status] || project.status;
   const hasKanban = !!project.kanbanTaskId;
-  // Content color rule: if card is blue (cyan), inner content is yellow. If purple, stays purple.
-  const isBlueCard = t.color === C;
-  const contentColor = isBlueCard ? Y : t.color;
+  // Auto project cards are purple, inner content is always yellow.
+  const isAutoProjectCard = project.type === 'album' || project.type === 'ep' || project.type === 'single';
+  const contentColor = isAutoProjectCard ? Y : (t.color === C ? Y : t.color);
   // Compute progress %: based on track count (capped at 100) + status boost
   const progress = useMemo(() => {
     const trackPct = Math.min(80, trackCount * 12); // each track ~12%, capped at 80
@@ -214,7 +214,7 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
       className="group relative cursor-pointer overflow-hidden"
       style={{
         clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-        background: project.type === 'album' ? '#0e1a24' : project.type === 'ep' ? '#161224' : '#0e1a24',
+        background: project.type === 'album' ? '#161224' : project.type === 'ep' ? '#161224' : '#161224',
         borderTop: `2px solid ${h ? '#c7a008' : t.color}`,
         boxShadow: h
           ? `inset 0 1px 12px ${hexToRgba('#c7a008', 0.15)}, inset 0 0 0 1px ${hexToRgba('#c7a008', 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
