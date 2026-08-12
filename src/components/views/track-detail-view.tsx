@@ -72,6 +72,7 @@ import { useKanbanStore } from '@/store/kanban-store';
 import { useAudioContextStore } from '@/store/audio-context-store';
 import { useHeaderActionsStore } from '@/store/header-actions-store';
 
+import { hexToRgba } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -80,6 +81,60 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+
+/* ─── Cyberpunk 2077 HUD palette (mirrors home-view.tsx / project-detail-view.tsx) ─── */
+const Y = '#c7a008'; // industrial desaturated gold
+const Y2 = '#9e7c06';
+const C = '#00a8c6'; // controlled cyan
+const C2 = '#0085a0';
+const P = '#7b2cbf'; // deep violet
+const P2 = '#5a1d8f';
+const A = '#718096'; // muted grey
+const G = '#4a8d6f'; // muted green
+const BG_MAIN = '#0a0c10';
+const BG_PANEL = '#11141d';
+const BG_CARD_PURPLE = '#161224';
+const BG_CARD_TEAL = '#0e1a24';
+const BORDER_MUTED = '#1f2633';
+const TEXT_PRIMARY = '#e2e8f0';
+const TEXT_SECONDARY = '#718096';
+
+/* Shared chamfer clip-paths (mirrors home-view.tsx bevel language) */
+const CHAMFER_8 = 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))';
+const CHAMFER_5 = 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))';
+const CHAMFER_4 = 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))';
+const CHAMFER_3 = 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))';
+const CHAMFER_PANEL = 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)';
+
+/* Panel border style — same as StatBar / Quick Access panel in home-view.tsx */
+const PANEL_BORDER_STYLE: React.CSSProperties = {
+  border: `1px solid ${hexToRgba(C, 0.4)}`,
+  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
+  background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+};
+
+/* Yellow CREATE-style button (mirrors CreateCard core — gold gradient, dark text, chamfered) */
+const YELLOW_BUTTON_STYLE: React.CSSProperties = {
+  color: '#0a0b10',
+  background: `linear-gradient(135deg, ${Y} 0%, ${Y2} 50%, ${Y} 100%)`,
+  fontFamily: 'var(--font-jetbrains-mono), monospace',
+  fontSize: '11px',
+  fontWeight: 700,
+  letterSpacing: '1.5px',
+  textTransform: 'uppercase',
+  clipPath: CHAMFER_4,
+  boxShadow: `0 0 8px ${hexToRgba(Y, 0.3)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+};
+
+/* Cyan-bordered dark HUD input style */
+const HUD_INPUT_STYLE: React.CSSProperties = {
+  background: BG_MAIN,
+  border: `1px solid ${hexToRgba(C, 0.3)}`,
+  color: TEXT_PRIMARY,
+  fontFamily: 'var(--font-jetbrains-mono), monospace',
+  fontSize: '13px',
+  clipPath: CHAMFER_3,
+};
 
 // --- Types ---
 
@@ -133,10 +188,10 @@ function DoubleCheckIcon({ className }: { className?: string }) {
 }
 
 const statusDotColors: Record<string, string> = {
-  idea: '#F59E0B',
-  recording: '#3B82F6',
-  mixing: '#8A2BE2',
-  final: '#10B981',
+  idea: '#c7a008',
+  recording: '#00a8c6',
+  mixing: '#7b2cbf',
+  final: '#4a8d6f',
 };
 
 // --- Helpers ---
@@ -188,22 +243,20 @@ function normalizeComment(raw: any): Comment {
 
 // --- Ideas Sticker Strip (square sticker cards) ---
 
+/* Muted HUD palette — 4 colors cycle: gold (Y), cyan (C), violet (P), green (G).
+   Source idea uses gold (Y) to read as "primary / originating". */
 const STICKER_COLORS = [
-  { bg: 'from-[#8A2BE2]/20 to-[#6366F1]/20', border: 'border-[#8A2BE2]/30', accent: '#8A2BE2', gradient: 'from-[#8A2BE2] to-[#6366F1]' },
-  { bg: 'from-[#00E5FF]/20 to-[#00B4D8]/20', border: 'border-[#00E5FF]/30', accent: '#00E5FF', gradient: 'from-[#00E5FF] to-[#00B4D8]' },
-  { bg: 'from-[#F59E0B]/20 to-[#F97316]/20', border: 'border-[#F59E0B]/30', accent: '#F59E0B', gradient: 'from-[#F59E0B] to-[#F97316]' },
-  { bg: 'from-[#10B981]/20 to-[#059669]/20', border: 'border-[#10B981]/30', accent: '#10B981', gradient: 'from-[#10B981] to-[#059669]' },
-  { bg: 'from-[#F472B6]/20 to-[#EC4899]/20', border: 'border-[#F472B6]/30', accent: '#F472B6', gradient: 'from-[#F472B6] to-[#EC4899]' },
-  { bg: 'from-[#8B5CF6]/20 to-[#A78BFA]/20', border: 'border-[#8B5CF6]/30', accent: '#8B5CF6', gradient: 'from-[#8B5CF6] to-[#A78BFA]' },
-  { bg: 'from-[#06B6D4]/20 to-[#22D3EE]/20', border: 'border-[#06B6D4]/30', accent: '#06B6D4', gradient: 'from-[#06B6D4] to-[#22D3EE]' },
-  { bg: 'from-[#EF4444]/20 to-[#F97316]/20', border: 'border-[#EF4444]/30', accent: '#EF4444', gradient: 'from-[#EF4444] to-[#F97316]' },
+  { bg: 'from-[#7b2cbf]/20 to-[#5a1d8f]/20', border: 'border-[#7b2cbf]/30', accent: P, gradient: 'from-[#7b2cbf] to-[#5a1d8f]' },
+  { bg: 'from-[#00a8c6]/20 to-[#0085a0]/20', border: 'border-[#00a8c6]/30', accent: C, gradient: 'from-[#00a8c6] to-[#0085a0]' },
+  { bg: 'from-[#c7a008]/20 to-[#9e7c06]/20', border: 'border-[#c7a008]/30', accent: Y, gradient: 'from-[#c7a008] to-[#9e7c06]' },
+  { bg: 'from-[#4a8d6f]/20 to-[#356a52]/20', border: 'border-[#4a8d6f]/30', accent: G, gradient: 'from-[#4a8d6f] to-[#356a52]' },
 ];
 
 const SOURCE_STICKER = {
-  bg: 'from-[#F59E0B]/25 to-[#EF4444]/25',
-  border: 'border-[#F59E0B]/50',
-  accent: '#F59E0B',
-  gradient: 'from-[#F59E0B] via-[#F97316] to-[#EF4444]',
+  bg: 'from-[#c7a008]/25 to-[#9e7c06]/25',
+  border: 'border-[#c7a008]/50',
+  accent: Y,
+  gradient: 'from-[#c7a008] to-[#9e7c06]',
 };
 
 interface IdeasStoriesStripProps {
@@ -240,7 +293,7 @@ function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStr
         transition={{ duration: 0.3 }}
         className="flex items-center gap-2 px-4 pt-3 pb-2 lg:px-6"
       >
-        <Lightbulb className="h-3.5 w-3.5 text-[#F59E0B]" />
+        <Lightbulb className="h-3.5 w-3.5 text-[#c7a008]" />
         <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
           Ideas
         </span>
@@ -274,17 +327,23 @@ function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStr
                     animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
                     exit={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(4px)' }}
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    className="absolute top-full left-0 z-50 mt-1 w-64 rounded-xl border border-border bg-[#0F0F15] shadow-2xl shadow-black/60"
+                    className="absolute top-full left-0 z-50 mt-1 w-64 border border-border shadow-2xl shadow-black/60"
+                    style={{
+                      background: BG_PANEL,
+                      border: `1px solid ${hexToRgba(C, 0.4)}`,
+                      clipPath: CHAMFER_5,
+                    }}
                   >
                     {/* Top accent bar */}
                     <div
-                      className={`h-1 w-full rounded-t-xl bg-gradient-to-r ${color.gradient}`}
+                      className={`h-1 w-full bg-gradient-to-r ${color.gradient}`}
+                      style={{ clipPath: CHAMFER_5 }}
                     />
                     <div className="p-3.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           {isSource && (
-                            <span className="mb-1 inline-block rounded bg-[#F59E0B]/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#F59E0B]">
+                            <span className="mb-1 inline-block rounded bg-[#c7a008]/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#c7a008]">
                               Source Idea
                             </span>
                           )}
@@ -294,7 +353,7 @@ function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStr
                         </div>
                         <button
                           onClick={(e) => { e.stopPropagation(); setExpandedIdea(null); }}
-                          className="shrink-0 mt-0.5 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/40 transition-colors hover:bg-[#1E1E28] hover:text-foreground"
+                          className="shrink-0 mt-0.5 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/40 transition-colors hover:bg-[#161224] hover:text-foreground"
                         >
                           <span className="text-sm leading-none">×</span>
                         </button>
@@ -335,7 +394,7 @@ function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStr
                             {tags.map((tag) => (
                               <span
                                 key={tag}
-                                className="rounded-full bg-[#1E1E28] px-1.5 py-0.5 text-[9px] text-muted-foreground/70"
+                                className="rounded-full bg-[#161224] px-1.5 py-0.5 text-[9px] text-muted-foreground/70"
                               >
                                 {tag}
                               </span>
@@ -356,9 +415,9 @@ function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStr
                 onClick={() => setExpandedIdea(isExpanded ? null : idea.id)}
                 className="group/sticker relative flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-xl border bg-gradient-to-br outline-none transition-shadow duration-200 hover:shadow-lg"
                 style={{
-                  borderColor: isSource ? 'rgba(245,158,11,0.4)' : `color-mix(in srgb, ${color.accent} 30%, transparent)`,
+                  borderColor: isSource ? 'rgba(199,160,8,0.4)' : `color-mix(in srgb, ${color.accent} 30%, transparent)`,
                   boxShadow: isSource
-                    ? `0 2px 12px rgba(245,158,11,0.15)`
+                    ? `0 2px 12px rgba(199,160,8,0.15)`
                     : `0 1px 6px ${color.accent}08`,
                 }}
               >
@@ -385,15 +444,21 @@ function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStr
                   style={{ backgroundColor: color.accent }}
                 />
 
-                {/* Hover title tooltip — appears above the sticker */}
-                <div className="pointer-events-none absolute -top-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-[#15151A] px-2.5 py-1 shadow-xl opacity-0 transition-opacity duration-150 group-hover/sticker:opacity-100">
-                  <p className="text-[10px] font-medium text-foreground">{idea.title}</p>
-                  <div className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-border bg-[#15151A]" />
+                {/* Hover title tooltip — appears above the sticker — dark HUD chip with yellow text */}
+                <div
+                  className="pointer-events-none absolute -top-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 shadow-xl opacity-0 transition-opacity duration-150 group-hover/sticker:opacity-100"
+                  style={{
+                    background: BG_PANEL,
+                    border: `1px solid ${hexToRgba(Y, 0.4)}`,
+                    clipPath: CHAMFER_3,
+                  }}
+                >
+                  <p className="text-[10px] font-medium" style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{idea.title}</p>
                 </div>
 
                 {/* Source indicator dot */}
                 {isSource && (
-                  <div className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#F59E0B] ring-2 ring-[#0B0B0F] shadow-sm shadow-[#F59E0B]/40" />
+                  <div className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#c7a008] ring-2 ring-[#0a0c10] shadow-sm shadow-[#c7a008]/40" />
                 )}
               </motion.button>
             </div>
@@ -770,14 +835,14 @@ export function TrackDetailView() {
 
       // Create gradient (cached via closure — only recreated when canvas resets)
       const gradient = ctx.createLinearGradient(0, 0, width, 0);
-      gradient.addColorStop(0, '#8A2BE2');
-      gradient.addColorStop(0.5, '#6366F1');
-      gradient.addColorStop(1, '#00E5FF');
+      gradient.addColorStop(0, '#7b2cbf');
+      gradient.addColorStop(0.5, '#5a1d8f');
+      gradient.addColorStop(1, '#00a8c6');
 
       const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
-      dimGradient.addColorStop(0, 'rgba(138,43,226,0.25)');
-      dimGradient.addColorStop(0.5, 'rgba(99,102,241,0.25)');
-      dimGradient.addColorStop(1, 'rgba(0,229,255,0.25)');
+      dimGradient.addColorStop(0, 'rgba(123,44,191,0.25)');
+      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.25)');
+      dimGradient.addColorStop(1, 'rgba(0,168,198,0.25)');
 
       // Batch bars by color to minimize fillStyle switches
       // First pass: unplayed bars
@@ -859,13 +924,13 @@ export function TrackDetailView() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
       const gradient = ctx.createLinearGradient(0, 0, width, 0);
-      gradient.addColorStop(0, '#8A2BE2');
-      gradient.addColorStop(0.5, '#6366F1');
-      gradient.addColorStop(1, '#00E5FF');
+      gradient.addColorStop(0, '#7b2cbf');
+      gradient.addColorStop(0.5, '#5a1d8f');
+      gradient.addColorStop(1, '#00a8c6');
       const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
-      dimGradient.addColorStop(0, 'rgba(138,43,226,0.25)');
-      dimGradient.addColorStop(0.5, 'rgba(99,102,241,0.25)');
-      dimGradient.addColorStop(1, 'rgba(0,229,255,0.25)');
+      dimGradient.addColorStop(0, 'rgba(123,44,191,0.25)');
+      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.25)');
+      dimGradient.addColorStop(1, 'rgba(0,168,198,0.25)');
       ctx.fillStyle = dimGradient;
       for (let i = 0; i < barCount; i++) {
         const x = i * barWidth;
@@ -1319,16 +1384,33 @@ export function TrackDetailView() {
   if (!track) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
-        <Music2 className="h-12 w-12 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">No track selected</p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate('project-detail', selectedProjectId ?? undefined)}
+        <div
+          className="flex flex-col items-center gap-3 p-6"
+          style={{
+            background: BG_PANEL,
+            border: `1px solid ${hexToRgba(C, 0.4)}`,
+            clipPath: CHAMFER_8,
+          }}
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Project
-        </Button>
+          <Music2 className="h-12 w-12" style={{ color: hexToRgba(Y, 0.5) }} />
+          <p className="text-sm" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>No track selected</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-0 rounded-none"
+            style={{
+              ...YELLOW_BUTTON_STYLE,
+              paddingRight: '12px',
+              paddingLeft: '12px',
+              paddingTop: '5px',
+              paddingBottom: '5px',
+            }}
+            onClick={() => navigate('project-detail', selectedProjectId ?? undefined)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Project
+          </Button>
+        </div>
       </div>
     );
   }
@@ -1342,7 +1424,8 @@ export function TrackDetailView() {
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex items-center gap-3 border-b border-border px-4 py-3 lg:px-6"
+        className="flex items-center gap-3 px-4 py-3 lg:px-6"
+        style={{ borderBottom: `1px solid ${hexToRgba(C, 0.2)}` }}
       >
         <div className="min-w-0 flex-1">
           {/* Ideas Stories Strip — in header area */}
@@ -1363,7 +1446,7 @@ export function TrackDetailView() {
               <span
                 className="h-2 w-2 rounded-full"
                 style={{
-                  backgroundColor: statusDotColors[track.status] || '#A0A0B0',
+                  backgroundColor: statusDotColors[track.status] || '#718096',
                 }}
               />
               <SelectValue />
@@ -1372,25 +1455,25 @@ export function TrackDetailView() {
           <SelectContent>
             <SelectItem value="idea">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#F59E0B]" />
+                <span className="h-2 w-2 rounded-full bg-[#c7a008]" />
                 Idea
               </span>
             </SelectItem>
             <SelectItem value="recording">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
+                <span className="h-2 w-2 rounded-full bg-[#00a8c6]" />
                 Recording
               </span>
             </SelectItem>
             <SelectItem value="mixing">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#8A2BE2]" />
+                <span className="h-2 w-2 rounded-full bg-[#7b2cbf]" />
                 Mixing
               </span>
             </SelectItem>
             <SelectItem value="final">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+                <span className="h-2 w-2 rounded-full bg-[#4a8d6f]" />
                 Final
               </span>
             </SelectItem>
@@ -1398,8 +1481,8 @@ export function TrackDetailView() {
         </Select>
       </motion.div>
 
-      {/* Version Panel — between header and player */}
-      <div className="shrink-0 border-b border-border px-4 py-3 lg:px-6">
+      {/* Version Panel — dark HUD tabs with chamfered corners */}
+      <div className="shrink-0 px-4 py-3 lg:px-6" style={{ borderBottom: `1px solid ${hexToRgba(C, 0.2)}` }}>
         <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {versions.map((v) => {
             const isActive = activeVersion?.id === v.id;
@@ -1409,29 +1492,62 @@ export function TrackDetailView() {
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setActiveVersionId(v.id)}
-                className={`shrink-0 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+                className={`shrink-0 px-4 py-2 text-xs font-semibold transition-all ${
                   isActive
-                    ? 'bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-white shadow-lg shadow-[#8A2BE2]/25'
-                    : 'bg-[#1E1E28] text-muted-foreground hover:bg-[#25252D] hover:text-foreground border border-border'
+                    ? 'text-white'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
+                style={
+                  isActive
+                    ? {
+                        background: `linear-gradient(to right, ${P}, ${P2})`,
+                        clipPath: CHAMFER_4,
+                        boxShadow: `0 0 8px ${hexToRgba(P, 0.35)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                      }
+                    : {
+                        background: BG_CARD_PURPLE,
+                        border: `1px solid ${BORDER_MUTED}`,
+                        clipPath: CHAMFER_4,
+                      }
+                }
               >
                 <span>{v.version === 1 && !v.label ? 'Original' : v.label || `v${v.version}`}</span>
                 {v.commentCount !== undefined && v.commentCount > 0 && (
-                  <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[9px] ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-[#25252D] text-muted-foreground'
-                  }`}>
+                  <span
+                    className={`ml-2 px-1.5 py-0.5 text-[9px] ${
+                      isActive ? 'text-white' : 'text-muted-foreground'
+                    }`}
+                    style={{
+                      background: isActive ? hexToRgba(Y, 0.25) : BG_MAIN,
+                      color: isActive ? Y : undefined,
+                      clipPath: CHAMFER_3,
+                    }}
+                  >
                     {v.commentCount}
                   </span>
+                )}
+                {/* Active yellow indicator dot */}
+                {isActive && (
+                  <span
+                    className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full"
+                    style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}` }}
+                  />
                 )}
               </motion.button>
             );
           })}
-          {/* Add Version button */}
+          {/* Add Version button — chamfered, yellow on hover */}
           <motion.button
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => setShowAddVersionDialog(true)}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/30 bg-transparent px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-[#8A2BE2]/50 hover:text-[#8A2BE2]"
+            className="flex shrink-0 items-center gap-1.5 border border-dashed bg-transparent px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-[#c7a008]"
+            style={{
+              borderColor: hexToRgba(Y, 0.3),
+              clipPath: CHAMFER_4,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.6); }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.3); }}
           >
             <Plus className="h-3.5 w-3.5" />
             Add Version
@@ -1439,19 +1555,19 @@ export function TrackDetailView() {
         </div>
         {/* Current version info */}
         {activeVersion && (
-          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground/60">
+          <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: `${TEXT_SECONDARY}b3`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
             <span>Version {activeVersion.version}</span>
-            <span>·</span>
+            <span style={{ color: Y }}>·</span>
             <span>{activeVersion.label || `v${activeVersion.version}`}</span>
             {activeVersion.durationMs && (
               <>
-                <span>·</span>
+                <span style={{ color: Y }}>·</span>
                 <span>{formatDuration(activeVersion.durationMs / 1000)}</span>
               </>
             )}
             {activeVersion.commentCount !== undefined && (
               <>
-                <span>·</span>
+                <span style={{ color: Y }}>·</span>
                 <span>{activeVersion.commentCount} comment{activeVersion.commentCount !== 1 ? 's' : ''}</span>
               </>
             )}
@@ -1472,12 +1588,26 @@ export function TrackDetailView() {
       {/* Main content — single full-width column (chat moved to global floating widget) */}
       <div className="min-h-0 flex-1">
         <div className="flex h-full flex-col">
-          {/* Audio Player */}
-              <div className="shrink-0 border-b border-border p-4 lg:p-6">
+          {/* Audio Player — HUD panel with cyan border + chamfered */}
+              <div
+                className="shrink-0 p-4 lg:p-6"
+                style={{
+                  ...PANEL_BORDER_STYLE,
+                  borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
+                  borderLeft: 'none',
+                  borderRight: 'none',
+                  borderTop: 'none',
+                }}
+              >
                 {/* Seek bar */}
                 <div className="mb-4">
                   <div
-                    className="group relative h-2 w-full cursor-pointer rounded-full bg-[#1E1E28]"
+                    className="group relative h-2 w-full cursor-pointer"
+                    style={{
+                      background: BG_MAIN,
+                      clipPath: CHAMFER_3,
+                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                    }}
                     onClick={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect();
                       const x = e.clientX - rect.left;
@@ -1485,21 +1615,26 @@ export function TrackDetailView() {
                       seekTo(p * duration);
                     }}
                   >
-                    {/* Background track */}
+                    {/* Background track — purple→cyan gradient fill */}
                     <div
-                      className="absolute inset-y-0 left-0 rounded-full transition-all duration-100"
+                      className="absolute inset-y-0 left-0 transition-all duration-100"
                       style={{
                         width: `${progress * 100}%`,
-                        background: 'linear-gradient(to right, #8A2BE2, #00E5FF)',
+                        background: `linear-gradient(to right, ${P}, ${C})`,
+                        boxShadow: `0 0 6px ${hexToRgba(C, 0.4)}`,
+                        clipPath: CHAMFER_3,
                       }}
                     />
                     {/* Thumb */}
                     <div
                       className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-4 w-4 rounded-full bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
-                      style={{ left: `${progress * 100}%` }}
+                      style={{
+                        left: `${progress * 100}%`,
+                        boxShadow: `0 0 8px ${hexToRgba(C, 0.6)}`,
+                      }}
                     />
                   </div>
-                  <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
+                  <div className="mt-1.5 flex justify-between text-[11px]" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                     <span>{formatDuration(currentTime)}</span>
                     <span>{formatDuration(displayDuration)}</span>
                   </div>
@@ -1513,7 +1648,7 @@ export function TrackDetailView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9"
+                          className="h-9 w-9 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
                           onClick={() => skip(-5)}
                         >
                           <SkipBack className="h-4 w-4" />
@@ -1524,7 +1659,7 @@ export function TrackDetailView() {
 
                     <Button
                       size="icon"
-                      className="h-10 w-10 rounded-full bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-white shadow-lg shadow-[#8A2BE2]/20 hover:shadow-[#8A2BE2]/40 transition-shadow"
+                      className="h-10 w-10 rounded-full bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] text-white shadow-lg shadow-[#7b2cbf]/20 hover:shadow-[#7b2cbf]/40 transition-shadow border-0"
                       onClick={togglePlay}
                     >
                       {isPlaying ? (
@@ -1539,7 +1674,7 @@ export function TrackDetailView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9"
+                          className="h-9 w-9 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
                           onClick={() => skip(5)}
                         >
                           <SkipForward className="h-4 w-4" />
@@ -1556,7 +1691,7 @@ export function TrackDetailView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
                           onClick={() => setIsMuted(!isMuted)}
                         >
                           {isMuted || volume === 0 ? (
@@ -1571,7 +1706,12 @@ export function TrackDetailView() {
                       </TooltipContent>
                     </Tooltip>
                     <div
-                      className="group relative h-1.5 w-24 cursor-pointer rounded-full bg-[#1E1E28]"
+                      className="group relative h-1.5 w-24 cursor-pointer"
+                      style={{
+                        background: BG_MAIN,
+                        clipPath: CHAMFER_3,
+                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                      }}
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         const x = e.clientX - rect.left;
@@ -1580,16 +1720,18 @@ export function TrackDetailView() {
                       }}
                     >
                       <div
-                        className="absolute inset-y-0 left-0 rounded-full bg-[#A0A0B0] transition-all"
+                        className="absolute inset-y-0 left-0 transition-all"
                         style={{
                           width: `${(isMuted ? 0 : volume) * 100}%`,
+                          background: `linear-gradient(to right, ${C2}, ${C})`,
+                          clipPath: CHAMFER_3,
                         }}
                       />
                     </div>
                   </div>
 
                   {/* Keyboard shortcut hint */}
-                  <p className="ml-auto hidden text-[11px] text-muted-foreground/50 lg:block">
+                  <p className="ml-auto hidden text-[11px] lg:block" style={{ color: `${TEXT_SECONDARY}cc`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                     Space: Play/Pause · ←→: Skip 5s
                   </p>
                 </div>
@@ -1600,18 +1742,30 @@ export function TrackDetailView() {
                 {/* Marker mode toolbar — always visible near waveform */}
                 <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-medium text-muted-foreground">Marker:</span>
-                    <div className="flex items-center rounded-md border border-border bg-[#1E1E28] p-0.5">
+                    <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Marker:</span>
+                    <div
+                      className="flex items-center border p-0.5"
+                      style={{
+                        background: BG_MAIN,
+                        border: `1px solid ${hexToRgba(BORDER_MUTED, 1)}`,
+                        clipPath: CHAMFER_3,
+                      }}
+                    >
                       <button
                         onClick={() => {
                           setMarkerMode('point');
                           setIsSelectingRange(false);
                         }}
-                        className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
+                        className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-all ${
                           markerMode === 'point'
-                            ? 'bg-[#00E5FF] text-black shadow-sm shadow-[#00E5FF]/30'
+                            ? 'text-black shadow-sm'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
+                        style={
+                          markerMode === 'point'
+                            ? { background: C, clipPath: CHAMFER_3, boxShadow: `0 0 6px ${hexToRgba(C, 0.5)}` }
+                            : undefined
+                        }
                       >
                         <MapPin className="h-3 w-3" />
                         Point
@@ -1621,17 +1775,22 @@ export function TrackDetailView() {
                           setMarkerMode('range');
                           setIsSelectingRange(false);
                         }}
-                        className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
+                        className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-all ${
                           markerMode === 'range'
-                            ? 'bg-[#F59E0B] text-black shadow-sm shadow-[#F59E0B]/30'
+                            ? 'text-black shadow-sm'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
+                        style={
+                          markerMode === 'range'
+                            ? { background: Y, clipPath: CHAMFER_3, boxShadow: `0 0 6px ${hexToRgba(Y, 0.5)}` }
+                            : undefined
+                        }
                       >
                         <MoveHorizontal className="h-3 w-3" />
                         Range
                       </button>
                     </div>
-                    <span className="text-[10px] text-muted-foreground/70">
+                    <span className="text-[10px]" style={{ color: `${TEXT_SECONDARY}b3` }}>
                       {markerMode === 'range'
                         ? 'Click waveform to set start, then click again for end'
                         : 'Click on waveform to place a pin marker'}
@@ -1639,12 +1798,12 @@ export function TrackDetailView() {
                   </div>
                   <div className="flex items-center gap-2">
                     {markerMode === 'range' && isSelectingRange && rangeStartMs > 0 && (
-                      <Badge variant="outline" className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px] animate-pulse">
+                      <Badge variant="outline" className="border-[#c7a008]/30 text-[#c7a008] text-[10px] animate-pulse">
                         Start: {formatTimestamp(rangeStartMs)} — click end point…
                       </Badge>
                     )}
                     {markerMode === 'range' && !isSelectingRange && rangeEndMsState > rangeStartMs && rangeStartMs > 0 && (
-                      <Badge variant="outline" className="border-[#00E5FF]/30 text-[#00E5FF] text-[10px]">
+                      <Badge variant="outline" className="border-[#00a8c6]/30 text-[#00a8c6] text-[10px]">
                         {formatTimestamp(rangeStartMs)} → {formatTimestamp(rangeEndMsState)}
                         <span className="ml-1 text-muted-foreground/50">
                           ({formatDuration((rangeEndMsState - rangeStartMs) / 1000)})
@@ -1652,18 +1811,25 @@ export function TrackDetailView() {
                       </Badge>
                     )}
                     {markerMode === 'point' && commentTimestamp > 0 && (
-                      <Badge variant="outline" className="border-[#00E5FF]/30 text-[#00E5FF] text-[10px]">
+                      <Badge variant="outline" className="border-[#00a8c6]/30 text-[#00a8c6] text-[10px]">
                         {formatTimestamp(commentTimestamp)}
                       </Badge>
                     )}
                   </div>
                 </div>
 
-                <div className={`relative rounded-lg border p-3 transition-colors ${
-                  markerMode === 'range'
-                    ? 'border-[#F59E0B]/30 bg-[#101016]'
-                    : 'border-border bg-[#101016]'
-                }`}>
+                <div
+                  className={`relative border p-3 transition-colors ${
+                    markerMode === 'range'
+                      ? 'border-[#c7a008]/30'
+                      : 'border-[#1f2633]'
+                  }`}
+                  style={{
+                    background: BG_PANEL,
+                    clipPath: CHAMFER_5,
+                    boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.6)',
+                  }}
+                >
                   {/* Empty state when no audio */}
                   {!currentAudioUrl && (
                     <div className="flex h-24 flex-col items-center justify-center gap-2">
@@ -1675,7 +1841,7 @@ export function TrackDetailView() {
                   )}
                   {!waveformReady && currentAudioUrl && (
                     <div className="flex h-24 items-center justify-center">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#8A2BE2] border-t-transparent" />
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#7b2cbf] border-t-transparent" />
                       <span className="ml-2 text-xs text-muted-foreground">
                         Loading waveform...
                       </span>
@@ -1702,16 +1868,23 @@ export function TrackDetailView() {
                       }`}
                       onClick={handleWaveformClick}
                     />
-                    {/* Hover time tooltip — follows cursor along waveform */}
+                    {/* Hover time tooltip — follows cursor along waveform — yellow HUD chip */}
                     {waveformHoverTime && (
                       <div
                         className="pointer-events-none absolute top-1 z-20 -translate-x-1/2"
                         style={{ left: waveformHoverTime.x }}
                       >
-                        <span className="rounded bg-[#8A2BE2]/90 px-1.5 py-0.5 text-[10px] font-medium text-white shadow-lg">
+                        <span
+                          className="px-1.5 py-0.5 text-[10px] font-bold shadow-lg"
+                          style={{
+                            background: hexToRgba(Y, 0.95),
+                            color: '#0a0b10',
+                            clipPath: CHAMFER_3,
+                            fontFamily: 'var(--font-jetbrains-mono), monospace',
+                          }}
+                        >
                           {formatTimestamp(waveformHoverTime.ms)}
                         </span>
-                        <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-[#8A2BE2]/90" />
                       </div>
                     )}
                     {/* Range highlight bars for range comments */}
@@ -1727,10 +1900,10 @@ export function TrackDetailView() {
                           <div
                             key={`range-${comment.id}`}
                             className={`absolute top-0 h-full z-[5] rounded-sm transition-all pointer-events-none ${
-                              isFocused ? 'bg-[#F59E0B]/15 border-y-2 border-[#F59E0B]/60' :
-                              isHovered ? 'bg-[#F59E0B]/10 border-y-2 border-[#F59E0B]/40' :
-                              comment.isResolved ? 'bg-[#10B981]/8 border-y-2 border-[#10B981]/20' :
-                              'bg-[#F59E0B]/8 border-y-2 border-[#F59E0B]/20'
+                              isFocused ? 'bg-[#c7a008]/15 border-y-2 border-[#c7a008]/60' :
+                              isHovered ? 'bg-[#c7a008]/10 border-y-2 border-[#c7a008]/40' :
+                              comment.isResolved ? 'bg-[#4a8d6f]/8 border-y-2 border-[#4a8d6f]/20' :
+                              'bg-[#c7a008]/8 border-y-2 border-[#c7a008]/20'
                             }`}
                             style={{
                               left: `${startPct * 100}%`,
@@ -1744,19 +1917,19 @@ export function TrackDetailView() {
                     {waveformReady && displayDuration > 0 && isSelectingRange && rangeStartMs > 0 && (
                       <div className="contents">
                         <div
-                          className="absolute top-0 h-full z-[6] bg-[#F59E0B]/10 border-y-2 border-[#F59E0B]/40 pointer-events-none"
+                          className="absolute top-0 h-full z-[6] bg-[#c7a008]/10 border-y-2 border-[#c7a008]/40 pointer-events-none"
                           style={{
                             left: `${(rangeStartMs / 1000 / duration) * 100}%`,
                             width: `${((rangeEndMsState - rangeStartMs) / 1000 / duration) * 100}%`,
                           }}
                         />
                         <div
-                          className="absolute top-0 z-[7] h-full w-0.5 bg-[#F59E0B] pointer-events-none"
+                          className="absolute top-0 z-[7] h-full w-0.5 bg-[#c7a008] pointer-events-none"
                           style={{ left: `${(rangeStartMs / 1000 / duration) * 100}%` }}
                         />
                         {rangeEndMsState > rangeStartMs && (
                           <div
-                            className="absolute top-0 z-[7] h-full w-0.5 bg-[#F59E0B] pointer-events-none"
+                            className="absolute top-0 z-[7] h-full w-0.5 bg-[#c7a008] pointer-events-none"
                             style={{ left: `${(rangeEndMsState / 1000 / duration) * 100}%` }}
                           />
                         )}
@@ -1812,18 +1985,18 @@ export function TrackDetailView() {
                                 <div
                                   className={`rotate-45 transition-all duration-150 ${
                                     isFocused
-                                      ? 'h-4 w-4 bg-[#F59E0B] shadow-[0_0_10px_rgba(245,158,11,0.6)]'
+                                      ? 'h-4 w-4 bg-[#c7a008] shadow-[0_0_10px_rgba(199,160,8,0.6)]'
                                       : isHovered
-                                        ? 'h-3.5 w-3.5 bg-[#F59E0B]/80 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                                        ? 'h-3.5 w-3.5 bg-[#c7a008]/80 shadow-[0_0_8px_rgba(199,160,8,0.5)]'
                                         : comment.isResolved
-                                          ? 'h-2.5 w-2.5 bg-[#10B981]'
-                                          : 'h-2.5 w-2.5 bg-[#F59E0B]'
+                                          ? 'h-2.5 w-2.5 bg-[#4a8d6f]'
+                                          : 'h-2.5 w-2.5 bg-[#c7a008]'
                                   }`}
                                 />
                                 {/* Vertical line */}
                                 <div
                                   className={`absolute left-1/2 top-full h-4 w-0.5 -translate-x-1/2 -rotate-0 transition-colors ${
-                                    isFocused ? 'bg-[#F59E0B]/60' : isHovered ? 'bg-[#F59E0B]/40' : 'bg-[#F59E0B]/20'
+                                    isFocused ? 'bg-[#c7a008]/60' : isHovered ? 'bg-[#c7a008]/40' : 'bg-[#c7a008]/20'
                                   }`}
                                 />
                               </>
@@ -1833,12 +2006,12 @@ export function TrackDetailView() {
                                 <div
                                   className={`rounded-full border-2 transition-all duration-150 ${
                                     isFocused
-                                      ? 'h-4 w-4 border-[#00E5FF] bg-[#00E5FF]/30 shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+                                      ? 'h-4 w-4 border-[#00a8c6] bg-[#00a8c6]/30 shadow-[0_0_8px_rgba(0,168,198,0.5)]'
                                       : isHovered
-                                        ? 'h-3.5 w-3.5 border-[#00E5FF] bg-[#00E5FF]/40 shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+                                        ? 'h-3.5 w-3.5 border-[#00a8c6] bg-[#00a8c6]/40 shadow-[0_0_8px_rgba(0,168,198,0.5)]'
                                         : comment.isResolved
-                                          ? 'h-2.5 w-2.5 border-[#10B981] bg-[#10B981]'
-                                          : 'h-2.5 w-2.5 border-[#00E5FF] bg-[#00E5FF]'
+                                          ? 'h-2.5 w-2.5 border-[#4a8d6f] bg-[#4a8d6f]'
+                                          : 'h-2.5 w-2.5 border-[#00a8c6] bg-[#00a8c6]'
                                   }`}
                                   style={{ borderColor: 'inherit' }}
                                 >
@@ -1848,7 +2021,7 @@ export function TrackDetailView() {
                                 {/* Vertical line down from pin */}
                                 <div
                                   className={`absolute left-1/2 top-full h-4 w-px -translate-x-1/2 transition-colors ${
-                                    isFocused ? 'bg-[#00E5FF]/60' : isHovered ? 'bg-[#00E5FF]/40' : 'bg-[#00E5FF]/20'
+                                    isFocused ? 'bg-[#00a8c6]/60' : isHovered ? 'bg-[#00a8c6]/40' : 'bg-[#00a8c6]/20'
                                   }`}
                                 />
                               </>
@@ -1902,17 +2075,17 @@ export function TrackDetailView() {
                               <div
                                 className={`rotate-45 transition-all duration-150 ${
                                   isFocused
-                                    ? 'h-3.5 w-3.5 bg-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                                    ? 'h-3.5 w-3.5 bg-[#c7a008] shadow-[0_0_8px_rgba(199,160,8,0.5)]'
                                     : isHovered
-                                      ? 'h-3 w-3 bg-[#F59E0B]/80 shadow-[0_0_6px_rgba(245,158,11,0.4)]'
+                                      ? 'h-3 w-3 bg-[#c7a008]/80 shadow-[0_0_6px_rgba(199,160,8,0.4)]'
                                       : comment.isResolved
-                                        ? 'h-2 w-2 bg-[#10B981]'
-                                        : 'h-2 w-2 bg-[#F59E0B]'
+                                        ? 'h-2 w-2 bg-[#4a8d6f]'
+                                        : 'h-2 w-2 bg-[#c7a008]'
                                 }`}
                               />
                               <div
                                 className={`absolute left-1/2 top-full h-3 w-0.5 -translate-x-1/2 transition-colors ${
-                                  isFocused ? 'bg-[#F59E0B]/50' : isHovered ? 'bg-[#F59E0B]/35' : 'bg-[#F59E0B]/15'
+                                  isFocused ? 'bg-[#c7a008]/50' : isHovered ? 'bg-[#c7a008]/35' : 'bg-[#c7a008]/15'
                                 }`}
                               />
                             </motion.button>
@@ -1938,8 +2111,11 @@ export function TrackDetailView() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 4, scale: 0.95 }}
                       transition={{ duration: 0.12 }}
-                      className="fixed z-[9999] rounded-lg border border-border bg-[#15151A] px-3 py-2 shadow-2xl shadow-black/70"
+                      className="fixed z-[9999] px-3 py-2 shadow-2xl shadow-black/70"
                       style={{
+                        background: BG_PANEL,
+                        border: `1px solid ${hexToRgba(C, 0.4)}`,
+                        clipPath: CHAMFER_5,
                         bottom: window.innerHeight - markerTooltipPos.top + 4,
                         left: markerTooltipPos.right ? 'auto' : markerTooltipPos.left,
                         right: markerTooltipPos.right ? window.innerWidth - markerTooltipPos.left : 'auto',
@@ -1963,14 +2139,14 @@ export function TrackDetailView() {
                       }}
                     >
                       <div className="flex items-center gap-2">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#8A2BE2]/20 text-[9px] font-bold text-[#8A2BE2]">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7b2cbf]/20 text-[9px] font-bold text-[#7b2cbf]">
                           {getInitials(comment.userName)}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[11px] font-semibold text-foreground leading-tight">
                             {comment.userName}
                             {commentNumberMap.get(comment.id) && (
-                              <span className="ml-1.5 text-xs font-bold text-[#8A2BE2]">
+                              <span className="ml-1.5 text-xs font-bold" style={{ color: Y }}>
                                 #{commentNumberMap.get(comment.id)}
                               </span>
                             )}
@@ -1989,7 +2165,7 @@ export function TrackDetailView() {
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-border/50 pt-1.5">
                         <button
-                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#7b2cbf]/15 hover:text-[#7b2cbf]"
                           onClick={(e) => {
                             e.stopPropagation();
                             startEditingComment(comment);
@@ -2000,7 +2176,7 @@ export function TrackDetailView() {
                           Edit
                         </button>
                         <button
-                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#10B981]/15 hover:text-[#10B981]"
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#4a8d6f]/15 hover:text-[#4a8d6f]"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleToggleResolved(comment.id, comment.isResolved);
@@ -2030,13 +2206,26 @@ export function TrackDetailView() {
               <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 lg:px-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                    <h2 className="text-sm font-semibold text-foreground">
+                    <MessageCircle className="h-4 w-4" style={{ color: Y }} />
+                    <h2
+                      className="text-sm font-semibold uppercase"
+                      style={{
+                        color: TEXT_PRIMARY,
+                        fontFamily: 'var(--font-rajdhani), sans-serif',
+                        letterSpacing: '2px',
+                      }}
+                    >
                       Timestamp Comments
                     </h2>
                     <Badge
                       variant="secondary"
                       className="h-5 px-1.5 text-[10px]"
+                      style={{
+                        background: hexToRgba(Y, 0.15),
+                        color: Y,
+                        border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+                        clipPath: CHAMFER_3,
+                      }}
                     >
                       {comments.length}
                     </Badge>
@@ -2044,7 +2233,14 @@ export function TrackDetailView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1.5 text-xs"
+                    className="h-7 gap-1.5 text-xs border-0 rounded-none"
+                    style={{
+                      ...YELLOW_BUTTON_STYLE,
+                      paddingRight: '10px',
+                      paddingLeft: '10px',
+                      paddingTop: '4px',
+                      paddingBottom: '4px',
+                    }}
                     onClick={() => {
                       setCommentTimestamp(Math.round(currentTime * 1000));
                       setRangeStartMs(0);
@@ -2060,7 +2256,14 @@ export function TrackDetailView() {
 
                 {/* Participant presence — online indicators (chat moved to global floating widget) */}
                 {groupMembers.length > 0 && (
-                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-[#101016]/50 px-3 py-2">
+                  <div
+                    className="mb-3 flex items-center gap-2 px-3 py-2"
+                    style={{
+                      background: BG_PANEL,
+                      border: `1px solid ${BORDER_MUTED}`,
+                      clipPath: CHAMFER_5,
+                    }}
+                  >
                     <div className="flex items-center">
                       {groupMembers.slice(0, 6).map((member, idx) => {
                         const isOnline = onlineUserIds.has(member.userId);
@@ -2074,8 +2277,8 @@ export function TrackDetailView() {
                               <AvatarFallback
                                 className={`text-[8px] ${
                                   isOnline
-                                    ? 'bg-[#10B981]/20 text-[#10B981]'
-                                    : 'bg-[#1E1E28] text-muted-foreground'
+                                    ? 'bg-[#4a8d6f]/20 text-[#4a8d6f]'
+                                    : 'bg-[#161224] text-muted-foreground'
                                 }`}
                               >
                                 {getInitials(member.displayName)}
@@ -2084,7 +2287,7 @@ export function TrackDetailView() {
                             {/* Online indicator dot */}
                             <div
                               className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-background ${
-                                isOnline ? 'bg-[#10B981]' : 'bg-[#4B5563]'
+                                isOnline ? 'bg-[#4a8d6f]' : 'bg-[#718096]'
                               }`}
                             />
                           </div>
@@ -2092,15 +2295,15 @@ export function TrackDetailView() {
                       })}
                       {groupMembers.length > 6 && (
                         <div
-                          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1E1E28] border-2 border-background text-[8px] font-medium text-muted-foreground"
+                          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#161224] border-2 border-background text-[8px] font-medium text-muted-foreground"
                           style={{ marginLeft: '-6px', zIndex: 0 }}
                         >
                           +{groupMembers.length - 6}
                         </div>
                       )}
                     </div>
-                    <span className="text-[10px] text-muted-foreground/70">
-                      {onlineUserIds.size} online · {groupMembers.length} member{groupMembers.length !== 1 ? 's' : ''}
+                    <span className="text-[10px]" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                      <span style={{ color: G }}>{onlineUserIds.size} online</span> · {groupMembers.length} member{groupMembers.length !== 1 ? 's' : ''}
                     </span>
                   </div>
                 )}
@@ -2113,11 +2316,25 @@ export function TrackDetailView() {
                       exit={{ opacity: 0, height: 0 }}
                       className="mb-3 overflow-hidden"
                     >
-                      <Card className={`border bg-opacity-5 ${markerMode === 'range' ? 'border-[#F59E0B]/30 bg-[#F59E0B]/5' : 'border-[#00E5FF]/30 bg-[#00E5FF]/5'}`}>
-                        <CardContent className="p-3">
+                      <div
+                        className="border p-3"
+                        style={{
+                          background: BG_PANEL,
+                          borderColor: markerMode === 'range' ? hexToRgba(Y, 0.3) : hexToRgba(C, 0.3),
+                          clipPath: CHAMFER_5,
+                        }}
+                      >
+                        <CardContent className="p-0">
                           {/* Marker mode toggle */}
                           <div className="mb-2 flex items-center gap-2">
-                            <div className="flex items-center rounded-md border border-border bg-[#1E1E28] p-0.5">
+                            <div
+                              className="flex items-center border p-0.5"
+                              style={{
+                                background: BG_MAIN,
+                                border: `1px solid ${BORDER_MUTED}`,
+                                clipPath: CHAMFER_3,
+                              }}
+                            >
                               <button
                                 onClick={() => {
                                   setMarkerMode('point');
@@ -2125,7 +2342,7 @@ export function TrackDetailView() {
                                 }}
                                 className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
                                   markerMode === 'point'
-                                    ? 'bg-[#00E5FF] text-black shadow-sm shadow-[#00E5FF]/30'
+                                    ? 'bg-[#00a8c6] text-black shadow-sm shadow-[#00a8c6]/30'
                                     : 'text-muted-foreground hover:text-foreground'
                                 }`}
                               >
@@ -2139,7 +2356,7 @@ export function TrackDetailView() {
                                 }}
                                 className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
                                   markerMode === 'range'
-                                    ? 'bg-[#F59E0B] text-black shadow-sm shadow-[#F59E0B]/30'
+                                    ? 'bg-[#c7a008] text-black shadow-sm shadow-[#c7a008]/30'
                                     : 'text-muted-foreground hover:text-foreground'
                                 }`}
                               >
@@ -2153,7 +2370,7 @@ export function TrackDetailView() {
                               <div className="flex items-center gap-1.5">
                                 <Badge
                                   variant="outline"
-                                  className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px]"
+                                  className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
                                 >
                                   {formatTimestamp(rangeStartMs || commentTimestamp || Math.round(currentTime * 1000))}
                                 </Badge>
@@ -2161,14 +2378,14 @@ export function TrackDetailView() {
                                 {isSelectingRange ? (
                                   <Badge
                                     variant="outline"
-                                    className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px] animate-pulse"
+                                    className="border-[#c7a008]/30 text-[#c7a008] text-[10px] animate-pulse"
                                   >
                                     Click end point…
                                   </Badge>
                                 ) : rangeEndMsState > 0 ? (
                                   <Badge
                                     variant="outline"
-                                    className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px]"
+                                    className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
                                   >
                                     {formatTimestamp(rangeEndMsState)}
                                   </Badge>
@@ -2187,7 +2404,7 @@ export function TrackDetailView() {
                               <div className="flex items-center gap-1.5">
                                 <Badge
                                   variant="outline"
-                                  className="border-[#00E5FF]/30 text-[#00E5FF] text-[10px]"
+                                  className="border-[#00a8c6]/30 text-[#00a8c6] text-[10px]"
                                 >
                                   {formatTimestamp(commentTimestamp || Math.round(currentTime * 1000))}
                                 </Badge>
@@ -2200,7 +2417,7 @@ export function TrackDetailView() {
 
                           {/* Range selection in-progress indicator on waveform hint */}
                           {markerMode === 'range' && isSelectingRange && (
-                            <p className="mb-2 text-[10px] text-[#F59E0B]">
+                            <p className="mb-2 text-[10px] text-[#c7a008]">
                               📍 Range start set — now click on the waveform to set the end point
                             </p>
                           )}
@@ -2223,7 +2440,8 @@ export function TrackDetailView() {
                                 setIsSelectingRange(false);
                               }
                             }}
-                            className="mb-2 h-8 text-sm"
+                            className="mb-2 h-8 text-sm border-0 rounded-none"
+                            style={HUD_INPUT_STYLE}
                             autoFocus
                           />
                           <div className="flex justify-end gap-2">
@@ -2243,7 +2461,14 @@ export function TrackDetailView() {
                             </Button>
                             <Button
                               size="sm"
-                              className="h-7 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-xs text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+                              className="h-7 border-0 rounded-none text-xs"
+                              style={{
+                                ...YELLOW_BUTTON_STYLE,
+                                paddingRight: '10px',
+                                paddingLeft: '10px',
+                                paddingTop: '4px',
+                                paddingBottom: '4px',
+                              }}
                               onClick={handleAddComment}
                               disabled={!newCommentText.trim() || (markerMode === 'range' && isSelectingRange)}
                             >
@@ -2251,7 +2476,7 @@ export function TrackDetailView() {
                             </Button>
                           </div>
                         </CardContent>
-                      </Card>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -2262,31 +2487,45 @@ export function TrackDetailView() {
                       const versionComments = comments.filter((c) => activeVersion?.id && c.versionId === activeVersion.id);
                       const tree = buildCommentTree(versionComments);
                       if (tree.length === 0) return (
-                        <div className="flex flex-col items-center justify-center py-8">
-                          <MessageCircle className="mb-2 h-8 w-8 text-muted-foreground/30" />
-                          <p className="text-xs text-muted-foreground">No comments yet. Click the waveform to add one.</p>
+                        <div
+                          className="flex flex-col items-center justify-center py-8"
+                          style={{
+                            background: BG_PANEL,
+                            border: `1px solid ${BORDER_MUTED}`,
+                            clipPath: CHAMFER_5,
+                            padding: '32px',
+                          }}
+                        >
+                          <MessageCircle className="mb-2 h-8 w-8" style={{ color: hexToRgba(Y, 0.3) }} />
+                          <p className="text-xs" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>No comments yet. Click the waveform to add one.</p>
                         </div>
                       );
                       return tree.map((comment) => (
                         <div key={comment.id}>
-                          {/* TOP-LEVEL COMMENT CARD */}
+                          {/* TOP-LEVEL COMMENT CARD — dark purple HUD slab, chamfered */}
                           <motion.div
                             id={`comment-${comment.id}`}
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
-                            className={`group rounded-lg border p-3 transition-colors ${
+                            className={`group border p-3 transition-colors ${
                               focusedCommentId === comment.id
                                 ? comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
-                                  ? 'border-[#F59E0B]/50 bg-[#F59E0B]/5'
-                                  : 'border-[#00E5FF]/50 bg-[#00E5FF]/5'
+                                  ? 'border-[#c7a008]/50'
+                                  : 'border-[#00a8c6]/50'
                                 : comment.isResolved
-                                  ? 'border-border/50 bg-card/50 opacity-60'
-                                  : 'border-border bg-card'
+                                  ? 'border-[#1f2633]'
+                                  : 'border-[#1f2633]'
                             }`}
+                            style={{
+                              background: comment.isResolved ? BG_MAIN : BG_CARD_PURPLE,
+                              clipPath: CHAMFER_5,
+                              opacity: comment.isResolved ? 0.6 : 1,
+                              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.03)',
+                            }}
                           >
                             <div className="flex items-start gap-2.5">
                               <Avatar className="h-6 w-6 shrink-0">
-                                <AvatarFallback className="text-[9px] bg-[#1E1E28] text-muted-foreground">
+                                <AvatarFallback className="text-[9px] bg-[#161224] text-muted-foreground">
                                   {getInitials(comment.userName)}
                                 </AvatarFallback>
                               </Avatar>
@@ -2294,7 +2533,13 @@ export function TrackDetailView() {
                                 <div className="flex items-center gap-1.5 mb-0.5">
                                   <Badge
                                     variant="outline"
-                                    className="h-5 px-1.5 text-xs font-bold border-[#8A2BE2]/50 text-[#8A2BE2]"
+                                    className="h-5 px-1.5 text-xs font-bold border-0"
+                                    style={{
+                                      background: hexToRgba(Y, 0.15),
+                                      color: Y,
+                                      border: `0.5px solid ${hexToRgba(Y, 0.4)}`,
+                                      clipPath: CHAMFER_3,
+                                    }}
                                   >
                                     #{commentNumberMap.get(comment.id) ?? '?'}
                                   </Badge>
@@ -2302,16 +2547,16 @@ export function TrackDetailView() {
                                     {comment.userName}
                                   </span>
                                   {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs ? (
-                                    <MoveHorizontal className="h-3 w-3 text-[#F59E0B] shrink-0" />
+                                    <MoveHorizontal className="h-3 w-3 text-[#c7a008] shrink-0" />
                                   ) : (
-                                    <MapPin className="h-3 w-3 text-[#00E5FF] shrink-0" />
+                                    <MapPin className="h-3 w-3 text-[#00a8c6] shrink-0" />
                                   )}
                                   <Badge
                                     variant="outline"
                                     className={`h-4 px-1 text-[10px] cursor-pointer transition-colors ${
                                       comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
-                                        ? 'border-[#F59E0B]/30 text-[#F59E0B] hover:bg-[#F59E0B]/10'
-                                        : 'border-[#00E5FF]/30 text-[#00E5FF] hover:bg-[#00E5FF]/10'
+                                        ? 'border-[#c7a008]/30 text-[#c7a008] hover:bg-[#c7a008]/10'
+                                        : 'border-[#00a8c6]/30 text-[#00a8c6] hover:bg-[#00a8c6]/10'
                                     }`}
                                     onClick={() => seekTo(comment.timestampMs / 1000)}
                                   >
@@ -2325,8 +2570,8 @@ export function TrackDetailView() {
                                       <button
                                         className={`rounded p-0.5 transition-colors ${
                                           comment.isResolved
-                                            ? 'text-[#10B981] hover:bg-[#10B981]/15'
-                                            : 'text-muted-foreground/40 hover:bg-[#10B981]/15 hover:text-[#10B981]'
+                                            ? 'text-[#4a8d6f] hover:bg-[#4a8d6f]/15'
+                                            : 'text-muted-foreground/40 hover:bg-[#4a8d6f]/15 hover:text-[#4a8d6f]'
                                         }`}
                                         onClick={() => handleToggleResolved(comment.id, comment.isResolved)}
                                       >
@@ -2340,7 +2585,7 @@ export function TrackDetailView() {
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <button
-                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#7b2cbf]/15 hover:text-[#7b2cbf]"
                                           onClick={() => startEditingComment(comment)}
                                         >
                                           <Pencil className="h-3 w-3" />
@@ -2371,7 +2616,7 @@ export function TrackDetailView() {
                                       exit={{ opacity: 0, height: 0 }}
                                       className="overflow-hidden"
                                     >
-                                      <div className="rounded-md border border-[#8A2BE2]/30 bg-[#8A2BE2]/5 p-2">
+                                      <div className="rounded-md border border-[#7b2cbf]/30 bg-[#7b2cbf]/5 p-2">
                                         <textarea
                                           className="w-full resize-none bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
                                           rows={2}
@@ -2402,7 +2647,7 @@ export function TrackDetailView() {
                                             </Button>
                                             <Button
                                               size="sm"
-                                              className="h-6 gap-1 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-2 text-[10px] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+                                              className="h-6 gap-1 bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] px-2 text-[10px] text-white hover:shadow-[#7b2cbf]/30 hover:shadow-lg"
                                               onClick={() => handleEditComment(comment.id)}
                                               disabled={!editCommentText.trim()}
                                             >
@@ -2435,7 +2680,7 @@ export function TrackDetailView() {
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="ml-auto h-6 gap-1 px-2 text-[10px] text-[#00E5FF] hover:text-[#00E5FF] hover:bg-[#00E5FF]/10"
+                                        className="ml-auto h-6 gap-1 px-2 text-[10px] text-[#00a8c6] hover:text-[#00a8c6] hover:bg-[#00a8c6]/10"
                                         onClick={() => seekTo(comment.timestampMs / 1000)}
                                       >
                                         <LocateFixed className="h-3 w-3" />
@@ -2450,7 +2695,7 @@ export function TrackDetailView() {
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-6 gap-1 px-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-[#1E1E28]"
+                                        className="h-6 gap-1 px-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-[#161224]"
                                         onClick={() => {
                                           setReplyingTo(replyingTo === comment.id ? null : comment.id);
                                           setReplyText('');
@@ -2465,7 +2710,7 @@ export function TrackDetailView() {
                                   </Tooltip>
                                   )}
                                   {comment.isResolved && (
-                                    <span className="text-[9px] text-[#10B981]/60 italic">Thread closed</span>
+                                    <span className="text-[9px] text-[#4a8d6f]/60 italic">Thread closed</span>
                                   )}
                                 </div>
                                 {/* Inline reply input — hidden when resolved */}
@@ -2475,7 +2720,7 @@ export function TrackDetailView() {
                                       initial={{ opacity: 0, height: 0 }}
                                       animate={{ opacity: 1, height: 'auto' }}
                                       exit={{ opacity: 0, height: 0 }}
-                                      className="mt-2 ml-2 overflow-hidden border-l-2 border-[#8A2BE2]/30 pl-3"
+                                      className="mt-2 ml-2 overflow-hidden border-l-2 border-[#7b2cbf]/30 pl-3"
                                     >
                                       <Input
                                         placeholder={`Reply to ${comment.userName}...`}
@@ -2508,7 +2753,7 @@ export function TrackDetailView() {
                                         </Button>
                                         <Button
                                           size="sm"
-                                          className="h-6 gap-1 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-2 text-[10px] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+                                          className="h-6 gap-1 bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] px-2 text-[10px] text-white hover:shadow-[#7b2cbf]/30 hover:shadow-lg"
                                           onClick={handleReply}
                                           disabled={!replyText.trim()}
                                         >
@@ -2525,7 +2770,7 @@ export function TrackDetailView() {
 
                           {/* NESTED REPLIES THREAD */}
                           {comment.replies.length > 0 && (
-                            <div className="ml-4 mt-1 space-y-1 border-l-2 border-[#8A2BE2]/20 pl-3">
+                            <div className="ml-4 mt-1 space-y-1 border-l-2 border-[#7b2cbf]/20 pl-3">
                               <button
                                 className="flex items-center gap-1 text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                                 onClick={() => toggleThread(comment.id)}
@@ -2543,17 +2788,22 @@ export function TrackDetailView() {
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: -6 }}
                                     transition={{ duration: 0.15 }}
-                                    className={`rounded-md border p-2.5 transition-colors ${
+                                    className={`border p-2.5 transition-colors ${
                                       focusedCommentId === reply.id
-                                        ? 'border-[#8A2BE2]/40 bg-[#8A2BE2]/5'
+                                        ? 'border-[#7b2cbf]/40'
                                         : comment.isResolved
-                                          ? 'border-border/40 bg-card/40 opacity-50'
-                                          : 'border-border bg-card'
+                                          ? 'border-[#1f2633]'
+                                          : 'border-[#1f2633]'
                                     }`}
+                                    style={{
+                                      background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
+                                      clipPath: CHAMFER_4,
+                                      opacity: comment.isResolved ? 0.5 : 1,
+                                    }}
                                   >
                                     <div className="flex items-start gap-2">
                                       <Avatar className="h-5 w-5 shrink-0">
-                                        <AvatarFallback className="text-[8px] bg-[#1E1E28] text-muted-foreground">
+                                        <AvatarFallback className="text-[8px] bg-[#161224] text-muted-foreground">
                                           {getInitials(reply.userName)}
                                         </AvatarFallback>
                                       </Avatar>
@@ -2567,7 +2817,7 @@ export function TrackDetailView() {
                                             <Tooltip>
                                               <TooltipTrigger asChild>
                                                 <button
-                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#7b2cbf]/15 hover:text-[#7b2cbf]"
                                                   onClick={() => startEditingComment(reply)}
                                                 >
                                                   <Pencil className="h-2.5 w-2.5" />
@@ -2598,7 +2848,7 @@ export function TrackDetailView() {
                                               exit={{ opacity: 0, height: 0 }}
                                               className="overflow-hidden"
                                             >
-                                              <div className="rounded border border-[#8A2BE2]/20 bg-[#8A2BE2]/5 p-1.5">
+                                              <div className="rounded border border-[#7b2cbf]/20 bg-[#7b2cbf]/5 p-1.5">
                                                 <textarea
                                                   className="w-full resize-none bg-transparent text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
                                                   rows={1}
@@ -2616,7 +2866,7 @@ export function TrackDetailView() {
                                                 />
                                                 <div className="flex justify-end gap-1 mt-1">
                                                   <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={cancelEditingComment}>Cancel</Button>
-                                                  <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-1.5 text-[9px] text-white" onClick={() => handleEditComment(reply.id)} disabled={!editCommentText.trim()}>
+                                                  <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] px-1.5 text-[9px] text-white" onClick={() => handleEditComment(reply.id)} disabled={!editCommentText.trim()}>
                                                     <Check className="h-2 w-2" /> Save
                                                   </Button>
                                                 </div>
@@ -2640,7 +2890,7 @@ export function TrackDetailView() {
                                           </span>
                                           {!comment.isResolved && (
                                           <button
-                                            className="text-[9px] text-muted-foreground/40 transition-colors hover:text-[#8A2BE2]"
+                                            className="text-[9px] text-muted-foreground/40 transition-colors hover:text-[#7b2cbf]"
                                             onClick={() => {
                                               setReplyingTo(replyingTo === reply.id ? null : reply.id);
                                               setReplyText('');
@@ -2679,7 +2929,7 @@ export function TrackDetailView() {
                                               />
                                               <div className="flex justify-end gap-1">
                                                 <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Cancel</Button>
-                                                <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-1.5 text-[9px] text-white" onClick={handleReply} disabled={!replyText.trim()}>
+                                                <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] px-1.5 text-[9px] text-white" onClick={handleReply} disabled={!replyText.trim()}>
                                                   <Send className="h-2 w-2" /> Reply
                                                 </Button>
                                               </div>
@@ -2748,10 +2998,28 @@ function AddVersionDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpen}>
-      <DialogContent className="sm:max-w-md bg-[#0F0F15] border-border">
+      <DialogContent
+        className="border-0 rounded-none sm:max-w-md"
+        style={{
+          background: BG_PANEL,
+          border: `1px solid ${hexToRgba(C, 0.5)}`,
+          boxShadow: `0 0 24px ${hexToRgba(C, 0.2)}, 0 8px 32px rgba(0,0,0,0.7)`,
+          clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 calc(100% - 8px), 0 8px)',
+        }}
+      >
         <DialogHeader>
-          <DialogTitle className="text-foreground">Add New Version</DialogTitle>
-          <DialogDescription className="text-muted-foreground">
+          <DialogTitle
+            className="uppercase"
+            style={{
+              color: TEXT_PRIMARY,
+              fontFamily: 'var(--font-rajdhani), sans-serif',
+              fontWeight: 700,
+              letterSpacing: '2px',
+            }}
+          >
+            Add New Version
+          </DialogTitle>
+          <DialogDescription style={{ color: TEXT_SECONDARY }}>
             Upload an audio file to create a new version of this track.
           </DialogDescription>
         </DialogHeader>
@@ -2759,13 +3027,24 @@ function AddVersionDialog({
         <div className="space-y-4 pt-2">
           {/* File input area */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-foreground">Audio File *</label>
+            <label
+              className="uppercase block"
+              style={{
+                color: TEXT_SECONDARY,
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                fontSize: '10px',
+                letterSpacing: '1.5px',
+              }}
+            >
+              Audio File *
+            </label>
             <div
-              className={`flex items-center gap-3 rounded-lg border border-dashed p-4 transition-colors cursor-pointer ${
+              className={`flex items-center gap-3 border border-dashed p-4 transition-colors cursor-pointer ${
                 dialogState.file
-                  ? 'border-[#8A2BE2]/50 bg-[#8A2BE2]/5'
-                  : 'border-muted-foreground/30 bg-[#1E1E28] hover:border-muted-foreground/50'
+                  ? 'border-[#7b2cbf]/50 bg-[#7b2cbf]/5'
+                  : 'border-[#00a8c6]/40 bg-[#0e1a24] hover:border-[#00a8c6]/70'
               }`}
+              style={{ clipPath: CHAMFER_5 }}
               onClick={() => {
                 const input = document.createElement('input');
                 input.type = 'file';
@@ -2777,23 +3056,23 @@ function AddVersionDialog({
                 input.click();
               }}
             >
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                dialogState.file ? 'bg-[#8A2BE2]/20' : 'bg-[#25252D]'
-              }`}>
-                <Upload className={`h-4 w-4 ${dialogState.file ? 'text-[#8A2BE2]' : 'text-muted-foreground'}`} />
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center ${
+                dialogState.file ? 'bg-[#7b2cbf]/20' : 'bg-[#1f2633]'
+              }`} style={{ clipPath: CHAMFER_4 }}>
+                <Upload className={`h-4 w-4 ${dialogState.file ? 'text-[#7b2cbf]' : 'text-muted-foreground'}`} />
               </div>
               <div className="min-w-0 flex-1">
                 {dialogState.file ? (
                   <>
-                    <p className="text-sm font-medium text-foreground truncate">{dialogState.file.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-sm font-medium truncate" style={{ color: TEXT_PRIMARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{dialogState.file.name}</p>
+                    <p className="text-[10px]" style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                       {(dialogState.file.size / (1024 * 1024)).toFixed(2)} MB
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="text-sm text-muted-foreground">Click to select an audio file</p>
-                    <p className="text-[10px] text-muted-foreground/50">MP3, WAV, OGG, FLAC...</p>
+                    <p className="text-sm" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Click to select an audio file</p>
+                    <p className="text-[10px]" style={{ color: `${TEXT_SECONDARY}99`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>MP3, WAV, OGG, FLAC...</p>
                   </>
                 )}
               </div>
@@ -2803,7 +3082,8 @@ function AddVersionDialog({
                     e.stopPropagation();
                     setDialogState((s) => ({ ...s, file: null }));
                   }}
-                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/40 hover:bg-[#1E1E28] hover:text-foreground"
+                  className="flex h-6 w-6 items-center justify-center text-muted-foreground/40 hover:bg-[#7b2cbf]/15 hover:text-[#7b2cbf]"
+                  style={{ clipPath: CHAMFER_3 }}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -2813,25 +3093,46 @@ function AddVersionDialog({
 
           {/* Label input */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-foreground">Version Label</label>
+            <label
+              className="uppercase block"
+              style={{
+                color: TEXT_SECONDARY,
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                fontSize: '10px',
+                letterSpacing: '1.5px',
+              }}
+            >
+              Version Label
+            </label>
             <Input
               value={dialogState.label}
               onChange={(e) => setDialogState((s) => ({ ...s, label: e.target.value }))}
               placeholder={`v${nextVersion}`}
-              className="h-9 text-sm bg-[#1E1E28] border-border"
+              className="border-0 rounded-none h-9"
+              style={{
+                ...HUD_INPUT_STYLE,
+                fontSize: '13px',
+              }}
             />
           </div>
 
-          {/* Progress bar */}
+          {/* Progress bar — yellow HUD fill, chamfered track */}
           {isUploading && (
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <div className="flex items-center justify-between text-[10px]" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                 <span>Uploading...</span>
-                <span>{uploadProgress}%</span>
+                <span style={{ color: Y }}>{uploadProgress}%</span>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#1E1E28]">
+              <div
+                className="h-1.5 w-full overflow-hidden"
+                style={{ background: BG_MAIN, clipPath: CHAMFER_3 }}
+              >
                 <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-[#8A2BE2] to-[#6366F1]"
+                  className="h-full"
+                  style={{
+                    background: `linear-gradient(to right, ${Y}, ${Y2})`,
+                    boxShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
+                  }}
                   initial={{ width: 0 }}
                   animate={{ width: `${uploadProgress}%` }}
                   transition={{ duration: 0.3 }}
@@ -2848,6 +3149,12 @@ function AddVersionDialog({
               onClick={() => handleDialogOpen(false)}
               disabled={isUploading}
               className="text-xs"
+              style={{
+                color: TEXT_SECONDARY,
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                letterSpacing: '1px',
+                textTransform: 'uppercase',
+              }}
             >
               Cancel
             </Button>
@@ -2855,11 +3162,18 @@ function AddVersionDialog({
               size="sm"
               onClick={handleSubmit}
               disabled={!dialogState.file || isUploading}
-              className="bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-white text-xs hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+              className="border-0 rounded-none text-xs"
+              style={{
+                ...YELLOW_BUTTON_STYLE,
+                paddingRight: '14px',
+                paddingLeft: '14px',
+                paddingTop: '6px',
+                paddingBottom: '6px',
+              }}
             >
               {isUploading ? (
                 <>
-                  <div className="mr-1.5 h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <div className="mr-1.5 h-3 w-3 animate-spin rounded-full border-2 border-black/70 border-t-transparent" />
                   Uploading...
                 </>
               ) : (

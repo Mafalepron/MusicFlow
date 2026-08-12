@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import {
+     4→  useState,
+     5→  useEffect,
+     6→  useRef,
+     7→  useCallback,
+     8→  useMemo,
+     9→} from 'react';
+    10→import { createPortal } from 'react-dom';
+    11→import { motion, AnimatePresence } from 'framer-motion';
+    12→import { io, type Socket } from 'socket.io-client';
+    13→import { format } from 'date-fns';
+    14→import {
+    15→  Play,
+    16→  Pause,
+    17→  SkipBack,
+    18→  SkipForward,
+    19→  Volume2,
+    20→  VolumeX,
+    21→  Send,
+    22→  Plus,
+    23→  MessageCircle,
+    24→  ArrowLeft,
+    25→  Music2,
+    26→  LocateFixed,
+    27→  Lightbulb,
+    28→  X,
+    29→  Reply,
+    30→  Upload,
+    31→  MapPin,
+    32→  MoveHorizontal,
+    33→  Pencil,
+    34→  Trash2,
+    35→  Check,
+    36→  CheckCheck,
+    37→  ChevronDown,
+    38→  ChevronRight,
+    39→  MessageSquareQuote,
+    40→  LayoutDashboard,
+    41→} from 'lucide-react';
+    42→
+    43→import { Button } from '@/components/ui/button';
+    44→import { Badge } from '@/components/ui/badge';
+    45→import { Input } from '@/components/ui/input';
+    46→import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+    47→import {
+    48→  ScrollArea,
+    49→} from '@/components/ui/scroll-area';
+    50→import { Card, CardContent } from '@/components/ui/card';
+    51→import {
+    52→  Tooltip,
+    53→  TooltipContent,
+    54→  TooltipTrigger,
+    55→} from '@/components/ui/tooltip';
+    56→import {
+    57→  Select,
+    58→  SelectContent,
+    59→  SelectItem,
+    60→  SelectTrigger,
+    61→  SelectValue,
+    62→} from '@/components/ui/select';
+    63→import {
+    64→  useNavigationStore,
+    65→  useDataStore,
+    66→  useAuthStore,
+    67→  type Comment,
+    68→  type Idea,
+    69→  type TrackVersion,
+    70→} from '@/lib/store';
+    71→import { useKanbanStore } from '@/store/kanban-store';
+    72→import { useAudioContextStore } from '@/store/audio-context-store';
+    73→import { useHeaderActionsStore } from '@/store/header-actions-store';
+    74→
+    75→import { useToast } from '@/hooks/use-toast';
+    76→import {
+    77→  Dialog,
+    78→  DialogContent,
+    79→  DialogHeader,
+    80→  DialogTitle,
+    81→  DialogDescription,
+    82→} from '@/components/ui/dialog';
+    83→
+    84→// --- Types ---
+    85→
+    86→interface ChatMember {
+    87→  userId: string;
+    88→  displayName: string;
+    89→  email: string;
+    90→  avatarUrl?: string;
+    91→  role: string;
+    92→  instrument?: string;
+    93→  joinedAt: string;
+    94→}
+    95→
+    96→// --- Constants ---
+    97→
+    98→// Build a nested tree from flat comment list
+    99→interface CommentNode extends Comment {
+   100→  replies: CommentNode[];
+   101→}
+   102→
+   103→function buildCommentTree(comments: Comment[]): CommentNode[] {
+   104→  const map = new Map<string, CommentNode>();
+   105→  const roots: CommentNode[] = [];
+   106→  
+   107→  for (const c of comments) {
+   108→    map.set(c.id, { ...c, replies: [] });
+   109→  }
+   110→  for (const c of comments) {
+   111→    const node = map.get(c.id)!;
+   112→    if (c.parentId && map.has(c.parentId)) {
+   113→      map.get(c.parentId)!.replies.push(node);
+   114→    } else {
+   115→      roots.push(node);
+   116→    }
+   117→  }
+   118→  roots.sort((a, b) => a.timestampMs - b.timestampMs);
+   119→  for (const r of roots) {
+   120→    r.replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+   121→  }
+   122→  return roots;
+   123→}
+   124→
+   125→// DoubleCheckmark SVG component for resolved state
+   126→function DoubleCheckIcon({ className }: { className?: string }) {
+   127→  return (
+   128→    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+   129→      <polyline points="20 6 9 17 4 12" />
+   130→      <polyline points="14 6 9 11 4 6" />
+   131→    </svg>
+   132→  );
+   133→}
+   134→
+   135→const statusDotColors: Record<string, string> = {
+   136→  idea: '#F59E0B',
+   137→  recording: '#3B82F6',
+   138→  mixing: '#8A2BE2',
+   139→  final: '#10B981',
+   140→};
+   141→
+   142→// --- Helpers ---
+   143→
+   144→function formatTimestamp(ms: number): string {
+   145→  const totalSeconds = ms / 1000;
+   146→  const minutes = Math.floor(totalSeconds / 60);
+   147→  const seconds = Math.floor(totalSeconds % 60);
+   148→  const milliseconds = Math.floor((totalSeconds % 1) * 10);
+   149→  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds}`;
+   150→}
+   151→
+   152→function formatDuration(seconds: number): string {
+   153→  const mins = Math.floor(seconds / 60);
+   154→  const secs = Math.floor(seconds % 60);
+   155→  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+   156→}
+   157→
+   158→function getInitials(name?: string | null): string {
+   159→  if (!name) return '?';
+   160→  return name
+   161→    .trim()
+   162→    .split(' ')
+   163→    .map((n) => n[0])
+   164→    .join('')
+   165→    .toUpperCase()
+   166→    .slice(0, 2);
+   167→}
+   168→
+   169→// The backend API returns comments with a nested `user` object
+   170→// (e.g. `user: { displayName, ... }`), but the frontend store types expect a
+   171→// flat `userName` field. This normalizer bridges that gap so the rest of the
+   172→// component can rely on `userName` always being present.
+   173→function normalizeComment(raw: any): Comment {
+   174→  return {
+   175→    id: raw.id,
+   176→    trackId: raw.trackId,
+   177→    versionId: raw.versionId ?? raw.version?.id ?? undefined,
+   178→    parentId: raw.parentId ?? undefined,
+   179→    userId: raw.userId,
+   180→    userName: raw.userName ?? raw.user?.displayName ?? 'Unknown',
+   181→    timestampMs: raw.timestampMs ?? 0,
+   182→    rangeEndMs: raw.rangeEndMs ?? undefined,
+   183→    text: raw.text ?? '',
+   184→    isResolved: raw.isResolved ?? false,
+   185→    createdAt: raw.createdAt,
+   186→  };
+   187→}
+   188→
+   189→// --- Ideas Sticker Strip (square sticker cards) ---
+   190→
+   191→const STICKER_COLORS = [
+   192→  { bg: 'from-[#8A2BE2]/20 to-[#6366F1]/20', border: 'border-[#8A2BE2]/30', accent: '#8A2BE2', gradient: 'from-[#8A2BE2] to-[#6366F1]' },
+   193→  { bg: 'from-[#00E5FF]/20 to-[#00B4D8]/20', border: 'border-[#00E5FF]/30', accent: '#00E5FF', gradient: 'from-[#00E5FF] to-[#00B4D8]' },
+   194→  { bg: 'from-[#F59E0B]/20 to-[#F97316]/20', border: 'border-[#F59E0B]/30', accent: '#F59E0B', gradient: 'from-[#F59E0B] to-[#F97316]' },
+   195→  { bg: 'from-[#10B981]/20 to-[#059669]/20', border: 'border-[#10B981]/30', accent: '#10B981', gradient: 'from-[#10B981] to-[#059669]' },
+   196→  { bg: 'from-[#F472B6]/20 to-[#EC4899]/20', border: 'border-[#F472B6]/30', accent: '#F472B6', gradient: 'from-[#F472B6] to-[#EC4899]' },
+   197→  { bg: 'from-[#8B5CF6]/20 to-[#A78BFA]/20', border: 'border-[#8B5CF6]/30', accent: '#8B5CF6', gradient: 'from-[#8B5CF6] to-[#A78BFA]' },
+   198→  { bg: 'from-[#06B6D4]/20 to-[#22D3EE]/20', border: 'border-[#06B6D4]/30', accent: '#06B6D4', gradient: 'from-[#06B6D4] to-[#22D3EE]' },
+   199→  { bg: 'from-[#EF4444]/20 to-[#F97316]/20', border: 'border-[#EF4444]/30', accent: '#EF4444', gradient: 'from-[#EF4444] to-[#F97316]' },
+   200→];
+   201→
+   202→const SOURCE_STICKER = {
+   203→  bg: 'from-[#F59E0B]/25 to-[#EF4444]/25',
+   204→  border: 'border-[#F59E0B]/50',
+   205→  accent: '#F59E0B',
+   206→  gradient: 'from-[#F59E0B] via-[#F97316] to-[#EF4444]',
+   207→};
+   208→
+   209→interface IdeasStoriesStripProps {
+   210→  ideas: Idea[];
+   211→  sourceIdeaId?: string;
+   212→  projectName: string;
+   213→}
+   214→
+   215→function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStripProps) {
+   216→  const [expandedIdea, setExpandedIdea] = useState<string | null>(null);
+   217→  const scrollRef = useRef<HTMLDivElement>(null);
+   218→
+   219→  // Build the ordered list: source idea first (highlighted), then all others
+   220→  const orderedIdeas = useMemo(() => {
+   221→    const sorted = [...ideas];
+   222→    if (sourceIdeaId) {
+   223→      const srcIdx = sorted.findIndex((i) => i.id === sourceIdeaId);
+   224→      if (srcIdx > 0) {
+   225→        const [src] = sorted.splice(srcIdx, 1);
+   226→        sorted.unshift(src);
+   227→      }
+   228→    }
+   229→    return sorted;
+   230→  }, [ideas, sourceIdeaId]);
+   231→
+   232→  if (orderedIdeas.length === 0) return null;
+   233→
+   234→  return (
+   235→    <div className="shrink-0">
+   236→      {/* Sticky label row */}
+   237→      <motion.div
+   238→        initial={{ opacity: 0, x: -8 }}
+   239→        animate={{ opacity: 1, x: 0 }}
+   240→        transition={{ duration: 0.3 }}
+   241→        className="flex items-center gap-2 px-4 pt-3 pb-2 lg:px-6"
+   242→      >
+   243→        <Lightbulb className="h-3.5 w-3.5 text-[#F59E0B]" />
+   244→        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+   245→          Ideas
+   246→        </span>
+   247→        <span className="text-[10px] text-muted-foreground/40">{ideas.length}</span>
+   248→      </motion.div>
+   249→
+   250→      {/* Horizontal scrolling square stickers */}
+   251→      <div
+   252→        ref={scrollRef}
+   253→        className="flex gap-3 overflow-x-auto px-4 pb-3 lg:px-6 scrollbar-none"
+   254→        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+   255→      >
+   256→        {orderedIdeas.map((idea, idx) => {
+   257→          const isSource = idea.id === sourceIdeaId;
+   258→          const isExpanded = expandedIdea === idea.id;
+   259→          const color = isSource ? SOURCE_STICKER : STICKER_COLORS[idx % STICKER_COLORS.length];
+   260→          const creatorName =
+   261→            (idea as any).creator?.displayName ??
+   262→            (idea as any).userName ??
+   263→            '';
+   264→          const initials = getInitials(creatorName);
+   265→
+   266→          return (
+   267→            <div key={idea.id} className="relative shrink-0">
+   268→              {/* --- Expanded panel: slides down from the sticker --- */}
+   269→              <AnimatePresence>
+   270→                {isExpanded && (
+   271→                  <motion.div
+   272→                    key={idea.id}
+   273→                    initial={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(4px)' }}
+   274→                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+   275→                    exit={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(4px)' }}
+   276→                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+   277→                    className="absolute top-full left-0 z-50 mt-1 w-64 rounded-xl border border-border bg-[#0F0F15] shadow-2xl shadow-black/60"
+   278→                  >
+   279→                    {/* Top accent bar */}
+   280→                    <div
+   281→                      className={`h-1 w-full rounded-t-xl bg-gradient-to-r ${color.gradient}`}
+   282→                    />
+   283→                    <div className="p-3.5">
+   284→                      <div className="flex items-start justify-between gap-2">
+   285→                        <div className="min-w-0 flex-1">
+   286→                          {isSource && (
+   287→                            <span className="mb-1 inline-block rounded bg-[#F59E0B]/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#F59E0B]">
+   288→                              Source Idea
+   289→                            </span>
+   290→                          )}
+   291→                          <h4 className="text-sm font-semibold text-foreground leading-tight truncate">
+   292→                            {idea.title}
+   293→                          </h4>
+   294→                        </div>
+   295→                        <button
+   296→                          onClick={(e) => { e.stopPropagation(); setExpandedIdea(null); }}
+   297→                          className="shrink-0 mt-0.5 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/40 transition-colors hover:bg-[#1E1E28] hover:text-foreground"
+   298→                        >
+   299→                          <span className="text-sm leading-none">×</span>
+   300→                        </button>
+   301→                      </div>
+   302→
+   303→                      {idea.description && (
+   304→                        <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground line-clamp-3">
+   305→                          {idea.description}
+   306→                        </p>
+   307→                      )}
+   308→
+   309→                      <div className="mt-2.5 flex items-center gap-1.5">
+   310→                        {/* Mini avatar */}
+   311→                        <div
+   312→                          className={`flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br ${color.gradient} text-[8px] font-bold text-white`}
+   313→                        >
+   314→                          {initials}
+   315→                        </div>
+   316→                        <span className="text-[10px] text-muted-foreground/60">
+   317→                          {creatorName} · {format(new Date(idea.createdAt), 'MMM d')}
+   318→                        </span>
+   319→                      </div>
+   320→
+   321→                      {/* Tags */}
+   322→                      {(() => {
+   323→                        const raw = idea.tags;
+   324→                        if (!raw) return null;
+   325→                        let tags: string[];
+   326→                        try {
+   327→                          const parsed = JSON.parse(raw);
+   328→                          tags = Array.isArray(parsed) ? parsed : [];
+   329→                        } catch {
+   330→                          tags = raw.split(',').map((t) => t.trim()).filter(Boolean);
+   331→                        }
+   332→                        if (tags.length === 0) return null;
+   333→                        return (
+   334→                          <div className="mt-2 flex flex-wrap gap-1">
+   335→                            {tags.map((tag) => (
+   336→                              <span
+   337→                                key={tag}
+   338→                                className="rounded-full bg-[#1E1E28] px-1.5 py-0.5 text-[9px] text-muted-foreground/70"
+   339→                              >
+   340→                                {tag}
+   341→                              </span>
+   342→                            ))}
+   343→                          </div>
+   344→                        );
+   345→                      })()}
+   346→                    </div>
+   347→                  </motion.div>
+   348→                )}
+   349→              </AnimatePresence>
+   350→
+   351→              {/* --- The square sticker itself --- */}
+   352→              <motion.button
+   353→                whileHover={{ scale: 1.06, y: -2 }}
+   354→                whileTap={{ scale: 0.97 }}
+   355→                transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+   356→                onClick={() => setExpandedIdea(isExpanded ? null : idea.id)}
+   357→                className="group/sticker relative flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-xl border bg-gradient-to-br outline-none transition-shadow duration-200 hover:shadow-lg"
+   358→                style={{
+   359→                  borderColor: isSource ? 'rgba(245,158,11,0.4)' : `color-mix(in srgb, ${color.accent} 30%, transparent)`,
+   360→                  boxShadow: isSource
+   361→                    ? `0 2px 12px rgba(245,158,11,0.15)`
+   362→                    : `0 1px 6px ${color.accent}08`,
+   363→                }}
+   364→              >
+   365→                {/* Background gradient fill */}
+   366→                <div
+   367→                  className={`absolute inset-0 rounded-xl bg-gradient-to-br ${color.bg} opacity-80 group-hover/sticker:opacity-100 transition-opacity`}
+   368→                />
+   369→                {/* Subtle top-left shine for sticker feel */}
+   370→                <div
+   371→                  className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-xl"
+   372→                  style={{
+   373→                    background: `linear-gradient(to bottom, rgba(255,255,255,0.04), transparent)`,
+   374→                  }}
+   375→                />
+   376→
+   377→                {/* Initials */}
+   378→                <span className="relative text-base font-bold" style={{ color: color.accent }}>
+   379→                  {initials}
+   380→                </span>
+   381→
+   382→                {/* Tiny decorative line */}
+   383→                <div
+   384→                  className="relative h-0.5 w-4 rounded-full opacity-40"
+   385→                  style={{ backgroundColor: color.accent }}
+   386→                />
+   387→
+   388→                {/* Hover title tooltip — appears above the sticker */}
+   389→                <div className="pointer-events-none absolute -top-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-[#15151A] px-2.5 py-1 shadow-xl opacity-0 transition-opacity duration-150 group-hover/sticker:opacity-100">
+   390→                  <p className="text-[10px] font-medium text-foreground">{idea.title}</p>
+   391→                  <div className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-border bg-[#15151A]" />
+   392→                </div>
+   393→
+   394→                {/* Source indicator dot */}
+   395→                {isSource && (
+   396→                  <div className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#F59E0B] ring-2 ring-[#0B0B0F] shadow-sm shadow-[#F59E0B]/40" />
+   397→                )}
+   398→              </motion.button>
+   399→            </div>
+   400→          );
+   401→        })}
+   402→
+   403→        {/* End spacer */}
+   404→        <div className="w-2 shrink-0" />
+   405→      </div>
+   406→    </div>
+   407→  );
+   408→}
+   409→
+   410→// --- Main Component ---
+   411→
+   412→export function TrackDetailView() {
+   413→  // Store state
+   414→  const selectedTrackId = useNavigationStore((s) => s.selectedTrackId);
+   415→  const selectedProjectId = useNavigationStore((s) => s.selectedProjectId);
+   416→  const navigate = useNavigationStore((s) => s.navigate);
+   417→  const tracks = useDataStore((s) => s.tracks);
+   418→  const user = useAuthStore((s) => s.user);
+   419→  const addComment = useDataStore((s) => s.addComment);
+   420→  const updateCommentStore = useDataStore((s) => s.updateComment);
+   421→  const removeCommentStore = useDataStore((s) => s.removeComment);
+   422→  const updateTrackStatus = useDataStore((s) => s.updateTrackStatus);
+   423→
+   424→  // Audio context store — sync local playback state to global store for floating chat widget
+   425→  const setActiveTrack = useAudioContextStore((s) => s.setActiveTrack);
+   426→  const setAudioContextTime = useAudioContextStore((s) => s.setCurrentTime);
+   427→  const setAudioContextPlaying = useAudioContextStore((s) => s.setIsPlaying);
+   428→
+   429→  // Header actions store — register contextual actions (Open in Kanban) and the
+   430→  // page title with the unified AppHeader. The duplicate inline back button +
+   431→  // title header has been removed; breadcrumbs are rendered by AppHeader.
+   432→  const setHeaderActions = useHeaderActionsStore((s) => s.setActions);
+   433→  const setHeaderTitle = useHeaderActionsStore((s) => s.setTitle);
+   434→
+   435→  const track = useMemo(
+   436→    () => tracks.find((t) => t.id === selectedTrackId) ?? null,
+   437→    [tracks, selectedTrackId]
+   438→  );
+   439→
+   440→  // Audio player state
+   441→  const audioRef = useRef<HTMLAudioElement | null>(null);
+   442→  const [isPlaying, setIsPlaying] = useState(false);
+   443→  const [currentTime, setCurrentTime] = useState(0);
+   444→  const [duration, setDuration] = useState(0);
+   445→  const [volume, setVolume] = useState(0.8);
+   446→  const [isMuted, setIsMuted] = useState(false);
+   447→  const [audioLoaded, setAudioLoaded] = useState(false);
+   448→
+   449→  // Waveform state
+   450→  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+   451→  const waveformRef = useRef<Float32Array | null>(null);
+   452→  const [waveformReady, setWaveformReady] = useState(false);
+   453→  const animFrameRef = useRef<number>(0);
+   454→  const [waveformHoverTime, setWaveformHoverTime] = useState<{ x: number; ms: number } | null>(null);
+   455→  const [markerTooltipPos, setMarkerTooltipPos] = useState<{ top: number; left: number; right: boolean } | null>(null);
+   456→  const markerTooltipHoverRef = useRef(false);
+   457→  const markerHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   458→
+   459→
+   460→  // Comment state
+   461→  const [comments, setComments] = useState<Comment[]>([]);
+   462→  const [newCommentText, setNewCommentText] = useState('');
+   463→  const [showCommentInput, setShowCommentInput] = useState(false);
+   464→  const [commentTimestamp, setCommentTimestamp] = useState(0);
+   465→  const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
+   466→  const commentsEndRef = useRef<HTMLDivElement | null>(null);
+   467→
+   468→  // Marker mode: 'point' for single-timestamp, 'range' for start→end
+   469→  const [markerMode, setMarkerMode] = useState<'point' | 'range'>('point');
+   470→  const [rangeStartMs, setRangeStartMs] = useState(0);
+   471→  const [rangeEndMsState, setRangeEndMsState] = useState(0);
+   472→  const [isSelectingRange, setIsSelectingRange] = useState(false);
+   473→
+   474→  // Reply state
+   475→  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+   476→  const [replyText, setReplyText] = useState('');
+   477→
+   478→  // Collapsed replies state
+   479→  const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
+   480→  const toggleThread = useCallback((id: string) => {
+   481→    setCollapsedThreads((prev) => {
+   482→      const next = new Set(prev);
+   483→      if (next.has(id)) next.delete(id);
+   484→      else next.add(id);
+   485→      return next;
+   486→    });
+   487→  }, []);
+   488→
+   489→  // Edit comment state
+   490→  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+   491→  const [editCommentText, setEditCommentText] = useState('');
+   492→
+   493→  const { toast } = useToast();
+   494→
+   495→  // Version state
+   496→  const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
+   497→  const [versions, setVersions] = useState<TrackVersion[]>([]);
+   498→  const [showAddVersionDialog, setShowAddVersionDialog] = useState(false);
+   499→  const [uploadProgress, setUploadProgress] = useState(0);
+   500→  const [isUploadingVersion, setIsUploadingVersion] = useState(false);
+   501→
+   502→  // Derived: active version from list
+   503→  const activeVersion = useMemo(
+   504→    () => versions.find((v) => v.id === activeVersionId) ?? versions[0] ?? null,
+   505→    [versions, activeVersionId]
+   506→  );
+   507→
+   508→  // Hovered comment marker (waveform overlay tooltip)
+   509→  const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
+   510→
+   511→  // Participant presence
+   512→  const [groupMembers, setGroupMembers] = useState<ChatMember[]>([]);
+   513→  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+   514→
+   515→  // WebSocket
+   516→  const socketRef = useRef<Socket | null>(null);
+   517→
+   518→  // Ideas (for this project — displayed as stories above the waveform)
+   519→  const currentGroupId = useAuthStore((s) => s.currentGroupId);
+   520→  const projects = useDataStore((s) => s.projects);
+   521→  const [projectIdeas, setProjectIdeas] = useState<Idea[]>([]);
+   522→  const projectOfTrack = useMemo(
+   523→    () => projects.find((p) => p.id === selectedProjectId),
+   524→    [projects, selectedProjectId]
+   525→  );
+   526→
+   527→  useEffect(() => {
+   528→    if (!currentGroupId || !selectedProjectId) return;
+   529→    fetch(`/api/ideas?groupId=${currentGroupId}&projectId=${selectedProjectId}`)
+   530→      .then((r) => r.json())
+   531→      .then((data) => {
+   532→        if (Array.isArray(data)) setProjectIdeas(data);
+   533→      })
+   534→      .catch(() => {});
+   535→  }, [currentGroupId, selectedProjectId]);
+   536→
+   537→  // Fetch group members for participant avatars
+   538→  useEffect(() => {
+   539→    if (!currentGroupId) return;
+   540→    fetch(`/api/groups/${currentGroupId}/members`)
+   541→      .then((r) => r.json())
+   542→      .then((data) => {
+   543→        if (Array.isArray(data)) setGroupMembers(data);
+   544→      })
+   545→      .catch(() => {});
+   546→  }, [currentGroupId]);
+   547→
+   548→  // --- Audio Playback ---
+   549→
+   550→  // The audioUrl to play: active version's audioUrl, or fallback to track's audioUrl
+   551→  const currentAudioUrl = activeVersion?.audioUrl || track?.audioUrl || '';
+   552→
+   553→  useEffect(() => {
+   554→    if (!currentAudioUrl) return;
+   555→
+   556→    const audio = new Audio(currentAudioUrl);
+   557→    audioRef.current = audio;
+   558→    audio.volume = isMuted ? 0 : volume;
+   559→    setIsPlaying(false);
+   560→    setCurrentTime(0);
+   561→    setDuration(0);
+   562→    setAudioLoaded(false);
+   563→    setWaveformReady(false);
+   564→    waveformRef.current = null;
+   565→
+   566→    const onLoaded = () => {
+   567→      setDuration(audio.duration);
+   568→      setAudioLoaded(true);
+   569→    };
+   570→    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+   571→    const onEnded = () => setIsPlaying(false);
+   572→    const onPlay = () => setIsPlaying(true);
+   573→    const onPause = () => setIsPlaying(false);
+   574→
+   575→    audio.addEventListener('loadedmetadata', onLoaded);
+   576→    audio.addEventListener('timeupdate', onTimeUpdate);
+   577→    audio.addEventListener('ended', onEnded);
+   578→    audio.addEventListener('play', onPlay);
+   579→    audio.addEventListener('pause', onPause);
+   580→
+   581→    return () => {
+   582→      audio.removeEventListener('loadedmetadata', onLoaded);
+   583→      audio.removeEventListener('timeupdate', onTimeUpdate);
+   584→      audio.removeEventListener('ended', onEnded);
+   585→      audio.removeEventListener('play', onPlay);
+   586→      audio.removeEventListener('pause', onPause);
+   587→      audio.pause();
+   588→      audio.src = '';
+   589→      audioRef.current = null;
+   590→    };
+   591→  }, [currentAudioUrl]);
+   592→
+   593→  // Display duration: prefer audio-loaded duration, fall back to track metadata
+   594→  const displayDuration = duration > 0 ? duration : (track?.durationMs ? track.durationMs / 1000 : 0);
+   595→
+   596→  // Sync volume
+   597→  useEffect(() => {
+   598→    if (audioRef.current) {
+   599→      audioRef.current.volume = isMuted ? 0 : volume;
+   600→    }
+   601→  }, [volume, isMuted]);
+   602→
+   603→  // Sync current playback position to global audio context store (used by floating chat widget)
+   604→  useEffect(() => {
+   605→    setAudioContextTime(currentTime);
+   606→  }, [currentTime, setAudioContextTime]);
+   607→
+   608→  // Sync play/pause state to global audio context store
+   609→  useEffect(() => {
+   610→    setAudioContextPlaying(isPlaying);
+   611→  }, [isPlaying, setAudioContextPlaying]);
+   612→
+   613→  // Sync active track (trackId, projectId, kanbanTaskId) to global audio context store.
+   614→  // The floating chat widget reads these to scope its messages and timestamp links.
+   615→  useEffect(() => {
+   616→    if (!selectedTrackId) {
+   617→      setActiveTrack(null, null, null);
+   618→      return;
+   619→    }
+   620→    setActiveTrack(
+   621→      selectedTrackId,
+   622→      selectedProjectId ?? null,
+   623→      projectOfTrack?.kanbanTaskId ?? null
+   624→    );
+   625→    return () => {
+   626→      setActiveTrack(null, null, null);
+   627→    };
+   628→  }, [selectedTrackId, selectedProjectId, projectOfTrack?.kanbanTaskId, setActiveTrack]);
+   629→
+   630→  // Register contextual header actions and the page title with the unified
+   631→  // AppHeader. Breadcrumbs (Group / Projects / Project Title / Track) are
+   632→  // rendered by AppHeader, and the "Open in Kanban" action appears as a header
+   633→  // button (only when this project has a linked kanbanTaskId).
+   634→  useEffect(() => {
+   635→    if (!track) {
+   636→      setHeaderTitle(null);
+   637→      setHeaderActions([]);
+   638→      return;
+   639→    }
+   640→
+   641→    setHeaderTitle(track.title);
+   642→
+   643→    const kanbanTaskId = projectOfTrack?.kanbanTaskId;
+   644→    if (kanbanTaskId) {
+   645→      setHeaderActions([
+   646→        {
+   647→          id: 'open-in-kanban',
+   648→          label: 'Open in Kanban',
+   649→          icon: <LayoutDashboard className="h-3.5 w-3.5" />,
+   650→          variant: 'outline',
+   651→          onClick: () => {
+   652→            const project = useDataStore
+   653→              .getState()
+   654→              .projects.find((p) => p.id === selectedProjectId);
+   655→            if (!project?.kanbanTaskId) return;
+   656→            useNavigationStore.getState().navigate('kanban');
+   657→            const taskId = project.kanbanTaskId;
+   658→            setTimeout(() => {
+   659→              useKanbanStore.getState().selectProject(taskId);
+   660→            }, 300);
+   661→          },
+   662→        },
+   663→      ]);
+   664→    } else {
+   665→      setHeaderActions([]);
+   666→    }
+   667→
+   668→    return () => {
+   669→      setHeaderActions([]);
+   670→      setHeaderTitle(null);
+   671→    };
+   672→  }, [
+   673→    track,
+   674→    projectOfTrack?.kanbanTaskId,
+   675→    selectedProjectId,
+   676→    setHeaderActions,
+   677→    setHeaderTitle,
+   678→  ]);
+   679→
+   680→  // Marker tooltip position is now calculated directly in onMouseEnter handler
+   681→  // (removed the old useEffect + ref pattern to fix timing issues with framer-motion)
+   682→
+   683→  const togglePlay = useCallback(() => {
+   684→    if (!audioRef.current) return;
+   685→    if (isPlaying) {
+   686→      audioRef.current.pause();
+   687→    } else {
+   688→      audioRef.current.play();
+   689→    }
+   690→  }, [isPlaying]);
+   691→
+   692→  const skip = useCallback((seconds: number) => {
+   693→    if (!audioRef.current) return;
+   694→    audioRef.current.currentTime = Math.max(
+   695→      0,
+   696→      Math.min(audioRef.current.currentTime + seconds, duration)
+   697→    );
+   698→  }, [duration]);
+   699→
+   700→  const seekTo = useCallback((time: number) => {
+   701→    if (!audioRef.current) return;
+   702→    audioRef.current.currentTime = time;
+   703→    setCurrentTime(time);
+   704→  }, []);
+   705→
+   706→  // --- Waveform ---
+   707→
+   708→  useEffect(() => {
+   709→    if (!currentAudioUrl) return;
+   710→
+   711→    let cancelled = false;
+   712→    setWaveformReady(false);
+   713→
+   714→    async function generateWaveform() {
+   715→      try {
+   716→        const url = `/api/waveform?audio=${encodeURIComponent(currentAudioUrl)}&samples=200`;
+   717→        const res = await fetch(url);
+   718→        if (!res.ok || cancelled) return;
+   719→        const data = await res.json();
+   720→        if (cancelled) return;
+   721→        if (data.samples && data.samples.length > 0) {
+   722→          waveformRef.current = new Float32Array(data.samples);
+   723→          setWaveformReady(true);
+   724→        }
+   725→      } catch {
+   726→        // Silently fail — waveform won't render
+   727→      }
+   728→    }
+   729→
+   730→    generateWaveform();
+   731→    return () => { cancelled = true; };
+   732→  }, [currentAudioUrl]);
+   733→
+   734→  // Draw waveform — uses requestAnimationFrame only while playing, single draw otherwise
+   735→  useEffect(() => {
+   736→    const canvas = canvasRef.current;
+   737→    const waveform = waveformRef.current;
+   738→    if (!canvas || !waveform) return;
+   739→
+   740→    const ctx = canvas.getContext('2d');
+   741→    if (!ctx) return;
+   742→
+   743→    let rafId = 0;
+   744→
+   745→    const draw = () => {
+   746→      const dpr = window.devicePixelRatio || 1;
+   747→      const rect = canvas.getBoundingClientRect();
+   748→
+   749→      // Only resize canvas if dimensions changed
+   750→      const targetW = Math.round(rect.width * dpr);
+   751→      const targetH = Math.round(rect.height * dpr);
+   752→      if (canvas.width !== targetW || canvas.height !== targetH) {
+   753→        canvas.width = targetW;
+   754→        canvas.height = targetH;
+   755→      }
+   756→      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+   757→
+   758→      const width = rect.width;
+   759→      const height = rect.height;
+   760→      const barCount = waveform.length;
+   761→      const barWidth = width / barCount;
+   762→      const barGap = 1;
+   763→      const centerY = height / 2;
+   764→
+   765→      // Clear
+   766→      ctx.clearRect(0, 0, width, height);
+   767→
+   768→      const progress = duration > 0 ? currentTime / duration : 0;
+   769→      const progressX = progress * width;
+   770→
+   771→      // Create gradient (cached via closure — only recreated when canvas resets)
+   772→      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+   773→      gradient.addColorStop(0, '#8A2BE2');
+   774→      gradient.addColorStop(0.5, '#6366F1');
+   775→      gradient.addColorStop(1, '#00E5FF');
+   776→
+   777→      const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
+   778→      dimGradient.addColorStop(0, 'rgba(138,43,226,0.25)');
+   779→      dimGradient.addColorStop(0.5, 'rgba(99,102,241,0.25)');
+   780→      dimGradient.addColorStop(1, 'rgba(0,229,255,0.25)');
+   781→
+   782→      // Batch bars by color to minimize fillStyle switches
+   783→      // First pass: unplayed bars
+   784→      ctx.fillStyle = dimGradient;
+   785→      for (let i = 0; i < barCount; i++) {
+   786→        const x = i * barWidth;
+   787→        if (x < progressX) continue;
+   788→        const amplitude = waveform[i];
+   789→        const barHeight = Math.max(2, amplitude * centerY * 0.85);
+   790→        const bw = Math.max(1, barWidth - barGap);
+   791→        ctx.beginPath();
+   792→        ctx.roundRect(x, centerY - barHeight, bw, barHeight * 2, 1);
+   793→        ctx.fill();
+   794→      }
+   795→
+   796→      // Second pass: played bars
+   797→      ctx.fillStyle = gradient;
+   798→      for (let i = 0; i < barCount; i++) {
+   799→        const x = i * barWidth;
+   800→        if (x >= progressX) continue;
+   801→        const amplitude = waveform[i];
+   802→        const barHeight = Math.max(2, amplitude * centerY * 0.85);
+   803→        const bw = Math.max(1, barWidth - barGap);
+   804→        ctx.beginPath();
+   805→        ctx.roundRect(x, centerY - barHeight, bw, barHeight * 2, 1);
+   806→        ctx.fill();
+   807→      }
+   808→
+   809→      // Progress cursor
+   810→      if (progress > 0 && progress < 1) {
+   811→        ctx.strokeStyle = '#FFFFFF';
+   812→        ctx.lineWidth = 2;
+   813→        ctx.shadowColor = 'rgba(255,255,255,0.5)';
+   814→        ctx.shadowBlur = 4;
+   815→        ctx.beginPath();
+   816→        ctx.moveTo(progressX, 0);
+   817→        ctx.lineTo(progressX, height);
+   818→        ctx.stroke();
+   819→        ctx.shadowBlur = 0;
+   820→      }
+   821→
+   822→      // Keep animating only while playing
+   823→      if (isPlaying) {
+   824→        rafId = requestAnimationFrame(draw);
+   825→      }
+   826→    };
+   827→
+   828→    draw();
+   829→
+   830→    // Also draw on resize
+   831→    const handleResize = () => { rafId = requestAnimationFrame(draw); };
+   832→    window.addEventListener('resize', handleResize);
+   833→
+   834→    return () => {
+   835→      cancelAnimationFrame(rafId);
+   836→      window.removeEventListener('resize', handleResize);
+   837→    };
+   838→  }, [waveformReady, currentTime, duration, isPlaying]);
+   839→
+   840→  // Redraw once when seeking while paused
+   841→  useEffect(() => {
+   842→    if (waveformReady && !isPlaying) {
+   843→      const canvas = canvasRef.current;
+   844→      if (!canvas) return;
+   845→      // Force a redraw by triggering a minimal state change
+   846→      const ctx = canvas.getContext('2d');
+   847→      if (!ctx || !waveformRef.current) return;
+   848→      const waveform = waveformRef.current;
+   849→      const dpr = window.devicePixelRatio || 1;
+   850→      const rect = canvas.getBoundingClientRect();
+   851→      const width = rect.width;
+   852→      const height = rect.height;
+   853→      const barCount = waveform.length;
+   854→      const barWidth = width / barCount;
+   855→      const barGap = 1;
+   856→      const centerY = height / 2;
+   857→      const progress = duration > 0 ? currentTime / duration : 0;
+   858→      const progressX = progress * width;
+   859→      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+   860→      ctx.clearRect(0, 0, width, height);
+   861→      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+   862→      gradient.addColorStop(0, '#8A2BE2');
+   863→      gradient.addColorStop(0.5, '#6366F1');
+   864→      gradient.addColorStop(1, '#00E5FF');
+   865→      const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
+   866→      dimGradient.addColorStop(0, 'rgba(138,43,226,0.25)');
+   867→      dimGradient.addColorStop(0.5, 'rgba(99,102,241,0.25)');
+   868→      dimGradient.addColorStop(1, 'rgba(0,229,255,0.25)');
+   869→      ctx.fillStyle = dimGradient;
+   870→      for (let i = 0; i < barCount; i++) {
+   871→        const x = i * barWidth;
+   872→        if (x < progressX) continue;
+   873→        const a = waveform[i];
+   874→        const bh = Math.max(2, a * centerY * 0.85);
+   875→        const bw = Math.max(1, barWidth - barGap);
+   876→        ctx.beginPath();
+   877→        ctx.roundRect(x, centerY - bh, bw, bh * 2, 1);
+   878→        ctx.fill();
+   879→      }
+   880→      ctx.fillStyle = gradient;
+   881→      for (let i = 0; i < barCount; i++) {
+   882→        const x = i * barWidth;
+   883→        if (x >= progressX) continue;
+   884→        const a = waveform[i];
+   885→        const bh = Math.max(2, a * centerY * 0.85);
+   886→        const bw = Math.max(1, barWidth - barGap);
+   887→        ctx.beginPath();
+   888→        ctx.roundRect(x, centerY - bh, bw, bh * 2, 1);
+   889→        ctx.fill();
+   890→      }
+   891→      if (progress > 0 && progress < 1) {
+   892→        ctx.strokeStyle = '#FFFFFF';
+   893→        ctx.lineWidth = 2;
+   894→        ctx.shadowColor = 'rgba(255,255,255,0.5)';
+   895→        ctx.shadowBlur = 4;
+   896→        ctx.beginPath();
+   897→        ctx.moveTo(progressX, 0);
+   898→        ctx.lineTo(progressX, height);
+   899→        ctx.stroke();
+   900→        ctx.shadowBlur = 0;
+   901→      }
+   902→    }
+   903→  }, [currentTime, waveformReady, isPlaying, duration]);
+   904→
+   905→  const handleWaveformClick = useCallback(
+   906→    (e: React.MouseEvent<HTMLCanvasElement>) => {
+   907→      const canvas = canvasRef.current;
+   908→      if (!canvas || duration <= 0) return;
+   909→
+   910→      const rect = canvas.getBoundingClientRect();
+   911→      const x = e.clientX - rect.left;
+   912→      const progress = x / rect.width;
+   913→      const time = progress * duration;
+   914→
+   915→      seekTo(time);
+   916→
+   917→      const clickedMs = Math.round(time * 1000);
+   918→
+   919→      if (markerMode === 'range') {
+   920→        if (!isSelectingRange) {
+   921→          // First click — set range start
+   922→          setRangeStartMs(clickedMs);
+   923→          setRangeEndMsState(clickedMs);
+   924→          setIsSelectingRange(true);
+   925→          setCommentTimestamp(clickedMs);
+   926→          setShowCommentInput(true);
+   927→        } else {
+   928→          // Second click — set range end
+   929→          const start = Math.min(rangeStartMs, clickedMs);
+   930→          const end = Math.max(rangeStartMs, clickedMs);
+   931→          setRangeStartMs(start);
+   932→          setRangeEndMsState(end);
+   933→          setCommentTimestamp(start);
+   934→          setIsSelectingRange(false);
+   935→        }
+   936→      } else {
+   937→        // Point mode — single timestamp
+   938→        setCommentTimestamp(clickedMs);
+   939→        setRangeStartMs(0);
+   940→        setRangeEndMsState(0);
+   941→        setShowCommentInput(true);
+   942→      }
+   943→    },
+   944→    [duration, seekTo, markerMode, isSelectingRange, rangeStartMs]
+   945→  );
+   946→
+   947→  const handleMarkerClick = useCallback(
+   948→    (comment: Comment) => {
+   949→      seekTo(comment.timestampMs / 1000);
+   950→      setFocusedCommentId(comment.id);
+   951→      // Keep highlight for 3 seconds
+   952→      setTimeout(() => {
+   953→        setFocusedCommentId(null);
+   954→      }, 3000);
+   955→    },
+   956→    [seekTo]
+   957→  );
+   958→
+   959→  // --- Comments ---
+   960→
+   961→  useEffect(() => {
+   962→    if (!selectedTrackId) return;
+   963→    fetch(`/api/tracks/${selectedTrackId}/comments`)
+   964→      .then((r) => r.json())
+   965→      .then((data) => {
+   966→        if (Array.isArray(data)) setComments(data.map(normalizeComment));
+   967→      })
+   968→      .catch(() => {});
+   969→  }, [selectedTrackId, activeVersionId]);
+   970→
+   971→  // Scroll to focused comment
+   972→  useEffect(() => {
+   973→    if (focusedCommentId) {
+   974→      const el = document.getElementById(`comment-${focusedCommentId}`);
+   975→      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+   976→    }
+   977→  }, [focusedCommentId]);
+   978→
+   979→  const handleAddComment = useCallback(async () => {
+   980→    if (!newCommentText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
+   981→
+   982→    const timestamp = commentTimestamp || Math.round(currentTime * 1000);
+   983→
+   984→    try {
+   985→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments`, {
+   986→        method: 'POST',
+   987→        headers: { 'Content-Type': 'application/json' },
+   988→        body: JSON.stringify({
+   989→          userId: user.id,
+   990→          text: newCommentText.trim(),
+   991→          timestampMs: timestamp,
+   992→          ...(markerMode === 'range' && rangeEndMsState > timestamp ? { rangeEndMs: rangeEndMsState } : {}),
+   993→          versionId: activeVersion.id,
+   994→        }),
+   995→      });
+   996→      if (!res.ok) return;
+   997→      const comment = normalizeComment(await res.json());
+   998→      addComment(comment);
+   999→      setComments((prev) => [...prev, comment]);
+  1000→      setNewCommentText('');
+  1001→      setShowCommentInput(false);
+  1002→      setCommentTimestamp(0);
+  1003→      setRangeStartMs(0);
+  1004→      setRangeEndMsState(0);
+  1005→      setIsSelectingRange(false);
+  1006→    } catch {
+  1007→      // Silently fail
+  1008→    }
+  1009→  }, [newCommentText, selectedTrackId, user, commentTimestamp, currentTime, addComment, activeVersion, markerMode, rangeEndMsState]);
+  1010→
+  1011→  const handleEditComment = useCallback(async (commentId: string) => {
+  1012→    if (!editCommentText.trim() || !selectedTrackId) return;
+  1013→    try {
+  1014→      const updateData: Record<string, unknown> = { text: editCommentText.trim() };
+  1015→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1016→        method: 'PUT',
+  1017→        headers: { 'Content-Type': 'application/json' },
+  1018→        body: JSON.stringify(updateData),
+  1019→      });
+  1020→      if (!res.ok) return;
+  1021→      const updated = normalizeComment(await res.json());
+  1022→      updateCommentStore(commentId, { text: updated.text });
+  1023→      setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, text: updated.text } : c)));
+  1024→      setEditingCommentId(null);
+  1025→      setEditCommentText('');
+  1026→      // Emit socket event
+  1027→      socketRef.current?.emit('comment:edit', { trackId: selectedTrackId, commentId, text: updated.text });
+  1028→      toast({ description: 'Comment updated' });
+  1029→    } catch {
+  1030→      toast({ description: 'Failed to update comment', variant: 'destructive' });
+  1031→    }
+  1032→  }, [editCommentText, selectedTrackId, updateCommentStore, toast]);
+  1033→
+  1034→  const handleDeleteComment = useCallback(async (commentId: string) => {
+  1035→    if (!selectedTrackId) return;
+  1036→    try {
+  1037→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1038→        method: 'DELETE',
+  1039→      });
+  1040→      if (!res.ok) return;
+  1041→      removeCommentStore(commentId);
+  1042→      setComments((prev) => prev.filter((c) => c.id !== commentId));
+  1043→      if (focusedCommentId === commentId) setFocusedCommentId(null);
+  1044→      // Emit socket event
+  1045→      socketRef.current?.emit('comment:delete', { trackId: selectedTrackId, commentId });
+  1046→      toast({ description: 'Comment deleted' });
+  1047→    } catch {
+  1048→      toast({ description: 'Failed to delete comment', variant: 'destructive' });
+  1049→    }
+  1050→  }, [selectedTrackId, removeCommentStore, focusedCommentId, toast]);
+  1051→
+  1052→  const handleToggleResolved = useCallback(async (commentId: string, isResolved: boolean) => {
+  1053→    if (!selectedTrackId) return;
+  1054→    try {
+  1055→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1056→        method: 'PUT',
+  1057→        headers: { 'Content-Type': 'application/json' },
+  1058→        body: JSON.stringify({ isResolved: !isResolved }),
+  1059→      });
+  1060→      if (!res.ok) return;
+  1061→      const updated = normalizeComment(await res.json());
+  1062→      updateCommentStore(commentId, { isResolved: updated.isResolved });
+  1063→      setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, isResolved: updated.isResolved } : c)));
+  1064→      socketRef.current?.emit('comment:edit', { trackId: selectedTrackId, commentId, isResolved: updated.isResolved });
+  1065→      // When resolving, collapse the thread
+  1066→      if (updated.isResolved) {
+  1067→        setCollapsedThreads((prev) => new Set([...prev, commentId]));
+  1068→      }
+  1069→    } catch {
+  1070→      // Silently fail
+  1071→    }
+  1072→  }, [selectedTrackId, updateCommentStore]);
+  1073→
+  1074→  const startEditingComment = useCallback((comment: Comment) => {
+  1075→    setEditingCommentId(comment.id);
+  1076→    setEditCommentText(comment.text);
+  1077→    setReplyingTo(null);
+  1078→    setReplyText('');
+  1079→  }, []);
+  1080→
+  1081→  const cancelEditingComment = useCallback(() => {
+  1082→    setEditingCommentId(null);
+  1083→    setEditCommentText('');
+  1084→  }, []);
+  1085→
+  1086→  // --- WebSocket ---
+  1087→
+  1088→  useEffect(() => {
+  1089→    if (!selectedTrackId) return;
+  1090→
+  1091→    const socket = io('/?XTransformPort=3004');
+  1092→    socketRef.current = socket;
+  1093→
+  1094→    const room = `track:${selectedTrackId}`;
+  1095→    socket.emit('room:join', { room, userId: user?.id, userName: user?.displayName, avatarUrl: user?.avatarUrl });
+  1096→
+  1097→    socket.on('presence:update', (data: any) => {
+  1098→      if (data?.users) {
+  1099→        setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
+  1100→      }
+  1101→    });
+  1102→
+  1103→    socket.on('presence:current', (data: any) => {
+  1104→      if (data?.users) {
+  1105→        setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
+  1106→      }
+  1107→    });
+  1108→
+  1109→    socket.on('comment:new', (raw: any) => {
+  1110→      const comment = normalizeComment(raw);
+  1111→      addComment(comment);
+  1112→      setComments((prev) => {
+  1113→        if (prev.some((c) => c.id === comment.id)) return prev;
+  1114→        return [...prev, comment];
+  1115→      });
+  1116→    });
+  1117→
+  1118→    socket.on('comment:updated', (data: { commentId: string; text?: string; isResolved?: boolean; timestampMs?: number }) => {
+  1119→      updateCommentStore(data.commentId, {
+  1120→        ...(data.text !== undefined ? { text: data.text } : {}),
+  1121→        ...(data.isResolved !== undefined ? { isResolved: data.isResolved } : {}),
+  1122→        ...(data.timestampMs !== undefined ? { timestampMs: data.timestampMs } : {}),
+  1123→      });
+  1124→      setComments((prev) =>
+  1125→        prev.map((c) =>
+  1126→          c.id === data.commentId
+  1127→            ? { ...c, ...(data.text !== undefined ? { text: data.text } : {}), ...(data.isResolved !== undefined ? { isResolved: data.isResolved } : {}), ...(data.timestampMs !== undefined ? { timestampMs: data.timestampMs } : {}) }
+  1128→            : c
+  1129→        )
+  1130→      );
+  1131→    });
+  1132→
+  1133→    socket.on('comment:deleted', (data: { commentId: string }) => {
+  1134→      removeCommentStore(data.commentId);
+  1135→      setComments((prev) => prev.filter((c) => c.id !== data.commentId));
+  1136→      setFocusedCommentId((prev) => (prev === data.commentId ? null : prev));
+  1137→    });
+  1138→
+  1139→    return () => {
+  1140→      socket.emit('room:leave', { room, userId: user?.id });
+  1141→      socket.disconnect();
+  1142→      socketRef.current = null;
+  1143→      setOnlineUserIds(new Set());
+  1144→    };
+  1145→  }, [selectedTrackId, addComment, updateCommentStore, removeCommentStore, user]);
+  1146→
+  1147→  // --- Status Change ---
+  1148→
+  1149→  const handleStatusChange = useCallback(
+  1150→    (newStatus: string) => {
+  1151→      if (!selectedTrackId) return;
+  1152→      updateTrackStatus(selectedTrackId, newStatus);
+  1153→      socketRef.current?.emit('track:update_status', {
+  1154→        trackId: selectedTrackId,
+  1155→        status: newStatus,
+  1156→      });
+  1157→    },
+  1158→    [selectedTrackId, updateTrackStatus]
+  1159→  );
+  1160→
+  1161→  // --- Fetch Versions ---
+  1162→
+  1163→  useEffect(() => {
+  1164→    if (!selectedTrackId) return;
+  1165→    fetch(`/api/tracks/${selectedTrackId}/versions`)
+  1166→      .then((r) => r.json())
+  1167→      .then((data) => {
+  1168→        if (Array.isArray(data)) {
+  1169→          setVersions(data);
+  1170→          // Set active to first version if none selected
+  1171→          if (data.length > 0 && !activeVersionId) {
+  1172→            setActiveVersionId(data[0].id);
+  1173→          }
+  1174→        }
+  1175→      })
+  1176→      .catch(() => {});
+  1177→  }, [selectedTrackId]);
+  1178→
+  1179→  // --- Add Version (via file upload dialog) ---
+  1180→
+  1181→  const handleAddVersion = useCallback(async (file: File, label: string) => {
+  1182→    if (!selectedTrackId || !user) return;
+  1183→
+  1184→    setIsUploadingVersion(true);
+  1185→    setUploadProgress(0);
+  1186→
+  1187→    try {
+  1188→      const formData = new FormData();
+  1189→      formData.append('audio', file);
+  1190→      formData.append('label', label);
+  1191→      formData.append('createdBy', user.id);
+  1192→
+  1193→      const xhr = new XMLHttpRequest();
+  1194→      const url = `/api/tracks/${selectedTrackId}/versions`;
+  1195→
+  1196→      await new Promise<void>((resolve, reject) => {
+  1197→        xhr.upload.addEventListener('progress', (e) => {
+  1198→          if (e.lengthComputable) {
+  1199→            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+  1200→          }
+  1201→        });
+  1202→
+  1203→        xhr.addEventListener('load', () => {
+  1204→          if (xhr.status >= 200 && xhr.status < 300) {
+  1205→            resolve();
+  1206→          } else {
+  1207→            reject(new Error(`Upload failed: ${xhr.status}`));
+  1208→          }
+  1209→        });
+  1210→
+  1211→        xhr.addEventListener('error', () => reject(new Error('Network error')));
+  1212→        xhr.open('POST', url);
+  1213→        xhr.send(formData);
+  1214→      });
+  1215→
+  1216→      // Refresh versions list
+  1217→      const res = await fetch(`/api/tracks/${selectedTrackId}/versions`);
+  1218→      const data = await res.json();
+  1219→      if (Array.isArray(data)) {
+  1220→        setVersions(data);
+  1221→        // Switch to the new version (last one)
+  1222→        if (data.length > 0) {
+  1223→          setActiveVersionId(data[data.length - 1].id);
+  1224→        }
+  1225→      }
+  1226→
+  1227→      setShowAddVersionDialog(false);
+  1228→    } catch {
+  1229→      // Silently fail
+  1230→    } finally {
+  1231→      setIsUploadingVersion(false);
+  1232→      setUploadProgress(0);
+  1233→    }
+  1234→  }, [selectedTrackId, user]);
+  1235→
+  1236→  // --- Reply to Comment ---
+  1237→
+  1238→  const handleReply = useCallback(async () => {
+  1239→    if (!replyingTo || !replyText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
+  1240→
+  1241→    const directParent = comments.find((c) => c.id === replyingTo);
+  1242→    if (!directParent) return;
+  1243→
+  1244→    // Always find the root comment for flat threading (all replies at same level)
+  1245→    const rootComment = directParent.parentId
+  1246→      ? comments.find((c) => c.id === directParent.parentId) || directParent
+  1247→      : directParent;
+  1248→
+  1249→    try {
+  1250→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments`, {
+  1251→        method: 'POST',
+  1252→        headers: { 'Content-Type': 'application/json' },
+  1253→        body: JSON.stringify({
+  1254→          userId: user.id,
+  1255→          text: replyText.trim(),
+  1256→          timestampMs: rootComment.timestampMs,
+  1257→          versionId: activeVersion.id,
+  1258→          parentId: rootComment.id,
+  1259→        }),
+  1260→      });
+  1261→      if (!res.ok) return;
+  1262→      const reply = normalizeComment(await res.json());
+  1263→      addComment(reply);
+  1264→      setComments((prev) => [...prev, reply]);
+  1265→      // Ensure the root thread is expanded so the new reply is visible
+  1266→      setCollapsedThreads((prev) => {
+  1267→        const next = new Set(prev);
+  1268→        next.delete(rootComment.id);
+  1269→        return next;
+  1270→      });
+  1271→      setReplyText('');
+  1272→      setReplyingTo(null);
+  1273→    } catch {
+  1274→      // Silently fail
+  1275→    }
+  1276→  }, [replyingTo, replyText, selectedTrackId, user, comments, addComment, activeVersion]);
+  1277→
+  1278→  // --- Keyboard Shortcuts ---
+  1279→
+  1280→  useEffect(() => {
+  1281→    const handler = (e: KeyboardEvent) => {
+  1282→      if (
+  1283→        e.target instanceof HTMLInputElement ||
+  1284→        e.target instanceof HTMLTextAreaElement
+  1285→      )
+  1286→        return;
+  1287→
+  1288→      if (e.code === 'Space') {
+  1289→        e.preventDefault();
+  1290→        togglePlay();
+  1291→      } else if (e.code === 'ArrowLeft') {
+  1292→        e.preventDefault();
+  1293→        skip(-5);
+  1294→      } else if (e.code === 'ArrowRight') {
+  1295→        e.preventDefault();
+  1296→        skip(5);
+  1297→      }
+  1298→    };
+  1299→
+  1300→    window.addEventListener('keydown', handler);
+  1301→    return () => window.removeEventListener('keydown', handler);
+  1302→  }, [togglePlay, skip]);
+  1303→
+  1304→  // --- No Track ---
+  1305→
+  1306→  // Build a map of root comment ID → 1-based index for numbering
+  1307→  const commentNumberMap = useMemo(() => {
+  1308→    const roots = comments.filter((c) => activeVersion?.id && c.versionId === activeVersion.id && !c.parentId);
+  1309→    roots.sort((a, b) => a.timestampMs - b.timestampMs);
+  1310→    const map = new Map<string, number>();
+  1311→    roots.forEach((c, i) => map.set(c.id, i + 1));
+  1312→    return map;
+  1313→  }, [comments, activeVersion]);
+  1314→
+  1315→  // --- Render ---
+  1316→
+  1317→  const progress = duration > 0 ? currentTime / duration : 0;
+  1318→
+  1319→  if (!track) {
+  1320→    return (
+  1321→      <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+  1322→        <Music2 className="h-12 w-12 text-muted-foreground/40" />
+  1323→        <p className="text-sm text-muted-foreground">No track selected</p>
+  1324→        <Button
+  1325→          variant="outline"
+  1326→          size="sm"
+  1327→          onClick={() => navigate('project-detail', selectedProjectId ?? undefined)}
+  1328→        >
+  1329→          <ArrowLeft className="mr-2 h-4 w-4" />
+  1330→          Back to Project
+  1331→        </Button>
+  1332→      </div>
+  1333→    );
+  1334→  }
+  1335→
+  1336→  return (
+  1337→    <div className="flex h-full flex-col">
+  1338→      {/* Contextual row — ideas strip + status selector.
+  1339→          Back button, title, and "Open in Kanban" action have moved to the
+  1340→          unified AppHeader (breadcrumbs + header-actions store). */}
+  1341→      <motion.div
+  1342→        initial={{ opacity: 0, y: -8 }}
+  1343→        animate={{ opacity: 1, y: 0 }}
+  1344→        transition={{ duration: 0.3 }}
+  1345→        className="flex items-center gap-3 border-b border-border px-4 py-3 lg:px-6"
+  1346→      >
+  1347→        <div className="min-w-0 flex-1">
+  1348→          {/* Ideas Stories Strip — in header area */}
+  1349→          <IdeasStoriesStrip
+  1350→            ideas={projectIdeas}
+  1351→            sourceIdeaId={track.sourceIdeaId ?? undefined}
+  1352→            projectName={projectOfTrack?.title ?? ''}
+  1353→          />
+  1354→        </div>
+  1355→
+  1356→        {/* Status selector */}
+  1357→        <Select value={track.status} onValueChange={handleStatusChange}>
+  1358→          <SelectTrigger
+  1359→            size="sm"
+  1360→            className="w-[130px] shrink-0 text-xs"
+  1361→          >
+  1362→            <div className="flex items-center gap-1.5">
+  1363→              <span
+  1364→                className="h-2 w-2 rounded-full"
+  1365→                style={{
+  1366→                  backgroundColor: statusDotColors[track.status] || '#A0A0B0',
+  1367→                }}
+  1368→              />
+  1369→              <SelectValue />
+  1370→            </div>
+  1371→          </SelectTrigger>
+  1372→          <SelectContent>
+  1373→            <SelectItem value="idea">
+  1374→              <span className="flex items-center gap-1.5">
+  1375→                <span className="h-2 w-2 rounded-full bg-[#F59E0B]" />
+  1376→                Idea
+  1377→              </span>
+  1378→            </SelectItem>
+  1379→            <SelectItem value="recording">
+  1380→              <span className="flex items-center gap-1.5">
+  1381→                <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
+  1382→                Recording
+  1383→              </span>
+  1384→            </SelectItem>
+  1385→            <SelectItem value="mixing">
+  1386→              <span className="flex items-center gap-1.5">
+  1387→                <span className="h-2 w-2 rounded-full bg-[#8A2BE2]" />
+  1388→                Mixing
+  1389→              </span>
+  1390→            </SelectItem>
+  1391→            <SelectItem value="final">
+  1392→              <span className="flex items-center gap-1.5">
+  1393→                <span className="h-2 w-2 rounded-full bg-[#10B981]" />
+  1394→                Final
+  1395→              </span>
+  1396→            </SelectItem>
+  1397→          </SelectContent>
+  1398→        </Select>
+  1399→      </motion.div>
+  1400→
+  1401→      {/* Version Panel — between header and player */}
+  1402→      <div className="shrink-0 border-b border-border px-4 py-3 lg:px-6">
+  1403→        <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+  1404→          {versions.map((v) => {
+  1405→            const isActive = activeVersion?.id === v.id;
+  1406→            return (
+  1407→              <motion.button
+  1408→                key={v.id}
+  1409→                whileHover={{ scale: 1.04 }}
+  1410→                whileTap={{ scale: 0.97 }}
+  1411→                onClick={() => setActiveVersionId(v.id)}
+  1412→                className={`shrink-0 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+  1413→                  isActive
+  1414→                    ? 'bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-white shadow-lg shadow-[#8A2BE2]/25'
+  1415→                    : 'bg-[#1E1E28] text-muted-foreground hover:bg-[#25252D] hover:text-foreground border border-border'
+  1416→                }`}
+  1417→              >
+  1418→                <span>{v.version === 1 && !v.label ? 'Original' : v.label || `v${v.version}`}</span>
+  1419→                {v.commentCount !== undefined && v.commentCount > 0 && (
+  1420→                  <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[9px] ${
+  1421→                    isActive ? 'bg-white/20 text-white' : 'bg-[#25252D] text-muted-foreground'
+  1422→                  }`}>
+  1423→                    {v.commentCount}
+  1424→                  </span>
+  1425→                )}
+  1426→              </motion.button>
+  1427→            );
+  1428→          })}
+  1429→          {/* Add Version button */}
+  1430→          <motion.button
+  1431→            whileHover={{ scale: 1.04 }}
+  1432→            whileTap={{ scale: 0.97 }}
+  1433→            onClick={() => setShowAddVersionDialog(true)}
+  1434→            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/30 bg-transparent px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-[#8A2BE2]/50 hover:text-[#8A2BE2]"
+  1435→          >
+  1436→            <Plus className="h-3.5 w-3.5" />
+  1437→            Add Version
+  1438→          </motion.button>
+  1439→        </div>
+  1440→        {/* Current version info */}
+  1441→        {activeVersion && (
+  1442→          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground/60">
+  1443→            <span>Version {activeVersion.version}</span>
+  1444→            <span>·</span>
+  1445→            <span>{activeVersion.label || `v${activeVersion.version}`}</span>
+  1446→            {activeVersion.durationMs && (
+  1447→              <>
+  1448→                <span>·</span>
+  1449→                <span>{formatDuration(activeVersion.durationMs / 1000)}</span>
+  1450→              </>
+  1451→            )}
+  1452→            {activeVersion.commentCount !== undefined && (
+  1453→              <>
+  1454→                <span>·</span>
+  1455→                <span>{activeVersion.commentCount} comment{activeVersion.commentCount !== 1 ? 's' : ''}</span>
+  1456→              </>
+  1457→            )}
+  1458→          </div>
+  1459→        )}
+  1460→      </div>
+  1461→
+  1462→      {/* Add Version Dialog */}
+  1463→      <AddVersionDialog
+  1464→        open={showAddVersionDialog}
+  1465→        onOpenChange={setShowAddVersionDialog}
+  1466→        onSubmit={handleAddVersion}
+  1467→        isUploading={isUploadingVersion}
+  1468→        uploadProgress={uploadProgress}
+  1469→        nextVersion={versions.length + 1}
+  1470→      />
+  1471→
+  1472→      {/* Main content — single full-width column (chat moved to global floating widget) */}
+  1473→      <div className="min-h-0 flex-1">
+  1474→        <div className="flex h-full flex-col">
+  1475→          {/* Audio Player */}
+  1476→              <div className="shrink-0 border-b border-border p-4 lg:p-6">
+  1477→                {/* Seek bar */}
+  1478→                <div className="mb-4">
+  1479→                  <div
+  1480→                    className="group relative h-2 w-full cursor-pointer rounded-full bg-[#1E1E28]"
+  1481→                    onClick={(e) => {
+  1482→                      const rect = e.currentTarget.getBoundingClientRect();
+  1483→                      const x = e.clientX - rect.left;
+  1484→                      const p = x / rect.width;
+  1485→                      seekTo(p * duration);
+  1486→                    }}
+  1487→                  >
+  1488→                    {/* Background track */}
+  1489→                    <div
+  1490→                      className="absolute inset-y-0 left-0 rounded-full transition-all duration-100"
+  1491→                      style={{
+  1492→                        width: `${progress * 100}%`,
+  1493→                        background: 'linear-gradient(to right, #8A2BE2, #00E5FF)',
+  1494→                      }}
+  1495→                    />
+  1496→                    {/* Thumb */}
+  1497→                    <div
+  1498→                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-4 w-4 rounded-full bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
+  1499→                      style={{ left: `${progress * 100}%` }}
+  1500→                    />
+  1501→                  </div>
+  1502→                  <div className="mt-1.5 flex justify-between text-[11px] text-muted-foreground">
+  1503→                    <span>{formatDuration(currentTime)}</span>
+  1504→                    <span>{formatDuration(displayDuration)}</span>
+  1505→                  </div>
+  1506→                </div>
+  1507→
+  1508→                {/* Controls row */}
+  1509→                <div className="flex items-center gap-3">
+  1510→                  <div className="flex items-center gap-1">
+  1511→                    <Tooltip>
+  1512→                      <TooltipTrigger asChild>
+  1513→                        <Button
+  1514→                          variant="ghost"
+  1515→                          size="icon"
+  1516→                          className="h-9 w-9"
+  1517→                          onClick={() => skip(-5)}
+  1518→                        >
+  1519→                          <SkipBack className="h-4 w-4" />
+  1520→                        </Button>
+  1521→                      </TooltipTrigger>
+  1522→                      <TooltipContent>Back 5s</TooltipContent>
+  1523→                    </Tooltip>
+  1524→
+  1525→                    <Button
+  1526→                      size="icon"
+  1527→                      className="h-10 w-10 rounded-full bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-white shadow-lg shadow-[#8A2BE2]/20 hover:shadow-[#8A2BE2]/40 transition-shadow"
+  1528→                      onClick={togglePlay}
+  1529→                    >
+  1530→                      {isPlaying ? (
+  1531→                        <Pause className="h-5 w-5" />
+  1532→                      ) : (
+  1533→                        <Play className="h-5 w-5 ml-0.5" />
+  1534→                      )}
+  1535→                    </Button>
+  1536→
+  1537→                    <Tooltip>
+  1538→                      <TooltipTrigger asChild>
+  1539→                        <Button
+  1540→                          variant="ghost"
+  1541→                          size="icon"
+  1542→                          className="h-9 w-9"
+  1543→                          onClick={() => skip(5)}
+  1544→                        >
+  1545→                          <SkipForward className="h-4 w-4" />
+  1546→                        </Button>
+  1547→                      </TooltipTrigger>
+  1548→                      <TooltipContent>Forward 5s</TooltipContent>
+  1549→                    </Tooltip>
+  1550→                  </div>
+  1551→
+  1552→                  {/* Volume */}
+  1553→                  <div className="flex items-center gap-2 ml-2">
+  1554→                    <Tooltip>
+  1555→                      <TooltipTrigger asChild>
+  1556→                        <Button
+  1557→                          variant="ghost"
+  1558→                          size="icon"
+  1559→                          className="h-8 w-8"
+  1560→                          onClick={() => setIsMuted(!isMuted)}
+  1561→                        >
+  1562→                          {isMuted || volume === 0 ? (
+  1563→                            <VolumeX className="h-4 w-4" />
+  1564→                          ) : (
+  1565→                            <Volume2 className="h-4 w-4" />
+  1566→                          )}
+  1567→                        </Button>
+  1568→                      </TooltipTrigger>
+  1569→                      <TooltipContent>
+  1570→                        {isMuted ? 'Unmute' : 'Mute'}
+  1571→                      </TooltipContent>
+  1572→                    </Tooltip>
+  1573→                    <div
+  1574→                      className="group relative h-1.5 w-24 cursor-pointer rounded-full bg-[#1E1E28]"
+  1575→                      onClick={(e) => {
+  1576→                        const rect = e.currentTarget.getBoundingClientRect();
+  1577→                        const x = e.clientX - rect.left;
+  1578→                        setVolume(Math.max(0, Math.min(1, x / rect.width)));
+  1579→                        if (isMuted) setIsMuted(false);
+  1580→                      }}
+  1581→                    >
+  1582→                      <div
+  1583→                        className="absolute inset-y-0 left-0 rounded-full bg-[#A0A0B0] transition-all"
+  1584→                        style={{
+  1585→                          width: `${(isMuted ? 0 : volume) * 100}%`,
+  1586→                        }}
+  1587→                      />
+  1588→                    </div>
+  1589→                  </div>
+  1590→
+  1591→                  {/* Keyboard shortcut hint */}
+  1592→                  <p className="ml-auto hidden text-[11px] text-muted-foreground/50 lg:block">
+  1593→                    Space: Play/Pause · ←→: Skip 5s
+  1594→                  </p>
+  1595→                </div>
+  1596→              </div>
+  1597→
+  1598→              {/* Waveform */}
+  1599→              <div className="shrink-0 px-4 pt-4 lg:px-6">
+  1600→                {/* Marker mode toolbar — always visible near waveform */}
+  1601→                <div className="mb-2 flex items-center justify-between">
+  1602→                  <div className="flex items-center gap-2">
+  1603→                    <span className="text-[11px] font-medium text-muted-foreground">Marker:</span>
+  1604→                    <div className="flex items-center rounded-md border border-border bg-[#1E1E28] p-0.5">
+  1605→                      <button
+  1606→                        onClick={() => {
+  1607→                          setMarkerMode('point');
+  1608→                          setIsSelectingRange(false);
+  1609→                        }}
+  1610→                        className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
+  1611→                          markerMode === 'point'
+  1612→                            ? 'bg-[#00E5FF] text-black shadow-sm shadow-[#00E5FF]/30'
+  1613→                            : 'text-muted-foreground hover:text-foreground'
+  1614→                        }`}
+  1615→                      >
+  1616→                        <MapPin className="h-3 w-3" />
+  1617→                        Point
+  1618→                      </button>
+  1619→                      <button
+  1620→                        onClick={() => {
+  1621→                          setMarkerMode('range');
+  1622→                          setIsSelectingRange(false);
+  1623→                        }}
+  1624→                        className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all ${
+  1625→                          markerMode === 'range'
+  1626→                            ? 'bg-[#F59E0B] text-black shadow-sm shadow-[#F59E0B]/30'
+  1627→                            : 'text-muted-foreground hover:text-foreground'
+  1628→                        }`}
+  1629→                      >
+  1630→                        <MoveHorizontal className="h-3 w-3" />
+  1631→                        Range
+  1632→                      </button>
+  1633→                    </div>
+  1634→                    <span className="text-[10px] text-muted-foreground/70">
+  1635→                      {markerMode === 'range'
+  1636→                        ? 'Click waveform to set start, then click again for end'
+  1637→                        : 'Click on waveform to place a pin marker'}
+  1638→                    </span>
+  1639→                  </div>
+  1640→                  <div className="flex items-center gap-2">
+  1641→                    {markerMode === 'range' && isSelectingRange && rangeStartMs > 0 && (
+  1642→                      <Badge variant="outline" className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px] animate-pulse">
+  1643→                        Start: {formatTimestamp(rangeStartMs)} — click end point…
+  1644→                      </Badge>
+  1645→                    )}
+  1646→                    {markerMode === 'range' && !isSelectingRange && rangeEndMsState > rangeStartMs && rangeStartMs > 0 && (
+  1647→                      <Badge variant="outline" className="border-[#00E5FF]/30 text-[#00E5FF] text-[10px]">
+  1648→                        {formatTimestamp(rangeStartMs)} → {formatTimestamp(rangeEndMsState)}
+  1649→                        <span className="ml-1 text-muted-foreground/50">
+  1650→                          ({formatDuration((rangeEndMsState - rangeStartMs) / 1000)})
+  1651→                        </span>
+  1652→                      </Badge>
+  1653→                    )}
+  1654→                    {markerMode === 'point' && commentTimestamp > 0 && (
+  1655→                      <Badge variant="outline" className="border-[#00E5FF]/30 text-[#00E5FF] text-[10px]">
+  1656→                        {formatTimestamp(commentTimestamp)}
+  1657→                      </Badge>
+  1658→                    )}
+  1659→                  </div>
+  1660→                </div>
+  1661→
+  1662→                <div className={`relative rounded-lg border p-3 transition-colors ${
+  1663→                  markerMode === 'range'
+  1664→                    ? 'border-[#F59E0B]/30 bg-[#101016]'
+  1665→                    : 'border-border bg-[#101016]'
+  1666→                }`}>
+  1667→                  {/* Empty state when no audio */}
+  1668→                  {!currentAudioUrl && (
+  1669→                    <div className="flex h-24 flex-col items-center justify-center gap-2">
+  1670→                      <Music2 className="h-6 w-6 text-muted-foreground/30" />
+  1671→                      <span className="text-xs text-muted-foreground/50">
+  1672→                        No audio uploaded — upload a version or add audio to this track
+  1673→                      </span>
+  1674→                    </div>
+  1675→                  )}
+  1676→                  {!waveformReady && currentAudioUrl && (
+  1677→                    <div className="flex h-24 items-center justify-center">
+  1678→                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#8A2BE2] border-t-transparent" />
+  1679→                      <span className="ml-2 text-xs text-muted-foreground">
+  1680→                        Loading waveform...
+  1681→                      </span>
+  1682→                    </div>
+  1683→                  )}
+  1684→                  <div className="relative"
+  1685→                    onMouseMove={(e) => {
+  1686→                      const rect = e.currentTarget.getBoundingClientRect();
+  1687→                      const x = e.clientX - rect.left;
+  1688→                      const pct = x / rect.width;
+  1689→                      if (duration > 0 && waveformReady) {
+  1690→                        const ms = Math.round(pct * duration * 1000);
+  1691→                        setWaveformHoverTime({ x, ms });
+  1692→                      }
+  1693→                    }}
+  1694→                    onMouseLeave={() => setWaveformHoverTime(null)}
+  1695→                  >
+  1696→                    <canvas
+  1697→                      ref={canvasRef}
+  1698→                      className={`h-24 w-full ${!waveformReady ? 'hidden' : ''} ${
+  1699→                        markerMode === 'range'
+  1700→                          ? 'cursor-ew-resize'
+  1701→                          : 'cursor-crosshair'
+  1702→                      }`}
+  1703→                      onClick={handleWaveformClick}
+  1704→                    />
+  1705→                    {/* Hover time tooltip — follows cursor along waveform */}
+  1706→                    {waveformHoverTime && (
+  1707→                      <div
+  1708→                        className="pointer-events-none absolute top-1 z-20 -translate-x-1/2"
+  1709→                        style={{ left: waveformHoverTime.x }}
+  1710→                      >
+  1711→                        <span className="rounded bg-[#8A2BE2]/90 px-1.5 py-0.5 text-[10px] font-medium text-white shadow-lg">
+  1712→                          {formatTimestamp(waveformHoverTime.ms)}
+  1713→                        </span>
+  1714→                        <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-[#8A2BE2]/90" />
+  1715→                      </div>
+  1716→                    )}
+  1717→                    {/* Range highlight bars for range comments */}
+  1718→                    {waveformReady && displayDuration > 0 &&
+  1719→                      comments
+  1720→                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+  1721→                        .map((comment) => {
+  1722→                        const startPct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
+  1723→                        const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
+  1724→                        const isFocused = focusedCommentId === comment.id;
+  1725→                        const isHovered = hoveredMarkerId === comment.id;
+  1726→                        return (
+  1727→                          <div
+  1728→                            key={`range-${comment.id}`}
+  1729→                            className={`absolute top-0 h-full z-[5] rounded-sm transition-all pointer-events-none ${
+  1730→                              isFocused ? 'bg-[#F59E0B]/15 border-y-2 border-[#F59E0B]/60' :
+  1731→                              isHovered ? 'bg-[#F59E0B]/10 border-y-2 border-[#F59E0B]/40' :
+  1732→                              comment.isResolved ? 'bg-[#10B981]/8 border-y-2 border-[#10B981]/20' :
+  1733→                              'bg-[#F59E0B]/8 border-y-2 border-[#F59E0B]/20'
+  1734→                            }`}
+  1735→                            style={{
+  1736→                              left: `${startPct * 100}%`,
+  1737→                              width: `${(endPct - startPct) * 100}%`,
+  1738→                            }}
+  1739→                          />
+  1740→                        );
+  1741→                      })
+  1742→                    }
+  1743→                    {/* Range selection preview (while user is selecting a range) */}
+  1744→                    {waveformReady && displayDuration > 0 && isSelectingRange && rangeStartMs > 0 && (
+  1745→                      <div className="contents">
+  1746→                        <div
+  1747→                          className="absolute top-0 h-full z-[6] bg-[#F59E0B]/10 border-y-2 border-[#F59E0B]/40 pointer-events-none"
+  1748→                          style={{
+  1749→                            left: `${(rangeStartMs / 1000 / duration) * 100}%`,
+  1750→                            width: `${((rangeEndMsState - rangeStartMs) / 1000 / duration) * 100}%`,
+  1751→                          }}
+  1752→                        />
+  1753→                        <div
+  1754→                          className="absolute top-0 z-[7] h-full w-0.5 bg-[#F59E0B] pointer-events-none"
+  1755→                          style={{ left: `${(rangeStartMs / 1000 / duration) * 100}%` }}
+  1756→                        />
+  1757→                        {rangeEndMsState > rangeStartMs && (
+  1758→                          <div
+  1759→                            className="absolute top-0 z-[7] h-full w-0.5 bg-[#F59E0B] pointer-events-none"
+  1760→                            style={{ left: `${(rangeEndMsState / 1000 / duration) * 100}%` }}
+  1761→                          />
+  1762→                        )}
+  1763→                      </div>
+  1764→                    )}
+  1765→                    {/* HTML overlay markers for interactive hover/click — only for active version */}
+  1766→                    {waveformReady && displayDuration > 0 &&
+  1767→                      comments
+  1768→                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id)
+  1769→                        .map((comment) => {
+  1770→                        const pct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
+  1771→                        if (pct < 0 || pct > 1) return null;
+  1772→                        const isHovered = hoveredMarkerId === comment.id;
+  1773→                        const isFocused = focusedCommentId === comment.id;
+  1774→                        const isRange = !!(comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs);
+  1775→                        return (
+  1776→                          <motion.button
+  1777→                            key={comment.id}
+  1778→                            onMouseEnter={(e) => {
+  1779→                              if (markerHideTimerRef.current) {
+  1780→                                clearTimeout(markerHideTimerRef.current);
+  1781→                                markerHideTimerRef.current = null;
+  1782→                              }
+  1783→                              const rect = e.currentTarget.getBoundingClientRect();
+  1784→                              const isRight = rect.left > window.innerWidth / 2;
+  1785→                              setHoveredMarkerId(comment.id);
+  1786→                              setMarkerTooltipPos({ top: rect.top - 8, left: isRight ? rect.right : rect.left, right: isRight });
+  1787→                            }}
+  1788→                            onMouseLeave={() => {
+  1789→                              markerTooltipHoverRef.current = false;
+  1790→                              markerHideTimerRef.current = setTimeout(() => {
+  1791→                                if (!markerTooltipHoverRef.current) {
+  1792→                                  setHoveredMarkerId(null);
+  1793→                                  setMarkerTooltipPos(null);
+  1794→                                }
+  1795→                              }, 200);
+  1796→                            }}
+  1797→                            onClick={(e) => {
+  1798→                              e.stopPropagation();
+  1799→                              handleMarkerClick(comment);
+  1800→                            }}
+  1801→                            initial={false}
+  1802→                            animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
+  1803→                            transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+  1804→                            className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
+  1805→                            style={{ left: `${pct * 100}%` }}
+  1806→                            title={''}
+  1807→                          >
+  1808→                            {/* Marker shape: pin (circle) for point, diamond for range */}
+  1809→                            {isRange ? (
+  1810→                              <>
+  1811→                                {/* Range marker: diamond shape */}
+  1812→                                <div
+  1813→                                  className={`rotate-45 transition-all duration-150 ${
+  1814→                                    isFocused
+  1815→                                      ? 'h-4 w-4 bg-[#F59E0B] shadow-[0_0_10px_rgba(245,158,11,0.6)]'
+  1816→                                      : isHovered
+  1817→                                        ? 'h-3.5 w-3.5 bg-[#F59E0B]/80 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+  1818→                                        : comment.isResolved
+  1819→                                          ? 'h-2.5 w-2.5 bg-[#10B981]'
+  1820→                                          : 'h-2.5 w-2.5 bg-[#F59E0B]'
+  1821→                                  }`}
+  1822→                                />
+  1823→                                {/* Vertical line */}
+  1824→                                <div
+  1825→                                  className={`absolute left-1/2 top-full h-4 w-0.5 -translate-x-1/2 -rotate-0 transition-colors ${
+  1826→                                    isFocused ? 'bg-[#F59E0B]/60' : isHovered ? 'bg-[#F59E0B]/40' : 'bg-[#F59E0B]/20'
+  1827→                                  }`}
+  1828→                                />
+  1829→                              </>
+  1830→                            ) : (
+  1831→                              <>
+  1832→                                {/* Point marker: circle pin */}
+  1833→                                <div
+  1834→                                  className={`rounded-full border-2 transition-all duration-150 ${
+  1835→                                    isFocused
+  1836→                                      ? 'h-4 w-4 border-[#00E5FF] bg-[#00E5FF]/30 shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+  1837→                                      : isHovered
+  1838→                                        ? 'h-3.5 w-3.5 border-[#00E5FF] bg-[#00E5FF]/40 shadow-[0_0_8px_rgba(0,229,255,0.5)]'
+  1839→                                        : comment.isResolved
+  1840→                                          ? 'h-2.5 w-2.5 border-[#10B981] bg-[#10B981]'
+  1841→                                          : 'h-2.5 w-2.5 border-[#00E5FF] bg-[#00E5FF]'
+  1842→                                  }`}
+  1843→                                  style={{ borderColor: 'inherit' }}
+  1844→                                >
+  1845→                                  <div className="m-auto h-1 w-1 rounded-full bg-white" />
+  1846→                                </div>
+  1847→
+  1848→                                {/* Vertical line down from pin */}
+  1849→                                <div
+  1850→                                  className={`absolute left-1/2 top-full h-4 w-px -translate-x-1/2 transition-colors ${
+  1851→                                    isFocused ? 'bg-[#00E5FF]/60' : isHovered ? 'bg-[#00E5FF]/40' : 'bg-[#00E5FF]/20'
+  1852→                                  }`}
+  1853→                                />
+  1854→                              </>
+  1855→                            )}
+  1856→
+  1857→                          </motion.button>
+  1858→                        );
+  1859→                      })}
+  1860→                    {/* Range END markers — smaller diamonds at the end position of range comments */}
+  1861→                    {waveformReady && displayDuration > 0 &&
+  1862→                      comments
+  1863→                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+  1864→                        .map((comment) => {
+  1865→                          const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
+  1866→                          if (endPct < 0 || endPct > 1) return null;
+  1867→                          const isFocused = focusedCommentId === comment.id;
+  1868→                          const isHovered = hoveredMarkerId === comment.id;
+  1869→                          return (
+  1870→                            <motion.button
+  1871→                              key={`end-marker-${comment.id}`}
+  1872→                              onMouseEnter={(e) => {
+  1873→                                if (markerHideTimerRef.current) {
+  1874→                                  clearTimeout(markerHideTimerRef.current);
+  1875→                                  markerHideTimerRef.current = null;
+  1876→                                }
+  1877→                                const rect = e.currentTarget.getBoundingClientRect();
+  1878→                                const isRight = rect.left > window.innerWidth / 2;
+  1879→                                setHoveredMarkerId(comment.id);
+  1880→                                setMarkerTooltipPos({ top: rect.top - 8, left: isRight ? rect.right : rect.left, right: isRight });
+  1881→                              }}
+  1882→                              onMouseLeave={() => {
+  1883→                                markerTooltipHoverRef.current = false;
+  1884→                                markerHideTimerRef.current = setTimeout(() => {
+  1885→                                  if (!markerTooltipHoverRef.current) {
+  1886→                                    setHoveredMarkerId(null);
+  1887→                                    setMarkerTooltipPos(null);
+  1888→                                  }
+  1889→                                }, 200);
+  1890→                              }}
+  1891→                              onClick={(e) => {
+  1892→                                e.stopPropagation();
+  1893→                                handleMarkerClick(comment);
+  1894→                              }}
+  1895→                              initial={false}
+  1896→                              animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
+  1897→                              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+  1898→                              className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
+  1899→                              style={{ left: `${endPct * 100}%` }}
+  1900→                              title={''}
+  1901→                            >
+  1902→                              <div
+  1903→                                className={`rotate-45 transition-all duration-150 ${
+  1904→                                  isFocused
+  1905→                                    ? 'h-3.5 w-3.5 bg-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+  1906→                                    : isHovered
+  1907→                                      ? 'h-3 w-3 bg-[#F59E0B]/80 shadow-[0_0_6px_rgba(245,158,11,0.4)]'
+  1908→                                      : comment.isResolved
+  1909→                                        ? 'h-2 w-2 bg-[#10B981]'
+  1910→                                        : 'h-2 w-2 bg-[#F59E0B]'
+  1911→                                }`}
+  1912→                              />
+  1913→                              <div
+  1914→                                className={`absolute left-1/2 top-full h-3 w-0.5 -translate-x-1/2 transition-colors ${
+  1915→                                  isFocused ? 'bg-[#F59E0B]/50' : isHovered ? 'bg-[#F59E0B]/35' : 'bg-[#F59E0B]/15'
+  1916→                                }`}
+  1917→                              />
+  1918→                            </motion.button>
+  1919→                          );
+  1920→                        })}
+  1921→                  </div>
+  1922→                  <p className="mt-1.5 text-center text-[10px] text-muted-foreground/50">
+  1923→                    {currentAudioUrl
+  1924→                      ? `Click on waveform to seek · ${markerMode === 'range' ? 'First click sets range start, second click sets end' : 'Click to place a marker at that position'}`
+  1925→                      : 'Upload audio to enable waveform interaction'}
+  1926→                  </p>
+  1927→                </div>
+  1928→              </div>
+  1929→
+  1930→              {/* Marker hover tooltip — rendered via portal to escape overflow clipping */}
+  1931→              {hoveredMarkerId && markerTooltipPos && (() => {
+  1932→                const comment = comments.find((c) => c.id === hoveredMarkerId);
+  1933→                if (!comment) return null;
+  1934→                return createPortal(
+  1935→                  <AnimatePresence>
+  1936→                    <motion.div
+  1937→                      initial={{ opacity: 0, y: 4, scale: 0.95 }}
+  1938→                      animate={{ opacity: 1, y: 0, scale: 1 }}
+  1939→                      exit={{ opacity: 0, y: 4, scale: 0.95 }}
+  1940→                      transition={{ duration: 0.12 }}
+  1941→                      className="fixed z-[9999] rounded-lg border border-border bg-[#15151A] px-3 py-2 shadow-2xl shadow-black/70"
+  1942→                      style={{
+  1943→                        bottom: window.innerHeight - markerTooltipPos.top + 4,
+  1944→                        left: markerTooltipPos.right ? 'auto' : markerTooltipPos.left,
+  1945→                        right: markerTooltipPos.right ? window.innerWidth - markerTooltipPos.left : 'auto',
+  1946→                        minWidth: 200,
+  1947→                        maxWidth: 280,
+  1948→                        whiteSpace: 'normal',
+  1949→                        transform: markerTooltipPos.right ? 'translateX(100%)' : 'translateX(-50%)',
+  1950→                      }}
+  1951→                      onClick={(e) => e.stopPropagation()}
+  1952→                      onMouseEnter={() => {
+  1953→                        markerTooltipHoverRef.current = true;
+  1954→                        if (markerHideTimerRef.current) {
+  1955→                          clearTimeout(markerHideTimerRef.current);
+  1956→                          markerHideTimerRef.current = null;
+  1957→                        }
+  1958→                      }}
+  1959→                      onMouseLeave={() => {
+  1960→                        markerTooltipHoverRef.current = false;
+  1961→                        setHoveredMarkerId(null);
+  1962→                        setMarkerTooltipPos(null);
+  1963→                      }}
+  1964→                    >
+  1965→                      <div className="flex items-center gap-2">
+  1966→                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#8A2BE2]/20 text-[9px] font-bold text-[#8A2BE2]">
+  1967→                          {getInitials(comment.userName)}
+  1968→                        </div>
+  1969→                        <div className="min-w-0 flex-1">
+  1970→                          <p className="truncate text-[11px] font-semibold text-foreground leading-tight">
+  1971→                            {comment.userName}
+  1972→                            {commentNumberMap.get(comment.id) && (
+  1973→                              <span className="ml-1.5 text-xs font-bold text-[#8A2BE2]">
+  1974→                                #{commentNumberMap.get(comment.id)}
+  1975→                              </span>
+  1976→                            )}
+  1977→                          </p>
+  1978→                          <p className="text-[10px] text-muted-foreground leading-tight">
+  1979→                            {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+  1980→                              ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
+  1981→                              : formatTimestamp(comment.timestampMs)} · {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+  1982→                          </p>
+  1983→                        </div>
+  1984→                      </div>
+  1985→                      <div className="mt-1 border-t border-border/50 pt-1">
+  1986→                        <p className="line-clamp-3 text-[10px] text-muted-foreground/70">
+  1987→                          {comment.text}
+  1988→                        </p>
+  1989→                      </div>
+  1990→                      <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-border/50 pt-1.5">
+  1991→                        <button
+  1992→                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+  1993→                          onClick={(e) => {
+  1994→                            e.stopPropagation();
+  1995→                            startEditingComment(comment);
+  1996→                            handleMarkerClick(comment);
+  1997→                          }}
+  1998→                        >
+  1999→                          <Pencil className="h-2.5 w-2.5" />
+  2000→                          Edit
+
+[showing lines 1-2000 of 2877; use offset=2001 with limit to continue reading]

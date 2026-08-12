@@ -1,0 +1,562 @@
+     1→  2020→                          Delete
+     2→  2021→                        </button>
+     3→  2022→                      </div>
+     4→  2023→                    </motion.div>
+     5→  2024→                  </AnimatePresence>,
+     6→  2025→                  document.body
+     7→  2026→                );
+     8→  2027→              })()}
+     9→  2028→
+    10→  2029→              {/* Comments Section */}
+    11→  2030→              <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 lg:px-6">
+    12→  2031→                <div className="flex items-center justify-between mb-3">
+    13→  2032→                  <div className="flex items-center gap-2">
+    14→  2033→                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
+    15→  2034→                    <h2 className="text-sm font-semibold text-foreground">
+    16→  2035→                      Timestamp Comments
+    17→  2036→                    </h2>
+    18→  2037→                    <Badge
+    19→  2038→                      variant="secondary"
+    20→  2039→                      className="h-5 px-1.5 text-[10px]"
+    21→  2040→                    >
+    22→  2041→                      {comments.length}
+    23→  2042→                    </Badge>
+    24→  2043→                  </div>
+    25→  2044→                  <Button
+    26→  2045→                    variant="outline"
+    27→  2046→                    size="sm"
+    28→  2047→                    className="h-7 gap-1.5 text-xs"
+    29→  2048→                    onClick={() => {
+    30→  2049→                      setCommentTimestamp(Math.round(currentTime * 1000));
+    31→  2050→                      setRangeStartMs(0);
+    32→  2051→                      setRangeEndMsState(0);
+    33→  2052→                      setIsSelectingRange(false);
+    34→  2053→                      setShowCommentInput(true);
+    35→  2054→                    }}
+    36→  2055→                  >
+    37→  2056→                    <Plus className="h-3 w-3" />
+    38→  2057→                    Add Comment
+    39→  2058→                  </Button>
+    40→  2059→                </div>
+    41→  2060→
+    42→  2061→                {/* Participant presence — online indicators (chat moved to global floating widget) */}
+    43→  2062→                {groupMembers.length > 0 && (
+    44→  2063→                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-[#101016]/50 px-3 py-2">
+    45→  2064→                    <div className="flex items-center">
+    46→  2065→                      {groupMembers.slice(0, 6).map((member, idx) => {
+    47→  2066→                        const isOnline = onlineUserIds.has(member.userId);
+    48→  2067→                        return (
+    49→  2068→                          <div
+    50→  2069→                            key={member.userId}
+    51→  2070→                            className="relative"
+    52→  2071→                            style={{ marginLeft: idx > 0 ? '-6px' : '0', zIndex: 6 - idx }}
+    53→  2072→                          >
+    54→  2073→                            <Avatar className="h-6 w-6 border-2 border-background">
+    55→  2074→                              <AvatarFallback
+    56→  2075→                                className={`text-[8px] ${
+    57→  2076→                                  isOnline
+    58→  2077→                                    ? 'bg-[#10B981]/20 text-[#10B981]'
+    59→  2078→                                    : 'bg-[#1E1E28] text-muted-foreground'
+    60→  2079→                                }`}
+    61→  2080→                              >
+    62→  2081→                                {getInitials(member.displayName)}
+    63→  2082→                              </AvatarFallback>
+    64→  2083→                            </Avatar>
+    65→  2084→                            {/* Online indicator dot */}
+    66→  2085→                            <div
+    67→  2086→                              className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-background ${
+    68→  2087→                                isOnline ? 'bg-[#10B981]' : 'bg-[#4B5563]'
+    69→  2088→                              }`}
+    70→  2089→                            />
+    71→  2090→                          </div>
+    72→  2091→                        );
+    73→  2092→                      })}
+    74→  2093→                      {groupMembers.length > 6 && (
+    75→  2094→                        <div
+    76→  2095→                          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1E1E28] border-2 border-background text-[8px] font-medium text-muted-foreground"
+    77→  2096→                          style={{ marginLeft: '-6px', zIndex: 0 }}
+    78→  2097→                        >
+    79→  2098→                          +{groupMembers.length - 6}
+    80→  2099→                        </div>
+    81→  2100→                      )}
+    82→  2101→                    </div>
+    83→  2102→                    <span className="text-[10px] text-muted-foreground/70">
+    84→  2103→                      {onlineUserIds.size} online · {groupMembers.length} member{groupMembers.length !== 1 ? 's' : ''}
+    85→  2104→                    </span>
+    86→  2105→                  </div>
+    87→  2106→                )}
+    88→  2107→
+    89→  2108→                <AnimatePresence>
+    90→  2109→                  {showCommentInput && (
+    91→  2110→                    <motion.div
+    92→  2111→                      initial={{ opacity: 0, height: 0 }}
+    93→  2112→                      animate={{ opacity: 1, height: 'auto' }}
+    94→  2113→                      exit={{ opacity: 0, height: 0 }}
+    95→  2114→                      className="mb-3 overflow-hidden"
+    96→  2115→                    >
+    97→  2116→                      <Card className={`border bg-opacity-5 ${markerMode === 'range' ? 'border-[#F59E0B]/30 bg-[#F59E0B]/5' : 'border-[#00E5FF]/30 bg-[#00E5FF]/5'}`}>
+    98→  2117→                        <CardContent className="p-3">
+    99→  2118→                          {/* Marker mode toggle */}
+   100→  2119→                          <div className="mb-2 flex items-center gap-2">
+   101→  2120→                            <div className="flex items-center rounded-md border border-border bg-[#1E1E28] p-0.5">
+   102→  2121→                              <button
+   103→  2122→                                onClick={() => {
+   104→  2123→                                  setMarkerMode('point');
+   105→  2124→                                  setIsSelectingRange(false);
+   106→  2125→                                }}
+   107→  2126→                                className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
+   108→  2127→                                  markerMode === 'point'
+   109→  2128→                                    ? 'bg-[#00E5FF] text-black shadow-sm shadow-[#00E5FF]/30'
+   110→  2129→                                    : 'text-muted-foreground hover:text-foreground'
+   111→  2130→                                }`}
+   112→  2131→                              >
+   113→  2132→                                <MapPin className="h-2.5 w-2.5" />
+   114→  2133→                                Point
+   115→  2134→                              </button>
+   116→  2135→                              <button
+   117→  2136→                                onClick={() => {
+   118→  2137→                                  setMarkerMode('range');
+   119→  2138→                                  setIsSelectingRange(false);
+   120→  2139→                                }}
+   121→  2140→                                className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
+   122→  2141→                                  markerMode === 'range'
+   123→  2142→                                    ? 'bg-[#F59E0B] text-black shadow-sm shadow-[#F59E0B]/30'
+   124→  2143→                                    : 'text-muted-foreground hover:text-foreground'
+   125→  2144→                                }`}
+   126→  2145→                              >
+   127→  2146→                                <MoveHorizontal className="h-2.5 w-2.5" />
+   128→  2147→                                Range
+   129→  2148→                              </button>
+   130→  2149→                            </div>
+   131→  2150→
+   132→  2151→                            {/* Timestamp / range display */}
+   133→  2152→                            {markerMode === 'range' ? (
+   134→  2153→                              <div className="flex items-center gap-1.5">
+   135→  2154→                                <Badge
+   136→  2155→                                  variant="outline"
+   137→  2156→                                  className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px]"
+   138→  2157→                                >
+   139→  2158→                                  {formatTimestamp(rangeStartMs || commentTimestamp || Math.round(currentTime * 1000))}
+   140→  2159→                                </Badge>
+   141→  2160→                                <span className="text-[10px] text-muted-foreground">→</span>
+   142→  2161→                                {isSelectingRange ? (
+   143→  2162→                                  <Badge
+   144→  2163→                                    variant="outline"
+   145→  2164→                                    className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px] animate-pulse"
+   146→  2165→                                  >
+   147→  2166→                                    Click end point…
+   148→  2167→                                  </Badge>
+   149→  2168→                                ) : rangeEndMsState > 0 ? (
+   150→  2169→                                  <Badge
+   151→  2170→                                    variant="outline"
+   152→  2171→                                    className="border-[#F59E0B]/30 text-[#F59E0B] text-[10px]"
+   153→  2172→                                  >
+   154→  2173→                                    {formatTimestamp(rangeEndMsState)}
+   155→  2174→                                  </Badge>
+   156→  2175→                                ) : (
+   157→  2176→                                  <span className="text-[10px] text-muted-foreground/60">
+   158→  2177→                                    Click start on waveform
+   159→  2178→                                  </span>
+   160→  2179→                                )}
+   161→  2180→                                {rangeEndMsState > rangeStartMs && (
+   162→  2181→                                  <span className="text-[9px] text-muted-foreground/50">
+   163→  2182→                                    ({formatDuration((rangeEndMsState - rangeStartMs) / 1000)})
+   164→  2183→                                  </span>
+   165→  2184→                                )}
+   166→  2185→                              </div>
+   167→  2186→                            ) : (
+   168→  2187→                              <div className="flex items-center gap-1.5">
+   169→  2188→                                <Badge
+   170→  2189→                                  variant="outline"
+   171→  2190→                                  className="border-[#00E5FF]/30 text-[#00E5FF] text-[10px]"
+   172→  2191→                                >
+   173→  2192→                                  {formatTimestamp(commentTimestamp || Math.round(currentTime * 1000))}
+   174→  2193→                                </Badge>
+   175→  2194→                                <span className="text-[10px] text-muted-foreground">
+   176→  2195→                                  at this timestamp
+   177→  2196→                                </span>
+   178→  2197→                              </div>
+   179→  2198→                            )}
+   180→  2199→                          </div>
+   181→  2200→
+   182→  2201→                          {/* Range selection in-progress indicator on waveform hint */}
+   183→  2202→                          {markerMode === 'range' && isSelectingRange && (
+   184→  2203→                            <p className="mb-2 text-[10px] text-[#F59E0B]">
+   185→  2204→                              📍 Range start set — now click on the waveform to set the end point
+   186→  2205→                            </p>
+   187→  2206→                          )}
+   188→  2207→
+   189→  2208→                          <Input
+   190→  2209→                            placeholder="Write your comment..."
+   191→  2210→                            value={newCommentText}
+   192→  2211→                            onChange={(e) => setNewCommentText(e.target.value)}
+   193→  2212→                            onKeyDown={(e) => {
+   194→  2213→                              if (e.key === 'Enter' && !e.shiftKey) {
+   195→  2214→                                e.preventDefault();
+   196→  2215→                                if (markerMode === 'range' && isSelectingRange) return; // don't submit while selecting
+   197→  2216→                                handleAddComment();
+   198→  2217→                              }
+   199→  2218→                              if (e.key === 'Escape') {
+   200→  2219→                                setShowCommentInput(false);
+   201→  2220→                                setNewCommentText('');
+   202→  2221→                                setRangeStartMs(0);
+   203→  2222→                                setRangeEndMsState(0);
+   204→  2223→                                setIsSelectingRange(false);
+   205→  2224→                              }
+   206→  2225→                            }}
+   207→  2226→                            className="mb-2 h-8 text-sm"
+   208→  2227→                            autoFocus
+   209→  2228→                          />
+   210→  2229→                          <div className="flex justify-end gap-2">
+   211→  2230→                            <Button
+   212→  2231→                              variant="ghost"
+   213→  2232→                              size="sm"
+   214→  2233→                              className="h-7 text-xs"
+   215→  2234→                              onClick={() => {
+   216→  2235→                                setShowCommentInput(false);
+   217→  2236→                                setNewCommentText('');
+   218→  2237→                                setRangeStartMs(0);
+   219→  2238→                                setRangeEndMsState(0);
+   220→  2239→                                setIsSelectingRange(false);
+   221→  2240→                              }}
+   222→  2241→                            >
+   223→  2242→                              Cancel
+   224→  2243→                            </Button>
+   225→  2244→                            <Button
+   226→  2245→                              size="sm"
+   227→  2246→                              className="h-7 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-xs text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+   228→  2247→                              onClick={handleAddComment}
+   229→  2248→                              disabled={!newCommentText.trim() || (markerMode === 'range' && isSelectingRange)}
+   230→  2249→                            >
+   231→  2250→                              Post Comment
+   232→  2251→                            </Button>
+   233→  2252→                          </div>
+   234→  2253→                        </CardContent>
+   235→  2254→                      </Card>
+   236→  2255→                    </motion.div>
+   237→  2256→                  )}
+   238→  2257→                </AnimatePresence>
+   239→  2258→
+   240→  2259→                <ScrollArea className="flex-1" style={{ minHeight: 0 }}>
+   241→  2260→                  <div className="space-y-2 pb-4">
+   242→  2261→                    {(() => {
+   243→  2262→                      const versionComments = comments.filter((c) => activeVersion?.id && c.versionId === activeVersion.id);
+   244→  2263→                      const tree = buildCommentTree(versionComments);
+   245→  2264→                      if (tree.length === 0) return (
+   246→  2265→                        <div className="flex flex-col items-center justify-center py-8">
+   247→  2266→                          <MessageCircle className="mb-2 h-8 w-8 text-muted-foreground/30" />
+   248→  2267→                          <p className="text-xs text-muted-foreground">No comments yet. Click the waveform to add one.</p>
+   249→  2268→                        </div>
+   250→  2269→                      );
+   251→  2270→                      return tree.map((comment) => (
+   252→  2271→                        <div key={comment.id}>
+   253→  2272→                          {/* TOP-LEVEL COMMENT CARD */}
+   254→  2273→                          <motion.div
+   255→  2274→                            id={`comment-${comment.id}`}
+   256→  2275→                            initial={{ opacity: 0, x: -8 }}
+   257→  2276→                            animate={{ opacity: 1, x: 0 }}
+   258→  2277→                            className={`group rounded-lg border p-3 transition-colors ${
+   259→  2278→                              focusedCommentId === comment.id
+   260→  2279→                                ? comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+   261→  2280→                                  ? 'border-[#F59E0B]/50 bg-[#F59E0B]/5'
+   262→  2281→                                  : 'border-[#00E5FF]/50 bg-[#00E5FF]/5'
+   263→  2282→                                : comment.isResolved
+   264→  2283→                                  ? 'border-border/50 bg-card/50 opacity-60'
+   265→  2284→                                  : 'border-border bg-card'
+   266→  2285→                            }`}
+   267→  2286→                          >
+   268→  2287→                            <div className="flex items-start gap-2.5">
+   269→  2288→                              <Avatar className="h-6 w-6 shrink-0">
+   270→  2289→                                <AvatarFallback className="text-[9px] bg-[#1E1E28] text-muted-foreground">
+   271→  2290→                                  {getInitials(comment.userName)}
+   272→  2291→                                </AvatarFallback>
+   273→  2292→                              </Avatar>
+   274→  2293→                              <div className="min-w-0 flex-1">
+   275→  2294→                                <div className="flex items-center gap-1.5 mb-0.5">
+   276→  2295→                                  <Badge
+   277→  2296→                                    variant="outline"
+   278→  2297→                                    className="h-5 px-1.5 text-xs font-bold border-[#8A2BE2]/50 text-[#8A2BE2]"
+   279→  2298→                                  >
+   280→  2299→                                    #{commentNumberMap.get(comment.id) ?? '?'}
+   281→  2300→                                  </Badge>
+   282→  2301→                                  <span className="text-xs font-medium text-foreground">
+   283→  2302→                                    {comment.userName}
+   284→  2303→                                  </span>
+   285→  2304→                                  {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs ? (
+   286→  2305→                                    <MoveHorizontal className="h-3 w-3 text-[#F59E0B] shrink-0" />
+   287→  2306→                                  ) : (
+   288→  2307→                                    <MapPin className="h-3 w-3 text-[#00E5FF] shrink-0" />
+   289→  2308→                                  )}
+   290→  2309→                                  <Badge
+   291→  2310→                                    variant="outline"
+   292→  2311→                                    className={`h-4 px-1 text-[10px] cursor-pointer transition-colors ${
+   293→  2312→                                      comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+   294→  2313→                                        ? 'border-[#F59E0B]/30 text-[#F59E0B] hover:bg-[#F59E0B]/10'
+   295→  2314→                                        : 'border-[#00E5FF]/30 text-[#00E5FF] hover:bg-[#00E5FF]/10'
+   296→  2315→                                    }`}
+   297→  2316→                                    onClick={() => seekTo(comment.timestampMs / 1000)}
+   298→  2317→                                  >
+   299→  2318→                                    {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+   300→  2319→                                      ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
+   301→  2320→                                      : formatTimestamp(comment.timestampMs)}
+   302→  2321→                                  </Badge>
+   303→  2322→                                  {/* Resolve checkmark — after timestamp, left side */}
+   304→  2323→                                  <Tooltip>
+   305→  2324→                                    <TooltipTrigger asChild>
+   306→  2325→                                      <button
+   307→  2326→                                        className={`rounded p-0.5 transition-colors ${
+   308→  2327→                                          comment.isResolved
+   309→  2328→                                            ? 'text-[#10B981] hover:bg-[#10B981]/15'
+   310→  2329→                                            : 'text-muted-foreground/40 hover:bg-[#10B981]/15 hover:text-[#10B981]'
+   311→  2330→                                        }`}
+   312→  2331→                                        onClick={() => handleToggleResolved(comment.id, comment.isResolved)}
+   313→  2332→                                      >
+   314→  2333→                                        {comment.isResolved ? <DoubleCheckIcon className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+   315→  2334→                                      </button>
+   316→  2335→                                    </TooltipTrigger>
+   317→  2336→                                    <TooltipContent>{comment.isResolved ? 'Unresolve' : 'Resolve'}</TooltipContent>
+   318→  2337→                                  </Tooltip>
+   319→  2338→                                  {/* Edit / Delete actions */}
+   320→  2339→                                  <div className="ml-auto flex items-center gap-0.5 opacity-40 transition-opacity hover:opacity-100">
+   321→  2340→                                    <Tooltip>
+   322→  2341→                                      <TooltipTrigger asChild>
+   323→  2342→                                        <button
+   324→  2343→                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+   325→  2344→                                          onClick={() => startEditingComment(comment)}
+   326→  2345→                                        >
+   327→  2346→                                          <Pencil className="h-3 w-3" />
+   328→  2347→                                        </button>
+   329→  2348→                                      </TooltipTrigger>
+   330→  2349→                                      <TooltipContent>Edit comment</TooltipContent>
+   331→  2350→                                    </Tooltip>
+   332→  2351→                                    <Tooltip>
+   333→  2352→                                      <TooltipTrigger asChild>
+   334→  2353→                                        <button
+   335→  2354→                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+   336→  2355→                                          onClick={() => handleDeleteComment(comment.id)}
+   337→  2356→                                        >
+   338→  2357→                                          <Trash2 className="h-3 w-3" />
+   339→  2358→                                        </button>
+   340→  2359→                                      </TooltipTrigger>
+   341→  2360→                                      <TooltipContent>Delete comment</TooltipContent>
+   342→  2361→                                    </Tooltip>
+   343→  2362→                                  </div>
+   344→  2363→                                </div>
+   345→  2364→                                {/* Comment text / edit mode */}
+   346→  2365→                                <AnimatePresence mode="wait">
+   347→  2366→                                  {editingCommentId === comment.id ? (
+   348→  2367→                                    <motion.div
+   349→  2368→                                      key="edit"
+   350→  2369→                                      initial={{ opacity: 0, height: 0 }}
+   351→  2370→                                      animate={{ opacity: 1, height: 'auto' }}
+   352→  2371→                                      exit={{ opacity: 0, height: 0 }}
+   353→  2372→                                      className="overflow-hidden"
+   354→  2373→                                    >
+   355→  2374→                                      <div className="rounded-md border border-[#8A2BE2]/30 bg-[#8A2BE2]/5 p-2">
+   356→  2375→                                        <textarea
+   357→  2376→                                          className="w-full resize-none bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
+   358→  2377→                                          rows={2}
+   359→  2378→                                          value={editCommentText}
+   360→  2379→                                          onChange={(e) => setEditCommentText(e.target.value)}
+   361→  2380→                                          autoFocus
+   362→  2381→                                          onKeyDown={(e) => {
+   363→  2382→                                            if (e.key === 'Enter' && e.metaKey) {
+   364→  2383→                                              e.preventDefault();
+   365→  2384→                                              handleEditComment(comment.id);
+   366→  2385→                                            }
+   367→  2386→                                            if (e.key === 'Escape') {
+   368→  2387→                                              cancelEditingComment();
+   369→  2388→                                            }
+   370→  2389→                                          }}
+   371→  2390→                                          placeholder="Edit your comment..."
+   372→  2391→                                        />
+   373→  2392→                                        <div className="flex items-center justify-between mt-1.5">
+   374→  2393→                                          <span className="text-[9px] text-muted-foreground/40">⌘+Enter to save</span>
+   375→  2394→                                          <div className="flex gap-1.5">
+   376→  2395→                                            <Button
+   377→  2396→                                              variant="ghost"
+   378→  2397→                                              size="sm"
+   379→  2398→                                              className="h-6 px-2 text-[10px]"
+   380→  2399→                                              onClick={cancelEditingComment}
+   381→  2400→                                            >
+   382→  2401→                                              Cancel
+   383→  2402→                                            </Button>
+   384→  2403→                                            <Button
+   385→  2404→                                              size="sm"
+   386→  2405→                                              className="h-6 gap-1 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-2 text-[10px] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+   387→  2406→                                              onClick={() => handleEditComment(comment.id)}
+   388→  2407→                                              disabled={!editCommentText.trim()}
+   389→  2408→                                            >
+   390→  2409→                                              <Check className="h-2.5 w-2.5" />
+   391→  2410→                                              Save
+   392→  2411→                                            </Button>
+   393→  2412→                                          </div>
+   394→  2413→                                        </div>
+   395→  2414→                                      </div>
+   396→  2415→                                    </motion.div>
+   397→  2416→                                  ) : (
+   398→  2417→                                    <motion.p
+   399→  2418→                                      key="text"
+   400→  2419→                                      initial={{ opacity: 0 }}
+   401→  2420→                                      animate={{ opacity: 1 }}
+   402→  2421→                                      exit={{ opacity: 0 }}
+   403→  2422→                                      className="text-xs text-muted-foreground leading-relaxed"
+   404→  2423→                                    >
+   405→  2424→                                      {comment.text}
+   406→  2425→                                    </motion.p>
+   407→  2426→                                  )}
+   408→  2427→                                </AnimatePresence>
+   409→  2428→                                {/* Comment creation time — left, under text */}
+   410→  2429→                                <span className="text-[10px] text-muted-foreground/40">
+   411→  2430→                                  {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+   412→  2431→                                </span>
+   413→  2432→                                <div className="mt-1.5 flex items-center gap-2">
+   414→  2433→                                  <Tooltip>
+   415→  2434→                                    <TooltipTrigger asChild>
+   416→  2435→                                      <Button
+   417→  2436→                                        variant="ghost"
+   418→  2437→                                        size="sm"
+   419→  2438→                                        className="ml-auto h-6 gap-1 px-2 text-[10px] text-[#00E5FF] hover:text-[#00E5FF] hover:bg-[#00E5FF]/10"
+   420→  2439→                                        onClick={() => seekTo(comment.timestampMs / 1000)}
+   421→  2440→                                      >
+   422→  2441→                                        <LocateFixed className="h-3 w-3" />
+   423→  2442→                                        Jump to
+   424→  2443→                                      </Button>
+   425→  2444→                                    </TooltipTrigger>
+   426→  2445→                                    <TooltipContent>Jump to this timestamp</TooltipContent>
+   427→  2446→                                  </Tooltip>
+   428→  2447→                                  {!comment.isResolved && (
+   429→  2448→                                  <Tooltip>
+   430→  2449→                                    <TooltipTrigger asChild>
+   431→  2450→                                      <Button
+   432→  2451→                                        variant="ghost"
+   433→  2452→                                        size="sm"
+   434→  2453→                                        className="h-6 gap-1 px-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-[#1E1E28]"
+   435→  2454→                                        onClick={() => {
+   436→  2455→                                          setReplyingTo(replyingTo === comment.id ? null : comment.id);
+   437→  2456→                                          setReplyText('');
+   438→  2457→                                          if (editingCommentId === comment.id) cancelEditingComment();
+   439→  2458→                                        }}
+   440→  2459→                                      >
+   441→  2460→                                        <Reply className="h-3 w-3" />
+   442→  2461→                                        Reply
+   443→  2462→                                      </Button>
+   444→  2463→                                    </TooltipTrigger>
+   445→  2464→                                    <TooltipContent>Reply to this comment</TooltipContent>
+   446→  2465→                                  </Tooltip>
+   447→  2466→                                  )}
+   448→  2467→                                  {comment.isResolved && (
+   449→  2468→                                    <span className="text-[9px] text-[#10B981]/60 italic">Thread closed</span>
+   450→  2469→                                  )}
+   451→  2470→                                </div>
+   452→  2471→                                {/* Inline reply input — hidden when resolved */}
+   453→  2472→                                <AnimatePresence>
+   454→  2473→                                  {replyingTo === comment.id && !comment.isResolved && (
+   455→  2474→                                    <motion.div
+   456→  2475→                                      initial={{ opacity: 0, height: 0 }}
+   457→  2476→                                      animate={{ opacity: 1, height: 'auto' }}
+   458→  2477→                                      exit={{ opacity: 0, height: 0 }}
+   459→  2478→                                      className="mt-2 ml-2 overflow-hidden border-l-2 border-[#8A2BE2]/30 pl-3"
+   460→  2479→                                    >
+   461→  2480→                                      <Input
+   462→  2481→                                        placeholder={`Reply to ${comment.userName}...`}
+   463→  2482→                                        value={replyText}
+   464→  2483→                                        onChange={(e) => setReplyText(e.target.value)}
+   465→  2484→                                        onKeyDown={(e) => {
+   466→  2485→                                          if (e.key === 'Enter' && !e.shiftKey) {
+   467→  2486→                                            e.preventDefault();
+   468→  2487→                                            handleReply();
+   469→  2488→                                          }
+   470→  2489→                                          if (e.key === 'Escape') {
+   471→  2490→                                            setReplyingTo(null);
+   472→  2491→                                            setReplyText('');
+   473→  2492→                                          }
+   474→  2493→                                        }}
+   475→  2494→                                        className="mb-1.5 h-7 text-xs"
+   476→  2495→                                        autoFocus
+   477→  2496→                                      />
+   478→  2497→                                      <div className="flex justify-end gap-1.5">
+   479→  2498→                                        <Button
+   480→  2499→                                          variant="ghost"
+   481→  2500→                                          size="sm"
+   482→  2501→                                          className="h-6 px-2 text-[10px]"
+   483→  2502→                                          onClick={() => {
+   484→  2503→                                            setReplyingTo(null);
+   485→  2504→                                            setReplyText('');
+   486→  2505→                                          }}
+   487→  2506→                                        >
+   488→  2507→                                          Cancel
+   489→  2508→                                        </Button>
+   490→  2509→                                        <Button
+   491→  2510→                                          size="sm"
+   492→  2511→                                          className="h-6 gap-1 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-2 text-[10px] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+   493→  2512→                                          onClick={handleReply}
+   494→  2513→                                          disabled={!replyText.trim()}
+   495→  2514→                                        >
+   496→  2515→                                          <Send className="h-2.5 w-2.5" />
+   497→  2516→                                          Reply
+   498→  2517→                                        </Button>
+   499→  2518→                                      </div>
+   500→  2519→                                    </motion.div>
+   501→  2520→                                  )}
+   502→  2521→                                </AnimatePresence>
+   503→  2522→                              </div>
+   504→  2523→                            </div>
+   505→  2524→                          </motion.div>
+   506→  2525→
+   507→  2526→                          {/* NESTED REPLIES THREAD */}
+   508→  2527→                          {comment.replies.length > 0 && (
+   509→  2528→                            <div className="ml-4 mt-1 space-y-1 border-l-2 border-[#8A2BE2]/20 pl-3">
+   510→  2529→                              <button
+   511→  2530→                                className="flex items-center gap-1 text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+   512→  2531→                                onClick={() => toggleThread(comment.id)}
+   513→  2532→                              >
+   514→  2533→                                {collapsedThreads.has(comment.id) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+   515→  2534→                                <MessageSquareQuote className="h-3 w-3" />
+   516→  2535→                                <span>{comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}</span>
+   517→  2536→                              </button>
+   518→  2537→                              <AnimatePresence initial={false}>
+   519→  2538→                                {!collapsedThreads.has(comment.id) && comment.replies.map((reply) => (
+   520→  2539→                                  <motion.div
+   521→  2540→                                    key={reply.id}
+   522→  2541→                                    id={`comment-${reply.id}`}
+   523→  2542→                                    initial={{ opacity: 0, x: -6 }}
+   524→  2543→                                    animate={{ opacity: 1, x: 0 }}
+   525→  2544→                                    exit={{ opacity: 0, x: -6 }}
+   526→  2545→                                    transition={{ duration: 0.15 }}
+   527→  2546→                                    className={`rounded-md border p-2.5 transition-colors ${
+   528→  2547→                                      focusedCommentId === reply.id
+   529→  2548→                                        ? 'border-[#8A2BE2]/40 bg-[#8A2BE2]/5'
+   530→  2549→                                        : comment.isResolved
+   531→  2550→                                          ? 'border-border/40 bg-card/40 opacity-50'
+   532→  2551→                                          : 'border-border bg-card'
+   533→  2552→                                    }`}
+   534→  2553→                                  >
+   535→  2554→                                    <div className="flex items-start gap-2">
+   536→  2555→                                      <Avatar className="h-5 w-5 shrink-0">
+   537→  2556→                                        <AvatarFallback className="text-[8px] bg-[#1E1E28] text-muted-foreground">
+   538→  2557→                                          {getInitials(reply.userName)}
+   539→  2558→                                        </AvatarFallback>
+   540→  2559→                                      </Avatar>
+   541→  2560→                                      <div className="min-w-0 flex-1">
+   542→  2561→                                        <div className="flex items-center gap-1 mb-0.5">
+   543→  2562→                                          <span className="text-[11px] font-medium text-foreground">
+   544→  2563→                                            {reply.userName}
+   545→  2564→                                          </span>
+   546→  2565→                                          {/* Reply actions — no timestamp badge, no resolve */}
+   547→  2566→                                          <div className="ml-auto flex items-center gap-0.5 opacity-30 transition-opacity hover:opacity-100">
+   548→  2567→                                            <Tooltip>
+   549→  2568→                                              <TooltipTrigger asChild>
+   550→  2569→                                                <button
+   551→  2570→                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+   552→  2571→                                                  onClick={() => startEditingComment(reply)}
+   553→  2572→                                                >
+   554→  2573→                                                  <Pencil className="h-2.5 w-2.5" />
+   555→  2574→                                                </button>
+   556→  2575→                                              </TooltipTrigger>
+   557→  2576→                                              <TooltipContent>Edit</TooltipContent>
+   558→  2577→                                            </Tooltip>
+   559→  2578→                                            <Tooltip>
+   560→  2579→                                              <TooltipTrigger asChild>
+
+[showing lines 1-560 of 562; use offset=561 with limit to continue reading]

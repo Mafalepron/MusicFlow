@@ -1,0 +1,538 @@
+  2340→                                    <Tooltip>
+  2341→                                      <TooltipTrigger asChild>
+  2342→                                        <button
+  2343→                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+  2344→                                          onClick={() => startEditingComment(comment)}
+  2345→                                        >
+  2346→                                          <Pencil className="h-3 w-3" />
+  2347→                                        </button>
+  2348→                                      </TooltipTrigger>
+  2349→                                      <TooltipContent>Edit comment</TooltipContent>
+  2350→                                    </Tooltip>
+  2351→                                    <Tooltip>
+  2352→                                      <TooltipTrigger asChild>
+  2353→                                        <button
+  2354→                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+  2355→                                          onClick={() => handleDeleteComment(comment.id)}
+  2356→                                        >
+  2357→                                          <Trash2 className="h-3 w-3" />
+  2358→                                        </button>
+  2359→                                      </TooltipTrigger>
+  2360→                                      <TooltipContent>Delete comment</TooltipContent>
+  2361→                                    </Tooltip>
+  2362→                                  </div>
+  2363→                                </div>
+  2364→                                {/* Comment text / edit mode */}
+  2365→                                <AnimatePresence mode="wait">
+  2366→                                  {editingCommentId === comment.id ? (
+  2367→                                    <motion.div
+  2368→                                      key="edit"
+  2369→                                      initial={{ opacity: 0, height: 0 }}
+  2370→                                      animate={{ opacity: 1, height: 'auto' }}
+  2371→                                      exit={{ opacity: 0, height: 0 }}
+  2372→                                      className="overflow-hidden"
+  2373→                                    >
+  2374→                                      <div className="rounded-md border border-[#8A2BE2]/30 bg-[#8A2BE2]/5 p-2">
+  2375→                                        <textarea
+  2376→                                          className="w-full resize-none bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
+  2377→                                          rows={2}
+  2378→                                          value={editCommentText}
+  2379→                                          onChange={(e) => setEditCommentText(e.target.value)}
+  2380→                                          autoFocus
+  2381→                                          onKeyDown={(e) => {
+  2382→                                            if (e.key === 'Enter' && e.metaKey) {
+  2383→                                              e.preventDefault();
+  2384→                                              handleEditComment(comment.id);
+  2385→                                            }
+  2386→                                            if (e.key === 'Escape') {
+  2387→                                              cancelEditingComment();
+  2388→                                            }
+  2389→                                          }}
+  2390→                                          placeholder="Edit your comment..."
+  2391→                                        />
+  2392→                                        <div className="flex items-center justify-between mt-1.5">
+  2393→                                          <span className="text-[9px] text-muted-foreground/40">⌘+Enter to save</span>
+  2394→                                          <div className="flex gap-1.5">
+  2395→                                            <Button
+  2396→                                              variant="ghost"
+  2397→                                              size="sm"
+  2398→                                              className="h-6 px-2 text-[10px]"
+  2399→                                              onClick={cancelEditingComment}
+  2400→                                            >
+  2401→                                              Cancel
+  2402→                                            </Button>
+  2403→                                            <Button
+  2404→                                              size="sm"
+  2405→                                              className="h-6 gap-1 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-2 text-[10px] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+  2406→                                              onClick={() => handleEditComment(comment.id)}
+  2407→                                              disabled={!editCommentText.trim()}
+  2408→                                            >
+  2409→                                              <Check className="h-2.5 w-2.5" />
+  2410→                                              Save
+  2411→                                            </Button>
+  2412→                                          </div>
+  2413→                                        </div>
+  2414→                                      </div>
+  2415→                                    </motion.div>
+  2416→                                  ) : (
+  2417→                                    <motion.p
+  2418→                                      key="text"
+  2419→                                      initial={{ opacity: 0 }}
+  2420→                                      animate={{ opacity: 1 }}
+  2421→                                      exit={{ opacity: 0 }}
+  2422→                                      className="text-xs text-muted-foreground leading-relaxed"
+  2423→                                    >
+  2424→                                      {comment.text}
+  2425→                                    </motion.p>
+  2426→                                  )}
+  2427→                                </AnimatePresence>
+  2428→                                {/* Comment creation time — left, under text */}
+  2429→                                <span className="text-[10px] text-muted-foreground/40">
+  2430→                                  {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+  2431→                                </span>
+  2432→                                <div className="mt-1.5 flex items-center gap-2">
+  2433→                                  <Tooltip>
+  2434→                                    <TooltipTrigger asChild>
+  2435→                                      <Button
+  2436→                                        variant="ghost"
+  2437→                                        size="sm"
+  2438→                                        className="ml-auto h-6 gap-1 px-2 text-[10px] text-[#00E5FF] hover:text-[#00E5FF] hover:bg-[#00E5FF]/10"
+  2439→                                        onClick={() => seekTo(comment.timestampMs / 1000)}
+  2440→                                      >
+  2441→                                        <LocateFixed className="h-3 w-3" />
+  2442→                                        Jump to
+  2443→                                      </Button>
+  2444→                                    </TooltipTrigger>
+  2445→                                    <TooltipContent>Jump to this timestamp</TooltipContent>
+  2446→                                  </Tooltip>
+  2447→                                  {!comment.isResolved && (
+  2448→                                  <Tooltip>
+  2449→                                    <TooltipTrigger asChild>
+  2450→                                      <Button
+  2451→                                        variant="ghost"
+  2452→                                        size="sm"
+  2453→                                        className="h-6 gap-1 px-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-[#1E1E28]"
+  2454→                                        onClick={() => {
+  2455→                                          setReplyingTo(replyingTo === comment.id ? null : comment.id);
+  2456→                                          setReplyText('');
+  2457→                                          if (editingCommentId === comment.id) cancelEditingComment();
+  2458→                                        }}
+  2459→                                      >
+  2460→                                        <Reply className="h-3 w-3" />
+  2461→                                        Reply
+  2462→                                      </Button>
+  2463→                                    </TooltipTrigger>
+  2464→                                    <TooltipContent>Reply to this comment</TooltipContent>
+  2465→                                  </Tooltip>
+  2466→                                  )}
+  2467→                                  {comment.isResolved && (
+  2468→                                    <span className="text-[9px] text-[#10B981]/60 italic">Thread closed</span>
+  2469→                                  )}
+  2470→                                </div>
+  2471→                                {/* Inline reply input — hidden when resolved */}
+  2472→                                <AnimatePresence>
+  2473→                                  {replyingTo === comment.id && !comment.isResolved && (
+  2474→                                    <motion.div
+  2475→                                      initial={{ opacity: 0, height: 0 }}
+  2476→                                      animate={{ opacity: 1, height: 'auto' }}
+  2477→                                      exit={{ opacity: 0, height: 0 }}
+  2478→                                      className="mt-2 ml-2 overflow-hidden border-l-2 border-[#8A2BE2]/30 pl-3"
+  2479→                                    >
+  2480→                                      <Input
+  2481→                                        placeholder={`Reply to ${comment.userName}...`}
+  2482→                                        value={replyText}
+  2483→                                        onChange={(e) => setReplyText(e.target.value)}
+  2484→                                        onKeyDown={(e) => {
+  2485→                                          if (e.key === 'Enter' && !e.shiftKey) {
+  2486→                                            e.preventDefault();
+  2487→                                            handleReply();
+  2488→                                          }
+  2489→                                          if (e.key === 'Escape') {
+  2490→                                            setReplyingTo(null);
+  2491→                                            setReplyText('');
+  2492→                                          }
+  2493→                                        }}
+  2494→                                        className="mb-1.5 h-7 text-xs"
+  2495→                                        autoFocus
+  2496→                                      />
+  2497→                                      <div className="flex justify-end gap-1.5">
+  2498→                                        <Button
+  2499→                                          variant="ghost"
+  2500→                                          size="sm"
+  2501→                                          className="h-6 px-2 text-[10px]"
+  2502→                                          onClick={() => {
+  2503→                                            setReplyingTo(null);
+  2504→                                            setReplyText('');
+  2505→                                          }}
+  2506→                                        >
+  2507→                                          Cancel
+  2508→                                        </Button>
+  2509→                                        <Button
+  2510→                                          size="sm"
+  2511→                                          className="h-6 gap-1 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-2 text-[10px] text-white hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+  2512→                                          onClick={handleReply}
+  2513→                                          disabled={!replyText.trim()}
+  2514→                                        >
+  2515→                                          <Send className="h-2.5 w-2.5" />
+  2516→                                          Reply
+  2517→                                        </Button>
+  2518→                                      </div>
+  2519→                                    </motion.div>
+  2520→                                  )}
+  2521→                                </AnimatePresence>
+  2522→                              </div>
+  2523→                            </div>
+  2524→                          </motion.div>
+  2525→
+  2526→                          {/* NESTED REPLIES THREAD */}
+  2527→                          {comment.replies.length > 0 && (
+  2528→                            <div className="ml-4 mt-1 space-y-1 border-l-2 border-[#8A2BE2]/20 pl-3">
+  2529→                              <button
+  2530→                                className="flex items-center gap-1 text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+  2531→                                onClick={() => toggleThread(comment.id)}
+  2532→                              >
+  2533→                                {collapsedThreads.has(comment.id) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+  2534→                                <MessageSquareQuote className="h-3 w-3" />
+  2535→                                <span>{comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}</span>
+  2536→                              </button>
+  2537→                              <AnimatePresence initial={false}>
+  2538→                                {!collapsedThreads.has(comment.id) && comment.replies.map((reply) => (
+  2539→                                  <motion.div
+  2540→                                    key={reply.id}
+  2541→                                    id={`comment-${reply.id}`}
+  2542→                                    initial={{ opacity: 0, x: -6 }}
+  2543→                                    animate={{ opacity: 1, x: 0 }}
+  2544→                                    exit={{ opacity: 0, x: -6 }}
+  2545→                                    transition={{ duration: 0.15 }}
+  2546→                                    className={`rounded-md border p-2.5 transition-colors ${
+  2547→                                      focusedCommentId === reply.id
+  2548→                                        ? 'border-[#8A2BE2]/40 bg-[#8A2BE2]/5'
+  2549→                                        : comment.isResolved
+  2550→                                          ? 'border-border/40 bg-card/40 opacity-50'
+  2551→                                          : 'border-border bg-card'
+  2552→                                    }`}
+  2553→                                  >
+  2554→                                    <div className="flex items-start gap-2">
+  2555→                                      <Avatar className="h-5 w-5 shrink-0">
+  2556→                                        <AvatarFallback className="text-[8px] bg-[#1E1E28] text-muted-foreground">
+  2557→                                          {getInitials(reply.userName)}
+  2558→                                        </AvatarFallback>
+  2559→                                      </Avatar>
+  2560→                                      <div className="min-w-0 flex-1">
+  2561→                                        <div className="flex items-center gap-1 mb-0.5">
+  2562→                                          <span className="text-[11px] font-medium text-foreground">
+  2563→                                            {reply.userName}
+  2564→                                          </span>
+  2565→                                          {/* Reply actions — no timestamp badge, no resolve */}
+  2566→                                          <div className="ml-auto flex items-center gap-0.5 opacity-30 transition-opacity hover:opacity-100">
+  2567→                                            <Tooltip>
+  2568→                                              <TooltipTrigger asChild>
+  2569→                                                <button
+  2570→                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#8A2BE2]/15 hover:text-[#8A2BE2]"
+  2571→                                                  onClick={() => startEditingComment(reply)}
+  2572→                                                >
+  2573→                                                  <Pencil className="h-2.5 w-2.5" />
+  2574→                                                </button>
+  2575→                                              </TooltipTrigger>
+  2576→                                              <TooltipContent>Edit</TooltipContent>
+  2577→                                            </Tooltip>
+  2578→                                            <Tooltip>
+  2579→                                              <TooltipTrigger asChild>
+  2580→                                                <button
+  2581→                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+  2582→                                                  onClick={() => handleDeleteComment(reply.id)}
+  2583→                                                >
+  2584→                                                  <Trash2 className="h-2.5 w-2.5" />
+  2585→                                                </button>
+  2586→                                              </TooltipTrigger>
+  2587→                                              <TooltipContent>Delete</TooltipContent>
+  2588→                                            </Tooltip>
+  2589→                                          </div>
+  2590→                                        </div>
+  2591→                                        {/* Reply text / edit mode */}
+  2592→                                        <AnimatePresence mode="wait">
+  2593→                                          {editingCommentId === reply.id ? (
+  2594→                                            <motion.div
+  2595→                                              key="edit"
+  2596→                                              initial={{ opacity: 0, height: 0 }}
+  2597→                                              animate={{ opacity: 1, height: 'auto' }}
+  2598→                                              exit={{ opacity: 0, height: 0 }}
+  2599→                                              className="overflow-hidden"
+  2600→                                            >
+  2601→                                              <div className="rounded border border-[#8A2BE2]/20 bg-[#8A2BE2]/5 p-1.5">
+  2602→                                                <textarea
+  2603→                                                  className="w-full resize-none bg-transparent text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
+  2604→                                                  rows={1}
+  2605→                                                  value={editCommentText}
+  2606→                                                  onChange={(e) => setEditCommentText(e.target.value)}
+  2607→                                                  autoFocus
+  2608→                                                  onKeyDown={(e) => {
+  2609→                                                    if (e.key === 'Enter' && e.metaKey) {
+  2610→                                                      e.preventDefault();
+  2611→                                                      handleEditComment(reply.id);
+  2612→                                                    }
+  2613→                                                    if (e.key === 'Escape') cancelEditingComment();
+  2614→                                                  }}
+  2615→                                                  placeholder="Edit reply..."
+  2616→                                                />
+  2617→                                                <div className="flex justify-end gap-1 mt-1">
+  2618→                                                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={cancelEditingComment}>Cancel</Button>
+  2619→                                                  <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-1.5 text-[9px] text-white" onClick={() => handleEditComment(reply.id)} disabled={!editCommentText.trim()}>
+  2620→                                                    <Check className="h-2 w-2" /> Save
+  2621→                                                  </Button>
+  2622→                                                </div>
+  2623→                                              </div>
+  2624→                                            </motion.div>
+  2625→                                          ) : (
+  2626→                                            <motion.p
+  2627→                                              key="text"
+  2628→                                              initial={{ opacity: 0 }}
+  2629→                                              animate={{ opacity: 1 }}
+  2630→                                              exit={{ opacity: 0 }}
+  2631→                                              className="text-[11px] text-muted-foreground leading-relaxed"
+  2632→                                            >
+  2633→                                              {reply.text}
+  2634→                                            </motion.p>
+  2635→                                          )}
+  2636→                                        </AnimatePresence>
+  2637→                                        <div className="mt-1 flex items-center gap-1.5">
+  2638→                                          <span className="text-[9px] text-muted-foreground/40">
+  2639→                                            {format(new Date(reply.createdAt), 'MMM d, h:mm a')}
+  2640→                                          </span>
+  2641→                                          {!comment.isResolved && (
+  2642→                                          <button
+  2643→                                            className="text-[9px] text-muted-foreground/40 transition-colors hover:text-[#8A2BE2]"
+  2644→                                            onClick={() => {
+  2645→                                              setReplyingTo(replyingTo === reply.id ? null : reply.id);
+  2646→                                              setReplyText('');
+  2647→                                              if (editingCommentId === reply.id) cancelEditingComment();
+  2648→                                            }}
+  2649→                                          >
+  2650→                                            <Reply className="inline h-2.5 w-2.5" /> Reply
+  2651→                                          </button>
+  2652→                                          )}
+  2653→                                        </div>
+  2654→                                        {/* Inline reply input for reply-to-reply — hidden when parent resolved */}
+  2655→                                        <AnimatePresence>
+  2656→                                          {replyingTo === reply.id && !comment.isResolved && (
+  2657→                                            <motion.div
+  2658→                                              initial={{ opacity: 0, height: 0 }}
+  2659→                                              animate={{ opacity: 1, height: 'auto' }}
+  2660→                                              exit={{ opacity: 0, height: 0 }}
+  2661→                                              className="mt-1 overflow-hidden"
+  2662→                                            >
+  2663→                                              <Input
+  2664→                                                placeholder={`Reply to ${reply.userName}...`}
+  2665→                                                value={replyText}
+  2666→                                                onChange={(e) => setReplyText(e.target.value)}
+  2667→                                                onKeyDown={(e) => {
+  2668→                                                  if (e.key === 'Enter' && !e.shiftKey) {
+  2669→                                                    e.preventDefault();
+  2670→                                                    handleReply();
+  2671→                                                  }
+  2672→                                                  if (e.key === 'Escape') {
+  2673→                                                    setReplyingTo(null);
+  2674→                                                    setReplyText('');
+  2675→                                                  }
+  2676→                                                }}
+  2677→                                                className="mb-1 h-6 text-[10px]"
+  2678→                                                autoFocus
+  2679→                                              />
+  2680→                                              <div className="flex justify-end gap-1">
+  2681→                                                <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Cancel</Button>
+  2682→                                                <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] px-1.5 text-[9px] text-white" onClick={handleReply} disabled={!replyText.trim()}>
+  2683→                                                  <Send className="h-2 w-2" /> Reply
+  2684→                                                </Button>
+  2685→                                              </div>
+  2686→                                            </motion.div>
+  2687→                                          )}
+  2688→                                        </AnimatePresence>
+  2689→                                      </div>
+  2690→                                    </div>
+  2691→                                  </motion.div>
+  2692→                                ))}
+  2693→                              </AnimatePresence>
+  2694→                            </div>
+  2695→                          )}
+  2696→                        </div>
+  2697→                      ));
+  2698→                    })()}
+  2699→                  </div>
+  2700→                  <div ref={commentsEndRef} />
+  2701→                </ScrollArea>
+  2702→              </div>
+  2703→            </div>
+  2704→      </div>
+  2705→    </div>
+  2706→  );
+  2707→}
+  2708→
+  2709→
+  2710→// --- Add Version Dialog ---
+  2711→
+  2712→interface AddVersionDialogProps {
+  2713→  open: boolean;
+  2714→  onOpenChange: (open: boolean) => void;
+  2715→  onSubmit: (file: File, label: string) => void;
+  2716→  isUploading: boolean;
+  2717→  uploadProgress: number;
+  2718→  nextVersion: number;
+  2719→}
+  2720→
+  2721→function AddVersionDialog({
+  2722→  open,
+  2723→  onOpenChange,
+  2724→  onSubmit,
+  2725→  isUploading,
+  2726→  uploadProgress,
+  2727→  nextVersion,
+  2728→}: AddVersionDialogProps) {
+  2729→  // Use a derived key from open to reset state; store label/selectedFile internally
+  2730→  const [dialogState, setDialogState] = useState<{ file: File | null; label: string; initialized: boolean }>({
+  2731→    file: null,
+  2732→    label: `v${nextVersion}`,
+  2733→    initialized: false,
+  2734→  });
+  2735→
+  2736→  const handleDialogOpen = useCallback((isOpen: boolean) => {
+  2737→    if (isOpen) {
+  2738→      // Reset when dialog opens
+  2739→      setDialogState({ file: null, label: `v${nextVersion}`, initialized: true });
+  2740→    }
+  2741→    onOpenChange(isOpen);
+  2742→  }, [onOpenChange, nextVersion]);
+  2743→
+  2744→  const handleSubmit = useCallback(() => {
+  2745→    if (!dialogState.file) return;
+  2746→    onSubmit(dialogState.file, dialogState.label);
+  2747→  }, [dialogState, onSubmit]);
+  2748→
+  2749→  return (
+  2750→    <Dialog open={open} onOpenChange={handleDialogOpen}>
+  2751→      <DialogContent className="sm:max-w-md bg-[#0F0F15] border-border">
+  2752→        <DialogHeader>
+  2753→          <DialogTitle className="text-foreground">Add New Version</DialogTitle>
+  2754→          <DialogDescription className="text-muted-foreground">
+  2755→            Upload an audio file to create a new version of this track.
+  2756→          </DialogDescription>
+  2757→        </DialogHeader>
+  2758→
+  2759→        <div className="space-y-4 pt-2">
+  2760→          {/* File input area */}
+  2761→          <div className="space-y-2">
+  2762→            <label className="text-xs font-medium text-foreground">Audio File *</label>
+  2763→            <div
+  2764→              className={`flex items-center gap-3 rounded-lg border border-dashed p-4 transition-colors cursor-pointer ${
+  2765→                dialogState.file
+  2766→                  ? 'border-[#8A2BE2]/50 bg-[#8A2BE2]/5'
+  2767→                  : 'border-muted-foreground/30 bg-[#1E1E28] hover:border-muted-foreground/50'
+  2768→              }`}
+  2769→              onClick={() => {
+  2770→                const input = document.createElement('input');
+  2771→                input.type = 'file';
+  2772→                input.accept = 'audio/*';
+  2773→                input.onchange = (e) => {
+  2774→                  const file = (e.target as HTMLInputElement).files?.[0];
+  2775→                  if (file) setDialogState((s) => ({ ...s, file }));
+  2776→                };
+  2777→                input.click();
+  2778→              }}
+  2779→            >
+  2780→              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+  2781→                dialogState.file ? 'bg-[#8A2BE2]/20' : 'bg-[#25252D]'
+  2782→              }`}>
+  2783→                <Upload className={`h-4 w-4 ${dialogState.file ? 'text-[#8A2BE2]' : 'text-muted-foreground'}`} />
+  2784→              </div>
+  2785→              <div className="min-w-0 flex-1">
+  2786→                {dialogState.file ? (
+  2787→                  <>
+  2788→                    <p className="text-sm font-medium text-foreground truncate">{dialogState.file.name}</p>
+  2789→                    <p className="text-[10px] text-muted-foreground">
+  2790→                      {(dialogState.file.size / (1024 * 1024)).toFixed(2)} MB
+  2791→                    </p>
+  2792→                  </>
+  2793→                ) : (
+  2794→                  <>
+  2795→                    <p className="text-sm text-muted-foreground">Click to select an audio file</p>
+  2796→                    <p className="text-[10px] text-muted-foreground/50">MP3, WAV, OGG, FLAC...</p>
+  2797→                  </>
+  2798→                )}
+  2799→              </div>
+  2800→              {dialogState.file && (
+  2801→                <button
+  2802→                  onClick={(e) => {
+  2803→                    e.stopPropagation();
+  2804→                    setDialogState((s) => ({ ...s, file: null }));
+  2805→                  }}
+  2806→                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/40 hover:bg-[#1E1E28] hover:text-foreground"
+  2807→                >
+  2808→                  <X className="h-3.5 w-3.5" />
+  2809→                </button>
+  2810→              )}
+  2811→            </div>
+  2812→          </div>
+  2813→
+  2814→          {/* Label input */}
+  2815→          <div className="space-y-2">
+  2816→            <label className="text-xs font-medium text-foreground">Version Label</label>
+  2817→            <Input
+  2818→              value={dialogState.label}
+  2819→              onChange={(e) => setDialogState((s) => ({ ...s, label: e.target.value }))}
+  2820→              placeholder={`v${nextVersion}`}
+  2821→              className="h-9 text-sm bg-[#1E1E28] border-border"
+  2822→            />
+  2823→          </div>
+  2824→
+  2825→          {/* Progress bar */}
+  2826→          {isUploading && (
+  2827→            <div className="space-y-1.5">
+  2828→              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+  2829→                <span>Uploading...</span>
+  2830→                <span>{uploadProgress}%</span>
+  2831→              </div>
+  2832→              <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#1E1E28]">
+  2833→                <motion.div
+  2834→                  className="h-full rounded-full bg-gradient-to-r from-[#8A2BE2] to-[#6366F1]"
+  2835→                  initial={{ width: 0 }}
+  2836→                  animate={{ width: `${uploadProgress}%` }}
+  2837→                  transition={{ duration: 0.3 }}
+  2838→                />
+  2839→              </div>
+  2840→            </div>
+  2841→          )}
+  2842→
+  2843→          {/* Actions */}
+  2844→          <div className="flex justify-end gap-2 pt-1">
+  2845→            <Button
+  2846→              variant="ghost"
+  2847→              size="sm"
+  2848→              onClick={() => handleDialogOpen(false)}
+  2849→              disabled={isUploading}
+  2850→              className="text-xs"
+  2851→            >
+  2852→              Cancel
+  2853→            </Button>
+  2854→            <Button
+  2855→              size="sm"
+  2856→              onClick={handleSubmit}
+  2857→              disabled={!dialogState.file || isUploading}
+  2858→              className="bg-gradient-to-r from-[#8A2BE2] to-[#6366F1] text-white text-xs hover:shadow-[#8A2BE2]/30 hover:shadow-lg"
+  2859→            >
+  2860→              {isUploading ? (
+  2861→                <>
+  2862→                  <div className="mr-1.5 h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+  2863→                  Uploading...
+  2864→                </>
+  2865→              ) : (
+  2866→                <>
+  2867→                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+  2868→                  Upload Version
+  2869→                </>
+  2870→              )}
+  2871→            </Button>
+  2872→          </div>
+  2873→        </div>
+  2874→      </DialogContent>
+  2875→    </Dialog>
+  2876→  );
+  2877→}

@@ -1,0 +1,202 @@
+     1→---
+     2→Task ID: 5-a
+     3→Agent: full-stack-developer
+     4→Task: Add "Open in Audio Editor" navigation to TaskDetailPanel and TaskStrip for track tasks with soundflowTrackId
+     5→
+     6→Work Log:
+     7→- Read /home/z/my-project/worklog.md (did not exist yet — created it with this record).
+     8→- Read /home/z/my-project/src/components/kanban/task-detail-panel.tsx (860 lines) to understand the TrackDetailView structure: header section (badge/title/description/instruments) → progress section → stages accordion.
+     9→- Read /home/z/my-project/src/components/board/task-strip.tsx to understand the task card layout (status icon, title with flex-1, progress %, hover edit/delete buttons) and existing onDoubleClick → setEditingTask behavior.
+    10→- Verified useNavigationStore.navigate signature in /home/z/my-project/src/lib/store.ts: `navigate: (view: ViewName, projectId?: string, trackId?: string) => void`.
+    11→- Verified the kanban Task interface already includes `soundflowProjectId` and `soundflowTrackId` fields, and KanbanState exposes `projects: Task[]` + `selectedProjectId`.
+    12→- Checked lucide-react v0.525.0 — `Waveform` icon does NOT exist; `AudioWaveform` does. Chose `AudioWaveform` for the prominent button and the already-imported `Music` for the small task-strip badge.
+    13→- Edited task-detail-panel.tsx:
+    14→  * Added `import { useNavigationStore } from '@/lib/store';`
+    15→  * Added `AudioWaveform` to the lucide-react import list.
+    16→  * Inserted a prominent "Открыть в аудиоредакторе" button block right after the track header section (after the instruments `</div>`, before the Progress section / stages accordion). The button renders only when `task.soundflowTrackId` is set. On click it looks up `useKanbanStore.getState().projects.find(p => p.id === selectedProjectId)?.soundflowProjectId` and calls `useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId)`. Styled with a cyan→teal gradient (`linear-gradient(135deg, #06b6d4, #14b8a6)`) and a dual glow boxShadow, matching the board-color button aesthetic.
+    17→- Edited task-strip.tsx:
+    18→  * Added `import { useNavigationStore } from '@/lib/store';`
+    19→  * Replaced the simple `onDoubleClick={() => setEditingTask(task)}` with logic that, when `task.soundflowTrackId` is present, looks up the kanban project's `soundflowProjectId` and navigates to `track-detail`; otherwise falls back to `setEditingTask(task)`.
+    20→  * Added a small cyan "Audio" badge (Music icon + label) between the title and progress % on every task card that has `soundflowTrackId`, with a tooltip explaining the double-click shortcut. Uses `rgba(34, 211, 238, ...)` tints with an inset ring for visibility against any board color.
+    21→- Ran `bun run lint` → exit 0, no errors.
+    22→- Tailed /home/z/my-project/dev.log: shows `✓ Compiled in 719ms` and `✓ Compiled in 248ms` after edits with no errors related to the changed files. (A pre-existing unrelated Prisma error about `kanbanTask` field in /api/projects/route.ts was already present before this task and is outside the scope of 5-a.)
+    23→
+    24→Stage Summary:
+    25→- TaskDetailPanel now shows a glowing cyan/teal "Открыть в аудиоредакторе" button at the top of the track detail view for any track task linked to a SoundFlow track (soundflowTrackId), bridging the kanban task → audio editor.
+    26→- TaskStrip now shows an "Audio" badge on linked task cards, and double-clicking such a card navigates directly to the SoundFlow track-detail view instead of opening the edit dialog.
+    27→- Both components use the same navigation pattern: resolve the kanban project's soundflowProjectId via useKanbanStore.getState(), then call useNavigationStore.getState().navigate('track-detail', sfProjectId, task.soundflowTrackId).
+    28→- Lint passes; dev server compiles cleanly.
+    29→
+    30→---
+    31→Task ID: 7-a
+    32→Agent: full-stack-developer
+    33→Task: Remove chat panel from TrackDetailView, add Open-in-Kanban button, wire audio context store
+    34→
+    35→Work Log:
+    36→- Read /home/z/my-project/worklog.md to understand task 5-a context (TaskDetailPanel/TaskStrip already navigate INTO the track-detail view; SoundFlow Project.kanbanTaskId field exists in store interface).
+    37→- Read /home/z/my-project/src/store/audio-context-store.ts — verified setActiveTrack(trackId, projectId, kanbanTaskId), setCurrentTime, setIsPlaying are the hooks to wire.
+    38→- Read /home/z/my-project/src/store/kanban-store.ts — verified useKanbanStore.getState().selectProject(id) is the navigation entry point.
+    39→- Read /home/z/my-project/src/lib/store.ts — confirmed Project type has `kanbanTaskId?: string | null` and ChatMessage type (which we no longer need in the track detail view).
+    40→- Read /home/z/my-project/prisma/schema.prisma — confirmed Project has `kanbanTask Task? @relation("ProjectKanbanLink")` relation; ChatMessage model lives on the kanban side (projectId, referencedTaskId).
+    41→- Read the entire 3246-line /home/z/my-project/src/components/views/track-detail-view.tsx in chunks to map every chat-related symbol and JSX block.
+    42→- Edited imports:
+    43→  * Removed `ResizablePanelGroup, ResizablePanel, ResizableHandle` from `@/components/ui/resizable`.
+    44→  * Removed `type ChatMessage` from `@/lib/store`.
+    45→  * Removed `Clock` and `ArrowLeftRight` from `lucide-react` (only used by chat-rendered timestamp badges and the version-switch dialog respectively).
+    46→  * Added `LayoutDashboard` to `lucide-react`.
+    47→  * Added `import { useKanbanStore } from '@/store/kanban-store';`
+    48→  * Added `import { useAudioContextStore } from '@/store/audio-context-store';`
+    49→- Removed the `normalizeMessage()` helper function (was only used by chat-message fetching/socket handling).
+    50→- Removed the chat-related state variables: `chatMessages, chatInput, chatLinkedTimestamp, chatLinkedCommentId, pendingVersionSwitch, chatEndRef, chatScrollRef`. Kept `hoveredMarkerId` (still used by the waveform marker tooltip).
+    51→- Removed the `addMessage` hook from useDataStore (no longer needed in this view).
+    52→- Added audio context store hooks right after the other store hooks:
+    53→  * `const setActiveTrack = useAudioContextStore((s) => s.setActiveTrack);`
+    54→  * `const setAudioContextTime = useAudioContextStore((s) => s.setCurrentTime);`
+    55→  * `const setAudioContextPlaying = useAudioContextStore((s) => s.setIsPlaying);`
+    56→- Added three new useEffects immediately after the existing "Sync volume" effect:
+    57→  * Sync `currentTime` → `setAudioContextTime(currentTime)` (deps: currentTime, setAudioContextTime).
+    58→  * Sync `isPlaying` → `setAudioContextPlaying(isPlaying)` (deps: isPlaying, setAudioContextPlaying).
+    59→  * Sync active track context: when `selectedTrackId` is set, call `setActiveTrack(selectedTrackId, selectedProjectId ?? null, projectOfTrack?.kanbanTaskId ?? null)`. When unmounting or track changes, the cleanup function calls `setActiveTrack(null, null, null)`. When selectedTrackId is falsy, also clears. (deps: selectedTrackId, selectedProjectId, projectOfTrack?.kanbanTaskId, setActiveTrack).
+    60→- Removed the entire `renderChatText(text: string)` function (was ~70 lines parsing [MM:SS.s] and [Comment #N @ MM:SS.s | vN] tokens into clickable badges — the global chat widget will provide its own rendering).
+    61→- Removed the `// --- Chat ---` useEffect that fetched `/api/messages?entityType=track&entityId=...`.
+    62→- Removed the chat auto-scroll-to-bottom useEffect.
+    63→- Removed the `handleSendMessage` async callback (was building the linked-timestamp/comment-link message text and POSTing to `/api/messages`).
+    64→- In the WebSocket useEffect: removed the `socket.on('message:new', ...)` listener and removed `addMessage` from the dependency array. Kept `presence:update`, `presence:current`, `comment:new`, `comment:updated`, `comment:deleted` listeners and the `room:join`/`room:leave` lifecycle.
+    65→- Removed the `shareCommentToChat(comment)` callback (was linking a comment to the chat input as a `[Comment #N @ MM:SS.s | vN]` badge).
+    66→- Removed the pendingVersionSwitch Dialog block (~38 lines) that was only triggered from inside the now-removed renderChatText — its "Switch Version?" UI is unreachable without chat-clicked comment links.
+    67→- Replaced the ResizablePanelGroup wrapper:
+    68→  * Removed `<ResizablePanelGroup direction="horizontal">` and the left `<ResizablePanel defaultSize={70} minSize={40}>`.
+    69→  * Removed the `<ResizableHandle withHandle className="bg-border hover:bg-[#8A2BE2]/30 transition-colors" />`.
+    70→  * Removed the entire right `<ResizablePanel defaultSize={30} minSize={25}>` containing: Chat header, participant avatars row, messages ScrollArea (with renderChatText calls), chat input with linked-timestamp badge and Clock/Send buttons.
+    71→  * Removed the closing `</ResizablePanelGroup>`.
+    72→  * Outer wrapper kept as a single full-width column: `<div className="min-h-0 flex-1"><div className="flex h-full flex-col">…</div></div>`.
+    73→- Added an "Open in Kanban" button in the track header, between the title/ideas-strip block and the status dropdown:
+    74→  * `variant="outline"`, `size="sm"`, `h-8 shrink-0 gap-1.5 text-xs`, hidden label on mobile (`hidden sm:inline`).
+    75→  * `LayoutDashboard` icon.
+    76→  * `disabled={!projectOfTrack?.kanbanTaskId}` — gracefully disabled when the project has no kanban link.
+    77→  * onClick reads `useDataStore.getState().projects.find(p => p.id === selectedProjectId)`, then if `project.kanbanTaskId` exists, calls `useNavigationStore.getState().navigate('kanban')` and after 300ms calls `useKanbanStore.getState().selectProject(project.kanbanTaskId)`.
+    78→  * Tooltip explains either "Open this project's kanban board" or "No kanban board linked to this project" depending on disabled state.
+    79→- Removed the "Send" share-to-chat button from the marker hover tooltip (the one that popped out of waveform comment pins).
+    80→- Removed the airplane "Send" share-to-chat button from each comment card. Moved `ml-auto` to the "Jump to" button so it still anchors to the right side of the comment action row.
+    81→- Relocated the participant presence/online-indicator avatars into the Comments Section header area (preserved as required). It now renders as a compact bordered row above the comment input, showing up to 6 member avatars with online dots + an "N online · M members" caption. Same onlineUserIds / groupMembers state, same socket presence listeners.
+    82→- Ran `bun run lint` → exit 0, no errors.
+    83→- Checked /home/z/my-project/dev.log after every batch of edits: shows repeated `✓ Compiled in 191ms / 283ms / 215ms / 219ms / 172ms / 229ms / 503ms / 280ms` with no errors related to track-detail-view.tsx. The only 500s in the log are the pre-existing Prisma `kanbanTask` field error from /api/projects/route.ts (already noted in task 5-a's worklog as out-of-scope, not caused by this task).
+    84→
+    85→Stage Summary:
+    86→- TrackDetailView is now a single full-width column: header (back button + title/badge + ideas strip + Open in Kanban + status dropdown) → version panel → audio player → waveform with comment markers → comments section (with new compact presence/online avatars row).
+    87→- The ResizablePanelGroup, ResizablePanel, ResizableHandle, ChatMessage type, normalizeMessage helper, renderChatText function, shareCommentToChat callback, handleSendMessage callback, pendingVersionSwitch Dialog, chat fetch/auto-scroll useEffects, message:new socket listener, and both Send-to-chat buttons are all gone (~360 lines removed: 3246 → 2887 lines).
+    88→- Audio playback state is now mirrored into the global useAudioContextStore: setActiveTrack fires on mount/track-change/unmount, setCurrentTime fires whenever the local currentTime updates, and setIsPlaying fires on play/pause — so the global floating chat widget can scope its messages and timestamp links to whatever track the user is currently editing.
+    89→- "Open in Kanban" button uses the store.getState() pattern (per the task spec) so it works without subscribing the whole component to kanban store re-renders; it is automatically disabled for projects without a kanbanTaskId link.
+    90→- WebSocket still keeps `presence:*` and `comment:*` events so collaborators continue to see each other online and live-edit comments in real time; only the `message:new` event was removed because chat messages now flow through the global widget.
+    91→- Lint passes (exit 0). Dev server compiles cleanly after every edit batch.
+    92→
+    93→---
+    94→Task ID: 5-b
+    95→Agent: full-stack-developer
+    96→Task: Remove duplicate header from TrackDetailView, register contextual actions in unified header
+    97→
+    98→Work Log:
+    99→- Read /home/z/my-project/worklog.md to load context from tasks 5-a (kanban → track-detail navigation wiring) and 7-a (chat panel removal + Open in Kanban button + audio context store wiring).
+   100→- Read /home/z/my-project/src/store/header-actions-store.ts to confirm the store interface: HeaderAction { id, label, icon?, onClick, variant?, className? } and HeaderActionsState { actions, title, setActions, setTitle, clear }.
+   101→- Read /home/z/my-project/src/components/layout/app-header.tsx to confirm how the store is consumed:
+   102→  * `headerActions` are rendered as `<Button size="sm" variant={action.variant || 'outline'} onClick={action.onClick} className={cn('h-8 text-xs gap-1.5', action.className)}>` with `{action.icon}` then `<span className="hidden md:inline">{action.label}</span>`.
+   103→  * `headerTitle` is used as the last breadcrumb label for the current view: `breadcrumbs.push({ label: headerTitle || 'Track' })` for track-detail view (and `headerTitle || viewLabels[currentView]` for other non-home views). So calling `setTitle(track.title)` makes the breadcrumb show the actual track name instead of the generic "Track".
+   104→- Read /home/z/my-project/src/components/views/track-detail-view.tsx (2888 lines) to map the duplicate header structure. Found the motion.div header block at lines 1296-1410 containing: ArrowLeft back button + Tooltip, title `<h1>` + status Badge, IdeasStoriesStrip, Open in Kanban button + Tooltip (disabled when no kanbanTaskId), and the Status selector (Select). The Open in Kanban onClick resolves the kanbanTaskId via `useDataStore.getState().projects.find(...)` then calls `useNavigationStore.getState().navigate('kanban')` and after 300ms calls `useKanbanStore.getState().selectProject(taskId)`.
+   105→- Verified `LayoutDashboard` was already imported from lucide-react (line 40) and `ArrowLeft` is still needed for the "No track selected" early-return block (line 1286), so neither import was removed.
+   106→- Verified `statusColors` and `statusLabels` constants (lines 97-109) were ONLY referenced from the duplicate header block (Badge className and Badge children). The status selector uses the separate `statusDotColors` constant (line 148), so it is unaffected.
+   107→- Verified `Badge` is used in 15+ other places throughout the file, so its import was kept.
+   108→- Made the following edits to /home/z/my-project/src/components/views/track-detail-view.tsx via MultiEdit (atomic):
+   109→  1. Added `import { useHeaderActionsStore } from '@/store/header-actions-store';` after the `useAudioContextStore` import.
+   110→  2. Removed the now-unused `statusColors` and `statusLabels` constants (formerly lines 97-109) — they were only referenced by the duplicate header Badge.
+   111→  3. Added two store hooks right after the audio context store hooks: `const setHeaderActions = useHeaderActionsStore((s) => s.setActions);` and `const setHeaderTitle = useHeaderActionsStore((s) => s.setTitle);` with an explanatory comment.
+   112→  4. Added a new useEffect immediately after the audio-context-sync useEffect (after line 628). The effect:
+   113→     * Early-returns with `setHeaderTitle(null)` + `setHeaderActions([])` when `track` is null (covers the "No track selected" early-return path).
+   114→     * Otherwise calls `setHeaderTitle(track.title)` so the AppHeader breadcrumb shows the actual track name.
+   115→     * Reads `projectOfTrack?.kanbanTaskId`. When present, calls `setHeaderActions([{ id: 'open-in-kanban', label: 'Open in Kanban', icon: <LayoutDashboard className="h-3.5 w-3.5" />, variant: 'outline', onClick: <same logic as the old inline button> }])`. When absent, calls `setHeaderActions([])`.
+   116→     * The onClick handler is identical to the old inline button: reads `useDataStore.getState().projects.find((p) => p.id === selectedProjectId)`, bails if no kanbanTaskId, otherwise calls `useNavigationStore.getState().navigate('kanban')` and after 300ms calls `useKanbanStore.getState().selectProject(taskId)`.
+   117→     * Cleanup function calls `setHeaderActions([])` and `setHeaderTitle(null)` to clear the header when TrackDetailView unmounts (e.g., user navigates away) — exactly as the task spec requires.
+   118→     * Dependency array: `[track, projectOfTrack?.kanbanTaskId, selectedProjectId, setHeaderActions, setHeaderTitle]`.
+   119→  5. Replaced the entire motion.div header block. The new block is a slimmed-down motion.div (kept for the entrance animation + border-b styling) containing ONLY the IdeasStoriesStrip (inside `<div className="min-w-0 flex-1">`) and the Status selector. Removed: ArrowLeft back button + Tooltip, title `<h1>` + status Badge (redundant — the title is now in the AppHeader breadcrumb via setTitle, and the status is shown in the Status selector itself), and the Open in Kanban button + Tooltip (now a registered header action via useHeaderActionsStore). Updated the comment from "Back button and title row" to "Contextual row — ideas strip + status selector. Back button, title, and 'Open in Kanban' action have moved to the unified AppHeader (breadcrumbs + header-actions store)."
+   120→- Verified the rest of the view (version panel, audio player, waveform with comment markers, comments section with presence/online avatars row, all socket listeners) is untouched.
+   121→- Ran `bun run lint`: exit 0 for track-detail-view.tsx — no new errors introduced. The only lint error is a pre-existing one in app-header.tsx:128 (`react-hooks/set-state-in-effect` for `setSearchResults([])` called inside a useEffect) which was authored by a previous agent and is outside the scope of this task.
+   122→- Ran `bunx tsc --noEmit`: no TypeScript errors in track-detail-view.tsx or app-header.tsx. The 8 TS errors reported are all pre-existing in unrelated files (examples/websocket/server.ts, skills/image-edit, skills/stock-analysis-skill, src/app/api/boards/route.ts, src/components/kanban/description-bottom-panel.tsx, src/components/layout/app-sidebar.tsx, src/components/ui/sidebar.tsx).
+   123→- Tailed /home/z/my-project/dev.log: compilation succeeds with `✓ Compiled in 230ms / 615ms / 338ms / 234ms / 494ms / 140ms / 1036ms` after each MultiEdit batch. The "⚠ Fast Refresh had to perform a full reload due to a runtime error" warnings are HMR fallbacks triggered by the file edits (the new useEffect calls zustand setters that re-render the mounted AppHeader, which Fast Refresh cannot preserve across the HMR boundary); each fallback is followed by a successful `GET / 200 in ~190-360ms` page reload. After the file settled, subsequent `curl http://localhost:3000/` requests return `HTTP 200` in 31-64ms with no Fast Refresh warnings — confirming the page renders cleanly in steady state.
+   124→
+   125→Stage Summary:
+   126→- The duplicate inline header row in TrackDetailView has been removed: the ArrowLeft back button, track title `<h1>`, and status Badge are gone (breadcrumbs in AppHeader now show "Group / Projects / Project Title / Track Name"), and the inline "Open in Kanban" button has been replaced by a contextual header action registered via useHeaderActionsStore.
+   127→- A new useEffect registers the page title (`setHeaderTitle(track.title)`) and an "Open in Kanban" HeaderAction (with LayoutDashboard icon, outline variant, and the same navigation logic as the old inline button) when the project has a `kanbanTaskId`. The cleanup function clears both on unmount via `setHeaderActions([])` + `setHeaderTitle(null)`.
+   128→- The motion.div wrapper is preserved as a slim "Contextual row" containing only the IdeasStoriesStrip and the Status selector — both explicitly called out by the task as elements to keep. The now-unused `statusColors` and `statusLabels` constants were removed to avoid unused-variable lint warnings.
+   129→- Lint passes for track-detail-view.tsx (the only lint error is a pre-existing one in app-header.tsx unrelated to this task). TypeScript compilation is clean for the edited files. The dev server compiles successfully and the page renders with HTTP 200.
+   130→
+   131→---
+   132→Task ID: 2-3
+   133→Agent: full-stack-developer
+   134→Task: Redesign kanban right panel (info only) and bottom panel (interactive stage/subtask management)
+   135→
+   136→Work Log:
+   137→- Read /home/z/my-project/worklog.md to load context from prior tasks (5-a, 7-a, 5-b): kanban store wiring, audio-context sync, header-actions store, audio editor navigation.
+   138→- Read /home/z/my-project/src/components/kanban/task-detail-panel.tsx (908 lines), description-bottom-panel.tsx (888 lines), kanban-view.tsx (544 lines), api/tasks/route.ts (167 lines), deadline-picker.tsx (438 lines), store/kanban-store.ts, lib/store.ts, prisma/schema.prisma Task model, and api/groups/[id]/members/route.ts.
+   139→- Verified Task model already has hexQ/hexR integer fields (default 0). Confirmed childSelect in GET /api/tasks only returned basic fields (no priority/assignee/hexR for grandchildren).
+   140→- Edited src/app/api/tasks/route.ts:
+   141→  * Extended GET childSelect to include priority, assignee, hexQ, hexR (so the bottom panel can render/reorder them).
+   142→  * Changed GET children/grandchildren orderBy from createdAt asc → [{ hexR: asc }, { createdAt: asc }] so reordering by swapping hexR actually reorders the displayed list.
+   143→  * Updated POST to allocate hexR linearly (hexR = siblingCount, hexQ = 0) when parentId is set (stages/subtasks), keeping spiral allocation only for top-level tasks (parentId null) so the radial board keeps working.
+   144→  * Added hexQ and hexR to the PUT request body destructure and to the update.data conditionals so the client can swap them when reordering stages/subtasks.
+   145→- Extended src/store/kanban-store.ts TaskGrandchild and TaskChild interfaces to include priority (string), assignee (string|null), hexQ (number), hexR (number) so the new bottom panel can read these fields with proper typing.
+   146→- Completely rewrote src/components/kanban/task-detail-panel.tsx (908 → 850 lines):
+   147→  * TrackDetailView: removed ALL stages accordion, grandchildren list, add-stage form, stage description editor, grandchildren description editor. Now shows ONLY: header (badge "Трек" + title + edit/delete), inline-editable description (Textarea with auto-save on blur or Ctrl+Enter, cancel on Escape), the existing "Open in Audio Editor" cyan/teal gradient button, overall progress bar with animated pulse, instruments tags (from trackConfig), a metadata block (status / priority / assignee / deadline) with colored dots and avatars, and a prominent "Управление этапами" hint button at the bottom that calls setSelectedStageForPanel({ taskId, stageId: stages[0]?.id || '' }) to open the bottom panel.
+   148→  * TaskDetailView (non-track): simplified — kept header + inline-editable description + deadline picker + progress bar; replaced the inline subtasks list with a summary and a "Управление подзадачами" hint button that calls setSelectedStageForPanel({ taskId, stageId: '' }).
+   149→  * Added MetaRow and DeadlineBadge helpers for the compact metadata display.
+   150→  * Kept TaskForm (create/edit) and getProgress helpers unchanged.
+   151→  * Used the React-recommended "prev-tracker" pattern (prevTaskDesc state) instead of useEffect-setState to sync the description draft with the latest task.description after a server reload.
+   152→- Completely rewrote src/components/kanban/description-bottom-panel.tsx (888 → 1390 lines):
+   153→  * Removed the LegacyDescriptionEditor (no longer triggered — setDescriptionEditorItem is no longer called from the right panel).
+   154→  * New visibility condition: panel renders when (a) a track task with trackConfig is selected, OR (b) selectedStageForPanel is set for a non-track task (the "Manage subtasks" hint). Returns null otherwise.
+   155→  * Fetches group members from /api/groups/<currentGroupId>/members in a mount effect (using useAuthStore.getState().currentGroupId) so the assignee dropdown is populated.
+   156→  * Fixed-height outer container (320px expanded / 36px collapsed) with smooth height transition, an accent gradient line at the top, and a header bar with: Layers icon, panel title ("Этапы и подзадачи" or "Подзадачи"), task name, counts badge, close (X) and collapse/expand (ChevronDown rotated) buttons.
+   157→  * StagesList (for track tasks): renders all stages as expandable cards; first stage auto-expanded; selectedStageId (from selectedStageForPanel) auto-expands that stage; "Add stage" form at the bottom (Input + Add/Cancel buttons).
+   158→  * StageCard: header row contains a GripVertical drag handle (visual), status-cycle button (icon cycles todo→in-progress→review→done), priority dot, title (inline editable on double-click, Enter saves, Escape cancels, blur saves if changed), subtask count badge with % progress, assignee avatar, inline DeadlinePicker, move up/down buttons (disabled at edges), delete button, expand arrow. Expanded content shows: stage progress bar, inline-editable description Textarea (auto-save on blur/Ctrl+Enter), a metadata row with priority Select + assignee Select + status pill, then the subtasks list.
+   159→  * SubtasksList (per stage): renders subtasks as compact rows with a left border for visual hierarchy; "Add subtask" form at the bottom.
+   160→  * SubtaskRow: same control set as StageCard (status cycle, priority dot, inline-editable title, assignee avatar, deadline picker, move up/down, delete, expand) but smaller. Expanded content shows inline-editable description + priority/assignee selects.
+   161→  * FlatSubtasksList (for non-track tasks): renders the task's direct children using the same SubtaskRow component, with its own "Add subtask" form.
+   162→  * AssigneeAvatar: renders a colored circle (board color tint) with either the member's avatarUrl image or the first letter of the displayName.
+   163→  * AssigneeSelect: dropdown of group members with avatars + instrument suffix; preserves legacy free-text assignee values that aren't in the member list as a separate SelectItem.
+   164→  * Reorder: moveStage/moveSubtask swap hexR AND hexQ of the two adjacent siblings via two parallel PUT /api/tasks calls, then reloadTasks.
+   165→  * All inline-editing draft state uses the React-recommended "prev-tracker" pattern (prevStageTitle, prevStageDesc, prevSubTitle, prevSubDesc, prevSelectedStageId) instead of useEffect-setState, fixing all react-hooks/set-state-in-effect lint errors.
+   166→  * Used key={task.id} on StagesList and FlatSubtasksList to auto-reset internal state when the selected task changes (no useEffect needed for reset).
+   167→  * Color theming: all hover/active/border colors use hexToRgba(boardColor, alpha) so the panel adapts to the board's accent color.
+   168→  * Custom scrollbar styling via a global <style jsx> block scoped to .panel-scroll.
+   169→- Left kanban-view.tsx unchanged: <DescriptionBottomPanel /> is already rendered unconditionally inside KanbanWorkspace's left column; the panel returns null when nothing to show, so the layout already does the right thing. The panel itself owns its fixed-height + collapse behavior.
+   170→- Ran `bun run lint`: 2 errors total, both PRE-EXISTING in files I did NOT touch (chat/project-chat.tsx:557:17 and layout/app-header.tsx:132:7 — both `react-hooks/set-state-in-effect`). My new code (task-detail-panel.tsx, description-bottom-panel.tsx, api/tasks/route.ts, store/kanban-store.ts) compiles with zero lint errors. Removed two `// eslint-disable-next-line @next/next/no-img-element` directives that were no longer needed (Next.js doesn't flag <img> for these particular usages).
+   171→- Ran `bunx tsc --noEmit`: zero TypeScript errors in any file I changed. The 6 remaining TS errors are all pre-existing in unrelated files (examples/websocket/server.ts, skills/image-edit, skills/stock-analysis-skill, api/boards/route.ts, components/ui/sidebar.tsx).
+   172→- Tailed /home/z/my-project/dev.log: shows `✓ Compiled in 570ms / 676ms / 200ms / 190ms / 158ms / 205ms / 170ms / 206ms / 201ms / 235ms / 168ms` with no errors. After edits, `GET / 200 in 262ms` and `GET / 200 in 41ms` confirm the page renders cleanly.
+   173→
+   174→Stage Summary:
+   175→- Right panel (task-detail-panel.tsx) is now an info-only view for both track and non-track tasks: header + inline-editable description + Open-in-Audio-Editor button (tracks) + progress + instruments + metadata read-outs + a prominent "Управление этапами" / "Управление подзадачами" hint button that opens the bottom panel via setSelectedStageForPanel.
+   176→- Bottom panel (description-bottom-panel.tsx) is now a comprehensive, interactive stage/subtask management hub that auto-shows whenever a track task is selected (or when a non-track task's "Manage subtasks" hint is clicked). It renders all stages as expandable cards with inline-editable titles + descriptions, clickable status cycling, DeadlinePicker, priority dropdown, assignee dropdown (populated from /api/groups/<id>/members), move up/down reorder buttons (which swap hexR/hexQ via the extended PUT API), delete buttons, and a full subtask list per stage with the same controls. The panel is a fixed 320px height (36px collapsed) with a scrollable inner area, custom scrollbar, board-color theming, and a collapse/expand button.
+   177→- The PUT /api/tasks route now accepts hexQ and hexR fields; GET /api/tasks?deep=true now returns priority/assignee/hexQ/hexR for both children and grandchildren, and orders children by hexR asc + createdAt asc so reorder swaps are visible. POST /api/tasks allocates linear hexR (= siblingCount) for child tasks so new stages/subtasks appear at the end in order, while top-level tasks keep spiral allocation for radial-board positioning.
+   178→- TaskChild and TaskGrandchild TypeScript interfaces in kanban-store.ts now include priority/assignee/hexQ/hexR for proper typing in the new panel.
+   179→- Lint passes for all changed files (the only 2 remaining errors are pre-existing in unrelated files). TypeScript compiles cleanly. Dev server compiles and serves the page with HTTP 200.
+   180→
+   181→---
+   182→Task ID: 6
+   183→Agent: main (Z.ai Code)
+   184→Task: 1) Right window on non-tracks autoboards should match the tracks cyberpunk style (status & priority under name in one line); 2) Remove redundant "Управление подзадачами" hint; 3) Bottom panel with subtasks always pinned by default when a task is selected at the top.
+   185→
+   186→Work Log:
+   187→- Read /home/z/my-project/worklog.md to understand previous work (Task 5-a: added "Open in Audio Editor" navigation).
+   188→- Read /home/z/my-project/src/components/kanban/description-bottom-panel.tsx (1798 lines) — found the visibility condition `shouldShow = isTrackTask || isNonTrackManage` where `isNonTrackManage` required `selectedStageForPanel` to be explicitly set for non-track tasks.
+   189→- Read /home/z/my-project/src/components/kanban/task-detail-panel.tsx (992 lines) — found `TaskDetailView` (non-track) used old slate/gray styling (`border-b border-slate-800/50`) and had a prominent "Управление подзадачами" hint button at the bottom that called `setSelectedStageForPanel({ taskId, stageId: '' })`.
+   190→- Read /home/z/my-project/src/components/kanban/kanban-view.tsx — confirmed the right panel container already has cyberpunk yellow border styling.
+   191→- Read /home/z/my-project/src/components/board/task-strip.tsx — confirmed task selection via `setSelectedTaskId(task.id)`.
+   192→
+   193→Changes made:
+   194→
+   195→1. **description-bottom-panel.tsx** — Made bottom panel ALWAYS pinned when a task is selected:
+   196→   - Replaced the conditional logic (`isTrackTask || isNonTrackManage` with `selectedStageForPanel` lookups) with a simple `const task = boardTasks.find(t => t.id === selectedTaskId) || null; const shouldShow = !!task;`
+   197→   - The panel now renders for ANY selected task: `StagesList` for track tasks (`task.trackConfig`), `FlatSubtasksList` for regular tasks.
+   198→   - `selectedStageForPanel` is still used internally for highlighting a specific stage within tracks (via `onSelectStage`), but is no longer required to make the panel appear.
+   199→   - Fixed a pre-existing JSX lint error: changed `// {task.title}` (parsed as comment) to `{'// '}{task.title}` in the header sub-text.
+   200→
+
+[showing lines 1-200 of 2084; use offset=201 with limit to continue reading]

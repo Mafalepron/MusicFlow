@@ -2081,3 +2081,46 @@ Stage Summary:
 - All functionality preserved (navigation, status PATCH, add-track POST + file upload with progress, Kanban focus flow, header-actions registration).
 - Russian status labels (Черновик / В работе / Сведение / Мастеринг / Релиз) + Russian UI copy throughout.
 - 0 TypeScript errors in the file; dev server returns HTTP 200.
+
+---
+Task ID: TD2-RESTYLE
+Agent: full-stack-developer
+Task: Restyle track-detail-view.tsx to Cyberpunk 2077 HUD aesthetic
+
+Work Log:
+- Read worklog.md to understand prior agent work (5-a added Audio Editor nav; project-detail-view.tsx already restyled with palette + chamfer constants at lines 32-144).
+- Read track-detail-view.tsx (2877 lines) fully to map all styling touchpoints: STICKER_COLORS (8 colors), statusDotColors, audio player (seek bar, transport buttons, volume), waveform canvas (gradient.addColorStop calls), markers (point/range), comments section (top-level + reply cards, comment input, marker tooltips), version panel, AddVersionDialog, ideas sticker strip + expanded panel + hover tooltip.
+- Backed up file, then ran sed -i -E with case-insensitive flags to bulk-replace all 15 hex colors per the mapping table (#8A2BE2→#7b2cbf, #6366F1→#5a1d8f, #00E5FF→#00a8c6, #F59E0B→#c7a008, #10B981→#4a8d6f, #3B82F6→#00a8c6, #0F0F15/#101016/#15151A→#11141d, #1E1E28→#161224, #25252D→#1f2633, #0B0B0F→#0a0c10, #A0A0B0/#4B5563→#718096). #EF4444 left untouched per spec.
+- Ran sed for rgba() variants: rgba(245,158,11,X)→rgba(199,160,8,X), rgba(0,229,255,X)→rgba(0,168,198,X), rgba(138,43,226,X)→rgba(123,44,191,X), rgba(99,102,241,X)→rgba(90,29,143,X), rgba(16,185,129,X)→rgba(74,141,111,X), rgba(59,130,246,X)→rgba(0,168,198,X). This caught all canvas addColorStop calls AND all shadow-[rgba(...)] CSS-in-Tailwind usages.
+- Added the palette constants block (Y, Y2, C, C2, P, P2, A, G + BG_MAIN/BG_PANEL/BG_CARD_PURPLE/BG_CARD_TEAL/BORDER_MUTED/TEXT_PRIMARY/TEXT_SECONDARY) and CHAMFER_8/5/4/3/PANEL clip-path constants + PANEL_BORDER_STYLE + YELLOW_BUTTON_STYLE + HUD_INPUT_STYLE shared style objects. Imported hexToRgba from '@/lib/utils'.
+- Rewrote STICKER_COLORS from 8-entry bright palette down to a 4-entry muted palette cycling P→C→Y→G with their darker gradient pairs (P2, C2, Y2, #356a52 for G). SOURCE_STICKER now uses pure gold gradient (Y→Y2) instead of yellow→red.
+- statusDotColors already correctly mapped by sed (idea=Y, recording=C, mixing=P, final=G).
+- Audio player outer container: replaced `border-b border-border p-4` with PANEL_BORDER_STYLE + chamfered bottom edge. Seek bar and volume bar now chamfered with BG_MAIN bg + inset shadow; seek bar fill uses linear-gradient(P→C) with cyan glow; thumb has cyan glow. SkipBack/SkipForward/Volume ghost buttons now hover to cyan tint. Play button kept as rounded-full purple gradient (the only non-chamfered element by design).
+- Marker mode toggle container: chamfered dark HUD (BG_MAIN + BORDER_MUTED border). Point button uses C with chamfer+glow when active; Range button uses Y. Same treatment applied to the duplicate marker mode toggle inside the comment input Card.
+- Waveform container: replaced rounded-lg with CHAMFER_5; dark BG_PANEL bg with inset shadow; range mode tinted border.
+- Waveform hover time tooltip: changed from purple pill to yellow HUD chip (CHAMFER_3, gold bg, dark text, JetBrains Mono font).
+- Version panel: each version button is now chamfered (CHAMFER_4). Active = purple gradient + glow + yellow indicator dot. Inactive = dark purple (BG_CARD_PURPLE). Add Version button = dashed yellow border chamfered, hover intensifies yellow. Current version info text uses JetBrains Mono with yellow separators.
+- Comments section header: yellow MessageCircle icon, uppercase Rajdhani title, chamfered yellow Badge for count. Add Comment button uses YELLOW_BUTTON_STYLE.
+- Participant presence row: chamfered dark HUD panel (BG_PANEL + BORDER_MUTED); "X online" uses green (G), members count uses secondary text.
+- Comment input Card: replaced Card with a chamfered div (CHAMFER_5) using BG_PANEL with dynamic cyan/yellow border based on markerMode. Inner CardContent retained but with p-0 padding (parent now provides padding). Comment Input field uses HUD_INPUT_STYLE (cyan border, BG_MAIN bg, JetBrains Mono). Post Comment button uses YELLOW_BUTTON_STYLE.
+- Top-level comment card: chamfered (CHAMFER_5), dark purple (BG_CARD_PURPLE) when active, dark BG_MAIN when resolved (with opacity 0.6). Border tinted yellow/cyan when focused. Comment number badge now chamfered yellow chip (hexToRgba(Y,0.15) bg, Y text, 0.5px Y border).
+- Reply card: chamfered (CHAMFER_4), dark teal (BG_CARD_TEAL) for visual distinction from top-level purple. Resolved state uses BG_MAIN with opacity 0.5.
+- Empty state for "no comments": chamfered HUD panel with yellow icon and JetBrains Mono text.
+- No-track empty state: chamfered (CHAMFER_8) HUD panel wrapping the Music2 icon + back button. Back button uses YELLOW_BUTTON_STYLE.
+- Marker hover tooltip (portal): chamfered (CHAMFER_5), BG_PANEL bg, cyan border. Comment number inside tooltip now yellow.
+- AddVersionDialog: DialogContent now chamfered (octagonal clip-path), BG_PANEL bg, cyan border with cyan glow. Header uses uppercase Rajdhani title + secondary description. Audio file drop zone chamfered (CHAMFER_5) with cyan dashed border + teal BG_CARD_TEAL bg. Icon container chamfered (CHAMFER_4). Labels use uppercase JetBrains Mono. Version Label Input uses HUD_INPUT_STYLE. Upload progress bar chamfered with gold (Y→Y2) fill + glow. Cancel button uses uppercase JetBrains Mono secondary text. Upload Version button uses YELLOW_BUTTON_STYLE.
+- Ideas sticker expanded panel: chamfered (CHAMFER_5) with cyan border + BG_PANEL bg. Top accent bar chamfered.
+- Sticker hover tooltip: chamfered (CHAMFER_3) with yellow border + yellow JetBrains Mono text (removed the rotated arrow tail since chamfered corners don't pair well with rotated triangles).
+- Contextual row (ideas strip + status selector): replaced `border-b border-border` with chamfered bottom edge using hexToRgba(C, 0.2) for subtle cyan tinted separator.
+- Verified all changes:
+  * `npx tsc --noEmit` — no errors related to track-detail-view (6 pre-existing errors in other files only).
+  * `curl http://localhost:3000/` returns 200 OK.
+  * `bun run lint` — no new errors in track-detail-view.tsx (existing errors in project-chat.tsx, app-header.tsx, home-view.tsx are pre-existing).
+- Removed the .bak file. Total file size grew from 2877 → ~3185 lines due to palette block + inline styles.
+
+Stage Summary:
+- track-detail-view.tsx is now fully restyled in the Cyberpunk 2077 HUD aesthetic (mirrors home-view.tsx and project-detail-view.tsx): muted gold/cyan/violet/green palette, chamfered corner clip-paths on all panels/cards/dialogs/buttons, JetBrains Mono / Rajdhani typography for HUD labels, dark BG_PANEL/BG_MAIN backgrounds with subtle cyan-tinted borders.
+- All functionality preserved: audio playback, waveform canvas (gradient paints now use P→P2→C muted gradient), point/range markers, timestamp comments + replies + edit/delete/resolve, socket.io presence + comment events, version upload with XHR progress, ideas sticker strip, keyboard shortcuts, header actions store integration.
+- STICKER_COLORS reduced from 8 bright colors to 4 muted (P, C, Y, G) — cycles cleanly through the HUD palette.
+- All hex color replacements done via sed (case-insensitive) — no manual find/replace missed.
+- TypeScript clean, ESLint clean for this file, dev server responds 200.
