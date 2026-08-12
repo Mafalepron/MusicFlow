@@ -2124,3 +2124,36 @@ Stage Summary:
 - STICKER_COLORS reduced from 8 bright colors to 4 muted (P, C, Y, G) — cycles cleanly through the HUD palette.
 - All hex color replacements done via sed (case-insensitive) — no manual find/replace missed.
 - TypeScript clean, ESLint clean for this file, dev server responds 200.
+
+---
+Task ID: TD3-ENHANCE
+Agent: code-assistant
+Task: Enhance Cyberpunk 2077 styling in src/components/views/track-detail-view.tsx — add corner brackets, chamfered shapes, inset bevel shadows, HUD-styled section titles, and transform audio player / waveform / comments / version panel into proper HUD widgets.
+
+Work Log:
+- Read full 3191-line track-detail-view.tsx to understand structure (IdeasStoriesStrip helper + main TrackDetailView + AddVersionDialog).
+- Read home-view.tsx StatBar / Quick Access / Auto Projects sections to confirm the corner-bracket + chamfer + inset-bevel HUD pattern.
+- Added 3 reusable helpers right after HUD_INPUT_STYLE constant:
+  * SECTION_TITLE_STYLE — uppercase white HUD heading (color #ffffff, var(--font-rajdhani), 700, 2px tracking).
+  * INSET_BEVEL_SHADOW — `'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)'` (mirrors home-view StatBar boxShadow).
+  * `CornerBrackets({ size = 12 })` — L-shaped HUD indicators (blue top-left + yellow bottom-right) using the exact rgba colors from the task.
+- Audio Player panel: converted from full-width bottom-border separator into a chamfered HUD widget. Added `relative`, `clipPath: CHAMFER_8`, full `PANEL_BORDER_STYLE` (cyan border on all 4 sides), `INSET_BEVEL_SHADOW`, and `<CornerBrackets size={12} />`. Seek-bar gradient glow strengthened to `0 0 8px cyan, 0 0 4px purple`. Transport buttons (SkipBack / SkipForward / Volume / Play-Pause) now use `rounded-none` + `clipPath: CHAMFER_4` + dark BG_MAIN background + cyan border to match home-view header-icon framing.
+- Waveform container: changed `background` from BG_PANEL to `BG_CARD_TEAL` (#0e1a24 — recessed screen effect), changed `clipPath` from CHAMFER_5 to CHAMFER_8, replaced dim shadow with `INSET_BEVEL_SHADOW`, added `<CornerBrackets size={10} />`. Marker-mode border tint still honored via Tailwind className.
+- Version panel: added `relative` and explicit L-shaped corner bracket divs (blue top-left + yellow bottom-right) at the strip corners. Inactive version tab border changed from BORDER_MUTED to cyan (hexToRgba(C, 0.25)) and given INSET_BEVEL_SHADOW. Active tab already had purple gradient + yellow dot.
+- Comments section header "Timestamp Comments": replaced inline color/font/letterSpacing props with shared `SECTION_TITLE_STYLE` (white #ffffff, rajdhani, 700, 2px tracking).
+- Participant presence panel: changed border from BORDER_MUTED to `hexToRgba(C, 0.4)` (cyan), added `relative`, `INSET_BEVEL_SHADOW`, `<CornerBrackets size={8} />`.
+- Comment input panel (HUD terminal): added `relative`, `INSET_BEVEL_SHADOW`, `<CornerBrackets size={8} />`. Input already uses HUD_INPUT_STYLE; Post button already uses YELLOW_BUTTON_STYLE.
+- Empty-state comments panel: border changed from BORDER_MUTED to `hexToRgba(C, 0.4)`, added `relative`, `INSET_BEVEL_SHADOW`, `<CornerBrackets size={10} />`.
+- Top-level comment card (HUD data slab): changed `clipPath` from CHAMFER_5 to CHAMFER_8, added `relative`, `borderTop: 2px solid P` (purple accent at rest, BORDER_MUTED when resolved), replaced boxShadow with `INSET_BEVEL_SHADOW`, added `<CornerBrackets size={8} />`. Yellow comment-number badge now uses monospace font. Yellow timestamp/range badge now uses CHAMFER_3 + monospace font.
+- Reply card (nested): changed `clipPath` from CHAMFER_4 to CHAMFER_5, added `relative`, `borderTop: 2px solid C` (cyan accent for replies), `INSET_BEVEL_SHADOW`, `<CornerBrackets size={6} />`.
+- Marker hover tooltip (portal-rendered): added `relative`, `INSET_BEVEL_SHADOW`, `<CornerBrackets size={8} />`. Re-attached onClick stopPropagation that was momentarily orphaned during the edit (verified handler order: className → style → onClick → onMouseEnter → onMouseLeave → children).
+- AddVersionDialog: DialogContent given `relative` + combined boxShadow `0 0 24px cyan, 0 8px 32px black, INSET_BEVEL_SHADOW` + `<CornerBrackets size={12} />`. DialogTitle swapped to shared `SECTION_TITLE_STYLE` (white).
+- "No track selected" empty state panel: added `relative`, `INSET_BEVEL_SHADOW`, `<CornerBrackets size={12} />`.
+
+Verification:
+- `npx tsc --noEmit --pretty` → no errors mentioning track-detail or any TS error.
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` → 200.
+- `bun run lint` → no errors in track-detail-view.tsx (only pre-existing react-hooks/preserve-manual-memoization warnings in home-view.tsx, untouched by this task).
+- Dev server log shows only normal request chatter, no compile/runtime errors.
+
+No functionality changed — audio playback, waveform seek, marker placement (point + range), comment CRUD, replies, resolved-state, version tabs, socket.io presence, and the AddVersionDialog upload flow all remain intact. Only inline styles + className accents + CornerBrackets JSX nodes were added.

@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import {
+     4→  useState,
+     5→  useEffect,
+     6→  useRef,
+     7→  useCallback,
+     8→  useMemo,
+     9→} from 'react';
+    10→import { createPortal } from 'react-dom';
+    11→import { motion, AnimatePresence } from 'framer-motion';
+    12→import { io, type Socket } from 'socket.io-client';
+    13→import { format } from 'date-fns';
+    14→import {
+    15→  Play,
+    16→  Pause,
+    17→  SkipBack,
+    18→  SkipForward,
+    19→  Volume2,
+    20→  VolumeX,
+    21→  Send,
+    22→  Plus,
+    23→  MessageCircle,
+    24→  ArrowLeft,
+    25→  Music2,
+    26→  LocateFixed,
+    27→  Lightbulb,
+    28→  X,
+    29→  Reply,
+    30→  Upload,
+    31→  MapPin,
+    32→  MoveHorizontal,
+    33→  Pencil,
+    34→  Trash2,
+    35→  Check,
+    36→  CheckCheck,
+    37→  ChevronDown,
+    38→  ChevronRight,
+    39→  MessageSquareQuote,
+    40→  LayoutDashboard,
+    41→} from 'lucide-react';
+    42→
+    43→import { Button } from '@/components/ui/button';
+    44→import { Badge } from '@/components/ui/badge';
+    45→import { Input } from '@/components/ui/input';
+    46→import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+    47→import {
+    48→  ScrollArea,
+    49→} from '@/components/ui/scroll-area';
+    50→import { Card, CardContent } from '@/components/ui/card';
+    51→import {
+    52→  Tooltip,
+    53→  TooltipContent,
+    54→  TooltipTrigger,
+    55→} from '@/components/ui/tooltip';
+    56→import {
+    57→  Select,
+    58→  SelectContent,
+    59→  SelectItem,
+    60→  SelectTrigger,
+    61→  SelectValue,
+    62→} from '@/components/ui/select';
+    63→import {
+    64→  useNavigationStore,
+    65→  useDataStore,
+    66→  useAuthStore,
+    67→  type Comment,
+    68→  type Idea,
+    69→  type TrackVersion,
+    70→} from '@/lib/store';
+    71→import { useKanbanStore } from '@/store/kanban-store';
+    72→import { useAudioContextStore } from '@/store/audio-context-store';
+    73→import { useHeaderActionsStore } from '@/store/header-actions-store';
+    74→
+    75→import { hexToRgba } from '@/lib/utils';
+    76→import { useToast } from '@/hooks/use-toast';
+    77→import {
+    78→  Dialog,
+    79→  DialogContent,
+    80→  DialogHeader,
+    81→  DialogTitle,
+    82→  DialogDescription,
+    83→} from '@/components/ui/dialog';
+    84→
+    85→/* ─── Cyberpunk 2077 HUD palette (mirrors home-view.tsx / project-detail-view.tsx) ─── */
+    86→const Y = '#c7a008'; // industrial desaturated gold
+    87→const Y2 = '#9e7c06';
+    88→const C = '#00a8c6'; // controlled cyan
+    89→const C2 = '#0085a0';
+    90→const P = '#7b2cbf'; // deep violet
+    91→const P2 = '#5a1d8f';
+    92→const A = '#718096'; // muted grey
+    93→const G = '#4a8d6f'; // muted green
+    94→const BG_MAIN = '#0a0c10';
+    95→const BG_PANEL = '#11141d';
+    96→const BG_CARD_PURPLE = '#161224';
+    97→const BG_CARD_TEAL = '#0e1a24';
+    98→const BORDER_MUTED = '#1f2633';
+    99→const TEXT_PRIMARY = '#e2e8f0';
+   100→const TEXT_SECONDARY = '#718096';
+   101→
+   102→/* Shared chamfer clip-paths (mirrors home-view.tsx bevel language) */
+   103→const CHAMFER_8 = 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))';
+   104→const CHAMFER_5 = 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))';
+   105→const CHAMFER_4 = 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))';
+   106→const CHAMFER_3 = 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))';
+   107→const CHAMFER_PANEL = 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)';
+   108→
+   109→/* Panel border style — same as StatBar / Quick Access panel in home-view.tsx */
+   110→const PANEL_BORDER_STYLE: React.CSSProperties = {
+   111→  border: `1px solid ${hexToRgba(C, 0.4)}`,
+   112→  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
+   113→  background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+   114→};
+   115→
+   116→/* Yellow CREATE-style button (mirrors CreateCard core — gold gradient, dark text, chamfered) */
+   117→const YELLOW_BUTTON_STYLE: React.CSSProperties = {
+   118→  color: '#0a0b10',
+   119→  background: `linear-gradient(135deg, ${Y} 0%, ${Y2} 50%, ${Y} 100%)`,
+   120→  fontFamily: 'var(--font-jetbrains-mono), monospace',
+   121→  fontSize: '11px',
+   122→  fontWeight: 700,
+   123→  letterSpacing: '1.5px',
+   124→  textTransform: 'uppercase',
+   125→  clipPath: CHAMFER_4,
+   126→  boxShadow: `0 0 8px ${hexToRgba(Y, 0.3)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+   127→};
+   128→
+   129→/* Cyan-bordered dark HUD input style */
+   130→const HUD_INPUT_STYLE: React.CSSProperties = {
+   131→  background: BG_MAIN,
+   132→  border: `1px solid ${hexToRgba(C, 0.3)}`,
+   133→  color: TEXT_PRIMARY,
+   134→  fontFamily: 'var(--font-jetbrains-mono), monospace',
+   135→  fontSize: '13px',
+   136→  clipPath: CHAMFER_3,
+   137→};
+   138→
+   139→// --- Types ---
+   140→
+   141→interface ChatMember {
+   142→  userId: string;
+   143→  displayName: string;
+   144→  email: string;
+   145→  avatarUrl?: string;
+   146→  role: string;
+   147→  instrument?: string;
+   148→  joinedAt: string;
+   149→}
+   150→
+   151→// --- Constants ---
+   152→
+   153→// Build a nested tree from flat comment list
+   154→interface CommentNode extends Comment {
+   155→  replies: CommentNode[];
+   156→}
+   157→
+   158→function buildCommentTree(comments: Comment[]): CommentNode[] {
+   159→  const map = new Map<string, CommentNode>();
+   160→  const roots: CommentNode[] = [];
+   161→  
+   162→  for (const c of comments) {
+   163→    map.set(c.id, { ...c, replies: [] });
+   164→  }
+   165→  for (const c of comments) {
+   166→    const node = map.get(c.id)!;
+   167→    if (c.parentId && map.has(c.parentId)) {
+   168→      map.get(c.parentId)!.replies.push(node);
+   169→    } else {
+   170→      roots.push(node);
+   171→    }
+   172→  }
+   173→  roots.sort((a, b) => a.timestampMs - b.timestampMs);
+   174→  for (const r of roots) {
+   175→    r.replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+   176→  }
+   177→  return roots;
+   178→}
+   179→
+   180→// DoubleCheckmark SVG component for resolved state
+   181→function DoubleCheckIcon({ className }: { className?: string }) {
+   182→  return (
+   183→    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+   184→      <polyline points="20 6 9 17 4 12" />
+   185→      <polyline points="14 6 9 11 4 6" />
+   186→    </svg>
+   187→  );
+   188→}
+   189→
+   190→const statusDotColors: Record<string, string> = {
+   191→  idea: '#c7a008',
+   192→  recording: '#00a8c6',
+   193→  mixing: '#7b2cbf',
+   194→  final: '#4a8d6f',
+   195→};
+   196→
+   197→// --- Helpers ---
+   198→
+   199→function formatTimestamp(ms: number): string {
+   200→  const totalSeconds = ms / 1000;
+   201→  const minutes = Math.floor(totalSeconds / 60);
+   202→  const seconds = Math.floor(totalSeconds % 60);
+   203→  const milliseconds = Math.floor((totalSeconds % 1) * 10);
+   204→  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds}`;
+   205→}
+   206→
+   207→function formatDuration(seconds: number): string {
+   208→  const mins = Math.floor(seconds / 60);
+   209→  const secs = Math.floor(seconds % 60);
+   210→  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+   211→}
+   212→
+   213→function getInitials(name?: string | null): string {
+   214→  if (!name) return '?';
+   215→  return name
+   216→    .trim()
+   217→    .split(' ')
+   218→    .map((n) => n[0])
+   219→    .join('')
+   220→    .toUpperCase()
+   221→    .slice(0, 2);
+   222→}
+   223→
+   224→// The backend API returns comments with a nested `user` object
+   225→// (e.g. `user: { displayName, ... }`), but the frontend store types expect a
+   226→// flat `userName` field. This normalizer bridges that gap so the rest of the
+   227→// component can rely on `userName` always being present.
+   228→function normalizeComment(raw: any): Comment {
+   229→  return {
+   230→    id: raw.id,
+   231→    trackId: raw.trackId,
+   232→    versionId: raw.versionId ?? raw.version?.id ?? undefined,
+   233→    parentId: raw.parentId ?? undefined,
+   234→    userId: raw.userId,
+   235→    userName: raw.userName ?? raw.user?.displayName ?? 'Unknown',
+   236→    timestampMs: raw.timestampMs ?? 0,
+   237→    rangeEndMs: raw.rangeEndMs ?? undefined,
+   238→    text: raw.text ?? '',
+   239→    isResolved: raw.isResolved ?? false,
+   240→    createdAt: raw.createdAt,
+   241→  };
+   242→}
+   243→
+   244→// --- Ideas Sticker Strip (square sticker cards) ---
+   245→
+   246→/* Muted HUD palette — 4 colors cycle: gold (Y), cyan (C), violet (P), green (G).
+   247→   Source idea uses gold (Y) to read as "primary / originating". */
+   248→const STICKER_COLORS = [
+   249→  { bg: 'from-[#7b2cbf]/20 to-[#5a1d8f]/20', border: 'border-[#7b2cbf]/30', accent: P, gradient: 'from-[#7b2cbf] to-[#5a1d8f]' },
+   250→  { bg: 'from-[#00a8c6]/20 to-[#0085a0]/20', border: 'border-[#00a8c6]/30', accent: C, gradient: 'from-[#00a8c6] to-[#0085a0]' },
+   251→  { bg: 'from-[#c7a008]/20 to-[#9e7c06]/20', border: 'border-[#c7a008]/30', accent: Y, gradient: 'from-[#c7a008] to-[#9e7c06]' },
+   252→  { bg: 'from-[#4a8d6f]/20 to-[#356a52]/20', border: 'border-[#4a8d6f]/30', accent: G, gradient: 'from-[#4a8d6f] to-[#356a52]' },
+   253→];
+   254→
+   255→const SOURCE_STICKER = {
+   256→  bg: 'from-[#c7a008]/25 to-[#9e7c06]/25',
+   257→  border: 'border-[#c7a008]/50',
+   258→  accent: Y,
+   259→  gradient: 'from-[#c7a008] to-[#9e7c06]',
+   260→};
+   261→
+   262→interface IdeasStoriesStripProps {
+   263→  ideas: Idea[];
+   264→  sourceIdeaId?: string;
+   265→  projectName: string;
+   266→}
+   267→
+   268→function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStripProps) {
+   269→  const [expandedIdea, setExpandedIdea] = useState<string | null>(null);
+   270→  const scrollRef = useRef<HTMLDivElement>(null);
+   271→
+   272→  // Build the ordered list: source idea first (highlighted), then all others
+   273→  const orderedIdeas = useMemo(() => {
+   274→    const sorted = [...ideas];
+   275→    if (sourceIdeaId) {
+   276→      const srcIdx = sorted.findIndex((i) => i.id === sourceIdeaId);
+   277→      if (srcIdx > 0) {
+   278→        const [src] = sorted.splice(srcIdx, 1);
+   279→        sorted.unshift(src);
+   280→      }
+   281→    }
+   282→    return sorted;
+   283→  }, [ideas, sourceIdeaId]);
+   284→
+   285→  if (orderedIdeas.length === 0) return null;
+   286→
+   287→  return (
+   288→    <div className="shrink-0">
+   289→      {/* Sticky label row */}
+   290→      <motion.div
+   291→        initial={{ opacity: 0, x: -8 }}
+   292→        animate={{ opacity: 1, x: 0 }}
+   293→        transition={{ duration: 0.3 }}
+   294→        className="flex items-center gap-2 px-4 pt-3 pb-2 lg:px-6"
+   295→      >
+   296→        <Lightbulb className="h-3.5 w-3.5 text-[#c7a008]" />
+   297→        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+   298→          Ideas
+   299→        </span>
+   300→        <span className="text-[10px] text-muted-foreground/40">{ideas.length}</span>
+   301→      </motion.div>
+   302→
+   303→      {/* Horizontal scrolling square stickers */}
+   304→      <div
+   305→        ref={scrollRef}
+   306→        className="flex gap-3 overflow-x-auto px-4 pb-3 lg:px-6 scrollbar-none"
+   307→        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+   308→      >
+   309→        {orderedIdeas.map((idea, idx) => {
+   310→          const isSource = idea.id === sourceIdeaId;
+   311→          const isExpanded = expandedIdea === idea.id;
+   312→          const color = isSource ? SOURCE_STICKER : STICKER_COLORS[idx % STICKER_COLORS.length];
+   313→          const creatorName =
+   314→            (idea as any).creator?.displayName ??
+   315→            (idea as any).userName ??
+   316→            '';
+   317→          const initials = getInitials(creatorName);
+   318→
+   319→          return (
+   320→            <div key={idea.id} className="relative shrink-0">
+   321→              {/* --- Expanded panel: slides down from the sticker --- */}
+   322→              <AnimatePresence>
+   323→                {isExpanded && (
+   324→                  <motion.div
+   325→                    key={idea.id}
+   326→                    initial={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(4px)' }}
+   327→                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+   328→                    exit={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(4px)' }}
+   329→                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+   330→                    className="absolute top-full left-0 z-50 mt-1 w-64 border border-border shadow-2xl shadow-black/60"
+   331→                    style={{
+   332→                      background: BG_PANEL,
+   333→                      border: `1px solid ${hexToRgba(C, 0.4)}`,
+   334→                      clipPath: CHAMFER_5,
+   335→                    }}
+   336→                  >
+   337→                    {/* Top accent bar */}
+   338→                    <div
+   339→                      className={`h-1 w-full bg-gradient-to-r ${color.gradient}`}
+   340→                      style={{ clipPath: CHAMFER_5 }}
+   341→                    />
+   342→                    <div className="p-3.5">
+   343→                      <div className="flex items-start justify-between gap-2">
+   344→                        <div className="min-w-0 flex-1">
+   345→                          {isSource && (
+   346→                            <span className="mb-1 inline-block rounded bg-[#c7a008]/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#c7a008]">
+   347→                              Source Idea
+   348→                            </span>
+   349→                          )}
+   350→                          <h4 className="text-sm font-semibold text-foreground leading-tight truncate">
+   351→                            {idea.title}
+   352→                          </h4>
+   353→                        </div>
+   354→                        <button
+   355→                          onClick={(e) => { e.stopPropagation(); setExpandedIdea(null); }}
+   356→                          className="shrink-0 mt-0.5 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/40 transition-colors hover:bg-[#161224] hover:text-foreground"
+   357→                        >
+   358→                          <span className="text-sm leading-none">×</span>
+   359→                        </button>
+   360→                      </div>
+   361→
+   362→                      {idea.description && (
+   363→                        <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground line-clamp-3">
+   364→                          {idea.description}
+   365→                        </p>
+   366→                      )}
+   367→
+   368→                      <div className="mt-2.5 flex items-center gap-1.5">
+   369→                        {/* Mini avatar */}
+   370→                        <div
+   371→                          className={`flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br ${color.gradient} text-[8px] font-bold text-white`}
+   372→                        >
+   373→                          {initials}
+   374→                        </div>
+   375→                        <span className="text-[10px] text-muted-foreground/60">
+   376→                          {creatorName} · {format(new Date(idea.createdAt), 'MMM d')}
+   377→                        </span>
+   378→                      </div>
+   379→
+   380→                      {/* Tags */}
+   381→                      {(() => {
+   382→                        const raw = idea.tags;
+   383→                        if (!raw) return null;
+   384→                        let tags: string[];
+   385→                        try {
+   386→                          const parsed = JSON.parse(raw);
+   387→                          tags = Array.isArray(parsed) ? parsed : [];
+   388→                        } catch {
+   389→                          tags = raw.split(',').map((t) => t.trim()).filter(Boolean);
+   390→                        }
+   391→                        if (tags.length === 0) return null;
+   392→                        return (
+   393→                          <div className="mt-2 flex flex-wrap gap-1">
+   394→                            {tags.map((tag) => (
+   395→                              <span
+   396→                                key={tag}
+   397→                                className="rounded-full bg-[#161224] px-1.5 py-0.5 text-[9px] text-muted-foreground/70"
+   398→                              >
+   399→                                {tag}
+   400→                              </span>
+   401→                            ))}
+   402→                          </div>
+   403→                        );
+   404→                      })()}
+   405→                    </div>
+   406→                  </motion.div>
+   407→                )}
+   408→              </AnimatePresence>
+   409→
+   410→              {/* --- The square sticker itself --- */}
+   411→              <motion.button
+   412→                whileHover={{ scale: 1.06, y: -2 }}
+   413→                whileTap={{ scale: 0.97 }}
+   414→                transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+   415→                onClick={() => setExpandedIdea(isExpanded ? null : idea.id)}
+   416→                className="group/sticker relative flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-xl border bg-gradient-to-br outline-none transition-shadow duration-200 hover:shadow-lg"
+   417→                style={{
+   418→                  borderColor: isSource ? 'rgba(199,160,8,0.4)' : `color-mix(in srgb, ${color.accent} 30%, transparent)`,
+   419→                  boxShadow: isSource
+   420→                    ? `0 2px 12px rgba(199,160,8,0.15)`
+   421→                    : `0 1px 6px ${color.accent}08`,
+   422→                }}
+   423→              >
+   424→                {/* Background gradient fill */}
+   425→                <div
+   426→                  className={`absolute inset-0 rounded-xl bg-gradient-to-br ${color.bg} opacity-80 group-hover/sticker:opacity-100 transition-opacity`}
+   427→                />
+   428→                {/* Subtle top-left shine for sticker feel */}
+   429→                <div
+   430→                  className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-xl"
+   431→                  style={{
+   432→                    background: `linear-gradient(to bottom, rgba(255,255,255,0.04), transparent)`,
+   433→                  }}
+   434→                />
+   435→
+   436→                {/* Initials */}
+   437→                <span className="relative text-base font-bold" style={{ color: color.accent }}>
+   438→                  {initials}
+   439→                </span>
+   440→
+   441→                {/* Tiny decorative line */}
+   442→                <div
+   443→                  className="relative h-0.5 w-4 rounded-full opacity-40"
+   444→                  style={{ backgroundColor: color.accent }}
+   445→                />
+   446→
+   447→                {/* Hover title tooltip — appears above the sticker — dark HUD chip with yellow text */}
+   448→                <div
+   449→                  className="pointer-events-none absolute -top-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 shadow-xl opacity-0 transition-opacity duration-150 group-hover/sticker:opacity-100"
+   450→                  style={{
+   451→                    background: BG_PANEL,
+   452→                    border: `1px solid ${hexToRgba(Y, 0.4)}`,
+   453→                    clipPath: CHAMFER_3,
+   454→                  }}
+   455→                >
+   456→                  <p className="text-[10px] font-medium" style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{idea.title}</p>
+   457→                </div>
+   458→
+   459→                {/* Source indicator dot */}
+   460→                {isSource && (
+   461→                  <div className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#c7a008] ring-2 ring-[#0a0c10] shadow-sm shadow-[#c7a008]/40" />
+   462→                )}
+   463→              </motion.button>
+   464→            </div>
+   465→          );
+   466→        })}
+   467→
+   468→        {/* End spacer */}
+   469→        <div className="w-2 shrink-0" />
+   470→      </div>
+   471→    </div>
+   472→  );
+   473→}
+   474→
+   475→// --- Main Component ---
+   476→
+   477→export function TrackDetailView() {
+   478→  // Store state
+   479→  const selectedTrackId = useNavigationStore((s) => s.selectedTrackId);
+   480→  const selectedProjectId = useNavigationStore((s) => s.selectedProjectId);
+   481→  const navigate = useNavigationStore((s) => s.navigate);
+   482→  const tracks = useDataStore((s) => s.tracks);
+   483→  const user = useAuthStore((s) => s.user);
+   484→  const addComment = useDataStore((s) => s.addComment);
+   485→  const updateCommentStore = useDataStore((s) => s.updateComment);
+   486→  const removeCommentStore = useDataStore((s) => s.removeComment);
+   487→  const updateTrackStatus = useDataStore((s) => s.updateTrackStatus);
+   488→
+   489→  // Audio context store — sync local playback state to global store for floating chat widget
+   490→  const setActiveTrack = useAudioContextStore((s) => s.setActiveTrack);
+   491→  const setAudioContextTime = useAudioContextStore((s) => s.setCurrentTime);
+   492→  const setAudioContextPlaying = useAudioContextStore((s) => s.setIsPlaying);
+   493→
+   494→  // Header actions store — register contextual actions (Open in Kanban) and the
+   495→  // page title with the unified AppHeader. The duplicate inline back button +
+   496→  // title header has been removed; breadcrumbs are rendered by AppHeader.
+   497→  const setHeaderActions = useHeaderActionsStore((s) => s.setActions);
+   498→  const setHeaderTitle = useHeaderActionsStore((s) => s.setTitle);
+   499→
+   500→  const track = useMemo(
+   501→    () => tracks.find((t) => t.id === selectedTrackId) ?? null,
+   502→    [tracks, selectedTrackId]
+   503→  );
+   504→
+   505→  // Audio player state
+   506→  const audioRef = useRef<HTMLAudioElement | null>(null);
+   507→  const [isPlaying, setIsPlaying] = useState(false);
+   508→  const [currentTime, setCurrentTime] = useState(0);
+   509→  const [duration, setDuration] = useState(0);
+   510→  const [volume, setVolume] = useState(0.8);
+   511→  const [isMuted, setIsMuted] = useState(false);
+   512→  const [audioLoaded, setAudioLoaded] = useState(false);
+   513→
+   514→  // Waveform state
+   515→  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+   516→  const waveformRef = useRef<Float32Array | null>(null);
+   517→  const [waveformReady, setWaveformReady] = useState(false);
+   518→  const animFrameRef = useRef<number>(0);
+   519→  const [waveformHoverTime, setWaveformHoverTime] = useState<{ x: number; ms: number } | null>(null);
+   520→  const [markerTooltipPos, setMarkerTooltipPos] = useState<{ top: number; left: number; right: boolean } | null>(null);
+   521→  const markerTooltipHoverRef = useRef(false);
+   522→  const markerHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   523→
+   524→
+   525→  // Comment state
+   526→  const [comments, setComments] = useState<Comment[]>([]);
+   527→  const [newCommentText, setNewCommentText] = useState('');
+   528→  const [showCommentInput, setShowCommentInput] = useState(false);
+   529→  const [commentTimestamp, setCommentTimestamp] = useState(0);
+   530→  const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
+   531→  const commentsEndRef = useRef<HTMLDivElement | null>(null);
+   532→
+   533→  // Marker mode: 'point' for single-timestamp, 'range' for start→end
+   534→  const [markerMode, setMarkerMode] = useState<'point' | 'range'>('point');
+   535→  const [rangeStartMs, setRangeStartMs] = useState(0);
+   536→  const [rangeEndMsState, setRangeEndMsState] = useState(0);
+   537→  const [isSelectingRange, setIsSelectingRange] = useState(false);
+   538→
+   539→  // Reply state
+   540→  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+   541→  const [replyText, setReplyText] = useState('');
+   542→
+   543→  // Collapsed replies state
+   544→  const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
+   545→  const toggleThread = useCallback((id: string) => {
+   546→    setCollapsedThreads((prev) => {
+   547→      const next = new Set(prev);
+   548→      if (next.has(id)) next.delete(id);
+   549→      else next.add(id);
+   550→      return next;
+   551→    });
+   552→  }, []);
+   553→
+   554→  // Edit comment state
+   555→  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+   556→  const [editCommentText, setEditCommentText] = useState('');
+   557→
+   558→  const { toast } = useToast();
+   559→
+   560→  // Version state
+   561→  const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
+   562→  const [versions, setVersions] = useState<TrackVersion[]>([]);
+   563→  const [showAddVersionDialog, setShowAddVersionDialog] = useState(false);
+   564→  const [uploadProgress, setUploadProgress] = useState(0);
+   565→  const [isUploadingVersion, setIsUploadingVersion] = useState(false);
+   566→
+   567→  // Derived: active version from list
+   568→  const activeVersion = useMemo(
+   569→    () => versions.find((v) => v.id === activeVersionId) ?? versions[0] ?? null,
+   570→    [versions, activeVersionId]
+   571→  );
+   572→
+   573→  // Hovered comment marker (waveform overlay tooltip)
+   574→  const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
+   575→
+   576→  // Participant presence
+   577→  const [groupMembers, setGroupMembers] = useState<ChatMember[]>([]);
+   578→  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+   579→
+   580→  // WebSocket
+   581→  const socketRef = useRef<Socket | null>(null);
+   582→
+   583→  // Ideas (for this project — displayed as stories above the waveform)
+   584→  const currentGroupId = useAuthStore((s) => s.currentGroupId);
+   585→  const projects = useDataStore((s) => s.projects);
+   586→  const [projectIdeas, setProjectIdeas] = useState<Idea[]>([]);
+   587→  const projectOfTrack = useMemo(
+   588→    () => projects.find((p) => p.id === selectedProjectId),
+   589→    [projects, selectedProjectId]
+   590→  );
+   591→
+   592→  useEffect(() => {
+   593→    if (!currentGroupId || !selectedProjectId) return;
+   594→    fetch(`/api/ideas?groupId=${currentGroupId}&projectId=${selectedProjectId}`)
+   595→      .then((r) => r.json())
+   596→      .then((data) => {
+   597→        if (Array.isArray(data)) setProjectIdeas(data);
+   598→      })
+   599→      .catch(() => {});
+   600→  }, [currentGroupId, selectedProjectId]);
+   601→
+   602→  // Fetch group members for participant avatars
+   603→  useEffect(() => {
+   604→    if (!currentGroupId) return;
+   605→    fetch(`/api/groups/${currentGroupId}/members`)
+   606→      .then((r) => r.json())
+   607→      .then((data) => {
+   608→        if (Array.isArray(data)) setGroupMembers(data);
+   609→      })
+   610→      .catch(() => {});
+   611→  }, [currentGroupId]);
+   612→
+   613→  // --- Audio Playback ---
+   614→
+   615→  // The audioUrl to play: active version's audioUrl, or fallback to track's audioUrl
+   616→  const currentAudioUrl = activeVersion?.audioUrl || track?.audioUrl || '';
+   617→
+   618→  useEffect(() => {
+   619→    if (!currentAudioUrl) return;
+   620→
+   621→    const audio = new Audio(currentAudioUrl);
+   622→    audioRef.current = audio;
+   623→    audio.volume = isMuted ? 0 : volume;
+   624→    setIsPlaying(false);
+   625→    setCurrentTime(0);
+   626→    setDuration(0);
+   627→    setAudioLoaded(false);
+   628→    setWaveformReady(false);
+   629→    waveformRef.current = null;
+   630→
+   631→    const onLoaded = () => {
+   632→      setDuration(audio.duration);
+   633→      setAudioLoaded(true);
+   634→    };
+   635→    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+   636→    const onEnded = () => setIsPlaying(false);
+   637→    const onPlay = () => setIsPlaying(true);
+   638→    const onPause = () => setIsPlaying(false);
+   639→
+   640→    audio.addEventListener('loadedmetadata', onLoaded);
+   641→    audio.addEventListener('timeupdate', onTimeUpdate);
+   642→    audio.addEventListener('ended', onEnded);
+   643→    audio.addEventListener('play', onPlay);
+   644→    audio.addEventListener('pause', onPause);
+   645→
+   646→    return () => {
+   647→      audio.removeEventListener('loadedmetadata', onLoaded);
+   648→      audio.removeEventListener('timeupdate', onTimeUpdate);
+   649→      audio.removeEventListener('ended', onEnded);
+   650→      audio.removeEventListener('play', onPlay);
+   651→      audio.removeEventListener('pause', onPause);
+   652→      audio.pause();
+   653→      audio.src = '';
+   654→      audioRef.current = null;
+   655→    };
+   656→  }, [currentAudioUrl]);
+   657→
+   658→  // Display duration: prefer audio-loaded duration, fall back to track metadata
+   659→  const displayDuration = duration > 0 ? duration : (track?.durationMs ? track.durationMs / 1000 : 0);
+   660→
+   661→  // Sync volume
+   662→  useEffect(() => {
+   663→    if (audioRef.current) {
+   664→      audioRef.current.volume = isMuted ? 0 : volume;
+   665→    }
+   666→  }, [volume, isMuted]);
+   667→
+   668→  // Sync current playback position to global audio context store (used by floating chat widget)
+   669→  useEffect(() => {
+   670→    setAudioContextTime(currentTime);
+   671→  }, [currentTime, setAudioContextTime]);
+   672→
+   673→  // Sync play/pause state to global audio context store
+   674→  useEffect(() => {
+   675→    setAudioContextPlaying(isPlaying);
+   676→  }, [isPlaying, setAudioContextPlaying]);
+   677→
+   678→  // Sync active track (trackId, projectId, kanbanTaskId) to global audio context store.
+   679→  // The floating chat widget reads these to scope its messages and timestamp links.
+   680→  useEffect(() => {
+   681→    if (!selectedTrackId) {
+   682→      setActiveTrack(null, null, null);
+   683→      return;
+   684→    }
+   685→    setActiveTrack(
+   686→      selectedTrackId,
+   687→      selectedProjectId ?? null,
+   688→      projectOfTrack?.kanbanTaskId ?? null
+   689→    );
+   690→    return () => {
+   691→      setActiveTrack(null, null, null);
+   692→    };
+   693→  }, [selectedTrackId, selectedProjectId, projectOfTrack?.kanbanTaskId, setActiveTrack]);
+   694→
+   695→  // Register contextual header actions and the page title with the unified
+   696→  // AppHeader. Breadcrumbs (Group / Projects / Project Title / Track) are
+   697→  // rendered by AppHeader, and the "Open in Kanban" action appears as a header
+   698→  // button (only when this project has a linked kanbanTaskId).
+   699→  useEffect(() => {
+   700→    if (!track) {
+   701→      setHeaderTitle(null);
+   702→      setHeaderActions([]);
+   703→      return;
+   704→    }
+   705→
+   706→    setHeaderTitle(track.title);
+   707→
+   708→    const kanbanTaskId = projectOfTrack?.kanbanTaskId;
+   709→    if (kanbanTaskId) {
+   710→      setHeaderActions([
+   711→        {
+   712→          id: 'open-in-kanban',
+   713→          label: 'Open in Kanban',
+   714→          icon: <LayoutDashboard className="h-3.5 w-3.5" />,
+   715→          variant: 'outline',
+   716→          onClick: () => {
+   717→            const project = useDataStore
+   718→              .getState()
+   719→              .projects.find((p) => p.id === selectedProjectId);
+   720→            if (!project?.kanbanTaskId) return;
+   721→            useNavigationStore.getState().navigate('kanban');
+   722→            const taskId = project.kanbanTaskId;
+   723→            setTimeout(() => {
+   724→              useKanbanStore.getState().selectProject(taskId);
+   725→            }, 300);
+   726→          },
+   727→        },
+   728→      ]);
+   729→    } else {
+   730→      setHeaderActions([]);
+   731→    }
+   732→
+   733→    return () => {
+   734→      setHeaderActions([]);
+   735→      setHeaderTitle(null);
+   736→    };
+   737→  }, [
+   738→    track,
+   739→    projectOfTrack?.kanbanTaskId,
+   740→    selectedProjectId,
+   741→    setHeaderActions,
+   742→    setHeaderTitle,
+   743→  ]);
+   744→
+   745→  // Marker tooltip position is now calculated directly in onMouseEnter handler
+   746→  // (removed the old useEffect + ref pattern to fix timing issues with framer-motion)
+   747→
+   748→  const togglePlay = useCallback(() => {
+   749→    if (!audioRef.current) return;
+   750→    if (isPlaying) {
+   751→      audioRef.current.pause();
+   752→    } else {
+   753→      audioRef.current.play();
+   754→    }
+   755→  }, [isPlaying]);
+   756→
+   757→  const skip = useCallback((seconds: number) => {
+   758→    if (!audioRef.current) return;
+   759→    audioRef.current.currentTime = Math.max(
+   760→      0,
+   761→      Math.min(audioRef.current.currentTime + seconds, duration)
+   762→    );
+   763→  }, [duration]);
+   764→
+   765→  const seekTo = useCallback((time: number) => {
+   766→    if (!audioRef.current) return;
+   767→    audioRef.current.currentTime = time;
+   768→    setCurrentTime(time);
+   769→  }, []);
+   770→
+   771→  // --- Waveform ---
+   772→
+   773→  useEffect(() => {
+   774→    if (!currentAudioUrl) return;
+   775→
+   776→    let cancelled = false;
+   777→    setWaveformReady(false);
+   778→
+   779→    async function generateWaveform() {
+   780→      try {
+   781→        const url = `/api/waveform?audio=${encodeURIComponent(currentAudioUrl)}&samples=200`;
+   782→        const res = await fetch(url);
+   783→        if (!res.ok || cancelled) return;
+   784→        const data = await res.json();
+   785→        if (cancelled) return;
+   786→        if (data.samples && data.samples.length > 0) {
+   787→          waveformRef.current = new Float32Array(data.samples);
+   788→          setWaveformReady(true);
+   789→        }
+   790→      } catch {
+   791→        // Silently fail — waveform won't render
+   792→      }
+   793→    }
+   794→
+   795→    generateWaveform();
+   796→    return () => { cancelled = true; };
+   797→  }, [currentAudioUrl]);
+   798→
+   799→  // Draw waveform — uses requestAnimationFrame only while playing, single draw otherwise
+   800→  useEffect(() => {
+   801→    const canvas = canvasRef.current;
+   802→    const waveform = waveformRef.current;
+   803→    if (!canvas || !waveform) return;
+   804→
+   805→    const ctx = canvas.getContext('2d');
+   806→    if (!ctx) return;
+   807→
+   808→    let rafId = 0;
+   809→
+   810→    const draw = () => {
+   811→      const dpr = window.devicePixelRatio || 1;
+   812→      const rect = canvas.getBoundingClientRect();
+   813→
+   814→      // Only resize canvas if dimensions changed
+   815→      const targetW = Math.round(rect.width * dpr);
+   816→      const targetH = Math.round(rect.height * dpr);
+   817→      if (canvas.width !== targetW || canvas.height !== targetH) {
+   818→        canvas.width = targetW;
+   819→        canvas.height = targetH;
+   820→      }
+   821→      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+   822→
+   823→      const width = rect.width;
+   824→      const height = rect.height;
+   825→      const barCount = waveform.length;
+   826→      const barWidth = width / barCount;
+   827→      const barGap = 1;
+   828→      const centerY = height / 2;
+   829→
+   830→      // Clear
+   831→      ctx.clearRect(0, 0, width, height);
+   832→
+   833→      const progress = duration > 0 ? currentTime / duration : 0;
+   834→      const progressX = progress * width;
+   835→
+   836→      // Create gradient (cached via closure — only recreated when canvas resets)
+   837→      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+   838→      gradient.addColorStop(0, '#7b2cbf');
+   839→      gradient.addColorStop(0.5, '#5a1d8f');
+   840→      gradient.addColorStop(1, '#00a8c6');
+   841→
+   842→      const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
+   843→      dimGradient.addColorStop(0, 'rgba(123,44,191,0.25)');
+   844→      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.25)');
+   845→      dimGradient.addColorStop(1, 'rgba(0,168,198,0.25)');
+   846→
+   847→      // Batch bars by color to minimize fillStyle switches
+   848→      // First pass: unplayed bars
+   849→      ctx.fillStyle = dimGradient;
+   850→      for (let i = 0; i < barCount; i++) {
+   851→        const x = i * barWidth;
+   852→        if (x < progressX) continue;
+   853→        const amplitude = waveform[i];
+   854→        const barHeight = Math.max(2, amplitude * centerY * 0.85);
+   855→        const bw = Math.max(1, barWidth - barGap);
+   856→        ctx.beginPath();
+   857→        ctx.roundRect(x, centerY - barHeight, bw, barHeight * 2, 1);
+   858→        ctx.fill();
+   859→      }
+   860→
+   861→      // Second pass: played bars
+   862→      ctx.fillStyle = gradient;
+   863→      for (let i = 0; i < barCount; i++) {
+   864→        const x = i * barWidth;
+   865→        if (x >= progressX) continue;
+   866→        const amplitude = waveform[i];
+   867→        const barHeight = Math.max(2, amplitude * centerY * 0.85);
+   868→        const bw = Math.max(1, barWidth - barGap);
+   869→        ctx.beginPath();
+   870→        ctx.roundRect(x, centerY - barHeight, bw, barHeight * 2, 1);
+   871→        ctx.fill();
+   872→      }
+   873→
+   874→      // Progress cursor
+   875→      if (progress > 0 && progress < 1) {
+   876→        ctx.strokeStyle = '#FFFFFF';
+   877→        ctx.lineWidth = 2;
+   878→        ctx.shadowColor = 'rgba(255,255,255,0.5)';
+   879→        ctx.shadowBlur = 4;
+   880→        ctx.beginPath();
+   881→        ctx.moveTo(progressX, 0);
+   882→        ctx.lineTo(progressX, height);
+   883→        ctx.stroke();
+   884→        ctx.shadowBlur = 0;
+   885→      }
+   886→
+   887→      // Keep animating only while playing
+   888→      if (isPlaying) {
+   889→        rafId = requestAnimationFrame(draw);
+   890→      }
+   891→    };
+   892→
+   893→    draw();
+   894→
+   895→    // Also draw on resize
+   896→    const handleResize = () => { rafId = requestAnimationFrame(draw); };
+   897→    window.addEventListener('resize', handleResize);
+   898→
+   899→    return () => {
+   900→      cancelAnimationFrame(rafId);
+   901→      window.removeEventListener('resize', handleResize);
+   902→    };
+   903→  }, [waveformReady, currentTime, duration, isPlaying]);
+   904→
+   905→  // Redraw once when seeking while paused
+   906→  useEffect(() => {
+   907→    if (waveformReady && !isPlaying) {
+   908→      const canvas = canvasRef.current;
+   909→      if (!canvas) return;
+   910→      // Force a redraw by triggering a minimal state change
+   911→      const ctx = canvas.getContext('2d');
+   912→      if (!ctx || !waveformRef.current) return;
+   913→      const waveform = waveformRef.current;
+   914→      const dpr = window.devicePixelRatio || 1;
+   915→      const rect = canvas.getBoundingClientRect();
+   916→      const width = rect.width;
+   917→      const height = rect.height;
+   918→      const barCount = waveform.length;
+   919→      const barWidth = width / barCount;
+   920→      const barGap = 1;
+   921→      const centerY = height / 2;
+   922→      const progress = duration > 0 ? currentTime / duration : 0;
+   923→      const progressX = progress * width;
+   924→      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+   925→      ctx.clearRect(0, 0, width, height);
+   926→      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+   927→      gradient.addColorStop(0, '#7b2cbf');
+   928→      gradient.addColorStop(0.5, '#5a1d8f');
+   929→      gradient.addColorStop(1, '#00a8c6');
+   930→      const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
+   931→      dimGradient.addColorStop(0, 'rgba(123,44,191,0.25)');
+   932→      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.25)');
+   933→      dimGradient.addColorStop(1, 'rgba(0,168,198,0.25)');
+   934→      ctx.fillStyle = dimGradient;
+   935→      for (let i = 0; i < barCount; i++) {
+   936→        const x = i * barWidth;
+   937→        if (x < progressX) continue;
+   938→        const a = waveform[i];
+   939→        const bh = Math.max(2, a * centerY * 0.85);
+   940→        const bw = Math.max(1, barWidth - barGap);
+   941→        ctx.beginPath();
+   942→        ctx.roundRect(x, centerY - bh, bw, bh * 2, 1);
+   943→        ctx.fill();
+   944→      }
+   945→      ctx.fillStyle = gradient;
+   946→      for (let i = 0; i < barCount; i++) {
+   947→        const x = i * barWidth;
+   948→        if (x >= progressX) continue;
+   949→        const a = waveform[i];
+   950→        const bh = Math.max(2, a * centerY * 0.85);
+   951→        const bw = Math.max(1, barWidth - barGap);
+   952→        ctx.beginPath();
+   953→        ctx.roundRect(x, centerY - bh, bw, bh * 2, 1);
+   954→        ctx.fill();
+   955→      }
+   956→      if (progress > 0 && progress < 1) {
+   957→        ctx.strokeStyle = '#FFFFFF';
+   958→        ctx.lineWidth = 2;
+   959→        ctx.shadowColor = 'rgba(255,255,255,0.5)';
+   960→        ctx.shadowBlur = 4;
+   961→        ctx.beginPath();
+   962→        ctx.moveTo(progressX, 0);
+   963→        ctx.lineTo(progressX, height);
+   964→        ctx.stroke();
+   965→        ctx.shadowBlur = 0;
+   966→      }
+   967→    }
+   968→  }, [currentTime, waveformReady, isPlaying, duration]);
+   969→
+   970→  const handleWaveformClick = useCallback(
+   971→    (e: React.MouseEvent<HTMLCanvasElement>) => {
+   972→      const canvas = canvasRef.current;
+   973→      if (!canvas || duration <= 0) return;
+   974→
+   975→      const rect = canvas.getBoundingClientRect();
+   976→      const x = e.clientX - rect.left;
+   977→      const progress = x / rect.width;
+   978→      const time = progress * duration;
+   979→
+   980→      seekTo(time);
+   981→
+   982→      const clickedMs = Math.round(time * 1000);
+   983→
+   984→      if (markerMode === 'range') {
+   985→        if (!isSelectingRange) {
+   986→          // First click — set range start
+   987→          setRangeStartMs(clickedMs);
+   988→          setRangeEndMsState(clickedMs);
+   989→          setIsSelectingRange(true);
+   990→          setCommentTimestamp(clickedMs);
+   991→          setShowCommentInput(true);
+   992→        } else {
+   993→          // Second click — set range end
+   994→          const start = Math.min(rangeStartMs, clickedMs);
+   995→          const end = Math.max(rangeStartMs, clickedMs);
+   996→          setRangeStartMs(start);
+   997→          setRangeEndMsState(end);
+   998→          setCommentTimestamp(start);
+   999→          setIsSelectingRange(false);
+  1000→        }
+  1001→      } else {
+  1002→        // Point mode — single timestamp
+  1003→        setCommentTimestamp(clickedMs);
+  1004→        setRangeStartMs(0);
+  1005→        setRangeEndMsState(0);
+  1006→        setShowCommentInput(true);
+  1007→      }
+  1008→    },
+  1009→    [duration, seekTo, markerMode, isSelectingRange, rangeStartMs]
+  1010→  );
+  1011→
+  1012→  const handleMarkerClick = useCallback(
+  1013→    (comment: Comment) => {
+  1014→      seekTo(comment.timestampMs / 1000);
+  1015→      setFocusedCommentId(comment.id);
+  1016→      // Keep highlight for 3 seconds
+  1017→      setTimeout(() => {
+  1018→        setFocusedCommentId(null);
+  1019→      }, 3000);
+  1020→    },
+  1021→    [seekTo]
+  1022→  );
+  1023→
+  1024→  // --- Comments ---
+  1025→
+  1026→  useEffect(() => {
+  1027→    if (!selectedTrackId) return;
+  1028→    fetch(`/api/tracks/${selectedTrackId}/comments`)
+  1029→      .then((r) => r.json())
+  1030→      .then((data) => {
+  1031→        if (Array.isArray(data)) setComments(data.map(normalizeComment));
+  1032→      })
+  1033→      .catch(() => {});
+  1034→  }, [selectedTrackId, activeVersionId]);
+  1035→
+  1036→  // Scroll to focused comment
+  1037→  useEffect(() => {
+  1038→    if (focusedCommentId) {
+  1039→      const el = document.getElementById(`comment-${focusedCommentId}`);
+  1040→      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  1041→    }
+  1042→  }, [focusedCommentId]);
+  1043→
+  1044→  const handleAddComment = useCallback(async () => {
+  1045→    if (!newCommentText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
+  1046→
+  1047→    const timestamp = commentTimestamp || Math.round(currentTime * 1000);
+  1048→
+  1049→    try {
+  1050→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments`, {
+  1051→        method: 'POST',
+  1052→        headers: { 'Content-Type': 'application/json' },
+  1053→        body: JSON.stringify({
+  1054→          userId: user.id,
+  1055→          text: newCommentText.trim(),
+  1056→          timestampMs: timestamp,
+  1057→          ...(markerMode === 'range' && rangeEndMsState > timestamp ? { rangeEndMs: rangeEndMsState } : {}),
+  1058→          versionId: activeVersion.id,
+  1059→        }),
+  1060→      });
+  1061→      if (!res.ok) return;
+  1062→      const comment = normalizeComment(await res.json());
+  1063→      addComment(comment);
+  1064→      setComments((prev) => [...prev, comment]);
+  1065→      setNewCommentText('');
+  1066→      setShowCommentInput(false);
+  1067→      setCommentTimestamp(0);
+  1068→      setRangeStartMs(0);
+  1069→      setRangeEndMsState(0);
+  1070→      setIsSelectingRange(false);
+  1071→    } catch {
+  1072→      // Silently fail
+  1073→    }
+  1074→  }, [newCommentText, selectedTrackId, user, commentTimestamp, currentTime, addComment, activeVersion, markerMode, rangeEndMsState]);
+  1075→
+  1076→  const handleEditComment = useCallback(async (commentId: string) => {
+  1077→    if (!editCommentText.trim() || !selectedTrackId) return;
+  1078→    try {
+  1079→      const updateData: Record<string, unknown> = { text: editCommentText.trim() };
+  1080→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1081→        method: 'PUT',
+  1082→        headers: { 'Content-Type': 'application/json' },
+  1083→        body: JSON.stringify(updateData),
+  1084→      });
+  1085→      if (!res.ok) return;
+  1086→      const updated = normalizeComment(await res.json());
+  1087→      updateCommentStore(commentId, { text: updated.text });
+  1088→      setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, text: updated.text } : c)));
+  1089→      setEditingCommentId(null);
+  1090→      setEditCommentText('');
+  1091→      // Emit socket event
+  1092→      socketRef.current?.emit('comment:edit', { trackId: selectedTrackId, commentId, text: updated.text });
+  1093→      toast({ description: 'Comment updated' });
+  1094→    } catch {
+  1095→      toast({ description: 'Failed to update comment', variant: 'destructive' });
+  1096→    }
+  1097→  }, [editCommentText, selectedTrackId, updateCommentStore, toast]);
+  1098→
+  1099→  const handleDeleteComment = useCallback(async (commentId: string) => {
+  1100→    if (!selectedTrackId) return;
+  1101→    try {
+  1102→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1103→        method: 'DELETE',
+  1104→      });
+  1105→      if (!res.ok) return;
+  1106→      removeCommentStore(commentId);
+  1107→      setComments((prev) => prev.filter((c) => c.id !== commentId));
+  1108→      if (focusedCommentId === commentId) setFocusedCommentId(null);
+  1109→      // Emit socket event
+  1110→      socketRef.current?.emit('comment:delete', { trackId: selectedTrackId, commentId });
+  1111→      toast({ description: 'Comment deleted' });
+  1112→    } catch {
+  1113→      toast({ description: 'Failed to delete comment', variant: 'destructive' });
+  1114→    }
+  1115→  }, [selectedTrackId, removeCommentStore, focusedCommentId, toast]);
+  1116→
+  1117→  const handleToggleResolved = useCallback(async (commentId: string, isResolved: boolean) => {
+  1118→    if (!selectedTrackId) return;
+  1119→    try {
+  1120→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1121→        method: 'PUT',
+  1122→        headers: { 'Content-Type': 'application/json' },
+  1123→        body: JSON.stringify({ isResolved: !isResolved }),
+  1124→      });
+  1125→      if (!res.ok) return;
+  1126→      const updated = normalizeComment(await res.json());
+  1127→      updateCommentStore(commentId, { isResolved: updated.isResolved });
+  1128→      setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, isResolved: updated.isResolved } : c)));
+  1129→      socketRef.current?.emit('comment:edit', { trackId: selectedTrackId, commentId, isResolved: updated.isResolved });
+  1130→      // When resolving, collapse the thread
+  1131→      if (updated.isResolved) {
+  1132→        setCollapsedThreads((prev) => new Set([...prev, commentId]));
+  1133→      }
+  1134→    } catch {
+  1135→      // Silently fail
+  1136→    }
+  1137→  }, [selectedTrackId, updateCommentStore]);
+  1138→
+  1139→  const startEditingComment = useCallback((comment: Comment) => {
+  1140→    setEditingCommentId(comment.id);
+  1141→    setEditCommentText(comment.text);
+  1142→    setReplyingTo(null);
+  1143→    setReplyText('');
+  1144→  }, []);
+  1145→
+  1146→  const cancelEditingComment = useCallback(() => {
+  1147→    setEditingCommentId(null);
+  1148→    setEditCommentText('');
+  1149→  }, []);
+  1150→
+  1151→  // --- WebSocket ---
+  1152→
+  1153→  useEffect(() => {
+  1154→    if (!selectedTrackId) return;
+  1155→
+  1156→    const socket = io('/?XTransformPort=3004');
+  1157→    socketRef.current = socket;
+  1158→
+  1159→    const room = `track:${selectedTrackId}`;
+  1160→    socket.emit('room:join', { room, userId: user?.id, userName: user?.displayName, avatarUrl: user?.avatarUrl });
+  1161→
+  1162→    socket.on('presence:update', (data: any) => {
+  1163→      if (data?.users) {
+  1164→        setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
+  1165→      }
+  1166→    });
+  1167→
+  1168→    socket.on('presence:current', (data: any) => {
+  1169→      if (data?.users) {
+  1170→        setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
+  1171→      }
+  1172→    });
+  1173→
+  1174→    socket.on('comment:new', (raw: any) => {
+  1175→      const comment = normalizeComment(raw);
+  1176→      addComment(comment);
+  1177→      setComments((prev) => {
+  1178→        if (prev.some((c) => c.id === comment.id)) return prev;
+  1179→        return [...prev, comment];
+  1180→      });
+  1181→    });
+  1182→
+  1183→    socket.on('comment:updated', (data: { commentId: string; text?: string; isResolved?: boolean; timestampMs?: number }) => {
+  1184→      updateCommentStore(data.commentId, {
+  1185→        ...(data.text !== undefined ? { text: data.text } : {}),
+  1186→        ...(data.isResolved !== undefined ? { isResolved: data.isResolved } : {}),
+  1187→        ...(data.timestampMs !== undefined ? { timestampMs: data.timestampMs } : {}),
+  1188→      });
+  1189→      setComments((prev) =>
+  1190→        prev.map((c) =>
+  1191→          c.id === data.commentId
+  1192→            ? { ...c, ...(data.text !== undefined ? { text: data.text } : {}), ...(data.isResolved !== undefined ? { isResolved: data.isResolved } : {}), ...(data.timestampMs !== undefined ? { timestampMs: data.timestampMs } : {}) }
+  1193→            : c
+  1194→        )
+  1195→      );
+  1196→    });
+  1197→
+  1198→    socket.on('comment:deleted', (data: { commentId: string }) => {
+  1199→      removeCommentStore(data.commentId);
+  1200→      setComments((prev) => prev.filter((c) => c.id !== data.commentId));
+  1201→      setFocusedCommentId((prev) => (prev === data.commentId ? null : prev));
+  1202→    });
+  1203→
+  1204→    return () => {
+  1205→      socket.emit('room:leave', { room, userId: user?.id });
+  1206→      socket.disconnect();
+  1207→      socketRef.current = null;
+  1208→      setOnlineUserIds(new Set());
+  1209→    };
+  1210→  }, [selectedTrackId, addComment, updateCommentStore, removeCommentStore, user]);
+  1211→
+  1212→  // --- Status Change ---
+  1213→
+  1214→  const handleStatusChange = useCallback(
+  1215→    (newStatus: string) => {
+  1216→      if (!selectedTrackId) return;
+  1217→      updateTrackStatus(selectedTrackId, newStatus);
+  1218→      socketRef.current?.emit('track:update_status', {
+  1219→        trackId: selectedTrackId,
+  1220→        status: newStatus,
+  1221→      });
+  1222→    },
+  1223→    [selectedTrackId, updateTrackStatus]
+  1224→  );
+  1225→
+  1226→  // --- Fetch Versions ---
+  1227→
+  1228→  useEffect(() => {
+  1229→    if (!selectedTrackId) return;
+  1230→    fetch(`/api/tracks/${selectedTrackId}/versions`)
+  1231→      .then((r) => r.json())
+  1232→      .then((data) => {
+  1233→        if (Array.isArray(data)) {
+  1234→          setVersions(data);
+  1235→          // Set active to first version if none selected
+  1236→          if (data.length > 0 && !activeVersionId) {
+  1237→            setActiveVersionId(data[0].id);
+  1238→          }
+  1239→        }
+  1240→      })
+  1241→      .catch(() => {});
+  1242→  }, [selectedTrackId]);
+  1243→
+  1244→  // --- Add Version (via file upload dialog) ---
+  1245→
+  1246→  const handleAddVersion = useCallback(async (file: File, label: string) => {
+  1247→    if (!selectedTrackId || !user) return;
+  1248→
+  1249→    setIsUploadingVersion(true);
+  1250→    setUploadProgress(0);
+  1251→
+  1252→    try {
+  1253→      const formData = new FormData();
+  1254→      formData.append('audio', file);
+  1255→      formData.append('label', label);
+  1256→      formData.append('createdBy', user.id);
+  1257→
+  1258→      const xhr = new XMLHttpRequest();
+  1259→      const url = `/api/tracks/${selectedTrackId}/versions`;
+  1260→
+  1261→      await new Promise<void>((resolve, reject) => {
+  1262→        xhr.upload.addEventListener('progress', (e) => {
+  1263→          if (e.lengthComputable) {
+  1264→            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+  1265→          }
+  1266→        });
+  1267→
+  1268→        xhr.addEventListener('load', () => {
+  1269→          if (xhr.status >= 200 && xhr.status < 300) {
+  1270→            resolve();
+  1271→          } else {
+  1272→            reject(new Error(`Upload failed: ${xhr.status}`));
+  1273→          }
+  1274→        });
+  1275→
+  1276→        xhr.addEventListener('error', () => reject(new Error('Network error')));
+  1277→        xhr.open('POST', url);
+  1278→        xhr.send(formData);
+  1279→      });
+  1280→
+  1281→      // Refresh versions list
+  1282→      const res = await fetch(`/api/tracks/${selectedTrackId}/versions`);
+  1283→      const data = await res.json();
+  1284→      if (Array.isArray(data)) {
+  1285→        setVersions(data);
+  1286→        // Switch to the new version (last one)
+  1287→        if (data.length > 0) {
+  1288→          setActiveVersionId(data[data.length - 1].id);
+  1289→        }
+  1290→      }
+  1291→
+  1292→      setShowAddVersionDialog(false);
+  1293→    } catch {
+  1294→      // Silently fail
+  1295→    } finally {
+  1296→      setIsUploadingVersion(false);
+  1297→      setUploadProgress(0);
+  1298→    }
+  1299→  }, [selectedTrackId, user]);
+  1300→
+  1301→  // --- Reply to Comment ---
+  1302→
+  1303→  const handleReply = useCallback(async () => {
+  1304→    if (!replyingTo || !replyText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
+  1305→
+  1306→    const directParent = comments.find((c) => c.id === replyingTo);
+  1307→    if (!directParent) return;
+  1308→
+  1309→    // Always find the root comment for flat threading (all replies at same level)
+  1310→    const rootComment = directParent.parentId
+  1311→      ? comments.find((c) => c.id === directParent.parentId) || directParent
+  1312→      : directParent;
+  1313→
+  1314→    try {
+  1315→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments`, {
+  1316→        method: 'POST',
+  1317→        headers: { 'Content-Type': 'application/json' },
+  1318→        body: JSON.stringify({
+  1319→          userId: user.id,
+  1320→          text: replyText.trim(),
+  1321→          timestampMs: rootComment.timestampMs,
+  1322→          versionId: activeVersion.id,
+  1323→          parentId: rootComment.id,
+  1324→        }),
+  1325→      });
+  1326→      if (!res.ok) return;
+  1327→      const reply = normalizeComment(await res.json());
+  1328→      addComment(reply);
+  1329→      setComments((prev) => [...prev, reply]);
+  1330→      // Ensure the root thread is expanded so the new reply is visible
+  1331→      setCollapsedThreads((prev) => {
+  1332→        const next = new Set(prev);
+  1333→        next.delete(rootComment.id);
+  1334→        return next;
+  1335→      });
+  1336→      setReplyText('');
+  1337→      setReplyingTo(null);
+  1338→    } catch {
+  1339→      // Silently fail
+  1340→    }
+  1341→  }, [replyingTo, replyText, selectedTrackId, user, comments, addComment, activeVersion]);
+  1342→
+  1343→  // --- Keyboard Shortcuts ---
+  1344→
+  1345→  useEffect(() => {
+  1346→    const handler = (e: KeyboardEvent) => {
+  1347→      if (
+  1348→        e.target instanceof HTMLInputElement ||
+  1349→        e.target instanceof HTMLTextAreaElement
+  1350→      )
+  1351→        return;
+  1352→
+  1353→      if (e.code === 'Space') {
+  1354→        e.preventDefault();
+  1355→        togglePlay();
+  1356→      } else if (e.code === 'ArrowLeft') {
+  1357→        e.preventDefault();
+  1358→        skip(-5);
+  1359→      } else if (e.code === 'ArrowRight') {
+  1360→        e.preventDefault();
+  1361→        skip(5);
+  1362→      }
+  1363→    };
+  1364→
+  1365→    window.addEventListener('keydown', handler);
+  1366→    return () => window.removeEventListener('keydown', handler);
+  1367→  }, [togglePlay, skip]);
+  1368→
+  1369→  // --- No Track ---
+  1370→
+  1371→  // Build a map of root comment ID → 1-based index for numbering
+  1372→  const commentNumberMap = useMemo(() => {
+  1373→    const roots = comments.filter((c) => activeVersion?.id && c.versionId === activeVersion.id && !c.parentId);
+  1374→    roots.sort((a, b) => a.timestampMs - b.timestampMs);
+  1375→    const map = new Map<string, number>();
+  1376→    roots.forEach((c, i) => map.set(c.id, i + 1));
+  1377→    return map;
+  1378→  }, [comments, activeVersion]);
+  1379→
+  1380→  // --- Render ---
+  1381→
+  1382→  const progress = duration > 0 ? currentTime / duration : 0;
+  1383→
+  1384→  if (!track) {
+  1385→    return (
+  1386→      <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+  1387→        <div
+  1388→          className="flex flex-col items-center gap-3 p-6"
+  1389→          style={{
+  1390→            background: BG_PANEL,
+  1391→            border: `1px solid ${hexToRgba(C, 0.4)}`,
+  1392→            clipPath: CHAMFER_8,
+  1393→          }}
+  1394→        >
+  1395→          <Music2 className="h-12 w-12" style={{ color: hexToRgba(Y, 0.5) }} />
+  1396→          <p className="text-sm" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>No track selected</p>
+  1397→          <Button
+  1398→            variant="outline"
+  1399→            size="sm"
+  1400→            className="border-0 rounded-none"
+  1401→            style={{
+  1402→              ...YELLOW_BUTTON_STYLE,
+  1403→              paddingRight: '12px',
+  1404→              paddingLeft: '12px',
+  1405→              paddingTop: '5px',
+  1406→              paddingBottom: '5px',
+  1407→            }}
+  1408→            onClick={() => navigate('project-detail', selectedProjectId ?? undefined)}
+  1409→          >
+  1410→            <ArrowLeft className="mr-2 h-4 w-4" />
+  1411→            Back to Project
+  1412→          </Button>
+  1413→        </div>
+  1414→      </div>
+  1415→    );
+  1416→  }
+  1417→
+  1418→  return (
+  1419→    <div className="flex h-full flex-col">
+  1420→      {/* Contextual row — ideas strip + status selector.
+  1421→          Back button, title, and "Open in Kanban" action have moved to the
+  1422→          unified AppHeader (breadcrumbs + header-actions store). */}
+  1423→      <motion.div
+  1424→        initial={{ opacity: 0, y: -8 }}
+  1425→        animate={{ opacity: 1, y: 0 }}
+  1426→        transition={{ duration: 0.3 }}
+  1427→        className="flex items-center gap-3 px-4 py-3 lg:px-6"
+  1428→        style={{ borderBottom: `1px solid ${hexToRgba(C, 0.2)}` }}
+  1429→      >
+  1430→        <div className="min-w-0 flex-1">
+  1431→          {/* Ideas Stories Strip — in header area */}
+  1432→          <IdeasStoriesStrip
+  1433→            ideas={projectIdeas}
+  1434→            sourceIdeaId={track.sourceIdeaId ?? undefined}
+  1435→            projectName={projectOfTrack?.title ?? ''}
+  1436→          />
+  1437→        </div>
+  1438→
+  1439→        {/* Status selector */}
+  1440→        <Select value={track.status} onValueChange={handleStatusChange}>
+  1441→          <SelectTrigger
+  1442→            size="sm"
+  1443→            className="w-[130px] shrink-0 text-xs"
+  1444→          >
+  1445→            <div className="flex items-center gap-1.5">
+  1446→              <span
+  1447→                className="h-2 w-2 rounded-full"
+  1448→                style={{
+  1449→                  backgroundColor: statusDotColors[track.status] || '#718096',
+  1450→                }}
+  1451→              />
+  1452→              <SelectValue />
+  1453→            </div>
+  1454→          </SelectTrigger>
+  1455→          <SelectContent>
+  1456→            <SelectItem value="idea">
+  1457→              <span className="flex items-center gap-1.5">
+  1458→                <span className="h-2 w-2 rounded-full bg-[#c7a008]" />
+  1459→                Idea
+  1460→              </span>
+  1461→            </SelectItem>
+  1462→            <SelectItem value="recording">
+  1463→              <span className="flex items-center gap-1.5">
+  1464→                <span className="h-2 w-2 rounded-full bg-[#00a8c6]" />
+  1465→                Recording
+  1466→              </span>
+  1467→            </SelectItem>
+  1468→            <SelectItem value="mixing">
+  1469→              <span className="flex items-center gap-1.5">
+  1470→                <span className="h-2 w-2 rounded-full bg-[#7b2cbf]" />
+  1471→                Mixing
+  1472→              </span>
+  1473→            </SelectItem>
+  1474→            <SelectItem value="final">
+  1475→              <span className="flex items-center gap-1.5">
+  1476→                <span className="h-2 w-2 rounded-full bg-[#4a8d6f]" />
+  1477→                Final
+  1478→              </span>
+  1479→            </SelectItem>
+  1480→          </SelectContent>
+  1481→        </Select>
+  1482→      </motion.div>
+  1483→
+  1484→      {/* Version Panel — dark HUD tabs with chamfered corners */}
+  1485→      <div className="shrink-0 px-4 py-3 lg:px-6" style={{ borderBottom: `1px solid ${hexToRgba(C, 0.2)}` }}>
+  1486→        <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+  1487→          {versions.map((v) => {
+  1488→            const isActive = activeVersion?.id === v.id;
+  1489→            return (
+  1490→              <motion.button
+  1491→                key={v.id}
+  1492→                whileHover={{ scale: 1.04 }}
+  1493→                whileTap={{ scale: 0.97 }}
+  1494→                onClick={() => setActiveVersionId(v.id)}
+  1495→                className={`shrink-0 px-4 py-2 text-xs font-semibold transition-all ${
+  1496→                  isActive
+  1497→                    ? 'text-white'
+  1498→                    : 'text-muted-foreground hover:text-foreground'
+  1499→                }`}
+  1500→                style={
+  1501→                  isActive
+  1502→                    ? {
+  1503→                        background: `linear-gradient(to right, ${P}, ${P2})`,
+  1504→                        clipPath: CHAMFER_4,
+  1505→                        boxShadow: `0 0 8px ${hexToRgba(P, 0.35)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
+  1506→                      }
+  1507→                    : {
+  1508→                        background: BG_CARD_PURPLE,
+  1509→                        border: `1px solid ${BORDER_MUTED}`,
+  1510→                        clipPath: CHAMFER_4,
+  1511→                      }
+  1512→                }
+  1513→              >
+  1514→                <span>{v.version === 1 && !v.label ? 'Original' : v.label || `v${v.version}`}</span>
+  1515→                {v.commentCount !== undefined && v.commentCount > 0 && (
+  1516→                  <span
+  1517→                    className={`ml-2 px-1.5 py-0.5 text-[9px] ${
+  1518→                      isActive ? 'text-white' : 'text-muted-foreground'
+  1519→                    }`}
+  1520→                    style={{
+  1521→                      background: isActive ? hexToRgba(Y, 0.25) : BG_MAIN,
+  1522→                      color: isActive ? Y : undefined,
+  1523→                      clipPath: CHAMFER_3,
+  1524→                    }}
+  1525→                  >
+  1526→                    {v.commentCount}
+  1527→                  </span>
+  1528→                )}
+  1529→                {/* Active yellow indicator dot */}
+  1530→                {isActive && (
+  1531→                  <span
+  1532→                    className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full"
+  1533→                    style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}` }}
+  1534→                  />
+  1535→                )}
+  1536→              </motion.button>
+  1537→            );
+  1538→          })}
+  1539→          {/* Add Version button — chamfered, yellow on hover */}
+  1540→          <motion.button
+  1541→            whileHover={{ scale: 1.04 }}
+  1542→            whileTap={{ scale: 0.97 }}
+  1543→            onClick={() => setShowAddVersionDialog(true)}
+  1544→            className="flex shrink-0 items-center gap-1.5 border border-dashed bg-transparent px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-[#c7a008]"
+  1545→            style={{
+  1546→              borderColor: hexToRgba(Y, 0.3),
+  1547→              clipPath: CHAMFER_4,
+  1548→            }}
+  1549→            onMouseEnter={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.6); }}
+  1550→            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.3); }}
+  1551→          >
+  1552→            <Plus className="h-3.5 w-3.5" />
+  1553→            Add Version
+  1554→          </motion.button>
+  1555→        </div>
+  1556→        {/* Current version info */}
+  1557→        {activeVersion && (
+  1558→          <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: `${TEXT_SECONDARY}b3`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+  1559→            <span>Version {activeVersion.version}</span>
+  1560→            <span style={{ color: Y }}>·</span>
+  1561→            <span>{activeVersion.label || `v${activeVersion.version}`}</span>
+  1562→            {activeVersion.durationMs && (
+  1563→              <>
+  1564→                <span style={{ color: Y }}>·</span>
+  1565→                <span>{formatDuration(activeVersion.durationMs / 1000)}</span>
+  1566→              </>
+  1567→            )}
+  1568→            {activeVersion.commentCount !== undefined && (
+  1569→              <>
+  1570→                <span style={{ color: Y }}>·</span>
+  1571→                <span>{activeVersion.commentCount} comment{activeVersion.commentCount !== 1 ? 's' : ''}</span>
+  1572→              </>
+  1573→            )}
+  1574→          </div>
+  1575→        )}
+  1576→      </div>
+  1577→
+  1578→      {/* Add Version Dialog */}
+  1579→      <AddVersionDialog
+  1580→        open={showAddVersionDialog}
+  1581→        onOpenChange={setShowAddVersionDialog}
+  1582→        onSubmit={handleAddVersion}
+  1583→        isUploading={isUploadingVersion}
+  1584→        uploadProgress={uploadProgress}
+  1585→        nextVersion={versions.length + 1}
+  1586→      />
+  1587→
+  1588→      {/* Main content — single full-width column (chat moved to global floating widget) */}
+  1589→      <div className="min-h-0 flex-1">
+  1590→        <div className="flex h-full flex-col">
+  1591→          {/* Audio Player — HUD panel with cyan border + chamfered */}
+  1592→              <div
+  1593→                className="shrink-0 p-4 lg:p-6"
+  1594→                style={{
+  1595→                  ...PANEL_BORDER_STYLE,
+  1596→                  borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
+  1597→                  borderLeft: 'none',
+  1598→                  borderRight: 'none',
+  1599→                  borderTop: 'none',
+  1600→                }}
+  1601→              >
+  1602→                {/* Seek bar */}
+  1603→                <div className="mb-4">
+  1604→                  <div
+  1605→                    className="group relative h-2 w-full cursor-pointer"
+  1606→                    style={{
+  1607→                      background: BG_MAIN,
+  1608→                      clipPath: CHAMFER_3,
+  1609→                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+  1610→                    }}
+  1611→                    onClick={(e) => {
+  1612→                      const rect = e.currentTarget.getBoundingClientRect();
+  1613→                      const x = e.clientX - rect.left;
+  1614→                      const p = x / rect.width;
+  1615→                      seekTo(p * duration);
+  1616→                    }}
+  1617→                  >
+  1618→                    {/* Background track — purple→cyan gradient fill */}
+  1619→                    <div
+  1620→                      className="absolute inset-y-0 left-0 transition-all duration-100"
+  1621→                      style={{
+  1622→                        width: `${progress * 100}%`,
+  1623→                        background: `linear-gradient(to right, ${P}, ${C})`,
+  1624→                        boxShadow: `0 0 6px ${hexToRgba(C, 0.4)}`,
+  1625→                        clipPath: CHAMFER_3,
+  1626→                      }}
+  1627→                    />
+  1628→                    {/* Thumb */}
+  1629→                    <div
+  1630→                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-4 w-4 rounded-full bg-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100"
+  1631→                      style={{
+  1632→                        left: `${progress * 100}%`,
+  1633→                        boxShadow: `0 0 8px ${hexToRgba(C, 0.6)}`,
+  1634→                      }}
+  1635→                    />
+  1636→                  </div>
+  1637→                  <div className="mt-1.5 flex justify-between text-[11px]" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+  1638→                    <span>{formatDuration(currentTime)}</span>
+  1639→                    <span>{formatDuration(displayDuration)}</span>
+  1640→                  </div>
+  1641→                </div>
+  1642→
+  1643→                {/* Controls row */}
+  1644→                <div className="flex items-center gap-3">
+  1645→                  <div className="flex items-center gap-1">
+  1646→                    <Tooltip>
+  1647→                      <TooltipTrigger asChild>
+  1648→                        <Button
+  1649→                          variant="ghost"
+  1650→                          size="icon"
+  1651→                          className="h-9 w-9 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+  1652→                          onClick={() => skip(-5)}
+  1653→                        >
+  1654→                          <SkipBack className="h-4 w-4" />
+  1655→                        </Button>
+  1656→                      </TooltipTrigger>
+  1657→                      <TooltipContent>Back 5s</TooltipContent>
+  1658→                    </Tooltip>
+  1659→
+  1660→                    <Button
+  1661→                      size="icon"
+  1662→                      className="h-10 w-10 rounded-full bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] text-white shadow-lg shadow-[#7b2cbf]/20 hover:shadow-[#7b2cbf]/40 transition-shadow border-0"
+  1663→                      onClick={togglePlay}
+  1664→                    >
+  1665→                      {isPlaying ? (
+  1666→                        <Pause className="h-5 w-5" />
+  1667→                      ) : (
+  1668→                        <Play className="h-5 w-5 ml-0.5" />
+  1669→                      )}
+  1670→                    </Button>
+  1671→
+  1672→                    <Tooltip>
+  1673→                      <TooltipTrigger asChild>
+  1674→                        <Button
+  1675→                          variant="ghost"
+  1676→                          size="icon"
+  1677→                          className="h-9 w-9 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+  1678→                          onClick={() => skip(5)}
+  1679→                        >
+  1680→                          <SkipForward className="h-4 w-4" />
+  1681→                        </Button>
+  1682→                      </TooltipTrigger>
+  1683→                      <TooltipContent>Forward 5s</TooltipContent>
+  1684→                    </Tooltip>
+  1685→                  </div>
+  1686→
+  1687→                  {/* Volume */}
+  1688→                  <div className="flex items-center gap-2 ml-2">
+  1689→                    <Tooltip>
+  1690→                      <TooltipTrigger asChild>
+  1691→                        <Button
+  1692→                          variant="ghost"
+  1693→                          size="icon"
+  1694→                          className="h-8 w-8 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+  1695→                          onClick={() => setIsMuted(!isMuted)}
+  1696→                        >
+  1697→                          {isMuted || volume === 0 ? (
+  1698→                            <VolumeX className="h-4 w-4" />
+  1699→                          ) : (
+  1700→                            <Volume2 className="h-4 w-4" />
+  1701→                          )}
+  1702→                        </Button>
+  1703→                      </TooltipTrigger>
+  1704→                      <TooltipContent>
+  1705→                        {isMuted ? 'Unmute' : 'Mute'}
+  1706→                      </TooltipContent>
+  1707→                    </Tooltip>
+  1708→                    <div
+  1709→                      className="group relative h-1.5 w-24 cursor-pointer"
+  1710→                      style={{
+  1711→                        background: BG_MAIN,
+  1712→                        clipPath: CHAMFER_3,
+  1713→                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+  1714→                      }}
+  1715→                      onClick={(e) => {
+  1716→                        const rect = e.currentTarget.getBoundingClientRect();
+  1717→                        const x = e.clientX - rect.left;
+  1718→                        setVolume(Math.max(0, Math.min(1, x / rect.width)));
+  1719→                        if (isMuted) setIsMuted(false);
+  1720→                      }}
+  1721→                    >
+  1722→                      <div
+  1723→                        className="absolute inset-y-0 left-0 transition-all"
+  1724→                        style={{
+  1725→                          width: `${(isMuted ? 0 : volume) * 100}%`,
+  1726→                          background: `linear-gradient(to right, ${C2}, ${C})`,
+  1727→                          clipPath: CHAMFER_3,
+  1728→                        }}
+  1729→                      />
+  1730→                    </div>
+  1731→                  </div>
+  1732→
+  1733→                  {/* Keyboard shortcut hint */}
+  1734→                  <p className="ml-auto hidden text-[11px] lg:block" style={{ color: `${TEXT_SECONDARY}cc`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+  1735→                    Space: Play/Pause · ←→: Skip 5s
+  1736→                  </p>
+  1737→                </div>
+  1738→              </div>
+  1739→
+  1740→              {/* Waveform */}
+  1741→              <div className="shrink-0 px-4 pt-4 lg:px-6">
+  1742→                {/* Marker mode toolbar — always visible near waveform */}
+  1743→                <div className="mb-2 flex items-center justify-between">
+  1744→                  <div className="flex items-center gap-2">
+  1745→                    <span className="text-[11px] font-medium uppercase tracking-widest" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Marker:</span>
+  1746→                    <div
+  1747→                      className="flex items-center border p-0.5"
+  1748→                      style={{
+  1749→                        background: BG_MAIN,
+  1750→                        border: `1px solid ${hexToRgba(BORDER_MUTED, 1)}`,
+  1751→                        clipPath: CHAMFER_3,
+  1752→                      }}
+  1753→                    >
+  1754→                      <button
+  1755→                        onClick={() => {
+  1756→                          setMarkerMode('point');
+  1757→                          setIsSelectingRange(false);
+  1758→                        }}
+  1759→                        className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-all ${
+  1760→                          markerMode === 'point'
+  1761→                            ? 'text-black shadow-sm'
+  1762→                            : 'text-muted-foreground hover:text-foreground'
+  1763→                        }`}
+  1764→                        style={
+  1765→                          markerMode === 'point'
+  1766→                            ? { background: C, clipPath: CHAMFER_3, boxShadow: `0 0 6px ${hexToRgba(C, 0.5)}` }
+  1767→                            : undefined
+  1768→                        }
+  1769→                      >
+  1770→                        <MapPin className="h-3 w-3" />
+  1771→                        Point
+  1772→                      </button>
+  1773→                      <button
+  1774→                        onClick={() => {
+  1775→                          setMarkerMode('range');
+  1776→                          setIsSelectingRange(false);
+  1777→                        }}
+  1778→                        className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-all ${
+  1779→                          markerMode === 'range'
+  1780→                            ? 'text-black shadow-sm'
+  1781→                            : 'text-muted-foreground hover:text-foreground'
+  1782→                        }`}
+  1783→                        style={
+  1784→                          markerMode === 'range'
+  1785→                            ? { background: Y, clipPath: CHAMFER_3, boxShadow: `0 0 6px ${hexToRgba(Y, 0.5)}` }
+  1786→                            : undefined
+  1787→                        }
+  1788→                      >
+  1789→                        <MoveHorizontal className="h-3 w-3" />
+  1790→                        Range
+  1791→                      </button>
+  1792→                    </div>
+  1793→                    <span className="text-[10px]" style={{ color: `${TEXT_SECONDARY}b3` }}>
+  1794→                      {markerMode === 'range'
+  1795→                        ? 'Click waveform to set start, then click again for end'
+  1796→                        : 'Click on waveform to place a pin marker'}
+  1797→                    </span>
+  1798→                  </div>
+  1799→                  <div className="flex items-center gap-2">
+  1800→                    {markerMode === 'range' && isSelectingRange && rangeStartMs > 0 && (
+  1801→                      <Badge variant="outline" className="border-[#c7a008]/30 text-[#c7a008] text-[10px] animate-pulse">
+  1802→                        Start: {formatTimestamp(rangeStartMs)} — click end point…
+  1803→                      </Badge>
+  1804→                    )}
+  1805→                    {markerMode === 'range' && !isSelectingRange && rangeEndMsState > rangeStartMs && rangeStartMs > 0 && (
+  1806→                      <Badge variant="outline" className="border-[#00a8c6]/30 text-[#00a8c6] text-[10px]">
+  1807→                        {formatTimestamp(rangeStartMs)} → {formatTimestamp(rangeEndMsState)}
+  1808→                        <span className="ml-1 text-muted-foreground/50">
+  1809→                          ({formatDuration((rangeEndMsState - rangeStartMs) / 1000)})
+  1810→                        </span>
+  1811→                      </Badge>
+  1812→                    )}
+  1813→                    {markerMode === 'point' && commentTimestamp > 0 && (
+  1814→                      <Badge variant="outline" className="border-[#00a8c6]/30 text-[#00a8c6] text-[10px]">
+  1815→                        {formatTimestamp(commentTimestamp)}
+  1816→                      </Badge>
+  1817→                    )}
+  1818→                  </div>
+  1819→                </div>
+  1820→
+  1821→                <div
+  1822→                  className={`relative border p-3 transition-colors ${
+  1823→                    markerMode === 'range'
+  1824→                      ? 'border-[#c7a008]/30'
+  1825→                      : 'border-[#1f2633]'
+  1826→                  }`}
+  1827→                  style={{
+  1828→                    background: BG_PANEL,
+  1829→                    clipPath: CHAMFER_5,
+  1830→                    boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.6)',
+  1831→                  }}
+  1832→                >
+  1833→                  {/* Empty state when no audio */}
+  1834→                  {!currentAudioUrl && (
+  1835→                    <div className="flex h-24 flex-col items-center justify-center gap-2">
+  1836→                      <Music2 className="h-6 w-6 text-muted-foreground/30" />
+  1837→                      <span className="text-xs text-muted-foreground/50">
+  1838→                        No audio uploaded — upload a version or add audio to this track
+  1839→                      </span>
+  1840→                    </div>
+  1841→                  )}
+  1842→                  {!waveformReady && currentAudioUrl && (
+  1843→                    <div className="flex h-24 items-center justify-center">
+  1844→                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#7b2cbf] border-t-transparent" />
+  1845→                      <span className="ml-2 text-xs text-muted-foreground">
+  1846→                        Loading waveform...
+  1847→                      </span>
+  1848→                    </div>
+  1849→                  )}
+  1850→                  <div className="relative"
+  1851→                    onMouseMove={(e) => {
+  1852→                      const rect = e.currentTarget.getBoundingClientRect();
+  1853→                      const x = e.clientX - rect.left;
+  1854→                      const pct = x / rect.width;
+  1855→                      if (duration > 0 && waveformReady) {
+  1856→                        const ms = Math.round(pct * duration * 1000);
+  1857→                        setWaveformHoverTime({ x, ms });
+  1858→                      }
+  1859→                    }}
+  1860→                    onMouseLeave={() => setWaveformHoverTime(null)}
+  1861→                  >
+  1862→                    <canvas
+  1863→                      ref={canvasRef}
+  1864→                      className={`h-24 w-full ${!waveformReady ? 'hidden' : ''} ${
+  1865→                        markerMode === 'range'
+  1866→                          ? 'cursor-ew-resize'
+  1867→                          : 'cursor-crosshair'
+  1868→                      }`}
+  1869→                      onClick={handleWaveformClick}
+  1870→                    />
+  1871→                    {/* Hover time tooltip — follows cursor along waveform — yellow HUD chip */}
+  1872→                    {waveformHoverTime && (
+  1873→                      <div
+  1874→                        className="pointer-events-none absolute top-1 z-20 -translate-x-1/2"
+  1875→                        style={{ left: waveformHoverTime.x }}
+  1876→                      >
+  1877→                        <span
+  1878→                          className="px-1.5 py-0.5 text-[10px] font-bold shadow-lg"
+  1879→                          style={{
+  1880→                            background: hexToRgba(Y, 0.95),
+  1881→                            color: '#0a0b10',
+  1882→                            clipPath: CHAMFER_3,
+  1883→                            fontFamily: 'var(--font-jetbrains-mono), monospace',
+  1884→                          }}
+  1885→                        >
+  1886→                          {formatTimestamp(waveformHoverTime.ms)}
+  1887→                        </span>
+  1888→                      </div>
+  1889→                    )}
+  1890→                    {/* Range highlight bars for range comments */}
+  1891→                    {waveformReady && displayDuration > 0 &&
+  1892→                      comments
+  1893→                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+  1894→                        .map((comment) => {
+  1895→                        const startPct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
+  1896→                        const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
+  1897→                        const isFocused = focusedCommentId === comment.id;
+  1898→                        const isHovered = hoveredMarkerId === comment.id;
+  1899→                        return (
+  1900→                          <div
+  1901→                            key={`range-${comment.id}`}
+  1902→                            className={`absolute top-0 h-full z-[5] rounded-sm transition-all pointer-events-none ${
+  1903→                              isFocused ? 'bg-[#c7a008]/15 border-y-2 border-[#c7a008]/60' :
+  1904→                              isHovered ? 'bg-[#c7a008]/10 border-y-2 border-[#c7a008]/40' :
+  1905→                              comment.isResolved ? 'bg-[#4a8d6f]/8 border-y-2 border-[#4a8d6f]/20' :
+  1906→                              'bg-[#c7a008]/8 border-y-2 border-[#c7a008]/20'
+  1907→                            }`}
+  1908→                            style={{
+  1909→                              left: `${startPct * 100}%`,
+  1910→                              width: `${(endPct - startPct) * 100}%`,
+  1911→                            }}
+  1912→                          />
+  1913→                        );
+  1914→                      })
+  1915→                    }
+  1916→                    {/* Range selection preview (while user is selecting a range) */}
+  1917→                    {waveformReady && displayDuration > 0 && isSelectingRange && rangeStartMs > 0 && (
+  1918→                      <div className="contents">
+  1919→                        <div
+  1920→                          className="absolute top-0 h-full z-[6] bg-[#c7a008]/10 border-y-2 border-[#c7a008]/40 pointer-events-none"
+  1921→                          style={{
+  1922→                            left: `${(rangeStartMs / 1000 / duration) * 100}%`,
+  1923→                            width: `${((rangeEndMsState - rangeStartMs) / 1000 / duration) * 100}%`,
+  1924→                          }}
+  1925→                        />
+  1926→                        <div
+  1927→                          className="absolute top-0 z-[7] h-full w-0.5 bg-[#c7a008] pointer-events-none"
+  1928→                          style={{ left: `${(rangeStartMs / 1000 / duration) * 100}%` }}
+  1929→                        />
+  1930→                        {rangeEndMsState > rangeStartMs && (
+  1931→                          <div
+  1932→                            className="absolute top-0 z-[7] h-full w-0.5 bg-[#c7a008] pointer-events-none"
+  1933→                            style={{ left: `${(rangeEndMsState / 1000 / duration) * 100}%` }}
+  1934→                          />
+  1935→                        )}
+  1936→                      </div>
+  1937→                    )}
+  1938→                    {/* HTML overlay markers for interactive hover/click — only for active version */}
+  1939→                    {waveformReady && displayDuration > 0 &&
+  1940→                      comments
+  1941→                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id)
+  1942→                        .map((comment) => {
+  1943→                        const pct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
+  1944→                        if (pct < 0 || pct > 1) return null;
+  1945→                        const isHovered = hoveredMarkerId === comment.id;
+  1946→                        const isFocused = focusedCommentId === comment.id;
+  1947→                        const isRange = !!(comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs);
+  1948→                        return (
+  1949→                          <motion.button
+  1950→                            key={comment.id}
+  1951→                            onMouseEnter={(e) => {
+  1952→                              if (markerHideTimerRef.current) {
+  1953→                                clearTimeout(markerHideTimerRef.current);
+  1954→                                markerHideTimerRef.current = null;
+  1955→                              }
+  1956→                              const rect = e.currentTarget.getBoundingClientRect();
+  1957→                              const isRight = rect.left > window.innerWidth / 2;
+  1958→                              setHoveredMarkerId(comment.id);
+  1959→                              setMarkerTooltipPos({ top: rect.top - 8, left: isRight ? rect.right : rect.left, right: isRight });
+  1960→                            }}
+  1961→                            onMouseLeave={() => {
+  1962→                              markerTooltipHoverRef.current = false;
+  1963→                              markerHideTimerRef.current = setTimeout(() => {
+  1964→                                if (!markerTooltipHoverRef.current) {
+  1965→                                  setHoveredMarkerId(null);
+  1966→                                  setMarkerTooltipPos(null);
+  1967→                                }
+  1968→                              }, 200);
+  1969→                            }}
+  1970→                            onClick={(e) => {
+  1971→                              e.stopPropagation();
+  1972→                              handleMarkerClick(comment);
+  1973→                            }}
+  1974→                            initial={false}
+  1975→                            animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
+  1976→                            transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+  1977→                            className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
+  1978→                            style={{ left: `${pct * 100}%` }}
+  1979→                            title={''}
+  1980→                          >
+  1981→                            {/* Marker shape: pin (circle) for point, diamond for range */}
+  1982→                            {isRange ? (
+  1983→                              <>
+  1984→                                {/* Range marker: diamond shape */}
+  1985→                                <div
+  1986→                                  className={`rotate-45 transition-all duration-150 ${
+  1987→                                    isFocused
+  1988→                                      ? 'h-4 w-4 bg-[#c7a008] shadow-[0_0_10px_rgba(199,160,8,0.6)]'
+  1989→                                      : isHovered
+  1990→                                        ? 'h-3.5 w-3.5 bg-[#c7a008]/80 shadow-[0_0_8px_rgba(199,160,8,0.5)]'
+  1991→                                        : comment.isResolved
+  1992→                                          ? 'h-2.5 w-2.5 bg-[#4a8d6f]'
+  1993→                                          : 'h-2.5 w-2.5 bg-[#c7a008]'
+  1994→                                  }`}
+  1995→                                />
+  1996→                                {/* Vertical line */}
+  1997→                                <div
+  1998→                                  className={`absolute left-1/2 top-full h-4 w-0.5 -translate-x-1/2 -rotate-0 transition-colors ${
+  1999→                                    isFocused ? 'bg-[#c7a008]/60' : isHovered ? 'bg-[#c7a008]/40' : 'bg-[#c7a008]/20'
+  2000→                                  }`}
+
+[showing lines 1-2000 of 3191; use offset=2001 with limit to continue reading]

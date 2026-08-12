@@ -136,6 +136,46 @@ const HUD_INPUT_STYLE: React.CSSProperties = {
   clipPath: CHAMFER_3,
 };
 
+/* Section title style — uppercase white HUD heading (mirrors home-view SectionHeader) */
+const SECTION_TITLE_STYLE: React.CSSProperties = {
+  color: '#ffffff',
+  fontFamily: 'var(--font-rajdhani), sans-serif',
+  fontWeight: 700,
+  letterSpacing: '2px',
+  textTransform: 'uppercase' as const,
+};
+
+/* Inset bevel shadow used on every major HUD panel */
+const INSET_BEVEL_SHADOW = 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)';
+
+/* L-shaped corner brackets — blue top-left + yellow bottom-right (mirrors home-view StatBar) */
+function CornerBrackets({ size = 12 }: { size?: number }) {
+  return (
+    <>
+      {/* Blue corner bracket (top-left) */}
+      <div
+        className="absolute top-0 left-0 pointer-events-none"
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          borderTop: '1.5px solid rgba(0,168,198,0.6)',
+          borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+        }}
+      />
+      {/* Yellow corner bracket (bottom-right) */}
+      <div
+        className="absolute bottom-0 right-0 pointer-events-none"
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+          borderRight: '1.5px solid rgba(199,160,8,0.6)',
+        }}
+      />
+    </>
+  );
+}
+
 // --- Types ---
 
 interface ChatMember {
@@ -1385,13 +1425,15 @@ export function TrackDetailView() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
         <div
-          className="flex flex-col items-center gap-3 p-6"
+          className="relative flex flex-col items-center gap-3 p-6"
           style={{
             background: BG_PANEL,
             border: `1px solid ${hexToRgba(C, 0.4)}`,
             clipPath: CHAMFER_8,
+            boxShadow: INSET_BEVEL_SHADOW,
           }}
         >
+          <CornerBrackets size={12} />
           <Music2 className="h-12 w-12" style={{ color: hexToRgba(Y, 0.5) }} />
           <p className="text-sm" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>No track selected</p>
           <Button
@@ -1482,7 +1524,21 @@ export function TrackDetailView() {
       </motion.div>
 
       {/* Version Panel — dark HUD tabs with chamfered corners */}
-      <div className="shrink-0 px-4 py-3 lg:px-6" style={{ borderBottom: `1px solid ${hexToRgba(C, 0.2)}` }}>
+      <div
+        className="relative shrink-0 px-4 py-3 lg:px-6"
+        style={{
+          borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
+        }}
+      >
+        {/* Corner brackets — HUD strip indicators */}
+        <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+          borderTop: '1.5px solid rgba(0,168,198,0.6)',
+          borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+        }} />
+        <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+          borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+          borderRight: '1.5px solid rgba(199,160,8,0.6)',
+        }} />
         <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {versions.map((v) => {
             const isActive = activeVersion?.id === v.id;
@@ -1506,8 +1562,9 @@ export function TrackDetailView() {
                       }
                     : {
                         background: BG_CARD_PURPLE,
-                        border: `1px solid ${BORDER_MUTED}`,
+                        border: `1px solid ${hexToRgba(C, 0.25)}`,
                         clipPath: CHAMFER_4,
+                        boxShadow: INSET_BEVEL_SHADOW,
                       }
                 }
               >
@@ -1588,17 +1645,16 @@ export function TrackDetailView() {
       {/* Main content — single full-width column (chat moved to global floating widget) */}
       <div className="min-h-0 flex-1">
         <div className="flex h-full flex-col">
-          {/* Audio Player — HUD panel with cyan border + chamfered */}
+          {/* Audio Player — HUD panel with chamfered corners, corner brackets, inset bevel */}
               <div
-                className="shrink-0 p-4 lg:p-6"
+                className="relative shrink-0 p-4 lg:p-6"
                 style={{
                   ...PANEL_BORDER_STYLE,
-                  borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
-                  borderLeft: 'none',
-                  borderRight: 'none',
-                  borderTop: 'none',
+                  clipPath: CHAMFER_8,
+                  boxShadow: INSET_BEVEL_SHADOW,
                 }}
               >
+                <CornerBrackets size={12} />
                 {/* Seek bar */}
                 <div className="mb-4">
                   <div
@@ -1615,13 +1671,13 @@ export function TrackDetailView() {
                       seekTo(p * duration);
                     }}
                   >
-                    {/* Background track — purple→cyan gradient fill */}
+                    {/* Background track — purple→cyan gradient fill with glow */}
                     <div
                       className="absolute inset-y-0 left-0 transition-all duration-100"
                       style={{
                         width: `${progress * 100}%`,
                         background: `linear-gradient(to right, ${P}, ${C})`,
-                        boxShadow: `0 0 6px ${hexToRgba(C, 0.4)}`,
+                        boxShadow: `0 0 8px ${hexToRgba(C, 0.6)}, 0 0 4px ${hexToRgba(P, 0.5)}`,
                         clipPath: CHAMFER_3,
                       }}
                     />
@@ -1648,7 +1704,12 @@ export function TrackDetailView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+                          className="h-9 w-9 rounded-none border-0 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+                          style={{
+                            clipPath: CHAMFER_4,
+                            border: `1px solid ${hexToRgba(C, 0.3)}`,
+                            background: BG_MAIN,
+                          }}
                           onClick={() => skip(-5)}
                         >
                           <SkipBack className="h-4 w-4" />
@@ -1659,7 +1720,11 @@ export function TrackDetailView() {
 
                     <Button
                       size="icon"
-                      className="h-10 w-10 rounded-full bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] text-white shadow-lg shadow-[#7b2cbf]/20 hover:shadow-[#7b2cbf]/40 transition-shadow border-0"
+                      className="h-10 w-10 rounded-none bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] text-white shadow-lg shadow-[#7b2cbf]/20 hover:shadow-[#7b2cbf]/40 transition-shadow border-0"
+                      style={{
+                        clipPath: CHAMFER_4,
+                        boxShadow: `0 0 10px ${hexToRgba(P, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                      }}
                       onClick={togglePlay}
                     >
                       {isPlaying ? (
@@ -1674,7 +1739,12 @@ export function TrackDetailView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+                          className="h-9 w-9 rounded-none border-0 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+                          style={{
+                            clipPath: CHAMFER_4,
+                            border: `1px solid ${hexToRgba(C, 0.3)}`,
+                            background: BG_MAIN,
+                          }}
                           onClick={() => skip(5)}
                         >
                           <SkipForward className="h-4 w-4" />
@@ -1691,7 +1761,12 @@ export function TrackDetailView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+                          className="h-8 w-8 rounded-none border-0 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+                          style={{
+                            clipPath: CHAMFER_4,
+                            border: `1px solid ${hexToRgba(C, 0.3)}`,
+                            background: BG_MAIN,
+                          }}
                           onClick={() => setIsMuted(!isMuted)}
                         >
                           {isMuted || volume === 0 ? (
@@ -1825,11 +1900,13 @@ export function TrackDetailView() {
                       : 'border-[#1f2633]'
                   }`}
                   style={{
-                    background: BG_PANEL,
-                    clipPath: CHAMFER_5,
-                    boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.6)',
+                    background: BG_CARD_TEAL,
+                    border: `1px solid ${hexToRgba(C, 0.4)}`,
+                    clipPath: CHAMFER_8,
+                    boxShadow: INSET_BEVEL_SHADOW,
                   }}
                 >
+                  <CornerBrackets size={10} />
                   {/* Empty state when no audio */}
                   {!currentAudioUrl && (
                     <div className="flex h-24 flex-col items-center justify-center gap-2">
@@ -2111,11 +2188,12 @@ export function TrackDetailView() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 4, scale: 0.95 }}
                       transition={{ duration: 0.12 }}
-                      className="fixed z-[9999] px-3 py-2 shadow-2xl shadow-black/70"
+                      className="relative fixed z-[9999] px-3 py-2 shadow-2xl shadow-black/70"
                       style={{
                         background: BG_PANEL,
                         border: `1px solid ${hexToRgba(C, 0.4)}`,
                         clipPath: CHAMFER_5,
+                        boxShadow: INSET_BEVEL_SHADOW,
                         bottom: window.innerHeight - markerTooltipPos.top + 4,
                         left: markerTooltipPos.right ? 'auto' : markerTooltipPos.left,
                         right: markerTooltipPos.right ? window.innerWidth - markerTooltipPos.left : 'auto',
@@ -2138,6 +2216,7 @@ export function TrackDetailView() {
                         setMarkerTooltipPos(null);
                       }}
                     >
+                      <CornerBrackets size={8} />
                       <div className="flex items-center gap-2">
                         <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7b2cbf]/20 text-[9px] font-bold text-[#7b2cbf]">
                           {getInitials(comment.userName)}
@@ -2209,11 +2288,7 @@ export function TrackDetailView() {
                     <MessageCircle className="h-4 w-4" style={{ color: Y }} />
                     <h2
                       className="text-sm font-semibold uppercase"
-                      style={{
-                        color: TEXT_PRIMARY,
-                        fontFamily: 'var(--font-rajdhani), sans-serif',
-                        letterSpacing: '2px',
-                      }}
+                      style={SECTION_TITLE_STYLE}
                     >
                       Timestamp Comments
                     </h2>
@@ -2257,13 +2332,15 @@ export function TrackDetailView() {
                 {/* Participant presence — online indicators (chat moved to global floating widget) */}
                 {groupMembers.length > 0 && (
                   <div
-                    className="mb-3 flex items-center gap-2 px-3 py-2"
+                    className="relative mb-3 flex items-center gap-2 px-3 py-2"
                     style={{
                       background: BG_PANEL,
-                      border: `1px solid ${BORDER_MUTED}`,
+                      border: `1px solid ${hexToRgba(C, 0.4)}`,
                       clipPath: CHAMFER_5,
+                      boxShadow: INSET_BEVEL_SHADOW,
                     }}
                   >
+                    <CornerBrackets size={8} />
                     <div className="flex items-center">
                       {groupMembers.slice(0, 6).map((member, idx) => {
                         const isOnline = onlineUserIds.has(member.userId);
@@ -2317,13 +2394,15 @@ export function TrackDetailView() {
                       className="mb-3 overflow-hidden"
                     >
                       <div
-                        className="border p-3"
+                        className="relative border p-3"
                         style={{
                           background: BG_PANEL,
                           borderColor: markerMode === 'range' ? hexToRgba(Y, 0.3) : hexToRgba(C, 0.3),
                           clipPath: CHAMFER_5,
+                          boxShadow: INSET_BEVEL_SHADOW,
                         }}
                       >
+                        <CornerBrackets size={8} />
                         <CardContent className="p-0">
                           {/* Marker mode toggle */}
                           <div className="mb-2 flex items-center gap-2">
@@ -2488,14 +2567,16 @@ export function TrackDetailView() {
                       const tree = buildCommentTree(versionComments);
                       if (tree.length === 0) return (
                         <div
-                          className="flex flex-col items-center justify-center py-8"
+                          className="relative flex flex-col items-center justify-center py-8"
                           style={{
                             background: BG_PANEL,
-                            border: `1px solid ${BORDER_MUTED}`,
+                            border: `1px solid ${hexToRgba(C, 0.4)}`,
                             clipPath: CHAMFER_5,
                             padding: '32px',
+                            boxShadow: INSET_BEVEL_SHADOW,
                           }}
                         >
+                          <CornerBrackets size={10} />
                           <MessageCircle className="mb-2 h-8 w-8" style={{ color: hexToRgba(Y, 0.3) }} />
                           <p className="text-xs" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>No comments yet. Click the waveform to add one.</p>
                         </div>
@@ -2507,7 +2588,7 @@ export function TrackDetailView() {
                             id={`comment-${comment.id}`}
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
-                            className={`group border p-3 transition-colors ${
+                            className={`group relative border p-3 transition-colors ${
                               focusedCommentId === comment.id
                                 ? comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
                                   ? 'border-[#c7a008]/50'
@@ -2518,11 +2599,13 @@ export function TrackDetailView() {
                             }`}
                             style={{
                               background: comment.isResolved ? BG_MAIN : BG_CARD_PURPLE,
-                              clipPath: CHAMFER_5,
+                              clipPath: CHAMFER_8,
                               opacity: comment.isResolved ? 0.6 : 1,
-                              boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.03)',
+                              borderTop: `2px solid ${comment.isResolved ? BORDER_MUTED : P}`,
+                              boxShadow: INSET_BEVEL_SHADOW,
                             }}
                           >
+                            <CornerBrackets size={8} />
                             <div className="flex items-start gap-2.5">
                               <Avatar className="h-6 w-6 shrink-0">
                                 <AvatarFallback className="text-[9px] bg-[#161224] text-muted-foreground">
@@ -2539,6 +2622,7 @@ export function TrackDetailView() {
                                       color: Y,
                                       border: `0.5px solid ${hexToRgba(Y, 0.4)}`,
                                       clipPath: CHAMFER_3,
+                                      fontFamily: 'var(--font-jetbrains-mono), monospace',
                                     }}
                                   >
                                     #{commentNumberMap.get(comment.id) ?? '?'}
@@ -2558,6 +2642,10 @@ export function TrackDetailView() {
                                         ? 'border-[#c7a008]/30 text-[#c7a008] hover:bg-[#c7a008]/10'
                                         : 'border-[#00a8c6]/30 text-[#00a8c6] hover:bg-[#00a8c6]/10'
                                     }`}
+                                    style={{
+                                      clipPath: CHAMFER_3,
+                                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                                    }}
                                     onClick={() => seekTo(comment.timestampMs / 1000)}
                                   >
                                     {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
@@ -2788,7 +2876,7 @@ export function TrackDetailView() {
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: -6 }}
                                     transition={{ duration: 0.15 }}
-                                    className={`border p-2.5 transition-colors ${
+                                    className={`relative border p-2.5 transition-colors ${
                                       focusedCommentId === reply.id
                                         ? 'border-[#7b2cbf]/40'
                                         : comment.isResolved
@@ -2797,10 +2885,13 @@ export function TrackDetailView() {
                                     }`}
                                     style={{
                                       background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
-                                      clipPath: CHAMFER_4,
+                                      clipPath: CHAMFER_5,
                                       opacity: comment.isResolved ? 0.5 : 1,
+                                      borderTop: `2px solid ${comment.isResolved ? BORDER_MUTED : C}`,
+                                      boxShadow: INSET_BEVEL_SHADOW,
                                     }}
                                   >
+                                    <CornerBrackets size={6} />
                                     <div className="flex items-start gap-2">
                                       <Avatar className="h-5 w-5 shrink-0">
                                         <AvatarFallback className="text-[8px] bg-[#161224] text-muted-foreground">
@@ -2999,23 +3090,19 @@ function AddVersionDialog({
   return (
     <Dialog open={open} onOpenChange={handleDialogOpen}>
       <DialogContent
-        className="border-0 rounded-none sm:max-w-md"
+        className="relative border-0 rounded-none sm:max-w-md"
         style={{
           background: BG_PANEL,
           border: `1px solid ${hexToRgba(C, 0.5)}`,
-          boxShadow: `0 0 24px ${hexToRgba(C, 0.2)}, 0 8px 32px rgba(0,0,0,0.7)`,
+          boxShadow: `0 0 24px ${hexToRgba(C, 0.2)}, 0 8px 32px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
           clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 calc(100% - 8px), 0 8px)',
         }}
       >
+        <CornerBrackets size={12} />
         <DialogHeader>
           <DialogTitle
             className="uppercase"
-            style={{
-              color: TEXT_PRIMARY,
-              fontFamily: 'var(--font-rajdhani), sans-serif',
-              fontWeight: 700,
-              letterSpacing: '2px',
-            }}
+            style={SECTION_TITLE_STYLE}
           >
             Add New Version
           </DialogTitle>
