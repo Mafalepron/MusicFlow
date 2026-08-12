@@ -38,6 +38,7 @@ import {
   ChevronRight,
   MessageSquareQuote,
   LayoutDashboard,
+  Zap,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -68,12 +69,13 @@ import {
   type Idea,
   type TrackVersion,
 } from '@/lib/store';
-import { useKanbanStore } from '@/store/kanban-store';
+import { useKanbanStore, type Task } from '@/store/kanban-store';
 import { useAudioContextStore } from '@/store/audio-context-store';
 import { useHeaderActionsStore } from '@/store/header-actions-store';
 
 import { hexToRgba } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { WaveformProgressBar } from '@/components/waveform-progress-bar';
 import {
   Dialog,
   DialogContent,
@@ -173,6 +175,56 @@ function CornerBrackets({ size = 12 }: { size?: number }) {
         }}
       />
     </>
+  );
+}
+
+/* StatDot — compact stats badge: small colored status dot with label + count.
+ * Used in the Kanban progress panel for track + project status buckets.
+ * The dot carries a 4px glow in its own color so each status reads at a glance. */
+function StatDot({
+  label,
+  count,
+  color,
+  compact = false,
+}: {
+  label: string;
+  count: number;
+  color: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        className="inline-block shrink-0 rounded-full"
+        style={{
+          width: compact ? '5px' : '6px',
+          height: compact ? '5px' : '6px',
+          background: color,
+          boxShadow: `0 0 4px ${hexToRgba(color, 0.8)}`,
+        }}
+      />
+      <span
+        style={{
+          color: TEXT_SECONDARY,
+          fontFamily: 'var(--font-jetbrains-mono), monospace',
+          fontSize: compact ? '9px' : '10px',
+          letterSpacing: '0.5px',
+        }}
+      >
+        {label}
+      </span>
+      <span
+        className="tabular-nums"
+        style={{
+          color,
+          fontFamily: 'var(--font-jetbrains-mono), monospace',
+          fontSize: compact ? '9px' : '10px',
+          fontWeight: 700,
+        }}
+      >
+        {count}
+      </span>
+    </div>
   );
 }
 
@@ -628,6 +680,88 @@ export function TrackDetailView() {
     () => projects.find((p) => p.id === selectedProjectId),
     [projects, selectedProjectId]
   );
+
+  // --- Kanban progress state ---
+  // trackTasks: all Kanban tasks linked to the currently-selected SoundFlow track
+  // (fetched via /api/tasks?soundflowTrackId=…&deep=true). Each task carries its
+  // own children (2 levels deep) so we can render a per-task mini progress bar.
+  const [trackTasks, setTrackTasks] = useState<Task[]>([]);
+  // projectTask: the Kanban "project" task for the project this track belongs to
+  // (fetched by parentId). Used to show a project-level progress summary next to
+  // the track progress. Stays null when the project has no linked kanbanTaskId.
+  const [projectTask, setProjectTask] = useState<Task | null>(null);
+
+  useEffect(() => {
+    if (!selectedTrackId) {
+      setTrackTasks([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/tasks?soundflowTrackId=${encodeURIComponent(selectedTrackId)}&deep=true`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (cancelled) return;
+        if (data && Array.isArray(data.tasks)) {
+          setTrackTasks(data.tasks as Task[]);
+        } else {
+          setTrackTasks([]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTrackTasks([]);
+      });
+    return () => { cancelled = true; };
+  }, [selectedTrackId]);
+
+  useEffect(() => {
+    const kanbanTaskId = projectOfTrack?.kanbanTaskId;
+    if (!kanbanTaskId) {
+      setProjectTask(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/tasks?parentId=${encodeURIComponent(kanbanTaskId)}&deep=true`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (cancelled) return;
+        // The API returns { tasks: [...] } — single project task expected.
+        if (data && Array.isArray(data.tasks) && data.tasks.length > 0) {
+          setProjectTask(data.tasks[0] as Task);
+        } else {
+          setProjectTask(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setProjectTask(null);
+      });
+    return () => { cancelled = true; };
+  }, [projectOfTrack?.kanbanTaskId]);
+
+  // Compute kanban progress statistics for the currently-selected track.
+  // Flatten every direct child of every fetched track-task and bucket by status.
+  const trackProgress = useMemo(() => {
+    const allChildren = trackTasks.flatMap((t) => t.children || []);
+    const total = allChildren.length;
+    const done = allChildren.filter((c) => c.status === 'done').length;
+    const inProgress = allChildren.filter((c) => c.status === 'in-progress').length;
+    const review = allChildren.filter((c) => c.status === 'review').length;
+    const todo = allChildren.filter((c) => c.status === 'todo').length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { allChildren, total, done, inProgress, review, todo, pct };
+  }, [trackTasks]);
+
+  // Project-level progress: count direct children of the project's kanban task.
+  const projectProgress = useMemo(() => {
+    if (!projectTask) return null;
+    const children = projectTask.children || [];
+    const total = children.length;
+    const done = children.filter((c) => c.status === 'done').length;
+    const inProgress = children.filter((c) => c.status === 'in-progress').length;
+    const review = children.filter((c) => c.status === 'review').length;
+    const todo = children.filter((c) => c.status === 'todo').length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { total, done, inProgress, review, todo, pct };
+  }, [projectTask]);
 
   useEffect(() => {
     if (!currentGroupId || !selectedProjectId) return;
@@ -1639,6 +1773,250 @@ export function TrackDetailView() {
         uploadProgress={uploadProgress}
         nextVersion={versions.length + 1}
       />
+
+      {/* ─── Kanban Progress Panel — track + project stats tree ─── */}
+      <div
+        className="relative shrink-0 px-4 py-3 lg:px-6"
+        style={{
+          borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
+        }}
+      >
+        <div
+          className="relative"
+          style={{
+            background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+            clipPath: CHAMFER_8,
+            boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
+          }}
+        >
+          <CornerBrackets size={12} />
+
+          <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-3 lg:p-4">
+            {/* Track progress — spans 2 columns on lg */}
+            <div className="lg:col-span-2">
+              {/* Section title */}
+              <div className="mb-2 flex items-center gap-2">
+                <Zap className="h-4 w-4" style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }} />
+                <h3
+                  className="text-[13px]"
+                  style={{
+                    ...SECTION_TITLE_STYLE,
+                    fontSize: '13px',
+                    letterSpacing: '2px',
+                  }}
+                >
+                  Прогресс трека
+                </h3>
+              </div>
+
+              {/* Waveform progress bar */}
+              <WaveformProgressBar
+                progress={trackProgress.pct}
+                accentColor={Y}
+                height={32}
+                bars={24}
+              />
+
+              {/* Compact stats row — colored status dots */}
+              <div
+                className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]"
+                style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+              >
+                <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
+                <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
+                <StatDot label="В РАБОТЕ" count={trackProgress.inProgress} color={C} />
+                <StatDot label="ПРОВЕРКА" count={trackProgress.review} color={Y} />
+                <StatDot label="TODO" count={trackProgress.todo} color={A} />
+              </div>
+
+              {/* Tree-like breakdown — one row per trackTask with mini progress bar */}
+              {trackTasks.length > 0 && (
+                <div
+                  className="mt-3 max-h-44 overflow-y-auto pr-1"
+                  style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: `${hexToRgba(Y, 0.4)} transparent`,
+                  }}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    {trackTasks.map((tt) => {
+                      const subtasks = tt.children || [];
+                      const subTotal = subtasks.length;
+                      const subDone = subtasks.filter((c) => c.status === 'done').length;
+                      const subPct = subTotal > 0 ? Math.round((subDone / subTotal) * 100) : 0;
+                      return (
+                        <div
+                          key={tt.id}
+                          className="flex items-center gap-2 px-2 py-1"
+                          style={{
+                            background: BG_MAIN,
+                            border: `1px solid ${hexToRgba(C, 0.2)}`,
+                            clipPath: CHAMFER_3,
+                          }}
+                        >
+                          {/* Tree connector */}
+                          <span
+                            className="select-none"
+                            style={{ color: hexToRgba(Y, 0.5), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}
+                          >
+                            ├─
+                          </span>
+                          {/* Title */}
+                          <span
+                            className="min-w-0 flex-1 truncate"
+                            style={{
+                              color: TEXT_PRIMARY,
+                              fontFamily: 'var(--font-rajdhani), sans-serif',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                            }}
+                            title={tt.title}
+                          >
+                            {tt.title}
+                          </span>
+                          {/* Mini progress bar */}
+                          <div
+                            className="relative h-1.5 w-20 shrink-0"
+                            style={{
+                              background: BG_MAIN,
+                              border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+                              clipPath: CHAMFER_3,
+                              boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                            }}
+                          >
+                            <div
+                              className="absolute inset-y-0 left-0"
+                              style={{
+                                width: `${subPct}%`,
+                                background: `linear-gradient(to right, ${P}, ${Y})`,
+                                boxShadow: `0 0 4px ${hexToRgba(Y, 0.5)}`,
+                                transition: 'width 220ms ease',
+                              }}
+                            />
+                          </div>
+                          {/* Done/total count */}
+                          <span
+                            className="shrink-0 tabular-nums"
+                            style={{
+                              color: subDone === subTotal && subTotal > 0 ? G : Y,
+                              fontFamily: 'var(--font-jetbrains-mono), monospace',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              minWidth: '34px',
+                              textAlign: 'right',
+                            }}
+                          >
+                            {subDone}/{subTotal}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Project progress — compact summary, 1 column */}
+            <div
+              className="relative flex flex-col justify-between gap-2 p-2.5 lg:p-3"
+              style={{
+                background: BG_MAIN,
+                border: `1px solid ${hexToRgba(C, 0.35)}`,
+                clipPath: CHAMFER_5,
+                boxShadow: INSET_BEVEL_SHADOW,
+              }}
+            >
+              <div>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <LayoutDashboard className="h-3.5 w-3.5" style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.5)})` }} />
+                  <span
+                    className="text-[10px]"
+                    style={{
+                      ...SECTION_TITLE_STYLE,
+                      fontSize: '10px',
+                      letterSpacing: '1.5px',
+                    }}
+                  >
+                    Проект
+                  </span>
+                </div>
+                <div
+                  className="truncate text-[11px]"
+                  style={{
+                    color: TEXT_PRIMARY,
+                    fontFamily: 'var(--font-rajdhani), sans-serif',
+                    fontWeight: 600,
+                  }}
+                  title={projectOfTrack?.title || '—'}
+                >
+                  {projectOfTrack?.title || '—'}
+                </div>
+              </div>
+
+              {projectProgress ? (
+                <>
+                  {/* Big percentage readout */}
+                  <div className="flex items-baseline gap-1">
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        color: Y,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '24px',
+                        fontWeight: 800,
+                        lineHeight: 1,
+                        textShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
+                      }}
+                    >
+                      {projectProgress.pct}
+                    </span>
+                    <span style={{ color: hexToRgba(Y, 0.6), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}>%</span>
+                  </div>
+
+                  {/* Mini project progress bar */}
+                  <div
+                    className="relative h-1.5 w-full"
+                    style={{
+                      background: BG_MAIN,
+                      border: `0.5px solid ${hexToRgba(C, 0.3)}`,
+                      clipPath: CHAMFER_3,
+                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                    }}
+                  >
+                    <div
+                      className="absolute inset-y-0 left-0"
+                      style={{
+                        width: `${projectProgress.pct}%`,
+                        background: `linear-gradient(to right, ${P}, ${Y})`,
+                        boxShadow: `0 0 4px ${hexToRgba(Y, 0.5)}`,
+                      }}
+                    />
+                  </div>
+
+                  {/* Compact project stats */}
+                  <div
+                    className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9px]"
+                    style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                  >
+                    <StatDot label="ВСЕГО" count={projectProgress.total} color={A} compact />
+                    <StatDot label="ГОТОВО" count={projectProgress.done} color={G} compact />
+                    <StatDot label="В РАБОТЕ" count={projectProgress.inProgress} color={C} compact />
+                    <StatDot label="ПРОВЕРКА" count={projectProgress.review} color={Y} compact />
+                  </div>
+                </>
+              ) : (
+                <div
+                  className="text-center text-[10px]"
+                  style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                >
+                  Нет kanban-задачи
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Main content — single full-width column (chat moved to global floating widget) */}
       <div className="min-h-0 flex-1">

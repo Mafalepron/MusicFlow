@@ -6,10 +6,16 @@ export async function GET(req: NextRequest) {
   const parentId = searchParams.get('parentId');
   const boardId = searchParams.get('boardId');
   const deep = searchParams.get('deep'); // 'true' for 2-level children
+  const soundflowTrackId = searchParams.get('soundflowTrackId');
 
   let where: Record<string, unknown> = {};
 
-  if (boardId) {
+  if (soundflowTrackId) {
+    // Return all kanban tasks linked to a specific SoundFlow track.
+    // Includes children 2 levels deep (forces deep=true behaviour) so the
+    // caller gets the full task subtree for the track.
+    where = { soundflowTrackId };
+  } else if (boardId) {
     where = { boardId, parentId: null };
   } else if (parentId === null || parentId === 'null') {
     where = { parentId: null, isProject: true };
@@ -32,7 +38,7 @@ export async function GET(req: NextRequest) {
     soundflowTrackId: true,
   };
 
-  const childrenArgs = deep === 'true'
+  const childrenArgs = (deep === 'true' || !!soundflowTrackId)
     ? {
         include: {
           children: {

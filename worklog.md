@@ -2157,3 +2157,86 @@ Verification:
 - Dev server log shows only normal request chatter, no compile/runtime errors.
 
 No functionality changed — audio playback, waveform seek, marker placement (point + range), comment CRUD, replies, resolved-state, version tabs, socket.io presence, and the AddVersionDialog upload flow all remain intact. Only inline styles + className accents + CornerBrackets JSX nodes were added.
+
+---
+Task ID: TD5-PROGRESS
+Agent: code-assistant
+Task: Add Kanban progress bar + task statistics tree to the track detail view (extract WaveformProgressBar, extend Tasks API for soundflowTrackId filter, render HUD progress panel between version panel and audio player).
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from TD3-ENHANCE (track-detail-view already restyled to Cyberpunk 2077 HUD with palette constants at lines 86-149: Y/Y2/C/C2/P/P2/A/G + BG_MAIN/BG_PANEL/BG_CARD_PURPLE/BG_CARD_TEAL/BORDER_MUTED + CHAMFER_8/5/4/3/PANEL clip-paths + PANEL_BORDER_STYLE/YELLOW_BUTTON_STYLE/HUD_INPUT_STYLE/SECTION_TITLE_STYLE/INSET_BEVEL_SHADOW + CornerBrackets helper).
+- Read home-view.tsx lines 75-187 to capture the WaveformProgressBar implementation (state: hovered/h; pct clamp; deterministic waveBars via useMemo seeded by accentColor+barCount; CSS vars --kb5-base/--kb5-progress; relies on global keyframes kb5-eq-bounce + kb5-playhead-sweep in src/app/cyberpunk.css; hover playhead sweep + progress divider + 9px mono percentage label).
+- Verified kb5-eq-bounce + kb5-playhead-sweep keyframes exist globally in /home/z/my-project/src/app/cyberpunk.css (lines 1687-1697) so the extracted component will keep working without a per-file <style> block.
+
+Change 1 — Extract WaveformProgressBar to shared component:
+- Created /home/z/my-project/src/components/waveform-progress-bar.tsx with `'use client'`, imports `useState + useMemo` from react and `hexToRgba` from '@/lib/utils', exports `WaveformProgressBar` (named) + default export. Body is a verbatim copy of the original home-view implementation (same props signature: progress/accentColor/height=40/bars=32).
+
+Change 2 — Update home-view.tsx to import the shared component:
+- Added `import { WaveformProgressBar } from '@/components/waveform-progress-bar';` to home-view.tsx imports block.
+- Deleted the local `function WaveformProgressBar(...)` definition (was lines 75-187 in home-view.tsx, ~113 lines removed). Replaced with a short comment noting the extraction.
+- home-view.tsx still references <WaveformProgressBar> in 3 places (ProjectCard, KanbanCard, QuickAccessCard) — all 3 still resolve to the imported shared component. No behavioural change.
+
+Change 3 — Extend Tasks API GET to support soundflowTrackId filter:
+- Edited /home/z/my-project/src/app/api/tasks/route.ts GET handler.
+- Added `const soundflowTrackId = searchParams.get('soundflowTrackId');`.
+- Added new branch at top of where-building: `if (soundflowTrackId) { where = { soundflowTrackId }; }` (takes precedence over boardId/parentId).
+- Changed `childrenArgs` condition from `deep === 'true'` to `(deep === 'true' || !!soundflowTrackId)` so soundflowTrackId requests force 2-level children include (task → child → grandchild) regardless of the `deep` query param value. This matches the task spec ("Include children (2 levels deep) in the response, same as the deep=true behavior").
+- No other handler changed (POST/PUT/DELETE untouched). Serialization block (soundflowProjectId/soundflowTrackId at top level) already worked for this new branch since the include shape is identical.
+
+Change 4 — Add track progress panel to track-detail-view.tsx:
+- Added `Zap` to the lucide-react icon import list (used in the section title).
+- Added `import { WaveformProgressBar } from '@/components/waveform-progress-bar';`.
+- Extended the existing kanban-store import: `import { useKanbanStore, type Task } from '@/store/kanban-store';` (Task type now imported for typing the new state).
+- Added state right after the `projectOfTrack` useMemo (around line 632 in original numbering):
+    `const [trackTasks, setTrackTasks] = useState<Task[]>([]);`
+    `const [projectTask, setProjectTask] = useState<Task | null>(null);`
+- Added useEffect #1 (track tasks fetch): fires on `selectedTrackId` change. GETs `/api/tasks?soundflowTrackId=${encodeURIComponent(selectedTrackId)}&deep=true`. Parses `{ tasks: Task[] }`. Has `cancelled` flag for cleanup. Sets `[]` on null selectedTrackId / error / malformed payload.
+- Added useEffect #2 (project task fetch): fires on `projectOfTrack?.kanbanTaskId` change. GETs `/api/tasks?parentId=${kanbanTaskId}&deep=true`. Takes `data.tasks[0]` as the project Task. Sets `null` when no kanbanTaskId / error.
+- Added useMemo `trackProgress`: flattens all direct children of every trackTask via `trackTasks.flatMap(t => t.children || [])`, buckets by status (done/in-progress/review/todo), computes `pct = total > 0 ? Math.round((done / total) * 100) : 0`. Returns `{ allChildren, total, done, inProgress, review, todo, pct }`.
+- Added useMemo `projectProgress`: counts direct children of `projectTask` by status, returns same shape (without allChildren) or `null` when projectTask is null.
+
+Change 5 — Render the progress panel:
+- Added a new StatDot helper component (right after CornerBrackets, ~lines 181-229). Props: `{ label, count, color, compact }`. Renders a small rounded status dot (6px / 5px compact) with `boxShadow: 0 0 4px ${hexToRgba(color, 0.8)}` glow + JetBrains Mono uppercase label (10px / 9px compact, secondary grey) + colored count (mono bold). Status colors passed by caller: A grey for total/todo, G green for done, C cyan for in-progress, Y yellow for review.
+- Inserted the new HUD panel JSX between the AddVersionDialog and the "Main content — single full-width column" wrapper (around line 1727 in original numbering).
+- Outer container: `relative shrink-0 px-4 py-3 lg:px-6` with cyan-tinted bottom border separator (matches version panel separator).
+- Inner panel: chamfered CHAMFER_8, BG_PANEL→BG_MAIN gradient bg, yellow 0.5 opacity border, full inset-bevel boxShadow + 8px yellow outer glow (mirrors audio player panel exactly), <CornerBrackets size={12} />.
+- Layout: responsive 1-col / lg:3-col grid. Left column (lg:col-span-2) holds the track progress; right column holds the project progress.
+- Track progress column contents (top to bottom):
+    * Section title "ПРОГРЕСС ТРЕКА" — uppercase Rajdhani, letterSpacing 2px, white via SECTION_TITLE_STYLE, prefixed by a yellow Zap icon (drop-shadow glow).
+    * <WaveformProgressBar progress={trackProgress.pct} accentColor={Y} height={32} bars={24} /> — exactly per spec (#c7a008 / 32 / 24).
+    * Compact stats row with 5 <StatDot> entries: ВСЕГО(A) / ГОТОВО(G) / В РАБОТЕ(C) / ПРОВЕРКА(Y) / TODO(A). JetBrains Mono uppercase labels, tabular-nums counts.
+    * Tree-like breakdown (only rendered when trackTasks.length > 0): `max-h-44 overflow-y-auto` with thin yellow scrollbar (scrollbarWidth: thin, scrollbarColor). Each row is a chamfered CHAMFER_3 dark BG_MAIN cell with cyan 0.2 border containing:
+        - tree connector `├─` (yellow 0.5 opacity, mono 10px)
+        - task title (Rajdhani 12px white, truncate, with title= for full text)
+        - mini progress bar (h-1.5 w-20, BG_MAIN bg, yellow 0.3 border, CHAMFER_3, inset shadow; fill = linear-gradient(P→Y) with 4px yellow glow + 220ms width transition)
+        - "done/total" count (mono 10px bold; green when subDone===subTotal else yellow; min-width 34px right-aligned tabular-nums)
+- Project progress column (right): chamfered CHAMFER_5 dark BG_MAIN panel with cyan 0.35 border + INSET_BEVEL_SHADOW. Contains:
+    * Section title "ПРОЕКТ" (compact SECTION_TITLE_STYLE 10px / 1.5px letter-spacing) + cyan LayoutDashboard icon (drop-shadow glow).
+    * Project title (Rajdhani 11px white, truncate, with title= tooltip).
+    * If projectProgress: big percentage readout (24px mono 800 yellow with textShadow glow) + "%" suffix + thin mini progress bar (linear-gradient P→Y) + 4-cell StatDot grid (2 cols × 2 rows, compact mode).
+    * Else: "Нет kanban-задачи" placeholder (mono 10px secondary grey).
+
+Styling palette adherence:
+- All colors via existing palette constants (Y/Y2/C/C2/P/P2/A/G/BG_MAIN/BG_PANEL/BG_CARD_PURPLE/BG_CARD_TEAL/BORDER_MUTED/TEXT_PRIMARY/TEXT_SECONDARY).
+- All clip-paths via existing CHAMFER_8/5/4/3 tokens.
+- Section titles via shared SECTION_TITLE_STYLE (white uppercase Rajdhani 2px tracking).
+- Numbers/labels via JetBrains Mono; titles via Rajdhani.
+- Status dots use boxShadow 0 0 4px exactly per spec.
+- Panel border matches audio player panel (yellow border, inset bevel, corner brackets, chamfered).
+
+Verification:
+- `npx tsc --noEmit --pretty` → 6 pre-existing errors only (examples/websocket/server.ts, skills/image-edit/scripts/image-edit.ts, skills/stock-analysis-skill/src/analyzer.ts, src/app/api/boards/route.ts x2, src/components/ui/sidebar.tsx). Grep for "track-detail|home-view|waveform-progress-bar|api/tasks" → "No errors in modified files". ✓
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` → 200. ✓
+- `bun run lint` → 9 pre-existing react-hooks/preserve-manual-memoization warnings in home-view.tsx (autoModalItems + kanbanModalItems useMemos). Grep for "track-detail|waveform-progress-bar|api/tasks" → "No lint errors in my files". ✓
+- Dev server log shows live runtime traffic including:
+    `GET /api/tasks?soundflowTrackId=cmsq2dot6000puivfoyk643ak&deep=true 200 in 14ms` — new filter endpoint hit successfully, returned tasks with nested children.
+    `GET /api/tasks?parentId=cmsojpcv3002qq7m8s6lq2yl1&deep=true 200 in 19ms` — project-level fetch hit successfully.
+    `GET / 200` — page compiles + renders without runtime error.
+- No new runtime errors in dev.log; only a stale "Fast Refresh had to perform a full reload" warning from mid-edit (before StatDot was defined) — most recent compile + page load are clean.
+
+Stage Summary:
+- WaveformProgressBar is now a shared, reusable component in /home/z/my-project/src/components/waveform-progress-bar.tsx, consumed by both home-view.tsx (3 cards) and the new track-detail progress panel. No duplication.
+- Tasks API GET now accepts `?soundflowTrackId=<id>` (alone or with `&deep=true`) and returns all kanban tasks linked to a SoundFlow track, with children 2 levels deep. Existing parentId/boardId/deep behaviour unchanged.
+- Track-detail view renders a new "ПРОГРЕСС ТРЕКА" HUD panel between the version panel and the audio player: yellow-bordered chamfered HUD with corner brackets, waveform progress bar (height=32, bars=24, gold accent), 5 status-dot stats (total/done/in-progress/review/todo), and a compact tree breakdown showing each track task with a mini progress bar + done/total count.
+- A compact project-level summary appears next to the track progress (responsive: stacks below on mobile, right column on lg+): big % readout, mini progress bar, 4 status-dot grid. Shows "Нет kanban-задачи" placeholder when project has no kanbanTaskId.
+- All existing functionality preserved (audio player, waveform canvas, marker/comment CRUD, version upload, socket.io presence, header-actions registration, navigation). TypeScript clean, ESLint clean for modified files, dev server HTTP 200.
