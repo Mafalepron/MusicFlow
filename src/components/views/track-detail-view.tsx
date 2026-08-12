@@ -123,7 +123,7 @@ const YELLOW_BUTTON_STYLE: React.CSSProperties = {
   letterSpacing: '1.5px',
   textTransform: 'uppercase',
   clipPath: CHAMFER_4,
-  boxShadow: `0 0 8px ${hexToRgba(Y, 0.3)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+  boxShadow: `0 0 8px ${hexToRgba(Y, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
 };
 
 /* Cyan-bordered dark HUD input style */
@@ -880,11 +880,9 @@ export function TrackDetailView() {
       gradient.addColorStop(1, '#00a8c6');
 
       const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
-      dimGradient.addColorStop(0, 'rgba(123,44,191,0.25)');
-      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.25)');
-      dimGradient.addColorStop(1, 'rgba(0,168,198,0.25)');
-
-      // Batch bars by color to minimize fillStyle switches
+      dimGradient.addColorStop(0, 'rgba(123,44,191,0.7)');
+      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.7)');
+      dimGradient.addColorStop(1, 'rgba(0,168,198,0.7)');
       // First pass: unplayed bars
       ctx.fillStyle = dimGradient;
       for (let i = 0; i < barCount; i++) {
@@ -968,9 +966,9 @@ export function TrackDetailView() {
       gradient.addColorStop(0.5, '#5a1d8f');
       gradient.addColorStop(1, '#00a8c6');
       const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
-      dimGradient.addColorStop(0, 'rgba(123,44,191,0.25)');
-      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.25)');
-      dimGradient.addColorStop(1, 'rgba(0,168,198,0.25)');
+      dimGradient.addColorStop(0, 'rgba(123,44,191,0.7)');
+      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.7)');
+      dimGradient.addColorStop(1, 'rgba(0,168,198,0.7)');
       ctx.fillStyle = dimGradient;
       for (let i = 0; i < barCount; i++) {
         const x = i * barWidth;
@@ -1600,11 +1598,11 @@ export function TrackDetailView() {
             onClick={() => setShowAddVersionDialog(true)}
             className="flex shrink-0 items-center gap-1.5 border border-dashed bg-transparent px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-[#c7a008]"
             style={{
-              borderColor: hexToRgba(Y, 0.3),
+              borderColor: hexToRgba(Y, 0.5),
               clipPath: CHAMFER_4,
             }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.6); }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.3); }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.5); }}
           >
             <Plus className="h-3.5 w-3.5" />
             Add Version
@@ -1650,9 +1648,9 @@ export function TrackDetailView() {
                 className="relative shrink-0 p-4 lg:p-6"
                 style={{
                   background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
-                  border: `1px solid ${hexToRgba(C, 0.5)}`,
+                  border: `1px solid ${hexToRgba(Y, 0.5)}`,
                   clipPath: CHAMFER_8,
-                  boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(C, 0.15)}`,
+                  boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
                 }}
               >
                 <CornerBrackets size={12} />
@@ -1677,8 +1675,8 @@ export function TrackDetailView() {
                       className="absolute inset-y-0 left-0 transition-all duration-100"
                       style={{
                         width: `${progress * 100}%`,
-                        background: `linear-gradient(to right, ${P}, ${C})`,
-                        boxShadow: `0 0 8px ${hexToRgba(C, 0.6)}, 0 0 4px ${hexToRgba(Y, 0.4)}`,
+                        background: `linear-gradient(to right, ${P}, ${Y})`,
+                        boxShadow: `0 0 8px ${hexToRgba(Y, 0.6)}, 0 0 4px ${hexToRgba(Y, 0.4)}`,
                         clipPath: CHAMFER_3,
                       }}
                     />
@@ -1708,7 +1706,7 @@ export function TrackDetailView() {
                           className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
                           style={{
                             clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(Y, 0.3)}`,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
                             background: BG_MAIN,
                             color: Y,
                           }}
@@ -1726,7 +1724,7 @@ export function TrackDetailView() {
                       style={{
                         clipPath: CHAMFER_4,
                         background: `linear-gradient(135deg, ${P} 0%, ${P2} 100%)`,
-                        boxShadow: `0 0 12px ${hexToRgba(P, 0.5)}, 0 0 4px ${hexToRgba(Y, 0.3)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                        boxShadow: `0 0 12px ${hexToRgba(P, 0.5)}, 0 0 4px ${hexToRgba(Y, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
                         border: `1.5px solid ${hexToRgba(Y, 0.4)}`,
                       }}
                       onClick={togglePlay}
@@ -1746,7 +1744,7 @@ export function TrackDetailView() {
                           className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
                           style={{
                             clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(Y, 0.3)}`,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
                             background: BG_MAIN,
                             color: Y,
                           }}
@@ -1843,7 +1841,7 @@ export function TrackDetailView() {
                         }`}
                         style={
                           markerMode === 'point'
-                            ? { background: C, clipPath: CHAMFER_3, boxShadow: `0 0 6px ${hexToRgba(C, 0.5)}` }
+                            ? { background: C, clipPath: CHAMFER_3, boxShadow: `0 0 6px ${hexToRgba(Y, 0.5)}` }
                             : undefined
                         }
                       >
@@ -1906,9 +1904,9 @@ export function TrackDetailView() {
                   }`}
                   style={{
                     background: `linear-gradient(135deg, ${BG_CARD_TEAL} 0%, ${BG_MAIN} 100%)`,
-                    border: `1px solid ${hexToRgba(C, 0.5)}`,
+                    border: `1px solid ${hexToRgba(Y, 0.5)}`,
                     clipPath: CHAMFER_8,
-                    boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(C, 0.15)}`,
+                    boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
                   }}
                 >
                   <CornerBrackets size={10} />
@@ -2316,7 +2314,7 @@ export function TrackDetailView() {
                       style={{
                         background: hexToRgba(Y, 0.15),
                         color: Y,
-                        border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+                        border: `0.5px solid ${hexToRgba(Y, 0.5)}`,
                         clipPath: CHAMFER_3,
                       }}
                     >
@@ -2415,7 +2413,7 @@ export function TrackDetailView() {
                         className="relative border p-3"
                         style={{
                           background: BG_PANEL,
-                          borderColor: markerMode === 'range' ? hexToRgba(Y, 0.3) : hexToRgba(C, 0.3),
+                          borderColor: markerMode === 'range' ? hexToRgba(Y, 0.5) : hexToRgba(C, 0.3),
                           clipPath: CHAMFER_5,
                           boxShadow: INSET_BEVEL_SHADOW,
                         }}
@@ -2595,7 +2593,7 @@ export function TrackDetailView() {
                           }}
                         >
                           <CornerBrackets size={10} />
-                          <MessageCircle className="mb-2 h-8 w-8" style={{ color: hexToRgba(Y, 0.3) }} />
+                          <MessageCircle className="mb-2 h-8 w-8" style={{ color: hexToRgba(Y, 0.5) }} />
                           <p className="text-xs" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>No comments yet. Click the waveform to add one.</p>
                         </div>
                       );
@@ -3111,7 +3109,7 @@ function AddVersionDialog({
         className="relative border-0 rounded-none sm:max-w-md"
         style={{
           background: BG_PANEL,
-          border: `1px solid ${hexToRgba(C, 0.5)}`,
+          border: `1px solid ${hexToRgba(Y, 0.5)}`,
           boxShadow: `0 0 24px ${hexToRgba(C, 0.2)}, 0 8px 32px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
           clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 calc(100% - 8px), 0 8px)',
         }}
