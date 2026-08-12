@@ -371,82 +371,6 @@ function countAllDescendants(tasks: { children?: unknown[] }[]): any[] {
   return result;
 }
 
-// --- Priority helpers (used by the Track Profile info grid) ---
-// Priority scale: red (low) → yellow (medium) → green (high).
-// Red is the LOWEST priority, green is the HIGHEST.
-
-const PRIORITY_COLORS: Record<string, string> = {
-  high: G,        // green = highest
-  medium: Y,      // yellow = middle
-  low: '#ff5a5a', // red = lowest
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  high: 'Высокий',
-  medium: 'Средний',
-  low: 'Низкий',
-};
-
-// Priority level (1-3) — used to drive the 3-bar scale visual.
-const PRIORITY_LEVEL: Record<string, number> = {
-  low: 1,
-  medium: 2,
-  high: 3,
-};
-
-function priorityColor(p: string): string {
-  return PRIORITY_COLORS[p] ?? Y;
-}
-
-function priorityLabel(p: string): string {
-  return PRIORITY_LABELS[p] ?? p;
-}
-
-function priorityLevel(p: string): number {
-  return PRIORITY_LEVEL[p] ?? 2;
-}
-
-// Small HUD stat cell — yellow uppercase label on top, white value below.
-// Used in the 3×2 Track Info Grid (track #, duration, version, etc.).
-function InfoStatCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      className="flex flex-col gap-0.5 px-2 py-1.5"
-      style={{
-        background: BG_MAIN,
-        border: `0.5px solid ${hexToRgba(C, 0.25)}`,
-        clipPath: CHAMFER_3,
-        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.6)',
-      }}
-    >
-      <span
-        className="text-[8px]"
-        style={{
-          color: Y,
-          fontFamily: 'var(--font-jetbrains-mono), monospace',
-          fontWeight: 700,
-          letterSpacing: '1px',
-          textTransform: 'uppercase',
-        }}
-      >
-        {label}
-      </span>
-      <span
-        className="truncate tabular-nums text-[12px]"
-        style={{
-          color: TEXT_PRIMARY,
-          fontFamily: 'var(--font-rajdhani), sans-serif',
-          fontWeight: 700,
-          letterSpacing: '0.3px',
-        }}
-        title={value}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
 // The backend API returns comments with a nested `user` object
 // (e.g. `user: { displayName, ... }`), but the frontend store types expect a
 // flat `userName` field. This normalizer bridges that gap so the rest of the
@@ -751,11 +675,6 @@ export function TrackDetailView() {
   // interact with the Edit/Resolve/Delete buttons without fighting the 200ms
   // hover hide timer.
   const [pinnedMarkerId, setPinnedMarkerId] = useState<string | null>(null);
-  // Ref to the marker DOM element the tooltip is currently anchored to.
-  // Used by the scroll/resize listener below to recompute the tooltip
-  // position so it stays glued to its marker instead of floating away
-  // when the page scrolls.
-  const markerTooltipAnchorRef = useRef<HTMLElement | null>(null);
   // Helper: compute + apply the tooltip position for a given marker element.
   // The tooltip is centered horizontally on the marker (left = marker center x)
   // and anchored just above it. The `right` flag tells the tooltip to also clamp
@@ -765,7 +684,6 @@ export function TrackDetailView() {
       clearTimeout(markerHideTimerRef.current);
       markerHideTimerRef.current = null;
     }
-    markerTooltipAnchorRef.current = el;
     const rect = el.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const isRight = centerX > window.innerWidth - 160; // within 160px of right edge
@@ -773,46 +691,13 @@ export function TrackDetailView() {
     setMarkerTooltipPos({ top: rect.top - 8, left: centerX, right: isRight });
   }, []);
 
-  // Recompute the tooltip position on scroll / resize so it stays anchored
-  // to its marker. Without this the tooltip (rendered via portal with
-  // `position: fixed`) would float away from the marker when the page scrolls.
-  useEffect(() => {
-    if (!markerTooltipPos) return;
-    const recompute = () => {
-      const el = markerTooltipAnchorRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const isRight = centerX > window.innerWidth - 160;
-      setMarkerTooltipPos({ top: rect.top - 8, left: centerX, right: isRight });
-    };
-    window.addEventListener('scroll', recompute, true);
-    window.addEventListener('resize', recompute);
-    return () => {
-      window.removeEventListener('scroll', recompute, true);
-      window.removeEventListener('resize', recompute);
-    };
-  }, [markerTooltipPos]);
-
-  // Centralised "hide tooltip" helper — clears the position AND drops the
-  // anchor ref so the scroll/resize listener stops firing.
-  const hideMarkerTooltip = useCallback(() => {
-    markerTooltipAnchorRef.current = null;
-    setHoveredMarkerId(null);
-    setMarkerTooltipPos(null);
-  }, []);
-
 
   // Comment state
   const [comments, setComments] = useState<Comment[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [showCommentInput, setShowCommentInput] = useState(false);
-  const [visibleCommentCount, setVisibleCommentCount] = useState(4);
   const [commentTimestamp, setCommentTimestamp] = useState(0);
-  // Multiple comments can be focused at once — when a marker is clicked we
-  // highlight the whole thread (parent + all replies + any other comments
-  // sharing the same timestampMs on the same version).
-  const [focusedCommentIds, setFocusedCommentIds] = useState<string[]>([]);
+  const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
   const commentsEndRef = useRef<HTMLDivElement | null>(null);
 
   // Comment sort mode — drives the order of root comments in the comments panel
@@ -887,107 +772,6 @@ export function TrackDetailView() {
   // the track progress. Stays null when the project has no linked kanbanTaskId.
   const [projectTask, setProjectTask] = useState<Task | null>(null);
 
-  // --- Track Profile panel state ---
-  // The store Track only exposes `createdBy` (a user id). To display the
-  // creator's display name + avatar in the Track Profile panel we fetch the
-  // full track record (which includes `creator: { id, displayName, avatarUrl }`).
-  const [trackDetail, setTrackDetail] = useState<{
-    creator?: { id: string; displayName: string; avatarUrl?: string | null };
-    createdAt?: string;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!selectedTrackId) {
-      setTrackDetail(null);
-      return;
-    }
-    let cancelled = false;
-    fetch(`/api/tracks/${encodeURIComponent(selectedTrackId)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        setTrackDetail({
-          creator: data.creator,
-          createdAt: data.createdAt,
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setTrackDetail(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedTrackId]);
-
-  // Inline editing state for the Track Profile panel.
-  // Each field tracks its own editing/draft/saving state so the user can edit
-  // title, description and priority without affecting one another.
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState('');
-  const [editingDescription, setEditingDescription] = useState(false);
-  const [descriptionDraft, setDescriptionDraft] = useState('');
-  // Track which field is currently being saved (for "saving..." indicator)
-  const [savingField, setSavingField] = useState<string | null>(null);
-  // Ref-guard to prevent double-saves when Enter + onBlur fire in quick succession.
-  const titleSaveInFlightRef = useRef(false);
-  const descSaveInFlightRef = useRef(false);
-
-  // Local copy of the kanban Task description (kept in sync after PUT updates)
-  // so the user sees their edited text immediately without waiting for a refetch.
-  const [localKanbanDescription, setLocalKanbanDescription] = useState<string | null>(null);
-  const [localKanbanTitle, setLocalKanbanTitle] = useState<string | null>(null);
-  const [localKanbanPriority, setLocalKanbanPriority] = useState<string | null>(null);
-
-  // --- Track text (lyrics/notes) ---
-  // Stored inside the kanban task's `trackConfig` JSON string under a `trackText`
-  // key (separate from `description`, which is the inline "Описание" field in
-  // section B). Parsed on kanban task change, edited inline in the right column,
-  // saved via PUT /api/tasks { id, trackConfig: JSON.stringify({...existing, trackText}) }.
-  const [localTrackText, setLocalTrackText] = useState<string>('');
-  const [trackTextDraft, setTrackTextDraft] = useState<string>('');
-  const [trackTextFocused, setTrackTextFocused] = useState(false);
-  const trackTextSaveInFlightRef = useRef(false);
-
-  // --- References count ---
-  // The track's project has a kanbanTaskId. The project's kanban boards include a
-  // "Референсы" board (title contains "Референсы" / "References" OR boardType
-  // === 'references'). We fetch /api/boards?projectId=<kanbanTaskId>, find the
-  // references board and count its top-level tasks.
-  const [referencesCount, setReferencesCount] = useState<number | null>(null);
-
-  // Reset the local kanban-field mirrors whenever the underlying kanban task changes
-  // (e.g. when the user switches to a different track).
-  const primaryKanbanTask = trackTasks[0] ?? null;
-  useEffect(() => {
-    if (!primaryKanbanTask) {
-      setLocalKanbanDescription(null);
-      setLocalKanbanTitle(null);
-      setLocalKanbanPriority(null);
-      setLocalTrackText('');
-      setTrackTextDraft('');
-      return;
-    }
-    setLocalKanbanDescription(primaryKanbanTask.description);
-    setLocalKanbanTitle(primaryKanbanTask.title);
-    setLocalKanbanPriority(primaryKanbanTask.priority);
-    // Parse trackConfig JSON to extract `trackText` (lyrics / notes).
-    // The trackConfig field is a JSON string stored on the kanban Task; if it's
-    // null/invalid or lacks `trackText`, fall back to '' (empty editor).
-    let parsedText = '';
-    if (primaryKanbanTask.trackConfig) {
-      try {
-        const cfg = JSON.parse(primaryKanbanTask.trackConfig);
-        if (cfg && typeof cfg.trackText === 'string') {
-          parsedText = cfg.trackText;
-        }
-      } catch {
-        // Ignore malformed JSON — treat as empty.
-      }
-    }
-    setLocalTrackText(parsedText);
-    setTrackTextDraft(parsedText);
-  }, [primaryKanbanTask?.id, primaryKanbanTask?.description, primaryKanbanTask?.title, primaryKanbanTask?.priority, primaryKanbanTask?.trackConfig]);
-
   useEffect(() => {
     if (!selectedTrackId) {
       setTrackTasks([]);
@@ -1014,7 +798,6 @@ export function TrackDetailView() {
     const kanbanTaskId = projectOfTrack?.kanbanTaskId;
     if (!kanbanTaskId) {
       setProjectTask(null);
-      setReferencesCount(null);
       return;
     }
     let cancelled = false;
@@ -1034,36 +817,6 @@ export function TrackDetailView() {
       .catch(() => {
         if (!cancelled) setProjectTask(null);
       });
-
-    // Fetch the project's kanban boards and locate the "Референсы" board
-    // (matched by title containing "Референсы" / "References" — case-insensitive —
-    // OR by boardType === 'references'). The boards endpoint returns each board
-    // with a top-level `tasks` array (only parentId === null entries), so we
-    // sum the count of those tasks as the references total.
-    fetch(`/api/boards?projectId=${encodeURIComponent(kanbanTaskId)}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (cancelled) return;
-        const boards: Array<{ title: string; boardType: string; tasks?: unknown[] }> =
-          data && Array.isArray(data.boards) ? data.boards : [];
-        const refBoard = boards.find((b) => {
-          const t = (b.title || '').toLowerCase();
-          return (
-            b.boardType === 'references' ||
-            t.includes('референс') ||
-            t.includes('reference')
-          );
-        });
-        if (refBoard && Array.isArray(refBoard.tasks)) {
-          setReferencesCount(refBoard.tasks.length);
-        } else {
-          setReferencesCount(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setReferencesCount(null);
-      });
-
     return () => { cancelled = true; };
   }, [projectOfTrack?.kanbanTaskId]);
 
@@ -1211,8 +964,30 @@ export function TrackDetailView() {
 
     setHeaderTitle(track.title);
 
-    // "Open in Kanban" button is now rendered inline next to the status selector
-    setHeaderActions([]);
+    const kanbanTaskId = projectOfTrack?.kanbanTaskId;
+    if (kanbanTaskId) {
+      setHeaderActions([
+        {
+          id: 'open-in-kanban',
+          label: 'Открыть в Канбане',
+          icon: <LayoutDashboard className="h-3.5 w-3.5" />,
+          variant: 'outline',
+          onClick: () => {
+            const project = useDataStore
+              .getState()
+              .projects.find((p) => p.id === selectedProjectId);
+            if (!project?.kanbanTaskId) return;
+            useNavigationStore.getState().navigate('kanban');
+            const taskId = project.kanbanTaskId;
+            setTimeout(() => {
+              useKanbanStore.getState().selectProject(taskId);
+            }, 300);
+          },
+        },
+      ]);
+    } else {
+      setHeaderActions([]);
+    }
 
     return () => {
       setHeaderActions([]);
@@ -1465,25 +1240,20 @@ export function TrackDetailView() {
 
       if (markerMode === 'range') {
         if (!isSelectingRange) {
-          // First click — set range start. Do NOT open the comment input
-          // yet — the user must click a second time to set the range end.
-          // A floating hint ("Выберите конец диапазона") is rendered on the
-          // waveform while isSelectingRange is true.
+          // First click — set range start
           setRangeStartMs(clickedMs);
           setRangeEndMsState(clickedMs);
           setIsSelectingRange(true);
           setCommentTimestamp(clickedMs);
-          setShowCommentInput(false);
+          setShowCommentInput(true);
         } else {
-          // Second click — set range end. NOW we open the comment input
-          // so the user can type their annotation.
+          // Second click — set range end
           const start = Math.min(rangeStartMs, clickedMs);
           const end = Math.max(rangeStartMs, clickedMs);
           setRangeStartMs(start);
           setRangeEndMsState(end);
           setCommentTimestamp(start);
           setIsSelectingRange(false);
-          setShowCommentInput(true);
         }
       } else {
         // Point mode — single timestamp
@@ -1499,48 +1269,13 @@ export function TrackDetailView() {
   const handleMarkerClick = useCallback(
     (comment: Comment) => {
       seekTo(comment.timestampMs / 1000);
-
-      // Highlight the WHOLE thread, not just the clicked comment:
-      // 1. All comments sharing the same timestampMs on the same version
-      //    (covers duplicate-timestamp markers stacked at one position).
-      // 2. For each of those, the full parent ↔ replies chain — if the
-      //    clicked comment is a reply, include the parent + all sibling
-      //    replies; if it's a parent, include all of its replies.
-      const ids = new Set<string>([comment.id]);
-      comments
-        .filter(
-          (c) =>
-            c.versionId === comment.versionId &&
-            c.timestampMs === comment.timestampMs
-        )
-        .forEach((c) => {
-          ids.add(c.id);
-          if (!c.parentId) {
-            // Parent — pull in every reply.
-            comments.forEach((r) => {
-              if (r.parentId === c.id && r.versionId === comment.versionId) {
-                ids.add(r.id);
-              }
-            });
-          } else {
-            // Reply — pull in the parent + every sibling reply.
-            ids.add(c.parentId);
-            comments.forEach((r) => {
-              if (r.parentId === c.parentId && r.versionId === comment.versionId) {
-                ids.add(r.id);
-              }
-            });
-          }
-        });
-
-      setFocusedCommentIds(Array.from(ids));
-      // Keep highlight for 5 seconds — long enough to read the comment +
-      // clock the bright glow/badge we now paint on the focused bubble.
+      setFocusedCommentId(comment.id);
+      // Keep highlight for 3 seconds
       setTimeout(() => {
-        setFocusedCommentIds([]);
-      }, 5000);
+        setFocusedCommentId(null);
+      }, 3000);
     },
-    [seekTo, comments]
+    [seekTo]
   );
 
   // Global click listener — when a pinned marker tooltip is open, dismiss it
@@ -1555,7 +1290,8 @@ export function TrackDetailView() {
       // Dismiss the pinned tooltip on any outside click.
       setPinnedMarkerId(null);
       // Also clear hoveredMarkerId + position so the tooltip fully closes.
-      hideMarkerTooltip();
+      setHoveredMarkerId(null);
+      setMarkerTooltipPos(null);
     };
     // Defer registration by a tick so the click that *opened* the tooltip
     // doesn't immediately close it.
@@ -1566,7 +1302,7 @@ export function TrackDetailView() {
       clearTimeout(t);
       document.removeEventListener('click', handler);
     };
-  }, [pinnedMarkerId, hideMarkerTooltip]);
+  }, [pinnedMarkerId]);
 
   // --- Comments ---
 
@@ -1580,9 +1316,13 @@ export function TrackDetailView() {
       .catch(() => {});
   }, [selectedTrackId, activeVersionId]);
 
-  // Scroll-to-focused + auto-expand visible comments are handled in a single
-  // useEffect further down — after `sortedTree` is computed — so they can
-  // reference it without hitting the temporal dead zone.
+  // Scroll to focused comment
+  useEffect(() => {
+    if (focusedCommentId) {
+      const el = document.getElementById(`comment-${focusedCommentId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [focusedCommentId]);
 
   const handleAddComment = useCallback(async () => {
     if (!newCommentText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
@@ -1648,14 +1388,14 @@ export function TrackDetailView() {
       if (!res.ok) return;
       removeCommentStore(commentId);
       setComments((prev) => prev.filter((c) => c.id !== commentId));
-      if (focusedCommentIds.includes(commentId)) setFocusedCommentIds([]);
+      if (focusedCommentId === commentId) setFocusedCommentId(null);
       // Emit socket event
       socketRef.current?.emit('comment:delete', { trackId: selectedTrackId, commentId });
       toast({ description: 'Комментарий удалён' });
     } catch {
       toast({ description: 'Не удалось удалить комментарий', variant: 'destructive' });
     }
-  }, [selectedTrackId, removeCommentStore, focusedCommentIds, toast]);
+  }, [selectedTrackId, removeCommentStore, focusedCommentId, toast]);
 
   const handleToggleResolved = useCallback(async (commentId: string, isResolved: boolean) => {
     if (!selectedTrackId) return;
@@ -1741,7 +1481,7 @@ export function TrackDetailView() {
     socket.on('comment:deleted', (data: { commentId: string }) => {
       removeCommentStore(data.commentId);
       setComments((prev) => prev.filter((c) => c.id !== data.commentId));
-      setFocusedCommentIds((prev) => (prev.includes(data.commentId) ? [] : prev));
+      setFocusedCommentId((prev) => (prev === data.commentId ? null : prev));
     });
 
     return () => {
@@ -1753,238 +1493,18 @@ export function TrackDetailView() {
   }, [selectedTrackId, addComment, updateCommentStore, removeCommentStore, user]);
 
   // --- Status Change ---
-  // Updates the track's status both locally (zustand store + socket emit) and
-  // persistently via PATCH /api/tracks/:id. If the track is linked to a kanban
-  // Task, that task's status is also synced via PUT /api/tasks so the kanban
-  // board reflects the same status as the track profile.
 
   const handleStatusChange = useCallback(
-    async (newStatus: string) => {
-      if (!selectedTrackId || !track) return;
-      // Optimistic local update
+    (newStatus: string) => {
+      if (!selectedTrackId) return;
       updateTrackStatus(selectedTrackId, newStatus);
       socketRef.current?.emit('track:update_status', {
         trackId: selectedTrackId,
         status: newStatus,
       });
-
-      // Persist to /api/tracks/:id
-      setSavingField('status');
-      try {
-        await fetch(`/api/tracks/${encodeURIComponent(selectedTrackId)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus }),
-        });
-      } catch {
-        // Silently fail — local state already reflects the user's intent
-      } finally {
-        setSavingField(null);
-      }
-
-      // Mirror status onto the linked kanban task (if any)
-      const kanbanTaskId = primaryKanbanTask?.id;
-      if (kanbanTaskId) {
-        try {
-          await fetch('/api/tasks', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: kanbanTaskId, status: newStatus }),
-          });
-          // Mirror locally so the UI reflects the change immediately
-          setTrackTasks((prev) =>
-            prev.map((t) =>
-              t.id === kanbanTaskId ? { ...t, status: newStatus as Task['status'] } : t
-            )
-          );
-        } catch {
-          // Best-effort sync — failure here doesn't affect the track record
-        }
-      }
     },
-    [selectedTrackId, track, updateTrackStatus, primaryKanbanTask?.id]
+    [selectedTrackId, updateTrackStatus]
   );
-
-  // --- Inline title editing ---
-  // Saves the new title to BOTH the track record (PATCH /api/tracks/:id) and
-  // the linked kanban task (PUT /api/tasks) so the two stay in sync.
-
-  const handleStartEditTitle = useCallback(() => {
-    setTitleDraft(track?.title ?? '');
-    setEditingTitle(true);
-  }, [track?.title]);
-
-  const handleSaveTitle = useCallback(async () => {
-    if (titleSaveInFlightRef.current) return;
-    if (!selectedTrackId || !track) return;
-    const newTitle = titleDraft.trim();
-    if (!newTitle || newTitle === track.title) {
-      setEditingTitle(false);
-      return;
-    }
-    titleSaveInFlightRef.current = true;
-    setEditingTitle(false);
-    setSavingField('title');
-    // Optimistic local update — patch the in-memory store Track so the UI
-    // reflects the new title immediately (zustand store tracks array).
-    useDataStore.setState((s) => ({
-      tracks: s.tracks.map((t) =>
-        t.id === selectedTrackId ? { ...t, title: newTitle } : t
-      ),
-    }));
-    try {
-      await fetch(`/api/tracks/${encodeURIComponent(selectedTrackId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle }),
-      });
-      // Mirror onto linked kanban task
-      const kanbanTaskId = primaryKanbanTask?.id;
-      if (kanbanTaskId) {
-        await fetch('/api/tasks', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: kanbanTaskId, title: newTitle }),
-        });
-        setLocalKanbanTitle(newTitle);
-        setTrackTasks((prev) =>
-          prev.map((t) =>
-            t.id === kanbanTaskId ? { ...t, title: newTitle } : t
-          )
-        );
-      }
-      setHeaderTitle(newTitle);
-    } catch {
-      // Silently fail
-    } finally {
-      setSavingField(null);
-      titleSaveInFlightRef.current = false;
-    }
-  }, [selectedTrackId, track, titleDraft, primaryKanbanTask?.id, setHeaderTitle]);
-
-  // --- Inline description editing (kanban task description) ---
-
-  const handleStartEditDescription = useCallback(() => {
-    setDescriptionDraft(localKanbanDescription ?? '');
-    setEditingDescription(true);
-  }, [localKanbanDescription]);
-
-  const handleSaveDescription = useCallback(async () => {
-    if (descSaveInFlightRef.current) return;
-    const kanbanTaskId = primaryKanbanTask?.id;
-    if (!kanbanTaskId) {
-      setEditingDescription(false);
-      return;
-    }
-    const newText = descriptionDraft.trim();
-    descSaveInFlightRef.current = true;
-    setEditingDescription(false);
-    if (newText === (localKanbanDescription ?? '')) {
-      descSaveInFlightRef.current = false;
-      return;
-    }
-    setSavingField('description');
-    setLocalKanbanDescription(newText || null);
-    try {
-      await fetch('/api/tasks', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: kanbanTaskId, description: newText }),
-      });
-      setTrackTasks((prev) =>
-        prev.map((t) =>
-          t.id === kanbanTaskId
-            ? { ...t, description: newText || null }
-            : t
-        )
-      );
-    } catch {
-      // Silently fail
-    } finally {
-      setSavingField(null);
-      descSaveInFlightRef.current = false;
-    }
-  }, [primaryKanbanTask?.id, descriptionDraft, localKanbanDescription]);
-
-  // --- Priority editing (kanban task priority) ---
-
-  const handlePriorityChange = useCallback(
-    async (newPriority: string) => {
-      const kanbanTaskId = primaryKanbanTask?.id;
-      if (!kanbanTaskId) return;
-      setLocalKanbanPriority(newPriority);
-      setSavingField('priority');
-      try {
-        await fetch('/api/tasks', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: kanbanTaskId, priority: newPriority }),
-        });
-        setTrackTasks((prev) =>
-          prev.map((t) =>
-            t.id === kanbanTaskId
-              ? { ...t, priority: newPriority as Task['priority'] }
-              : t
-          )
-        );
-      } catch {
-        // Silently fail
-      } finally {
-        setSavingField(null);
-      }
-    },
-    [primaryKanbanTask?.id]
-  );
-
-  // --- Track text (lyrics/notes) editing ---
-  // Persists the textarea's value into the kanban task's `trackConfig` JSON
-  // under the `trackText` key. We merge with any existing trackConfig keys
-  // (so other tools that store data in trackConfig keep working). Saved on
-  // blur OR Ctrl/Cmd+Enter; a ref-guard prevents double-saves when both fire.
-  const handleSaveTrackText = useCallback(async () => {
-    if (trackTextSaveInFlightRef.current) return;
-    const kanbanTaskId = primaryKanbanTask?.id;
-    if (!kanbanTaskId) return;
-    const newText = trackTextDraft;
-    trackTextSaveInFlightRef.current = true;
-    if (newText === localTrackText) {
-      trackTextSaveInFlightRef.current = false;
-      return;
-    }
-    setSavingField('trackText');
-    setLocalTrackText(newText);
-    // Merge with existing trackConfig keys (parse, override trackText, re-stringify).
-    let existingCfg: Record<string, unknown> = {};
-    if (primaryKanbanTask?.trackConfig) {
-      try {
-        const parsed = JSON.parse(primaryKanbanTask.trackConfig);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          existingCfg = parsed as Record<string, unknown>;
-        }
-      } catch {
-        // Ignore malformed JSON — start fresh.
-      }
-    }
-    const mergedCfg = { ...existingCfg, trackText: newText };
-    try {
-      await fetch('/api/tasks', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: kanbanTaskId, trackConfig: JSON.stringify(mergedCfg) }),
-      });
-      setTrackTasks((prev) =>
-        prev.map((t) =>
-          t.id === kanbanTaskId ? { ...t, trackConfig: JSON.stringify(mergedCfg) } : t
-        )
-      );
-    } catch {
-      // Silently fail
-    } finally {
-      setSavingField(null);
-      trackTextSaveInFlightRef.current = false;
-    }
-  }, [primaryKanbanTask?.id, primaryKanbanTask?.trackConfig, trackTextDraft, localTrackText]);
-
 
   // --- Fetch Versions ---
 
@@ -2162,35 +1682,6 @@ export function TrackDetailView() {
     });
   }, [comments, activeVersion, sortBy]);
 
-  // When a marker is clicked, a whole thread of comments becomes focused
-  // (parent + all replies + any same-timestamp siblings). This useEffect:
-  //   1. Auto-expands the visible-comment window if any focused comment
-  //      sits beyond the visibleCommentCount cutoff — otherwise the focus
-  //      glow/badge would never mount for those rows.
-  //   2. Smoothly scrolls the first (topmost in sort order) focused
-  //      top-level comment into view, so the entire thread is visible.
-  useEffect(() => {
-    if (focusedCommentIds.length === 0) return;
-    // Find the highest top-level index among focused comments.
-    let maxIndex = -1;
-    let firstTopLevel: string | null = null;
-    sortedTree.forEach((c, i) => {
-      if (focusedCommentIds.includes(c.id)) {
-        if (firstTopLevel === null) firstTopLevel = c.id;
-        if (i > maxIndex) maxIndex = i;
-      }
-    });
-    if (maxIndex >= 0 && maxIndex >= visibleCommentCount) {
-      setVisibleCommentCount(maxIndex + 1);
-    }
-    const targetId = firstTopLevel ?? focusedCommentIds[0];
-    const raf = requestAnimationFrame(() => {
-      const el = document.getElementById(`comment-${targetId}`);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [focusedCommentIds, sortedTree, visibleCommentCount]);
-
   // --- Render ---
 
   const progress = duration > 0 ? currentTime / duration : 0;
@@ -2271,9 +1762,77 @@ export function TrackDetailView() {
           />
         </div>
 
+        {/* Status selector — Cyberpunk 2077 HUD: dark bg, cyan border, chamfered,
+            yellow monospace text, cyan-on-hover options */}
+        <Select value={track.status} onValueChange={handleStatusChange}>
+          <SelectTrigger
+            size="sm"
+            className="w-[150px] shrink-0 h-8 border-0 rounded-none hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
+            style={{
+              background: BG_PANEL,
+              border: `1px solid ${hexToRgba(C, 0.5)}`,
+              clipPath: CHAMFER_4,
+              color: Y,
+              fontFamily: 'var(--font-jetbrains-mono), monospace',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              boxShadow: INSET_BEVEL_SHADOW,
+            }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{
+                  backgroundColor: statusDotColors[track.status] || A,
+                  boxShadow: `0 0 4px ${hexToRgba(statusDotColors[track.status] || A, 0.8)}`,
+                }}
+              />
+              <SelectValue />
+              <ChevronDown className="h-3 w-3 ml-auto opacity-70" style={{ color: Y }} />
+            </div>
+          </SelectTrigger>
+          <SelectContent
+            className="border-0 rounded-none p-1 min-w-[180px]"
+            style={{
+              background: BG_PANEL,
+              border: `1px solid ${hexToRgba(C, 0.5)}`,
+              clipPath: CHAMFER_4,
+              boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
+            }}
+          >
+            {STATUS_OPTIONS.map((status) => (
+              <SelectItem
+                key={status}
+                value={status}
+                className="focus:!bg-[#0a0c10] focus:!text-[#00a8c6] data-[highlighted]:!bg-[#0a0c10] data-[highlighted]:!text-[#00a8c6] hover:!bg-[#0a0c10] hover:!text-[#00a8c6] !text-[#c7a008] border-0 rounded-none"
+                style={{
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.5px',
+                  clipPath: CHAMFER_3,
+                  padding: '4px 8px',
+                }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{
+                      backgroundColor: statusDotColors[status] || A,
+                      boxShadow: `0 0 4px ${hexToRgba(statusDotColors[status] || A, 0.6)}`,
+                    }}
+                  />
+                  {statusLabels[status] || status}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </motion.div>
 
-      {/* ─── Track Profile Panel — editable track + kanban metadata ─── */}
+      {/* ─── Kanban Progress Panel — track + project stats tree ─── */}
       <div
         className="relative shrink-0 px-4 py-3 lg:px-6"
         style={{
@@ -2292,722 +1851,143 @@ export function TrackDetailView() {
           <CornerBrackets size={12} />
 
           <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-3 lg:p-4">
-            {/* LEFT (lg:col-span-2): Track Profile header + description + info grid + progress */}
+            {/* Track progress — spans 2 columns on lg */}
             <div className="lg:col-span-2">
-              {/* ── A. Profile Header ─ cover + title + status + Канбан ── */}
-              <div className="flex items-start gap-3">
-                {/* E. Cover Image — text-based placeholder (Track has no coverUrl).
-                    80×80 chamfered HUD cell with the track number + audio icon. */}
-                <div
-                  className="relative flex h-20 w-20 shrink-0 items-center justify-center"
+              {/* Section title */}
+              <div className="mb-2 flex items-center gap-2">
+                <Zap className="h-4 w-4" style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }} />
+                <h3
+                  className="text-[13px]"
                   style={{
-                    background: `linear-gradient(135deg, ${BG_CARD_PURPLE} 0%, ${BG_MAIN} 100%)`,
-                    border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                    clipPath: CHAMFER_5,
-                    boxShadow: INSET_BEVEL_SHADOW,
+                    ...SECTION_TITLE_STYLE,
+                    fontSize: '13px',
+                    letterSpacing: '2px',
                   }}
-                  title={track.title}
                 >
-                  <CornerBrackets size={8} />
-                  {/* Track number — large yellow monospace readout */}
-                  <span
-                    className="tabular-nums leading-none"
-                    style={{
-                      color: Y,
-                      fontFamily: 'var(--font-jetbrains-mono), monospace',
-                      fontSize: '26px',
-                      fontWeight: 800,
-                      textShadow: `0 0 8px ${hexToRgba(Y, 0.6)}`,
-                    }}
-                  >
-                    {String(track.trackNumber ?? 1).padStart(2, '0')}
-                  </span>
-                  {/* Audio indicator — bottom-right when audio exists */}
-                  {track.audioUrl ? (
-                    <span
-                      className="absolute bottom-1 right-1 flex items-center gap-0.5"
-                      style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.7)})` }}
-                      title="Аудио загружено"
-                    >
-                      <Music2 className="h-3 w-3" />
-                    </span>
-                  ) : null}
-                  {/* Top-left chip — "ТР" marker */}
-                  <span
-                    className="absolute top-1 left-1"
-                    style={{
-                      color: hexToRgba(Y, 0.7),
-                      fontFamily: 'var(--font-jetbrains-mono), monospace',
-                      fontSize: '8px',
-                      fontWeight: 700,
-                      letterSpacing: '1px',
-                    }}
-                  >
-                    ТР
-                  </span>
-                </div>
+                  Прогресс трека
+                </h3>
+              </div>
 
-                {/* Right side of header: title + status + Канбан */}
-                <div className="min-w-0 flex-1">
-                  {/* Title row — click to edit inline */}
-                  {editingTitle ? (
-                    <div
-                      className="flex items-center gap-1.5"
-                      style={{
-                        background: BG_MAIN,
-                        border: `1px solid ${hexToRgba(Y, 0.8)}`,
-                        clipPath: CHAMFER_3,
-                        boxShadow: `0 0 8px ${hexToRgba(Y, 0.35)}`,
-                        padding: '2px 4px',
-                      }}
-                    >
-                      <Input
-                        autoFocus
-                        value={titleDraft}
-                        onChange={(e) => setTitleDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleSaveTitle();
-                          } else if (e.key === 'Escape') {
-                            setEditingTitle(false);
-                          }
-                        }}
-                        onBlur={handleSaveTitle}
-                        className="h-7 border-0 bg-transparent px-1.5 text-sm focus-visible:ring-0"
-                        style={{
-                          color: TEXT_PRIMARY,
-                          fontFamily: 'var(--font-rajdhani), sans-serif',
-                          fontWeight: 700,
-                          letterSpacing: '0.5px',
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleStartEditTitle}
-                      className="group flex max-w-full items-center gap-1.5 text-left transition-colors hover:opacity-90"
-                      title="Кликните, чтобы изменить название"
-                    >
-                      <h3
-                        className="truncate text-base"
-                        style={{
-                          color: '#ffffff',
-                          fontFamily: 'var(--font-rajdhani), sans-serif',
-                          fontWeight: 700,
-                          letterSpacing: '0.6px',
-                          textShadow: `0 0 6px ${hexToRgba(Y, 0.25)}`,
-                        }}
-                      >
-                        {track.title}
-                      </h3>
-                      <Pencil
-                        className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                        style={{ color: Y }}
-                      />
-                    </button>
-                  )}
+              {/* Waveform progress bar */}
+              <WaveformProgressBar
+                progress={trackProgress.pct}
+                accentColor={Y}
+                height={32}
+                bars={24}
+              />
 
-                  {/* Subline: project + version chip */}
-                  <div
-                    className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px]"
-                    style={{
-                      fontFamily: 'var(--font-jetbrains-mono), monospace',
-                      color: TEXT_SECONDARY,
-                    }}
-                  >
-                    <span
-                      className="px-1.5 py-0.5"
-                      style={{
-                        background: hexToRgba(P, 0.15),
-                        border: `0.5px solid ${hexToRgba(P, 0.4)}`,
-                        color: '#b794f4',
-                        clipPath: CHAMFER_3,
-                        fontWeight: 700,
-                        letterSpacing: '0.5px',
-                      }}
-                    >
-                      v{track.version}
-                    </span>
-                    {/* Priority — 3-bar signal-strength scale. Only the bars
-                        are visible (no frame, no background, no border). The
-                        current priority level (1=low/red, 2=medium/yellow,
-                        3=high/green) lights up that many bars in the priority
-                        color; bars above stay dim. Clicking opens the dropdown.
-                        Hover scales the bars up so it reads as interactive. */}
-                    {primaryKanbanTask ? (
-                      <Select
-                        value={localKanbanPriority ?? 'medium'}
-                        onValueChange={handlePriorityChange}
-                      >
-                        <SelectTrigger
-                          size="sm"
-                          className="relative h-6 w-5 shrink-0 !border-0 !bg-transparent !ring-0 !outline-none !rounded-none !shadow-none !p-0 hover:scale-125 data-[state=open]:scale-125 transition-transform flex items-end justify-center gap-[2px] [&>svg:last-child]:hidden"
+              {/* Compact stats row — colored status dots */}
+              <div
+                className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]"
+                style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+              >
+                <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
+                <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
+                <StatDot label="В РАБОТЕ" count={trackProgress.inProgress} color={C} />
+                <StatDot label="ПРОВЕРКА" count={trackProgress.review} color={Y} />
+                <StatDot label="TODO" count={trackProgress.todo} color={A} />
+              </div>
+
+              {/* Tree-like breakdown — one row per trackTask with mini progress bar */}
+              {trackTasks.length > 0 && (
+                <div
+                  className="mt-3 max-h-44 overflow-y-auto pr-1"
+                  style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: `${hexToRgba(Y, 0.4)} transparent`,
+                  }}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    {trackTasks.map((tt) => {
+                      const subtasks = countAllDescendants([tt]);
+                      const subTotal = subtasks.length;
+                      const subDone = subtasks.filter((c) => c.status === 'done').length;
+                      const subPct = subTotal > 0 ? Math.round((subDone / subTotal) * 100) : 0;
+                      return (
+                        <div
+                          key={tt.id}
+                          className="flex items-center gap-2 px-2 py-1"
                           style={{
-                            background: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none',
-                          }}
-                          title={`Приоритет: ${priorityLabel(localKanbanPriority ?? 'medium')} — нажмите для изменения`}
-                        >
-                          {/* 3-bar vertical scale — bars grow from short (bottom)
-                              to tall (top), like a signal-strength indicator. */}
-                          {[3, 2, 1].map((barLevel) => {
-                            const lvl = priorityLevel(localKanbanPriority ?? 'medium');
-                            const active = barLevel <= lvl;
-                            const color = priorityColor(localKanbanPriority ?? 'medium');
-                            // Bar heights: top=16px, mid=12px, bottom=8px.
-                            const barH = barLevel === 3 ? 16 : barLevel === 2 ? 12 : 8;
-                            return (
-                              <span
-                                key={barLevel}
-                                style={{
-                                  display: 'block',
-                                  width: '4px',
-                                  height: `${barH}px`,
-                                  borderRadius: '1.5px',
-                                  backgroundColor: active ? color : 'rgba(255,255,255,0.18)',
-                                  boxShadow: active
-                                    ? `0 0 5px ${hexToRgba(color, 0.8)}`
-                                    : 'none',
-                                  transition: 'background-color 150ms ease, box-shadow 150ms ease',
-                                }}
-                              />
-                            );
-                          })}
-                          {savingField === 'priority' && (
-                            <span
-                              className="absolute -right-1 -top-1 inline-block h-2 w-2 animate-pulse rounded-full"
-                              style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.9)}` }}
-                            />
-                          )}
-                        </SelectTrigger>
-                        <SelectContent
-                          className="border-0 rounded-none p-1 min-w-[140px]"
-                          style={{
-                            background: BG_PANEL,
-                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                            clipPath: CHAMFER_4,
-                            boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
+                            background: BG_MAIN,
+                            border: `1px solid ${hexToRgba(C, 0.2)}`,
+                            clipPath: CHAMFER_3,
                           }}
                         >
-                          {(['high', 'medium', 'low'] as const).map((p) => (
-                            <SelectItem
-                              key={p}
-                              value={p}
-                              className="focus:!bg-[#0a0c10] data-[highlighted]:!bg-[#0a0c10] hover:!bg-[#0a0c10] border-0 rounded-none"
-                              style={{
-                                color: priorityColor(p),
-                                fontFamily: 'var(--font-jetbrains-mono), monospace',
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                letterSpacing: '0.5px',
-                                textTransform: 'uppercase',
-                                clipPath: CHAMFER_3,
-                                padding: '3px 6px',
-                              }}
-                            >
-                              <span className="flex items-center gap-1.5">
-                                <span
-                                  className="h-1.5 w-1.5 rounded-full"
-                                  style={{
-                                    backgroundColor: priorityColor(p),
-                                    boxShadow: `0 0 4px ${hexToRgba(priorityColor(p), 0.6)}`,
-                                  }}
-                                />
-                                {priorityLabel(p)}
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                    <span className="opacity-70">
-                      {projectOfTrack?.title || 'Без проекта'}
-                    </span>
-                    {savingField && (
-                      <span
-                        className="ml-auto flex items-center gap-1"
-                        style={{
-                          color: Y,
-                          letterSpacing: '0.5px',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        <span
-                          className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
-                          style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
-                        />
-                        Сохранение…
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Status + Kanban buttons */}
-                  <div className="mt-2 flex items-center gap-2 flex-wrap">
-                    <Select value={track.status} onValueChange={handleStatusChange}>
-                      <SelectTrigger
-                        size="sm"
-                        className="w-[150px] shrink-0 h-8 border-0 rounded-none hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
-                        style={{
-                          background: BG_PANEL,
-                          border: `1px solid ${hexToRgba(C, 0.5)}`,
-                          clipPath: CHAMFER_4,
-                          color: Y,
-                          fontFamily: 'var(--font-jetbrains-mono), monospace',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          letterSpacing: '1px',
-                          textTransform: 'uppercase',
-                          boxShadow: INSET_BEVEL_SHADOW,
-                        }}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent
-                        className="border-0 rounded-none p-1 min-w-[180px]"
-                        style={{
-                          background: BG_PANEL,
-                          border: `1px solid ${hexToRgba(C, 0.5)}`,
-                          clipPath: CHAMFER_4,
-                          boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
-                        }}
-                      >
-                        {STATUS_OPTIONS.map((status) => (
-                          <SelectItem
-                            key={status}
-                            value={status}
-                            className="focus:!bg-[#0a0c10] focus:!text-[#00a8c6] data-[highlighted]:!bg-[#0a0c10] data-[highlighted]:!text-[#00a8c6] hover:!bg-[#0a0c10] hover:!text-[#00a8c6] !text-[#c7a008] border-0 rounded-none"
+                          {/* Tree connector */}
+                          <span
+                            className="select-none"
+                            style={{ color: hexToRgba(Y, 0.5), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}
+                          >
+                            ├─
+                          </span>
+                          {/* Title */}
+                          <span
+                            className="min-w-0 flex-1 truncate"
                             style={{
-                              fontFamily: 'var(--font-jetbrains-mono), monospace',
-                              fontSize: '11px',
+                              color: TEXT_PRIMARY,
+                              fontFamily: 'var(--font-rajdhani), sans-serif',
+                              fontSize: '12px',
                               fontWeight: 600,
-                              letterSpacing: '0.5px',
+                            }}
+                            title={tt.title}
+                          >
+                            {tt.title}
+                          </span>
+                          {/* Mini progress bar */}
+                          <div
+                            className="relative h-1.5 w-20 shrink-0"
+                            style={{
+                              background: BG_MAIN,
+                              border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
                               clipPath: CHAMFER_3,
-                              padding: '4px 8px',
+                              boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
                             }}
                           >
-                            <span className="flex items-center gap-1.5">
-                              <span
-                                className="h-1.5 w-1.5 rounded-full"
-                                style={{
-                                  backgroundColor: statusDotColors[status] || A,
-                                  boxShadow: `0 0 4px ${hexToRgba(statusDotColors[status] || A, 0.6)}`,
-                                }}
-                              />
-                              {statusLabels[status] || status}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {projectOfTrack?.kanbanTaskId && (
-                      <button
-                        onClick={() => {
-                          const project = useDataStore.getState().projects.find((p) => p.id === selectedProjectId);
-                          if (!project?.kanbanTaskId) return;
-                          // Select the project FIRST so KanbanPage doesn't redirect.
-                          useKanbanStore.getState().selectProject(project.kanbanTaskId);
-                          useNavigationStore.getState().navigate('kanban');
-                        }}
-                        className="flex items-center gap-1.5 shrink-0 h-8 px-3 transition-all hover:scale-105"
-                        style={{
-                          clipPath: CHAMFER_4,
-                          background: hexToRgba(C, 0.1),
-                          border: `1px solid ${hexToRgba(C, 0.5)}`,
-                          color: C,
-                          fontFamily: 'var(--font-jetbrains-mono), monospace',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          letterSpacing: '1px',
-                          textTransform: 'uppercase',
-                          boxShadow: INSET_BEVEL_SHADOW,
-                        }}
-                        title="Открыть в Канбане"
-                      >
-                        <LayoutDashboard className="h-3.5 w-3.5" />
-                        Канбан
-                      </button>
-                    )}
+                            <div
+                              className="absolute inset-y-0 left-0"
+                              style={{
+                                width: `${subPct}%`,
+                                background: `linear-gradient(to right, ${P}, ${Y})`,
+                                boxShadow: `0 0 4px ${hexToRgba(Y, 0.5)}`,
+                                transition: 'width 220ms ease',
+                              }}
+                            />
+                          </div>
+                          {/* Done/total count */}
+                          <span
+                            className="shrink-0 tabular-nums"
+                            style={{
+                              color: subDone === subTotal && subTotal > 0 ? G : Y,
+                              fontFamily: 'var(--font-jetbrains-mono), monospace',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              minWidth: '34px',
+                              textAlign: 'right',
+                            }}
+                          >
+                            {subDone}/{subTotal}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-
-              {/* ── B. Description Section ─ kanban task description, inline-editable ── */}
-              <div className="mt-3">
-                <div className="mb-1.5 flex items-center gap-1.5">
-                  <span
-                    className="text-[10px]"
-                    style={{
-                      ...SECTION_TITLE_STYLE,
-                      fontSize: '10px',
-                      letterSpacing: '1.5px',
-                    }}
-                  >
-                    Описание
-                  </span>
-                  {savingField === 'description' && (
-                    <span
-                      className="flex items-center gap-1 text-[9px]"
-                      style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: '0.5px' }}
-                    >
-                      <span
-                        className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
-                        style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
-                      />
-                      Сохранение…
-                    </span>
-                  )}
-                </div>
-
-                {!primaryKanbanTask ? (
-                  // No linked kanban task — show a hint instead of an editor
-                  <div
-                    className="px-2.5 py-2 text-[11px]"
-                    style={{
-                      background: BG_MAIN,
-                      border: `0.5px solid ${hexToRgba(BORDER_MUTED, 1)}`,
-                      clipPath: CHAMFER_3,
-                      color: TEXT_SECONDARY,
-                      fontFamily: 'var(--font-jetbrains-mono), monospace',
-                    }}
-                  >
-                    Нет связанной kanban-задачи.
-                  </div>
-                ) : editingDescription ? (
-                  // Edit mode: textarea + Save / Cancel buttons
-                  <div
-                    className="relative"
-                    style={{
-                      background: BG_MAIN,
-                      border: `1px solid ${hexToRgba(Y, 0.8)}`,
-                      clipPath: CHAMFER_4,
-                      boxShadow: `0 0 8px ${hexToRgba(Y, 0.35)}`,
-                      padding: '6px 8px 8px',
-                    }}
-                  >
-                    <textarea
-                      autoFocus
-                      value={descriptionDraft}
-                      onChange={(e) => setDescriptionDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                          e.preventDefault();
-                          handleSaveDescription();
-                        } else if (e.key === 'Escape') {
-                          setEditingDescription(false);
-                        }
-                      }}
-                      placeholder="Опишите трек — настроение, референсы, инструкции…"
-                      rows={3}
-                      className="w-full resize-none border-0 bg-transparent px-1 py-1 text-[12px] outline-none placeholder:opacity-40"
-                      style={{
-                        color: TEXT_PRIMARY,
-                        fontFamily: 'var(--font-rajdhani), sans-serif',
-                        fontWeight: 500,
-                        lineHeight: 1.4,
-                      }}
-                    />
-                    <div className="mt-1.5 flex items-center justify-between">
-                      <span
-                        className="text-[9px]"
-                        style={{
-                          color: TEXT_SECONDARY,
-                          fontFamily: 'var(--font-jetbrains-mono), monospace',
-                          letterSpacing: '0.5px',
-                        }}
-                      >
-                        ⌘+Enter — сохранить
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setEditingDescription(false)}
-                          className="flex h-6 items-center gap-1 px-2 transition-all hover:opacity-80"
-                          style={{
-                            background: BG_PANEL,
-                            border: `0.5px solid ${hexToRgba(A, 0.5)}`,
-                            color: TEXT_SECONDARY,
-                            clipPath: CHAMFER_3,
-                            fontFamily: 'var(--font-jetbrains-mono), monospace',
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            letterSpacing: '0.5px',
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                          Отмена
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSaveDescription}
-                          className="flex h-6 items-center gap-1 px-2.5 transition-all hover:brightness-110"
-                          style={YELLOW_BUTTON_STYLE}
-                        >
-                          <Check className="h-3 w-3" />
-                          Сохранить
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : localKanbanDescription ? (
-                  // Display mode: HUD bubble with the description text
-                  <button
-                    type="button"
-                    onClick={handleStartEditDescription}
-                    className="group relative block w-full px-2.5 py-2 text-left transition-all hover:brightness-110"
-                    style={{
-                      background: hexToRgba(BG_CARD_TEAL, 0.7),
-                      border: `0.5px solid ${hexToRgba(C, 0.3)}`,
-                      borderLeft: `2px solid ${Y}`,
-                      clipPath: CHAMFER_3,
-                      boxShadow: `inset 0 1px 1px rgba(255,255,255,0.04), 0 0 6px ${hexToRgba(Y, 0.1)}`,
-                    }}
-                  >
-                    <p
-                      className="whitespace-pre-wrap break-words text-[12px]"
-                      style={{
-                        color: TEXT_PRIMARY,
-                        fontFamily: 'var(--font-rajdhani), sans-serif',
-                        fontWeight: 500,
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      {localKanbanDescription}
-                    </p>
-                    <Pencil
-                      className="absolute right-1.5 top-1.5 h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100"
-                      style={{ color: Y }}
-                    />
-                  </button>
-                ) : (
-                  // Empty state: "Нет описания" + "Добавить описание" button
-                  <button
-                    type="button"
-                    onClick={handleStartEditDescription}
-                    className="group flex w-full items-center justify-between px-2.5 py-2 text-left transition-all hover:brightness-110"
-                    style={{
-                      background: BG_MAIN,
-                      border: `0.5px dashed ${hexToRgba(Y, 0.4)}`,
-                      clipPath: CHAMFER_3,
-                    }}
-                  >
-                    <span
-                      className="text-[11px]"
-                      style={{
-                        color: TEXT_SECONDARY,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        letterSpacing: '0.5px',
-                      }}
-                    >
-                      Нет описания
-                    </span>
-                    <span
-                      className="flex h-6 items-center gap-1 px-2 transition-all group-hover:brightness-110"
-                      style={{
-                        ...YELLOW_BUTTON_STYLE,
-                        fontSize: '10px',
-                        padding: '2px 8px',
-                      }}
-                    >
-                      <Plus className="h-3 w-3" />
-                      Добавить
-                    </span>
-                  </button>
-                )}
-              </div>
-
-              {/* ── C. Track Info Grid — 3×2 grid of small HUD stat cells ── */}
-              {/* Priority used to live here as the 6th cell; it has been moved
-                  up to the Profile Header row (next to Status + Канбан button)
-                  per the new layout. Grid now has 5 cells: Номер, Длительность,
-                  Референсы, Дедлайн, Автор. */}
-              <div
-                className="mt-3 grid grid-cols-3 gap-1.5"
-              >
-                {/* Track # */}
-                <InfoStatCell
-                  label="Номер"
-                  value={String(track.trackNumber ?? 1).padStart(2, '0')}
-                />
-                {/* Duration */}
-                <InfoStatCell
-                  label="Длительность"
-                  value={formatDuration(
-                    (track.durationMs ?? 0) / 1000
-                  )}
-                />
-                {/* References — count of top-level tasks on the project's
-                    "Референсы" kanban board. Shows "—" while loading or when
-                    the project has no references board. */}
-                <InfoStatCell
-                  label="Референсы"
-                  value={
-                    referencesCount === null
-                      ? '—'
-                      : referencesCount === 0
-                        ? 'Нет'
-                        : `${referencesCount} реф.`
-                  }
-                />
-                {/* Deadline — read from the first trackTask's deadline field
-                    (the primary kanban task linked to this track). Formatted
-                    DD.MM.YY; "Нет" when no deadline is set. */}
-                <InfoStatCell
-                  label="Дедлайн"
-                  value={
-                    primaryKanbanTask?.deadline
-                      ? format(new Date(primaryKanbanTask.deadline), 'dd.MM.yy')
-                      : 'Нет'
-                  }
-                />
-                {/* Created by */}
-                <InfoStatCell
-                  label="Автор"
-                  value={trackDetail?.creator?.displayName || '—'}
-                />
-              </div>
-
-              {/* ── D. Progress (track + project) — moved here from the right column.
-                  Replaces the old "Задачи трека" task tree. Two compact rows:
-                  yellow waveform bar (track) + cyan bar (project), each with
-                  inline stats. */}
-              <div className="mt-3 flex flex-col gap-2">
-                {/* Track progress — slim yellow waveform bar */}
-                <div>
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                      <Zap
-                        className="h-2.5 w-2.5"
-                        style={{ color: Y, filter: `drop-shadow(0 0 3px ${hexToRgba(Y, 0.6)})` }}
-                      />
-                      <span
-                        className="text-[9px]"
-                        style={{
-                          ...SECTION_TITLE_STYLE,
-                          fontSize: '9px',
-                          letterSpacing: '1px',
-                        }}
-                      >
-                        Прогресс трека
-                      </span>
-                    </div>
-                    <div
-                      className="flex items-center gap-2 text-[9px]"
-                      style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
-                    >
-                      <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
-                      <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
-                      <StatDot label="ОЖИДАНИЕ" count={trackProgress.todo} color={A} />
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      border: `1px solid ${hexToRgba(C, 0.5)}`,
-                      clipPath: CHAMFER_4,
-                      padding: '4px',
-                      background: hexToRgba(C, 0.05),
-                      boxShadow: `0 0 8px ${hexToRgba(C, 0.15)}`,
-                    }}
-                  >
-                    <WaveformProgressBar
-                      progress={trackProgress.pct}
-                      accentColor={Y}
-                      height={36}
-                      bars={36}
-                    />
-                  </div>
-                </div>
-
-                {/* Project progress — slim cyan bar */}
-                {projectProgress ? (
-                  <div>
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1">
-                        <LayoutDashboard
-                          className="h-2.5 w-2.5"
-                          style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.5)})` }}
-                        />
-                        <span
-                          className="text-[9px]"
-                          style={{
-                            ...SECTION_TITLE_STYLE,
-                            fontSize: '9px',
-                            letterSpacing: '1px',
-                            color: C,
-                          }}
-                        >
-                          Прогресс проекта
-                        </span>
-                      </div>
-                      <div
-                        className="flex items-center gap-1.5 text-[9px]"
-                        style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
-                      >
-                        <span
-                          className="tabular-nums"
-                          style={{
-                            color: C,
-                            fontWeight: 800,
-                            textShadow: `0 0 5px ${hexToRgba(C, 0.4)}`,
-                          }}
-                        >
-                          {projectProgress.pct}%
-                        </span>
-                        <span
-                          className="tabular-nums"
-                          style={{ color: TEXT_SECONDARY }}
-                        >
-                          {projectProgress.done}/{projectProgress.total}
-                        </span>
-                      </div>
-                    </div>
-                    <div
-                      className="relative h-1.5 w-full"
-                      style={{
-                        background: BG_MAIN,
-                        border: `1px solid ${hexToRgba(C, 0.45)}`,
-                        clipPath: CHAMFER_3,
-                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                      }}
-                    >
-                      <div
-                        className="absolute inset-y-0 left-0"
-                        style={{
-                          width: `${projectProgress.pct}%`,
-                          background: `linear-gradient(to right, ${P2}, ${C})`,
-                          boxShadow: `0 0 5px ${hexToRgba(C, 0.6)}`,
-                          transition: 'width 320ms ease',
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+              )}
             </div>
 
-            {/* RIGHT (lg:col-span-1): Track text editor (lyrics/notes).
-                Stored in the kanban task's `trackConfig` JSON under `trackText`.
-                Saves on blur or Ctrl/Cmd+Enter via PUT /api/tasks {id, trackConfig}. */}
+            {/* Project progress — compact summary, 1 column */}
             <div
-              className="relative flex flex-col gap-2 p-2.5 lg:p-3"
+              className="relative flex flex-col justify-between gap-2 p-2.5 lg:p-3"
               style={{
                 background: BG_MAIN,
-                border: `1px solid ${hexToRgba(Y, 0.35)}`,
+                border: `1px solid ${hexToRgba(C, 0.35)}`,
                 clipPath: CHAMFER_5,
                 boxShadow: INSET_BEVEL_SHADOW,
               }}
             >
-              <div className="flex items-center justify-between gap-1.5">
-                <div className="flex items-center gap-1.5">
-                  <MessageSquareQuote
-                    className="h-3.5 w-3.5"
-                    style={{ color: Y, filter: `drop-shadow(0 0 3px ${hexToRgba(Y, 0.5)})` }}
-                  />
+              <div>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <LayoutDashboard className="h-3.5 w-3.5" style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.5)})` }} />
                   <span
                     className="text-[10px]"
                     style={{
@@ -3016,88 +1996,79 @@ export function TrackDetailView() {
                       letterSpacing: '1.5px',
                     }}
                   >
-                    Текст трека
+                    Проект
                   </span>
                 </div>
-                {savingField === 'trackText' && (
-                  <span
-                    className="flex items-center gap-1 text-[9px]"
-                    style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: '0.5px' }}
-                  >
-                    <span
-                      className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
-                      style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
-                    />
-                    Сохранение…
-                  </span>
-                )}
+                <div
+                  className="truncate text-[11px]"
+                  style={{
+                    color: TEXT_PRIMARY,
+                    fontFamily: 'var(--font-rajdhani), sans-serif',
+                    fontWeight: 600,
+                  }}
+                  title={projectOfTrack?.title || '—'}
+                >
+                  {projectOfTrack?.title || '—'}
+                </div>
               </div>
 
-              {primaryKanbanTask ? (
-                <div
-                  className="relative flex-1"
-                  style={{
-                    background: '#0a0c10',
-                    border: `1px solid ${trackTextFocused ? hexToRgba(Y, 0.8) : hexToRgba(BORDER_MUTED, 1)}`,
-                    clipPath: CHAMFER_4,
-                    boxShadow: trackTextFocused
-                      ? `0 0 8px ${hexToRgba(Y, 0.35)}`
-                      : 'inset 0 1px 1px rgba(0,0,0,0.6)',
-                    transition: 'border-color 120ms ease, box-shadow 120ms ease',
-                    padding: '6px 8px',
-                  }}
-                >
-                  <textarea
-                    value={trackTextDraft}
-                    onChange={(e) => setTrackTextDraft(e.target.value)}
-                    onFocus={() => setTrackTextFocused(true)}
-                    onBlur={() => {
-                      setTrackTextFocused(false);
-                      handleSaveTrackText();
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault();
-                        handleSaveTrackText();
-                      }
-                    }}
-                    placeholder="Текст трека, лирика, заметки… ⌘+Enter — сохранить"
-                    className="w-full resize-none border-0 bg-transparent px-1 py-1 text-[12px] outline-none placeholder:opacity-40"
+              {projectProgress ? (
+                <>
+                  {/* Big percentage readout */}
+                  <div className="flex items-baseline gap-1">
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        color: Y,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '24px',
+                        fontWeight: 800,
+                        lineHeight: 1,
+                        textShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
+                      }}
+                    >
+                      {projectProgress.pct}
+                    </span>
+                    <span style={{ color: hexToRgba(Y, 0.6), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}>%</span>
+                  </div>
+
+                  {/* Mini project progress bar */}
+                  <div
+                    className="relative h-1.5 w-full"
                     style={{
-                      color: TEXT_PRIMARY,
-                      fontFamily: 'var(--font-rajdhani), sans-serif',
-                      fontWeight: 500,
-                      lineHeight: 1.45,
-                      minHeight: '180px',
+                      background: BG_MAIN,
+                      border: `0.5px solid ${hexToRgba(C, 0.3)}`,
+                      clipPath: CHAMFER_3,
+                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
                     }}
-                  />
-                </div>
+                  >
+                    <div
+                      className="absolute inset-y-0 left-0"
+                      style={{
+                        width: `${projectProgress.pct}%`,
+                        background: `linear-gradient(to right, ${P}, ${Y})`,
+                        boxShadow: `0 0 4px ${hexToRgba(Y, 0.5)}`,
+                      }}
+                    />
+                  </div>
+
+                  {/* Compact project stats */}
+                  <div
+                    className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9px]"
+                    style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                  >
+                    <StatDot label="ВСЕГО" count={projectProgress.total} color={A} compact />
+                    <StatDot label="ГОТОВО" count={projectProgress.done} color={G} compact />
+                    <StatDot label="В РАБОТЕ" count={projectProgress.inProgress} color={C} compact />
+                    <StatDot label="ПРОВЕРКА" count={projectProgress.review} color={Y} compact />
+                  </div>
+                </>
               ) : (
                 <div
-                  className="px-2.5 py-2 text-[11px]"
-                  style={{
-                    background: BG_MAIN,
-                    border: `0.5px solid ${hexToRgba(BORDER_MUTED, 1)}`,
-                    clipPath: CHAMFER_3,
-                    color: TEXT_SECONDARY,
-                    fontFamily: 'var(--font-jetbrains-mono), monospace',
-                  }}
+                  className="text-center text-[10px]"
+                  style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}
                 >
-                  Нет связанной kanban-задачи.
-                </div>
-              )}
-
-              {/* Hint — Ctrl+Enter to save; appears even when empty */}
-              {primaryKanbanTask && (
-                <div
-                  className="text-[9px]"
-                  style={{
-                    color: TEXT_SECONDARY,
-                    fontFamily: 'var(--font-jetbrains-mono), monospace',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  ⌘+Enter — сохранить · Сохранение автоматически при потере фокуса
+                  Нет kanban-задачи
                 </div>
               )}
             </div>
@@ -3227,6 +2198,238 @@ export function TrackDetailView() {
       {/* Main content — single full-width column (chat moved to global floating widget) */}
       <div className="min-h-0 flex-1">
         <div className="flex h-full flex-col">
+          {/* Audio Player — HUD panel with chamfered corners, corner brackets, inset bevel */}
+              <div
+                className="relative shrink-0 p-4 lg:p-6"
+                style={{
+                  background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+                  border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                  clipPath: CHAMFER_8,
+                  boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
+                }}
+              >
+                <CornerBrackets size={12} />
+                {/* Segmented seek bar — 10 HUD equalizer segments, each chamfered.
+                    Filled segments use yellow→cyan gradient with glow; unfilled dark grey. */}
+                <div className="mb-3">
+                  <div className="flex h-3 gap-1.5">
+                    {Array.from({ length: 10 }).map((_, i) => {
+                      const segProgress = progress * 10;
+                      const isFilled = i < Math.floor(segProgress);
+                      const isPartial = i === Math.floor(segProgress) && segProgress > i;
+                      const partialWidth = isPartial ? (segProgress - i) * 100 : (isFilled ? 100 : 0);
+                      return (
+                        <div
+                          key={i}
+                          className="group/seg relative flex-1 cursor-pointer"
+                          style={{
+                            background: BG_MAIN,
+                            clipPath: CHAMFER_4,
+                            boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                            border: `0.5px solid ${hexToRgba(BORDER_MUTED, 0.8)}`,
+                          }}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            // Map click position within segment to overall progress
+                            const segPct = (i + x / rect.width) / 10;
+                            seekTo(segPct * duration);
+                          }}
+                          title={`Перейти к ${Math.round(((i + 0.5) / 10) * 100)}%`}
+                        >
+                          {/* Filled fill — yellow→cyan gradient with glow */}
+                          <div
+                            className="absolute inset-0 transition-all duration-150"
+                            style={{
+                              width: `${partialWidth}%`,
+                              background: `linear-gradient(to right, ${Y}, ${C})`,
+                              clipPath: CHAMFER_4,
+                              boxShadow: partialWidth > 0
+                                ? `0 0 6px ${hexToRgba(Y, 0.6)}, 0 0 3px ${hexToRgba(C, 0.5)}`
+                                : 'none',
+                            }}
+                          />
+                          {/* Empty segment dim indicator */}
+                          {partialWidth === 0 && (
+                            <div
+                              className="absolute inset-0 opacity-15"
+                              style={{
+                                background: `linear-gradient(to right, ${hexToRgba(A, 0.4)}, ${hexToRgba(A, 0.2)})`,
+                                clipPath: CHAMFER_4,
+                              }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Time display row — large yellow current / smaller grey total + percentage badge */}
+                  <div className="mt-2 flex items-baseline justify-between gap-2">
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        color: Y,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        textShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {formatDuration(currentTime)}
+                    </span>
+                    <span
+                      className="px-2 py-0.5 tabular-nums"
+                      style={{
+                        color: Y,
+                        background: hexToRgba(Y, 0.12),
+                        border: `0.5px solid ${hexToRgba(Y, 0.5)}`,
+                        clipPath: CHAMFER_3,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {Math.round(progress * 100)}%
+                    </span>
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        color: TEXT_SECONDARY,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '11px',
+                      }}
+                    >
+                      {formatDuration(displayDuration)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Controls row — transport buttons + volume + hint */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
+                          style={{
+                            clipPath: CHAMFER_4,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                            background: BG_MAIN,
+                            color: Y,
+                          }}
+                          onClick={() => skip(-5)}
+                        >
+                          <SkipBack className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Назад 5с</TooltipContent>
+                    </Tooltip>
+
+                    <Button
+                      size="icon"
+                      className="h-12 w-12 rounded-none border-0"
+                      style={{
+                        clipPath: CHAMFER_4,
+                        // Purple→yellow gradient bg per cyberpunk 2077 spec
+                        background: `linear-gradient(135deg, ${P} 0%, ${Y} 100%)`,
+                        boxShadow: `0 0 16px ${hexToRgba(Y, 0.55)}, 0 0 8px ${hexToRgba(P, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+                        border: `1.5px solid ${hexToRgba(Y, 0.5)}`,
+                      }}
+                      onClick={togglePlay}
+                    >
+                      {isPlaying ? (
+                        <Pause className="h-5 w-5" style={{ color: '#fff', filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.6))' }} />
+                      ) : (
+                        <Play className="h-5 w-5 ml-0.5" style={{ color: Y, filter: `drop-shadow(0 0 3px ${Y})` }} />
+                      )}
+                    </Button>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
+                          style={{
+                            clipPath: CHAMFER_4,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                            background: BG_MAIN,
+                            color: Y,
+                          }}
+                          onClick={() => skip(5)}
+                        >
+                          <SkipForward className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Вперёд 5с</TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  {/* Volume — chamfered slider with yellow fill */}
+                  <div className="flex items-center gap-2 ml-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-none border-0 hover:bg-[#c7a008]/10"
+                          style={{
+                            clipPath: CHAMFER_4,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                            background: BG_MAIN,
+                            color: Y,
+                          }}
+                          onClick={() => setIsMuted(!isMuted)}
+                        >
+                          {isMuted || volume === 0 ? (
+                            <VolumeX className="h-4 w-4" />
+                          ) : (
+                            <Volume2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isMuted ? 'Включить звук' : 'Выключить звук'}
+                      </TooltipContent>
+                    </Tooltip>
+                    <div
+                      className="group relative h-2 w-24 cursor-pointer"
+                      style={{
+                        background: BG_MAIN,
+                        clipPath: CHAMFER_3,
+                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                        border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+                      }}
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        setVolume(Math.max(0, Math.min(1, x / rect.width)));
+                        if (isMuted) setIsMuted(false);
+                      }}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 transition-all"
+                        style={{
+                          width: `${(isMuted ? 0 : volume) * 100}%`,
+                          background: `linear-gradient(to right, ${Y2}, ${Y})`,
+                          clipPath: CHAMFER_3,
+                          boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Keyboard shortcut hint */}
+                  <p className="ml-auto hidden text-[11px] lg:block" style={{ color: `${Y}cc`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                    Пробел: Играть/Пауза · ←→: Перемотка 5с
+                  </p>
+                </div>
+              </div>
+
               {/* Waveform */}
               <div className="shrink-0 px-4 pt-4 lg:px-6">
                 {/* Marker mode toolbar — always visible near waveform */}
@@ -3308,70 +2511,6 @@ export function TrackDetailView() {
                   </div>
                 </div>
 
-                {/* Waveform wrapper — no clip-path so tooltip can escape */}
-                <div
-                  className="relative"
-                  onMouseMove={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    if (duration > 0 && waveformReady) {
-                      const pct = x / rect.width;
-                      const ms = Math.round(pct * duration * 1000);
-                      setWaveformHoverTime({ x, ms });
-                    }
-                  }}
-                  onMouseLeave={() => setWaveformHoverTime(null)}
-                >
-                {/* Hover time tooltip — in the OUTER wrapper, above all clip-paths.
-                    z-[60] so it sits above the inner waveform frame and its
-                    chamfered border (which has no explicit z-index). */}
-                {waveformHoverTime && !hoveredMarkerId && !pinnedMarkerId && (
-                  <div
-                    className="pointer-events-none absolute z-[60] -translate-x-1/2"
-                    style={{ left: waveformHoverTime.x, top: '0px' }}
-                  >
-                    <span
-                      className="px-2 py-1 text-[10px] font-bold whitespace-nowrap"
-                      style={{
-                        background: Y,
-                        color: '#0a0b10',
-                        clipPath: CHAMFER_3,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        boxShadow: `0 0 10px ${hexToRgba(Y, 0.6)}, 0 2px 8px rgba(0,0,0,0.8)`,
-                        position: 'relative',
-                        top: '-24px',
-                      }}
-                    >
-                      {formatTimestamp(waveformHoverTime.ms)}
-                    </span>
-                  </div>
-                )}
-
-                {/* Range-selection hint badge — rendered in the OUTER wrapper
-                    (not inside the clipPath'd inner div) so it's never clipped
-                    by the waveform frame. Sits just above the waveform, follows
-                    the start marker horizontally. The 13px offset accounts for
-                    the inner div's p-3 padding + border. */}
-                {waveformReady && displayDuration > 0 && isSelectingRange && rangeStartMs > 0 && (
-                  <div
-                    className="pointer-events-none absolute z-[60] flex items-center gap-1 whitespace-nowrap px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                    style={{
-                      left: `calc(13px + ${(rangeStartMs / 1000 / duration) * 100}% - ${(rangeStartMs / 1000 / duration) * 26}px)`,
-                      top: '-26px',
-                      transform: 'translateX(-50%)',
-                      background: '#0a0c10',
-                      color: Y,
-                      border: `1px solid ${Y}`,
-                      clipPath: CHAMFER_3,
-                      fontFamily: 'var(--font-jetbrains-mono), monospace',
-                      boxShadow: `0 0 8px ${hexToRgba(Y, 0.6)}`,
-                    }}
-                  >
-                    <MapPin className="h-2.5 w-2.5" />
-                    Выберите конец диапазона
-                  </div>
-                )}
-
                 <div
                   className={`relative border p-3 transition-colors ${
                     markerMode === 'range'
@@ -3416,7 +2555,18 @@ export function TrackDetailView() {
                       </span>
                     </div>
                   )}
-                  <div className="relative">
+                  <div className="relative"
+                    onMouseMove={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const pct = x / rect.width;
+                      if (duration > 0 && waveformReady) {
+                        const ms = Math.round(pct * duration * 1000);
+                        setWaveformHoverTime({ x, ms });
+                      }
+                    }}
+                    onMouseLeave={() => setWaveformHoverTime(null)}
+                  >
                     <canvas
                       ref={canvasRef}
                       className={`h-24 w-full ${!waveformReady ? 'hidden' : ''} ${
@@ -3426,22 +2576,39 @@ export function TrackDetailView() {
                       }`}
                       onClick={handleWaveformClick}
                     />
-                    {/* Range highlight bars for range comments — top-level only,
-                        replies inherit the root's timestampMs but don't get
-                        their own marker/range bar. */}
+                    {/* Hover time tooltip — follows cursor along waveform — yellow HUD chip */}
+                    {waveformHoverTime && (
+                      <div
+                        className="pointer-events-none absolute top-1 z-20 -translate-x-1/2"
+                        style={{ left: waveformHoverTime.x }}
+                      >
+                        <span
+                          className="px-1.5 py-0.5 text-[10px] font-bold shadow-lg"
+                          style={{
+                            background: hexToRgba(Y, 0.95),
+                            color: '#0a0b10',
+                            clipPath: CHAMFER_3,
+                            fontFamily: 'var(--font-jetbrains-mono), monospace',
+                          }}
+                        >
+                          {formatTimestamp(waveformHoverTime.ms)}
+                        </span>
+                      </div>
+                    )}
+                    {/* Range highlight bars for range comments */}
                     {waveformReady && displayDuration > 0 &&
                       comments
-                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && !c.parentId && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
                         .map((comment) => {
                         const startPct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
                         const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
-                        const isFocused = focusedCommentIds.includes(comment.id);
+                        const isFocused = focusedCommentId === comment.id;
                         const isHovered = hoveredMarkerId === comment.id;
                         return (
                           <div
                             key={`range-${comment.id}`}
                             className={`absolute top-0 h-full z-[5] rounded-sm transition-all pointer-events-none ${
-                              isFocused ? 'bg-[#c7a008]/22 border-y-2 border-[#c7a008]' :
+                              isFocused ? 'bg-[#c7a008]/15 border-y-2 border-[#c7a008]/60' :
                               isHovered ? 'bg-[#c7a008]/10 border-y-2 border-[#c7a008]/40' :
                               comment.isResolved ? 'bg-[#4a8d6f]/8 border-y-2 border-[#4a8d6f]/20' :
                               'bg-[#c7a008]/8 border-y-2 border-[#c7a008]/20'
@@ -3449,10 +2616,6 @@ export function TrackDetailView() {
                             style={{
                               left: `${startPct * 100}%`,
                               width: `${(endPct - startPct) * 100}%`,
-                              ...(isFocused ? {
-                                boxShadow: `0 0 16px rgba(199,160,8,0.5), inset 0 0 12px rgba(199,160,8,0.25)`,
-                                animation: 'kb6-focus-badge 1.6s ease-in-out infinite',
-                              } : {}),
                             }}
                           />
                         );
@@ -3480,17 +2643,15 @@ export function TrackDetailView() {
                         )}
                       </div>
                     )}
-                    {/* HTML overlay markers for interactive hover/click — only for
-                        active version, top-level comments only. Replies inherit
-                        the root's timestampMs but don't render their own marker. */}
+                    {/* HTML overlay markers for interactive hover/click — only for active version */}
                     {waveformReady && displayDuration > 0 &&
                       comments
-                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && !c.parentId)
+                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id)
                         .map((comment) => {
                         const pct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
                         if (pct < 0 || pct > 1) return null;
                         const isHovered = hoveredMarkerId === comment.id;
-                        const isFocused = focusedCommentIds.includes(comment.id);
+                        const isFocused = focusedCommentId === comment.id;
                         const isRange = !!(comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs);
                         return (
                           <motion.button
@@ -3503,7 +2664,8 @@ export function TrackDetailView() {
                               if (pinnedMarkerId === comment.id) return; // pinned: keep visible
                               markerHideTimerRef.current = setTimeout(() => {
                                 if (!markerTooltipHoverRef.current) {
-                                  hideMarkerTooltip();
+                                  setHoveredMarkerId(null);
+                                  setMarkerTooltipPos(null);
                                 }
                               }, 200);
                             }}
@@ -3515,7 +2677,7 @@ export function TrackDetailView() {
                               showMarkerTooltipFor(e.currentTarget, comment.id);
                             }}
                             initial={false}
-                            animate={{ scale: isHovered ? 1.4 : isFocused ? 1.2 : 1, y: isHovered ? -2 : 0 }}
+                            animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
                             transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                             className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
                             style={{ left: `${pct * 100}%` }}
@@ -3525,46 +2687,17 @@ export function TrackDetailView() {
                             {isRange ? (
                               <>
                                 {/* Range marker: diamond shape */}
-                                {/* Pulsing focus halo for range start */}
-                                {isFocused && (
-                                  <div
-                                    className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2"
-                                    style={{
-                                      width: '14px',
-                                      height: '14px',
-                                      borderRadius: '9999px',
-                                      border: `1px solid ${Y}`,
-                                      boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}`,
-                                      animation: 'kb6-focus-badge 1.6s ease-in-out infinite',
-                                    }}
-                                  />
-                                )}
                                 <div
-                                  className={`transition-all duration-150 ${
-                                    comment.isResolved
-                                      ? 'flex items-center justify-center'
-                                      : 'rotate-45'
-                                  } ${
+                                  className={`rotate-45 transition-all duration-150 ${
                                     isFocused
-                                      ? 'h-4 w-4 bg-[#c7a008] shadow-[0_0_6px_rgba(199,160,8,0.6)]'
+                                      ? 'h-4 w-4 bg-[#c7a008] shadow-[0_0_10px_rgba(199,160,8,0.6)]'
                                       : isHovered
                                         ? 'h-3.5 w-3.5 bg-[#c7a008]/80 shadow-[0_0_8px_rgba(199,160,8,0.5)]'
                                         : comment.isResolved
-                                          ? 'h-4 w-4'
+                                          ? 'h-2.5 w-2.5 bg-[#4a8d6f]'
                                           : 'h-2.5 w-2.5 bg-[#c7a008]'
                                   }`}
-                                >
-                                  {comment.isResolved && (
-                                    <Check
-                                      className="h-3.5 w-3.5"
-                                      strokeWidth={3}
-                                      style={{
-                                        color: G,
-                                        filter: `drop-shadow(0 0 5px ${hexToRgba(G, 0.9)})`,
-                                      }}
-                                    />
-                                  )}
-                                </div>
+                                />
                                 {/* Vertical line */}
                                 <div
                                   className={`absolute left-1/2 top-full h-4 w-0.5 -translate-x-1/2 -rotate-0 transition-colors ${
@@ -3574,75 +2707,27 @@ export function TrackDetailView() {
                               </>
                             ) : (
                               <>
-                                {/* Point marker: cyberpunk HUD diamond pin */}
-                                {/* Pulsing focus halo — small ring hugging the marker */}
-                                {isFocused && (
-                                  <div
-                                    className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2"
-                                    style={{
-                                      width: '14px',
-                                      height: '14px',
-                                      borderRadius: '9999px',
-                                      border: `1px solid ${C}`,
-                                      boxShadow: `0 0 4px ${hexToRgba(C, 0.6)}`,
-                                      animation: 'kb6-focus-badge 1.6s ease-in-out infinite',
-                                    }}
-                                  />
-                                )}
-                                {comment.isResolved ? (
-                                  /* Resolved point marker — green checkmark instead of a diamond */
-                                  <div
-                                    className="flex items-center justify-center transition-all duration-150"
-                                    style={{
-                                      width: isFocused ? '16px' : isHovered ? '14px' : '14px',
-                                      height: isFocused ? '16px' : isHovered ? '14px' : '14px',
-                                    }}
-                                  >
-                                    <Check
-                                      className={isFocused ? 'h-4 w-4' : 'h-3.5 w-3.5'}
-                                      strokeWidth={3}
-                                      style={{
-                                        color: G,
-                                        filter: `drop-shadow(0 0 5px ${hexToRgba(G, 0.9)})`,
-                                      }}
-                                    />
-                                  </div>
-                                ) : (
-                                  <div
-                                    className="transition-all duration-150"
-                                    style={{
-                                      width: isFocused ? '12px' : isHovered ? '12px' : '10px',
-                                      height: isFocused ? '12px' : isHovered ? '12px' : '10px',
-                                      background: C,
-                                      clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-                                      boxShadow: isFocused
-                                        ? `0 0 5px ${C}`
-                                        : isHovered
-                                          ? `0 0 6px ${C}`
-                                          : `0 0 4px ${hexToRgba(C, 0.6)}`,
-                                      border: `1px solid ${Y}`,
-                                    }}
-                                  >
-                                    <div style={{
-                                      width: '3px', height: '3px',
-                                      background: Y,
-                                      margin: 'auto',
-                                      marginTop: isFocused ? '5px' : isHovered ? '4px' : '3px',
-                                    }} />
-                                  </div>
-                                )}
+                                {/* Point marker: circle pin */}
+                                <div
+                                  className={`rounded-full border-2 transition-all duration-150 ${
+                                    isFocused
+                                      ? 'h-4 w-4 border-[#00a8c6] bg-[#00a8c6]/30 shadow-[0_0_8px_rgba(0,168,198,0.5)]'
+                                      : isHovered
+                                        ? 'h-3.5 w-3.5 border-[#00a8c6] bg-[#00a8c6]/40 shadow-[0_0_8px_rgba(0,168,198,0.5)]'
+                                        : comment.isResolved
+                                          ? 'h-2.5 w-2.5 border-[#4a8d6f] bg-[#4a8d6f]'
+                                          : 'h-2.5 w-2.5 border-[#00a8c6] bg-[#00a8c6]'
+                                  }`}
+                                  style={{ borderColor: 'inherit' }}
+                                >
+                                  <div className="m-auto h-1 w-1 rounded-full bg-white" />
+                                </div>
 
                                 {/* Vertical line down from pin */}
                                 <div
-                                  className="absolute left-1/2 top-full w-px -translate-x-1/2 transition-colors"
-                                  style={{
-                                    height: '20px',
-                                    background: isFocused
-                                      ? `linear-gradient(180deg, ${C}, transparent)`
-                                      : isHovered
-                                        ? `linear-gradient(180deg, ${hexToRgba(C, 0.6)}, transparent)`
-                                        : `linear-gradient(180deg, ${hexToRgba(C, 0.3)}, transparent)`,
-                                  }}
+                                  className={`absolute left-1/2 top-full h-4 w-px -translate-x-1/2 transition-colors ${
+                                    isFocused ? 'bg-[#00a8c6]/60' : isHovered ? 'bg-[#00a8c6]/40' : 'bg-[#00a8c6]/20'
+                                  }`}
                                 />
                               </>
                             )}
@@ -3650,16 +2735,14 @@ export function TrackDetailView() {
                           </motion.button>
                         );
                       })}
-                    {/* Range END markers — smaller diamonds at the end position
-                        of range comments. Top-level only — replies don't get
-                        their own END marker. */}
+                    {/* Range END markers — smaller diamonds at the end position of range comments */}
                     {waveformReady && displayDuration > 0 &&
                       comments
-                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && !c.parentId && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
                         .map((comment) => {
                           const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
                           if (endPct < 0 || endPct > 1) return null;
-                          const isFocused = focusedCommentIds.includes(comment.id);
+                          const isFocused = focusedCommentId === comment.id;
                           const isHovered = hoveredMarkerId === comment.id;
                           return (
                             <motion.button
@@ -3672,7 +2755,8 @@ export function TrackDetailView() {
                                 if (pinnedMarkerId === comment.id) return; // pinned: keep visible
                                 markerHideTimerRef.current = setTimeout(() => {
                                   if (!markerTooltipHoverRef.current) {
-                                    hideMarkerTooltip();
+                                    setHoveredMarkerId(null);
+                                    setMarkerTooltipPos(null);
                                   }
                                 }, 200);
                               }}
@@ -3684,38 +2768,23 @@ export function TrackDetailView() {
                                 showMarkerTooltipFor(e.currentTarget, comment.id);
                               }}
                               initial={false}
-                              animate={{ scale: isHovered ? 1.4 : isFocused ? 1.2 : 1, y: isHovered ? -2 : 0 }}
+                              animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
                               transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                               className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
                               style={{ left: `${endPct * 100}%` }}
                               title={''}
                             >
                               <div
-                                  className={`transition-all duration-150 ${
-                                    comment.isResolved
-                                      ? 'flex items-center justify-center'
-                                      : 'rotate-45'
-                                  } ${
-                                    isFocused
-                                      ? 'h-3.5 w-3.5 bg-[#c7a008] shadow-[0_0_8px_rgba(199,160,8,0.5)]'
-                                      : isHovered
-                                        ? 'h-3 w-3 bg-[#c7a008]/80 shadow-[0_0_6px_rgba(199,160,8,0.4)]'
-                                        : comment.isResolved
-                                          ? 'h-4 w-4'
-                                          : 'h-2 w-2 bg-[#c7a008]'
-                                  }`}
-                                >
-                                  {comment.isResolved && (
-                                    <Check
-                                      className="h-3 w-3"
-                                      strokeWidth={3}
-                                      style={{
-                                        color: G,
-                                        filter: `drop-shadow(0 0 5px ${hexToRgba(G, 0.9)})`,
-                                      }}
-                                    />
-                                  )}
-                                </div>
+                                className={`rotate-45 transition-all duration-150 ${
+                                  isFocused
+                                    ? 'h-3.5 w-3.5 bg-[#c7a008] shadow-[0_0_8px_rgba(199,160,8,0.5)]'
+                                    : isHovered
+                                      ? 'h-3 w-3 bg-[#c7a008]/80 shadow-[0_0_6px_rgba(199,160,8,0.4)]'
+                                      : comment.isResolved
+                                        ? 'h-2 w-2 bg-[#4a8d6f]'
+                                        : 'h-2 w-2 bg-[#c7a008]'
+                                }`}
+                              />
                               <div
                                 className={`absolute left-1/2 top-full h-3 w-0.5 -translate-x-1/2 transition-colors ${
                                   isFocused ? 'bg-[#c7a008]/50' : isHovered ? 'bg-[#c7a008]/35' : 'bg-[#c7a008]/15'
@@ -3776,7 +2845,8 @@ export function TrackDetailView() {
                         // mouse leaves — user must click the X button or click
                         // elsewhere to dismiss a pinned tooltip.
                         if (pinnedMarkerId === comment.id) return;
-                        hideMarkerTooltip();
+                        setHoveredMarkerId(null);
+                        setMarkerTooltipPos(null);
                       }}
                     >
                       <CornerBrackets size={8} />
@@ -3787,7 +2857,8 @@ export function TrackDetailView() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setPinnedMarkerId(null);
-                          hideMarkerTooltip();
+                          setHoveredMarkerId(null);
+                          setMarkerTooltipPos(null);
                         }}
                         aria-label="Close marker tooltip"
                       >
@@ -3828,16 +2899,15 @@ export function TrackDetailView() {
                         </p>
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t pt-1.5" style={{ borderColor: hexToRgba(Y, 0.25) }}>
-                        {/* Edit button — icon only, yellow styled */}
+                        {/* Edit button — yellow styled */}
                         <button
-                          className="flex items-center justify-center h-6 w-6 transition-colors"
+                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors"
                           style={{
                             color: Y,
                             background: hexToRgba(Y, 0.08),
                             border: `0.5px solid ${hexToRgba(Y, 0.4)}`,
                             clipPath: CHAMFER_3,
                           }}
-                          title="Изменить"
                           onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.2); }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.08); }}
                           onClick={(e) => {
@@ -3845,21 +2915,22 @@ export function TrackDetailView() {
                             startEditingComment(comment);
                             handleMarkerClick(comment);
                             setPinnedMarkerId(null);
-                            hideMarkerTooltip();
+                            setHoveredMarkerId(null);
+                            setMarkerTooltipPos(null);
                           }}
                         >
-                          <Pencil className="h-3 w-3" />
+                          <Pencil className="h-2.5 w-2.5" />
+                          Изменить
                         </button>
-                        {/* Resolve button — icon only, cyan styled */}
+                        {/* Resolve button — cyan styled */}
                         <button
-                          className="flex items-center justify-center h-6 w-6 transition-colors"
+                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors"
                           style={{
                             color: C,
                             background: hexToRgba(C, 0.08),
                             border: `0.5px solid ${hexToRgba(C, 0.4)}`,
                             clipPath: CHAMFER_3,
                           }}
-                          title={comment.isResolved ? 'Отменить' : 'Решено'}
                           onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(C, 0.2); }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = hexToRgba(C, 0.08); }}
                           onClick={(e) => {
@@ -3867,18 +2938,18 @@ export function TrackDetailView() {
                             handleToggleResolved(comment.id, comment.isResolved);
                           }}
                         >
-                          {comment.isResolved ? <DoubleCheckIcon className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                          {comment.isResolved ? <DoubleCheckIcon className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
+                          {comment.isResolved ? 'Отменить' : 'Решено'}
                         </button>
-                        {/* Delete button — icon only, yellow styled with red hover */}
+                        {/* Delete button — yellow styled with red hover hint */}
                         <button
-                          className="ml-auto flex items-center justify-center h-6 w-6 transition-colors"
+                          className="ml-auto flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors"
                           style={{
                             color: Y,
                             background: hexToRgba(Y, 0.08),
                             border: `0.5px solid ${hexToRgba(Y, 0.4)}`,
                             clipPath: CHAMFER_3,
                           }}
-                          title="Удалить"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = '#ff5a5a';
                             e.currentTarget.style.background = 'rgba(255,90,90,0.15)';
@@ -3893,10 +2964,12 @@ export function TrackDetailView() {
                             e.stopPropagation();
                             handleDeleteComment(comment.id);
                             setPinnedMarkerId(null);
-                            hideMarkerTooltip();
+                            setHoveredMarkerId(null);
+                            setMarkerTooltipPos(null);
                           }}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-2.5 w-2.5" />
+                          Удалить
                         </button>
                       </div>
                       {isPinned && (
@@ -3909,207 +2982,6 @@ export function TrackDetailView() {
                   document.body
                 );
               })()}
-
-                </div>{/* End waveform wrapper */}
-
-          {/* Audio Player — HUD panel with chamfered corners, corner brackets, inset bevel */}
-              <div
-                className="relative shrink-0 p-4 lg:p-6"
-                style={{
-                  background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
-                  border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                  clipPath: CHAMFER_8,
-                  boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
-                }}
-              >
-                <CornerBrackets size={12} />
-                {/* Seek bar — continuous smooth bar, no segments */}
-                <div className="mb-3">
-                  <div
-                    className="group relative h-2.5 w-full cursor-pointer"
-                    style={{
-                      background: BG_MAIN,
-                      clipPath: CHAMFER_3,
-                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                    }}
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const x = e.clientX - rect.left;
-                      const p = x / rect.width;
-                      seekTo(p * duration);
-                    }}
-                  >
-                    {/* Continuous fill — yellow→cyan gradient with glow */}
-                    <div
-                      className="absolute inset-y-0 left-0 transition-all duration-100"
-                      style={{
-                        width: `${progress * 100}%`,
-                        background: `linear-gradient(to right, ${P}, ${Y})`,
-                        boxShadow: `0 0 6px ${hexToRgba(Y, 0.6)}, 0 0 3px ${hexToRgba(P, 0.4)}`,
-                        clipPath: CHAMFER_3,
-                      }}
-                    />
-                    {/* Thumb */}
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3.5 w-3.5 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
-                      style={{
-                        left: `${progress * 100}%`,
-                        background: '#ffffff',
-                        boxShadow: `0 0 6px ${Y}, 0 0 2px ${Y}`,
-                      }}
-                    />
-                  </div>
-                  {/* Time display row — large yellow current / smaller grey total */}
-                  <div className="mt-2 flex items-baseline justify-between gap-2">
-                    <span
-                      className="tabular-nums"
-                      style={{
-                        color: Y,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        fontSize: '16px',
-                        fontWeight: 800,
-                        textShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
-                        letterSpacing: '0.5px',
-                      }}
-                    >
-                      {formatDuration(currentTime)}
-                    </span>
-                    <span
-                      className="tabular-nums"
-                      style={{
-                        color: TEXT_SECONDARY,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        fontSize: '11px',
-                      }}
-                    >
-                      {formatDuration(displayDuration)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Controls row — transport buttons + volume + hint */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
-                          style={{
-                            clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                            background: BG_MAIN,
-                            color: Y,
-                          }}
-                          onClick={() => skip(-5)}
-                        >
-                          <SkipBack className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Назад 5с</TooltipContent>
-                    </Tooltip>
-
-                    <Button
-                      size="icon"
-                      className="h-12 w-12 rounded-none border-0"
-                      style={{
-                        clipPath: CHAMFER_4,
-                        // Purple→yellow gradient bg per cyberpunk 2077 spec
-                        background: `linear-gradient(135deg, ${P} 0%, ${Y} 100%)`,
-                        boxShadow: `0 0 16px ${hexToRgba(Y, 0.55)}, 0 0 8px ${hexToRgba(P, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
-                        border: `1.5px solid ${hexToRgba(Y, 0.5)}`,
-                      }}
-                      onClick={togglePlay}
-                    >
-                      {isPlaying ? (
-                        <Pause className="h-5 w-5" style={{ color: '#fff', filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.6))' }} />
-                      ) : (
-                        <Play className="h-5 w-5 ml-0.5" style={{ color: Y, filter: `drop-shadow(0 0 3px ${Y})` }} />
-                      )}
-                    </Button>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
-                          style={{
-                            clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                            background: BG_MAIN,
-                            color: Y,
-                          }}
-                          onClick={() => skip(5)}
-                        >
-                          <SkipForward className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Вперёд 5с</TooltipContent>
-                    </Tooltip>
-                  </div>
-
-                  {/* Volume — chamfered slider with yellow fill */}
-                  <div className="flex items-center gap-2 ml-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-none border-0 hover:bg-[#c7a008]/10"
-                          style={{
-                            clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                            background: BG_MAIN,
-                            color: Y,
-                          }}
-                          onClick={() => setIsMuted(!isMuted)}
-                        >
-                          {isMuted || volume === 0 ? (
-                            <VolumeX className="h-4 w-4" />
-                          ) : (
-                            <Volume2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>
-                        {isMuted ? 'Включить звук' : 'Выключить звук'}
-                      </TooltipContent>
-                    </Tooltip>
-                    <div
-                      className="group relative h-2 w-24 cursor-pointer"
-                      style={{
-                        background: BG_MAIN,
-                        clipPath: CHAMFER_3,
-                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                        border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
-                      }}
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        setVolume(Math.max(0, Math.min(1, x / rect.width)));
-                        if (isMuted) setIsMuted(false);
-                      }}
-                    >
-                      <div
-                        className="absolute inset-y-0 left-0 transition-all"
-                        style={{
-                          width: `${(isMuted ? 0 : volume) * 100}%`,
-                          background: `linear-gradient(to right, ${Y2}, ${Y})`,
-                          clipPath: CHAMFER_3,
-                          boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}`,
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Keyboard shortcut hint */}
-                  <p className="ml-auto hidden text-[11px] lg:block" style={{ color: `${Y}cc`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                    Пробел: Играть/Пауза · ←→: Перемотка 5с
-                  </p>
-                </div>
-              </div>
 
               {/* Comments Section */}
               <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 lg:px-6">
@@ -4138,21 +3010,13 @@ export function TrackDetailView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1.5 text-xs border-0 rounded-none transition-all"
+                    className="h-7 gap-1.5 text-xs border-0 rounded-none"
                     style={{
                       ...YELLOW_BUTTON_STYLE,
                       paddingRight: '10px',
                       paddingLeft: '10px',
                       paddingTop: '4px',
                       paddingBottom: '4px',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow = `0 0 16px ${hexToRgba(Y, 0.6)}, 0 0 6px ${hexToRgba(Y, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.35)`;
-                      e.currentTarget.style.transform = 'scale(1.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = (YELLOW_BUTTON_STYLE.boxShadow as string) || '';
-                      e.currentTarget.style.transform = 'scale(1)';
                     }}
                     onClick={() => {
                       setCommentTimestamp(Math.round(currentTime * 1000));
@@ -4240,22 +3104,625 @@ export function TrackDetailView() {
                   </span>
                 </div>
 
+                <ScrollArea className="flex-1" style={{ minHeight: 0 }}>
+                  <div className="space-y-2 pb-4">
+                    {(() => {
+                      const tree = sortedTree;
+                      if (tree.length === 0) return (
+                        <div
+                          className="relative flex flex-col items-center justify-center py-8"
+                          style={{
+                            background: BG_PANEL,
+                            border: `1px solid ${hexToRgba(C, 0.4)}`,
+                            clipPath: CHAMFER_5,
+                            padding: '32px',
+                            boxShadow: INSET_BEVEL_SHADOW,
+                          }}
+                        >
+                          <CornerBrackets size={10} />
+                          <MessageCircle className="mb-2 h-8 w-8" style={{ color: hexToRgba(Y, 0.5) }} />
+                          <p className="text-xs" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Нет комментариев. Кликните по волне, чтобы добавить.</p>
+                        </div>
+                      );
+                      return tree.map((comment) => (
+                        <div key={comment.id}>
+                          {/* TOP-LEVEL COMMENT — chat-style row: avatar LEFT, content bubble RIGHT */}
+                          <motion.div
+                            id={`comment-${comment.id}`}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="group flex items-start gap-2.5"
+                            style={{ opacity: comment.isResolved ? 0.6 : 1 }}
+                          >
+                            {/* Avatar — chat-style circular avatar with colored ring */}
+                            <Avatar className="h-7 w-7 shrink-0 ring-2 ring-[#0a0c10]">
+                              <AvatarFallback
+                                className="text-[10px] font-bold"
+                                style={{
+                                  background: hexToRgba(Y, 0.15),
+                                  color: Y,
+                                  border: `1px solid ${hexToRgba(Y, 0.4)}`,
+                                }}
+                              >
+                                {getInitials(comment.userName)}
+                              </AvatarFallback>
+                            </Avatar>
+
+                            {/* Content bubble — dark teal with yellow left border (quote indicator) */}
+                            <div
+                              className="relative min-w-0 flex-1"
+                              style={{
+                                background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
+                                clipPath: CHAMFER_5,
+                                boxShadow: INSET_BEVEL_SHADOW,
+                              }}
+                            >
+                              {/* Yellow left border — quote/reply indicator stripe */}
+                              <div
+                                className="absolute left-0 top-0 bottom-0 w-[3px] pointer-events-none"
+                                style={{
+                                  background: comment.isResolved ? hexToRgba(G, 0.6) : Y,
+                                  boxShadow: comment.isResolved ? 'none' : `0 0 6px ${hexToRgba(Y, 0.5)}`,
+                                }}
+                              />
+                              {/* Focused-comment outline highlight */}
+                              {focusedCommentId === comment.id && (
+                                <div
+                                  className="absolute inset-0 pointer-events-none"
+                                  style={{
+                                    border: `1px solid ${
+                                      comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+                                        ? hexToRgba(Y, 0.6)
+                                        : hexToRgba(C, 0.6)
+                                    }`,
+                                    clipPath: CHAMFER_5,
+                                  }}
+                                />
+                              )}
+                              <div className="relative pl-3.5 pr-3 py-2.5">
+                                {/* Header row — name + #chip (left), timestamp + actions (right) */}
+                                <div className="flex items-start gap-2 mb-1">
+                                  {/* Comment number badge — small yellow chamfered chip attached to bubble */}
+                                  <span
+                                    className="shrink-0 px-1.5 py-0.5 text-[10px] font-bold"
+                                    style={{
+                                      background: hexToRgba(Y, 0.15),
+                                      color: Y,
+                                      border: `0.5px solid ${hexToRgba(Y, 0.5)}`,
+                                      clipPath: CHAMFER_3,
+                                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                                    }}
+                                  >
+                                    #{commentNumberMap.get(comment.id) ?? '?'}
+                                  </span>
+                                  <span
+                                    className="min-w-0 flex-1 truncate text-xs font-semibold"
+                                    style={{ color: TEXT_PRIMARY }}
+                                  >
+                                    {comment.userName}
+                                  </span>
+                                  {/* Resolved checkmark — green */}
+                                  {comment.isResolved && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          className="shrink-0 rounded p-0.5 text-[#4a8d6f] transition-colors hover:bg-[#4a8d6f]/15"
+                                          onClick={() => handleToggleResolved(comment.id, comment.isResolved)}
+                                        >
+                                          <DoubleCheckIcon className="h-3.5 w-3.5" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{comment.isResolved ? 'Отменить' : 'Решено'}</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {/* Timestamp — yellow monospace, top-right of bubble */}
+                                  <Badge
+                                    variant="outline"
+                                    className={`shrink-0 h-4 px-1 text-[10px] cursor-pointer transition-colors ${
+                                      comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+                                        ? 'border-[#c7a008]/30 text-[#c7a008] hover:bg-[#c7a008]/10'
+                                        : 'border-[#00a8c6]/30 text-[#00a8c6] hover:bg-[#00a8c6]/10'
+                                    }`}
+                                    style={{
+                                      clipPath: CHAMFER_3,
+                                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                                    }}
+                                    onClick={() => seekTo(comment.timestampMs / 1000)}
+                                  >
+                                    {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+                                      ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
+                                      : formatTimestamp(comment.timestampMs)}
+                                  </Badge>
+                                  {/* Edit / Delete — small icon-only buttons that appear on hover */}
+                                  <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
+                                          onClick={() => startEditingComment(comment)}
+                                        >
+                                          <Pencil className="h-3 w-3" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Изменить комментарий</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+                                          onClick={() => handleDeleteComment(comment.id)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Удалить комментарий</TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                </div>
+                                {/* Comment text / edit mode */}
+                                <AnimatePresence mode="wait">
+                                  {editingCommentId === comment.id ? (
+                                    <motion.div
+                                      key="edit"
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div
+                                        className="p-2"
+                                        style={{
+                                          background: hexToRgba(P, 0.08),
+                                          border: `1px solid ${hexToRgba(P, 0.3)}`,
+                                          clipPath: CHAMFER_3,
+                                        }}
+                                      >
+                                        <textarea
+                                          className="w-full resize-none bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
+                                          style={{ color: TEXT_PRIMARY }}
+                                          rows={2}
+                                          value={editCommentText}
+                                          onChange={(e) => setEditCommentText(e.target.value)}
+                                          autoFocus
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && e.metaKey) {
+                                              e.preventDefault();
+                                              handleEditComment(comment.id);
+                                            }
+                                            if (e.key === 'Escape') {
+                                              cancelEditingComment();
+                                            }
+                                          }}
+                                          placeholder="Измените комментарий..."
+                                        />
+                                        <div className="flex items-center justify-between mt-1.5">
+                                          <span className="text-[9px] text-muted-foreground/40">⌘+Enter для сохранения</span>
+                                          <div className="flex gap-1.5">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 px-2 text-[10px]"
+                                              onClick={cancelEditingComment}
+                                            >
+                                              Отмена
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              className="h-6 gap-1 border-0 rounded-none px-2 text-[10px]"
+                                              style={{
+                                                ...YELLOW_BUTTON_STYLE,
+                                                paddingTop: '3px',
+                                                paddingBottom: '3px',
+                                                paddingLeft: '8px',
+                                                paddingRight: '8px',
+                                              }}
+                                              onClick={() => handleEditComment(comment.id)}
+                                              disabled={!editCommentText.trim()}
+                                            >
+                                              <Check className="h-2.5 w-2.5" />
+                                              Сохранить
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  ) : (
+                                    <motion.p
+                                      key="text"
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      exit={{ opacity: 0 }}
+                                      className={`text-xs leading-relaxed ${comment.isResolved ? 'line-through' : ''}`}
+                                      style={{ color: TEXT_PRIMARY, opacity: comment.isResolved ? 0.7 : 0.9 }}
+                                    >
+                                      {comment.text}
+                                    </motion.p>
+                                  )}
+                                </AnimatePresence>
+                                {/* Footer row — creation time (left), Reply + Jump-to (right) */}
+                                <div className="mt-1.5 flex items-center gap-2">
+                                  <span
+                                    className="text-[10px]"
+                                    style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', opacity: 0.7 }}
+                                  >
+                                    {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+                                  </span>
+                                  <div className="ml-auto flex items-center gap-1">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 gap-1 px-2 text-[10px] text-[#00a8c6] hover:text-[#00a8c6] hover:bg-[#00a8c6]/10"
+                                          onClick={() => seekTo(comment.timestampMs / 1000)}
+                                        >
+                                          <LocateFixed className="h-3 w-3" />
+                                          Перейти к
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Перейти к этому таймстемпу</TooltipContent>
+                                    </Tooltip>
+                                    {/* Reply button — small yellow ghost button at bottom of bubble */}
+                                    {!comment.isResolved && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 gap-1 px-2 text-[10px] transition-colors"
+                                            style={{
+                                              color: Y,
+                                              border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+                                              clipPath: CHAMFER_3,
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.1); }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                            onClick={() => {
+                                              setReplyingTo(replyingTo === comment.id ? null : comment.id);
+                                              setReplyText('');
+                                              if (editingCommentId === comment.id) cancelEditingComment();
+                                            }}
+                                          >
+                                            <Reply className="h-3 w-3" />
+                                            Ответить
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Ответить на комментарий</TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                    {comment.isResolved && (
+                                      <span className="text-[9px] text-[#4a8d6f]/60 italic">Тема закрыта</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {/* Inline reply input — hidden when resolved */}
+                                <AnimatePresence>
+                                  {replyingTo === comment.id && !comment.isResolved && (
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      className="mt-2 ml-2 overflow-hidden border-l-2 pl-3"
+                                      style={{ borderColor: hexToRgba(Y, 0.4) }}
+                                    >
+                                      <Input
+                                        placeholder={`Ответить ${comment.userName}...`}
+                                        value={replyText}
+                                        onChange={(e) => setReplyText(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleReply();
+                                          }
+                                          if (e.key === 'Escape') {
+                                            setReplyingTo(null);
+                                            setReplyText('');
+                                          }
+                                        }}
+                                        className="mb-1.5 h-7 text-xs border-0 rounded-none"
+                                        style={HUD_INPUT_STYLE}
+                                        autoFocus
+                                      />
+                                      <div className="flex justify-end gap-1.5">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-2 text-[10px]"
+                                          onClick={() => {
+                                            setReplyingTo(null);
+                                            setReplyText('');
+                                          }}
+                                        >
+                                          Отмена
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          className="h-6 gap-1 border-0 rounded-none px-2 text-[10px]"
+                                          style={{
+                                            ...YELLOW_BUTTON_STYLE,
+                                            paddingTop: '3px',
+                                            paddingBottom: '3px',
+                                            paddingLeft: '8px',
+                                            paddingRight: '8px',
+                                          }}
+                                          onClick={handleReply}
+                                          disabled={!replyText.trim()}
+                                        >
+                                          <Send className="h-2.5 w-2.5" />
+                                          Ответить
+                                        </Button>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            </div>
+                          </motion.div>
+
+                          {/* NESTED REPLIES THREAD — indented with vertical yellow line connector */}
+                          {comment.replies.length > 0 && (
+                            <div
+                              className="mt-1 ml-9 space-y-1 border-l-2 pl-3"
+                              style={{ borderColor: hexToRgba(Y, 0.3) }}
+                            >
+                              <button
+                                className="flex items-center gap-1 text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+                                onClick={() => toggleThread(comment.id)}
+                              >
+                                {collapsedThreads.has(comment.id) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                <MessageSquareQuote className="h-3 w-3" />
+                                <span>{comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}</span>
+                              </button>
+                              <AnimatePresence initial={false}>
+                                {!collapsedThreads.has(comment.id) && comment.replies.map((reply) => (
+                                  <motion.div
+                                    key={reply.id}
+                                    id={`comment-${reply.id}`}
+                                    initial={{ opacity: 0, x: -6 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -6 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="group/reply flex items-start gap-2"
+                                    style={{ opacity: comment.isResolved ? 0.55 : 1 }}
+                                  >
+                                    {/* Reply avatar — smaller, yellow tinted */}
+                                    <Avatar className="h-6 w-6 shrink-0 ring-1 ring-[#0a0c10]">
+                                      <AvatarFallback
+                                        className="text-[8px] font-bold"
+                                        style={{
+                                          background: hexToRgba(C, 0.12),
+                                          color: C,
+                                          border: `1px solid ${hexToRgba(C, 0.35)}`,
+                                        }}
+                                      >
+                                        {getInitials(reply.userName)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    {/* Reply bubble — smaller, yellow left stripe */}
+                                    <div
+                                      className="relative min-w-0 flex-1"
+                                      style={{
+                                        background: comment.isResolved ? BG_MAIN : hexToRgba(BG_CARD_TEAL, 0.85),
+                                        clipPath: CHAMFER_4,
+                                        boxShadow: INSET_BEVEL_SHADOW,
+                                      }}
+                                    >
+                                      <div
+                                        className="absolute left-0 top-0 bottom-0 w-[2px] pointer-events-none"
+                                        style={{
+                                          background: comment.isResolved ? hexToRgba(G, 0.5) : hexToRgba(Y, 0.7),
+                                        }}
+                                      />
+                                      {focusedCommentId === reply.id && (
+                                        <div
+                                          className="absolute inset-0 pointer-events-none"
+                                          style={{
+                                            border: `1px solid ${hexToRgba(P, 0.5)}`,
+                                            clipPath: CHAMFER_4,
+                                          }}
+                                        />
+                                      )}
+                                      <div className="relative pl-2.5 pr-2 py-1.5">
+                                        {/* Header — name (left), edit/delete icons on hover (right) */}
+                                        <div className="flex items-center gap-1 mb-0.5">
+                                          <span
+                                            className="min-w-0 flex-1 truncate text-[11px] font-semibold"
+                                            style={{ color: TEXT_PRIMARY }}
+                                          >
+                                            {reply.userName}
+                                          </span>
+                                          <span
+                                            className="shrink-0 text-[9px]"
+                                            style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', opacity: 0.7 }}
+                                          >
+                                            {format(new Date(reply.createdAt), 'MMM d, h:mm a')}
+                                          </span>
+                                          {/* Reply actions — icon-only, hover-revealed */}
+                                          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/reply:opacity-100 focus-within:opacity-100">
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <button
+                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
+                                                  onClick={() => startEditingComment(reply)}
+                                                >
+                                                  <Pencil className="h-2.5 w-2.5" />
+                                                </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>Изменить</TooltipContent>
+                                            </Tooltip>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <button
+                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+                                                  onClick={() => handleDeleteComment(reply.id)}
+                                                >
+                                                  <Trash2 className="h-2.5 w-2.5" />
+                                                </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>Удалить</TooltipContent>
+                                            </Tooltip>
+                                          </div>
+                                        </div>
+                                        {/* Reply text / edit mode */}
+                                        <AnimatePresence mode="wait">
+                                          {editingCommentId === reply.id ? (
+                                            <motion.div
+                                              key="edit"
+                                              initial={{ opacity: 0, height: 0 }}
+                                              animate={{ opacity: 1, height: 'auto' }}
+                                              exit={{ opacity: 0, height: 0 }}
+                                              className="overflow-hidden"
+                                            >
+                                              <div
+                                                className="p-1.5"
+                                                style={{
+                                                  background: hexToRgba(P, 0.08),
+                                                  border: `1px solid ${hexToRgba(P, 0.3)}`,
+                                                  clipPath: CHAMFER_3,
+                                                }}
+                                              >
+                                                <textarea
+                                                  className="w-full resize-none bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/50"
+                                                  style={{ color: TEXT_PRIMARY }}
+                                                  rows={1}
+                                                  value={editCommentText}
+                                                  onChange={(e) => setEditCommentText(e.target.value)}
+                                                  autoFocus
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && e.metaKey) {
+                                                      e.preventDefault();
+                                                      handleEditComment(reply.id);
+                                                    }
+                                                    if (e.key === 'Escape') cancelEditingComment();
+                                                  }}
+                                                  placeholder="Изменить ответ..."
+                                                />
+                                                <div className="flex justify-end gap-1 mt-1">
+                                                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={cancelEditingComment}>Отмена</Button>
+                                                  <Button
+                                                    size="sm"
+                                                    className="h-5 gap-0.5 border-0 rounded-none px-1.5 text-[9px]"
+                                                    style={{
+                                                      ...YELLOW_BUTTON_STYLE,
+                                                      paddingTop: '2px',
+                                                      paddingBottom: '2px',
+                                                      paddingLeft: '6px',
+                                                      paddingRight: '6px',
+                                                    }}
+                                                    onClick={() => handleEditComment(reply.id)}
+                                                    disabled={!editCommentText.trim()}
+                                                  >
+                                                    <Check className="h-2 w-2" /> Сохранить
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            </motion.div>
+                                          ) : (
+                                            <motion.p
+                                              key="text"
+                                              initial={{ opacity: 0 }}
+                                              animate={{ opacity: 1 }}
+                                              exit={{ opacity: 0 }}
+                                              className={`text-[11px] leading-relaxed ${comment.isResolved ? 'line-through' : ''}`}
+                                              style={{ color: TEXT_PRIMARY, opacity: comment.isResolved ? 0.6 : 0.85 }}
+                                            >
+                                              {reply.text}
+                                            </motion.p>
+                                          )}
+                                        </AnimatePresence>
+                                        {/* Footer — reply-to-reply button */}
+                                        {!comment.isResolved && (
+                                          <button
+                                            className="mt-0.5 text-[9px] uppercase tracking-wider transition-colors"
+                                            style={{ color: hexToRgba(Y, 0.7), fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.color = Y; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.color = hexToRgba(Y, 0.7); }}
+                                            onClick={() => {
+                                              setReplyingTo(replyingTo === reply.id ? null : reply.id);
+                                              setReplyText('');
+                                              if (editingCommentId === reply.id) cancelEditingComment();
+                                            }}
+                                          >
+                                            <Reply className="inline h-2.5 w-2.5" /> Ответить
+                                          </button>
+                                        )}
+                                        {/* Inline reply input for reply-to-reply — hidden when parent resolved */}
+                                        <AnimatePresence>
+                                          {replyingTo === reply.id && !comment.isResolved && (
+                                            <motion.div
+                                              initial={{ opacity: 0, height: 0 }}
+                                              animate={{ opacity: 1, height: 'auto' }}
+                                              exit={{ opacity: 0, height: 0 }}
+                                              className="mt-1 overflow-hidden"
+                                            >
+                                              <Input
+                                                placeholder={`Ответить ${reply.userName}...`}
+                                                value={replyText}
+                                                onChange={(e) => setReplyText(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleReply();
+                                                  }
+                                                  if (e.key === 'Escape') {
+                                                    setReplyingTo(null);
+                                                    setReplyText('');
+                                                  }
+                                                }}
+                                                className="mb-1 h-6 text-[10px] border-0 rounded-none"
+                                                style={HUD_INPUT_STYLE}
+                                                autoFocus
+                                              />
+                                              <div className="flex justify-end gap-1">
+                                                <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Отмена</Button>
+                                                <Button
+                                                  size="sm"
+                                                  className="h-5 gap-0.5 border-0 rounded-none px-1.5 text-[9px]"
+                                                  style={{
+                                                    ...YELLOW_BUTTON_STYLE,
+                                                    paddingTop: '2px',
+                                                    paddingBottom: '2px',
+                                                    paddingLeft: '6px',
+                                                    paddingRight: '6px',
+                                                  }}
+                                                  onClick={handleReply}
+                                                  disabled={!replyText.trim()}
+                                                >
+                                                  <Send className="h-2 w-2" /> Ответить
+                                                </Button>
+                                              </div>
+                                            </motion.div>
+                                          )}
+                                        </AnimatePresence>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                ))}
+                              </AnimatePresence>
+                            </div>
+                          )}
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                  <div ref={commentsEndRef} />
+                </ScrollArea>
+
                 <AnimatePresence>
                   {showCommentInput && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.97 }}
-                      transition={{ type: 'spring', stiffness: 280, damping: 22 }}
-                      className="shrink-0 mt-3 mb-4"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      className="shrink-0 pt-2"
                     >
                       <div
-                        className="relative p-3"
+                        className="relative p-2.5"
                         style={{
-                          background: `linear-gradient(135deg, ${hexToRgba(Y, 0.12)} 0%, ${BG_PANEL} 40%, ${hexToRgba(C, 0.06)} 100%)`,
-                          border: `2px solid ${Y}`,
+                          background: BG_PANEL,
+                          border: `1px solid ${hexToRgba(Y, 0.45)}`,
                           clipPath: CHAMFER_5,
-                          boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 16px ${hexToRgba(Y, 0.4)}, 0 0 6px ${hexToRgba(Y, 0.25)}, inset 0 0 12px ${hexToRgba(Y, 0.08)}`,
+                          boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 8px ${hexToRgba(Y, 0.12)}`,
                         }}
                       >
                         <CornerBrackets size={8} />
@@ -4404,740 +3871,24 @@ export function TrackDetailView() {
                           />
                           <Button
                             size="icon"
-                            className="h-9 w-9 shrink-0 border-0 rounded-none transition-all"
+                            className="h-9 w-9 shrink-0 border-0 rounded-none"
                             style={{
                               clipPath: CHAMFER_4,
                               background: `linear-gradient(135deg, ${Y} 0%, ${Y2} 100%)`,
                               boxShadow: `0 0 8px ${hexToRgba(Y, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
                               color: '#0a0b10',
                             }}
-                            onMouseEnter={(e) => {
-                              if (!e.currentTarget.disabled) {
-                                e.currentTarget.style.boxShadow = `0 0 16px ${hexToRgba(Y, 0.7)}, 0 0 6px ${hexToRgba(Y, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.35)`;
-                                e.currentTarget.style.transform = 'scale(1.08)';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.boxShadow = `0 0 8px ${hexToRgba(Y, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.25)`;
-                              e.currentTarget.style.transform = 'scale(1)';
-                            }}
                             onClick={handleAddComment}
                             disabled={!newCommentText.trim() || (markerMode === 'range' && isSelectingRange)}
                             aria-label="Post comment"
                           >
-                            <Send className="h-4 w-4" style={{ filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.3))' }} />
+                            <Send className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
-
-                <ScrollArea className="flex-1" style={{ minHeight: 0, marginTop: showCommentInput ? '12px' : '0' }}>
-                  <div className="space-y-2 pb-4">
-                    {(() => {
-                      const tree = sortedTree;
-                      if (tree.length === 0) return (
-                        <div
-                          className="relative flex flex-col items-center justify-center py-8"
-                          style={{
-                            background: BG_PANEL,
-                            border: `1px solid ${hexToRgba(C, 0.4)}`,
-                            clipPath: CHAMFER_5,
-                            padding: '32px',
-                            boxShadow: INSET_BEVEL_SHADOW,
-                          }}
-                        >
-                          <CornerBrackets size={10} />
-                          <MessageCircle className="mb-2 h-8 w-8" style={{ color: hexToRgba(Y, 0.5) }} />
-                          <p className="text-xs" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Нет комментариев. Кликните по волне, чтобы добавить.</p>
-                        </div>
-                      );
-                      const visibleTree = tree.slice(0, visibleCommentCount);
-                      const remainingCount = tree.length - visibleCommentCount;
-                      return (
-                        <>
-                          {visibleTree.map((comment) => (
-                        <div key={comment.id}>
-                          {/* TOP-LEVEL COMMENT — chat-style row: avatar LEFT, content bubble RIGHT */}
-                          <motion.div
-                            id={`comment-${comment.id}`}
-                            initial={{ opacity: 0, x: -8 }}
-                            animate={{
-                              opacity: 1,
-                              x: 0,
-                              scale: focusedCommentIds.includes(comment.id) ? 1.015 : 1,
-                            }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                            className="group flex items-start gap-2.5 transition-transform"
-                            style={{ opacity: comment.isResolved ? 0.6 : 1 }}
-                          >
-                            {/* Avatar — chat-style circular avatar with colored ring */}
-                            <Avatar className="h-7 w-7 shrink-0 ring-2 ring-[#0a0c10]">
-                              <AvatarFallback
-                                className="text-[10px] font-bold"
-                                style={{
-                                  background: hexToRgba(Y, 0.15),
-                                  color: Y,
-                                  border: `1px solid ${hexToRgba(Y, 0.4)}`,
-                                }}
-                              >
-                                {getInitials(comment.userName)}
-                              </AvatarFallback>
-                            </Avatar>
-
-                            {/* Content bubble — dark teal with yellow left border (quote indicator) */}
-                            <div
-                              data-comment-bubble
-                              className="relative min-w-0 flex-1 transition-all duration-300 group-hover:shadow-[0_0_8px_rgba(199,160,8,0.2)]"
-                              style={{
-                                background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
-                                clipPath: CHAMFER_5,
-                                boxShadow: INSET_BEVEL_SHADOW,
-                              }}
-                            >
-                              {/* Yellow left border — quote/reply indicator stripe */}
-                              <div
-                                className="absolute left-0 top-0 bottom-0 w-[3px] pointer-events-none transition-all duration-200"
-                                style={{
-                                  background: comment.isResolved ? hexToRgba(G, 0.6) : Y,
-                                  boxShadow:
-                                    focusedCommentIds.includes(comment.id)
-                                      ? `0 0 12px ${Y}, 0 0 22px ${hexToRgba(Y, 0.6)}`
-                                      : comment.isResolved
-                                        ? 'none'
-                                        : `0 0 6px ${hexToRgba(Y, 0.5)}`,
-                                  width: focusedCommentIds.includes(comment.id) ? '4px' : '3px',
-                                }}
-                              />
-                              {/* Focused-comment highlight — bright pulsing glow + corner badge + sweep */}
-                              {focusedCommentIds.includes(comment.id) && (() => {
-                                const isRangeComment = !!(comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs);
-                                const focusColor = isRangeComment ? Y : C;
-                                const focusGlow = hexToRgba(focusColor, 0.55);
-                                return (
-                                  <>
-                                    {/* Pulsing outer glow outline */}
-                                    <div
-                                      className="absolute inset-0 pointer-events-none"
-                                      style={{
-                                        clipPath: CHAMFER_5,
-                                        animation: 'kb6-focus-glow 1.6s ease-in-out infinite',
-                                        ['--kb6-focus-color' as string]: focusColor,
-                                        ['--kb6-focus-glow' as string]: focusGlow,
-                                      }}
-                                    />
-                                    {/* Bright flash frame — plays once on focus, fades over ~4.5s.
-                                        Stronger + more obvious than the pulsing glow above. */}
-                                    <div
-                                      key={`flash-${comment.id}`}
-                                      className="absolute inset-0 pointer-events-none z-10"
-                                      style={{
-                                        clipPath: CHAMFER_5,
-                                        animation: 'kb6-focus-flash 4.5s ease-out forwards',
-                                        ['--kb6-focus-color' as string]: focusColor,
-                                        ['--kb6-focus-glow' as string]: hexToRgba(focusColor, 0.9),
-                                      }}
-                                    />
-                                    {/* Expanding ring — radiates outward once on focus ("target acquired") */}
-                                    <div
-                                      key={`ring-${comment.id}`}
-                                      className="pointer-events-none absolute inset-0 z-0"
-                                      style={{
-                                        border: `3px solid ${focusColor}`,
-                                        clipPath: CHAMFER_5,
-                                        animation: 'kb6-focus-ring-expand 1.8s ease-out forwards',
-                                      }}
-                                    />
-                                    {/* Diagonal sweep sheen */}
-                                    <div
-                                      className="pointer-events-none absolute inset-0 overflow-hidden"
-                                      style={{ clipPath: CHAMFER_5 }}
-                                    >
-                                      <div
-                                        className="absolute top-0 left-0 h-full w-1/3"
-                                        style={{
-                                          background: `linear-gradient(100deg, transparent 0%, ${hexToRgba(focusColor, 0.18)} 50%, transparent 100%)`,
-                                          animation: 'kb6-focus-sweep 2.4s ease-in-out infinite',
-                                        }}
-                                      />
-                                    </div>
-                                  </>
-                                );
-                              })()}
-                              <div className="relative pl-3.5 pr-3 py-2.5">
-                                {/* Header row — name + #chip (left), timestamp + actions (right) */}
-                                <div className="flex items-start gap-2 mb-1">
-                                  {/* Comment number badge — small yellow chamfered chip attached to bubble */}
-                                  <span
-                                    className="shrink-0 px-1.5 py-0.5 text-[10px] font-bold"
-                                    style={{
-                                      background: hexToRgba(Y, 0.15),
-                                      color: Y,
-                                      border: `0.5px solid ${hexToRgba(Y, 0.5)}`,
-                                      clipPath: CHAMFER_3,
-                                      fontFamily: 'var(--font-jetbrains-mono), monospace',
-                                    }}
-                                  >
-                                    #{commentNumberMap.get(comment.id) ?? '?'}
-                                  </span>
-                                  <span
-                                    className="min-w-0 flex-1 truncate text-xs font-semibold"
-                                    style={{ color: TEXT_PRIMARY }}
-                                  >
-                                    {comment.userName}
-                                  </span>
-                                  {/* Resolved checkmark — green */}
-                                  {comment.isResolved && (
-                                    <button
-                                      className="shrink-0 rounded p-0.5 text-[#4a8d6f] transition-colors hover:bg-[#4a8d6f]/15"
-                                      title={comment.isResolved ? 'Отменить' : 'Решено'}
-                                      onClick={() => handleToggleResolved(comment.id, comment.isResolved)}
-                                    >
-                                      <DoubleCheckIcon className="h-3.5 w-3.5" />
-                                    </button>
-                                  )}
-                                  {/* Timestamp — yellow monospace, top-right of bubble */}
-                                  <Badge
-                                    variant="outline"
-                                    className={`shrink-0 h-4 px-1 text-[10px] cursor-pointer transition-colors ${
-                                      comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
-                                        ? 'border-[#c7a008]/30 text-[#c7a008] hover:bg-[#c7a008]/10'
-                                        : 'border-[#00a8c6]/30 text-[#00a8c6] hover:bg-[#00a8c6]/10'
-                                    }`}
-                                    style={{
-                                      clipPath: CHAMFER_3,
-                                      fontFamily: 'var(--font-jetbrains-mono), monospace',
-                                    }}
-                                    onClick={() => seekTo(comment.timestampMs / 1000)}
-                                  >
-                                    {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
-                                      ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
-                                      : formatTimestamp(comment.timestampMs)}
-                                  </Badge>
-                                  {/* Edit / Delete — icon-only buttons, always visible */}
-                                  <div className="flex items-center gap-0.5">
-                                    <button
-                                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
-                                      title="Изменить"
-                                      onClick={() => startEditingComment(comment)}
-                                    >
-                                      <Pencil className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
-                                      title="Удалить"
-                                      onClick={() => handleDeleteComment(comment.id)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                </div>
-                                {/* Comment text / edit mode */}
-                                <AnimatePresence mode="wait">
-                                  {editingCommentId === comment.id ? (
-                                    <motion.div
-                                      key="edit"
-                                      initial={{ opacity: 0, height: 0 }}
-                                      animate={{ opacity: 1, height: 'auto' }}
-                                      exit={{ opacity: 0, height: 0 }}
-                                      className="overflow-hidden"
-                                    >
-                                      <div
-                                        className="p-2"
-                                        style={{
-                                          background: hexToRgba(P, 0.08),
-                                          border: `1px solid ${hexToRgba(P, 0.3)}`,
-                                          clipPath: CHAMFER_3,
-                                        }}
-                                      >
-                                        <textarea
-                                          className="w-full resize-none bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
-                                          style={{ color: TEXT_PRIMARY }}
-                                          rows={2}
-                                          value={editCommentText}
-                                          onChange={(e) => setEditCommentText(e.target.value)}
-                                          autoFocus
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && e.metaKey) {
-                                              e.preventDefault();
-                                              handleEditComment(comment.id);
-                                            }
-                                            if (e.key === 'Escape') {
-                                              cancelEditingComment();
-                                            }
-                                          }}
-                                          placeholder="Измените комментарий..."
-                                        />
-                                        <div className="flex items-center justify-between mt-1.5">
-                                          <span className="text-[9px] text-muted-foreground/40">⌘+Enter для сохранения</span>
-                                          <div className="flex gap-1.5">
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-6 px-2 text-[10px]"
-                                              onClick={cancelEditingComment}
-                                            >
-                                              Отмена
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              className="h-6 gap-1 border-0 rounded-none px-2 text-[10px]"
-                                              style={{
-                                                ...YELLOW_BUTTON_STYLE,
-                                                paddingTop: '3px',
-                                                paddingBottom: '3px',
-                                                paddingLeft: '8px',
-                                                paddingRight: '8px',
-                                              }}
-                                              onClick={() => handleEditComment(comment.id)}
-                                              disabled={!editCommentText.trim()}
-                                            >
-                                              <Check className="h-2.5 w-2.5" />
-                                              Сохранить
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </motion.div>
-                                  ) : (
-                                    <motion.p
-                                      key="text"
-                                      initial={{ opacity: 0 }}
-                                      animate={{ opacity: 1 }}
-                                      exit={{ opacity: 0 }}
-                                      className={`text-xs leading-relaxed ${comment.isResolved ? 'line-through' : ''}`}
-                                      style={{ color: TEXT_PRIMARY, opacity: comment.isResolved ? 0.7 : 0.9 }}
-                                    >
-                                      {comment.text}
-                                    </motion.p>
-                                  )}
-                                </AnimatePresence>
-                                {/* Footer row — creation time (left), Reply + Jump-to (right) */}
-                                <div className="mt-1.5 flex items-center gap-2">
-                                  <span
-                                    className="text-[10px]"
-                                    style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', opacity: 0.7 }}
-                                  >
-                                    {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
-                                  </span>
-                                  <div className="ml-auto flex items-center gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 gap-1 px-2 text-[10px] text-[#00a8c6] hover:text-[#00a8c6] hover:bg-[#00a8c6]/10"
-                                      title="Перейти к этому таймстемпу"
-                                      onClick={() => {
-                                        // handleMarkerClick seeks the audio,
-                                        // highlights the comment thread, AND
-                                        // lights up the marker on the waveform.
-                                        handleMarkerClick(comment);
-                                        // Scroll the waveform/audio player into
-                                        // view so the user sees the marker glow.
-                                        const wf = canvasRef.current?.closest('.relative');
-                                        if (wf) wf.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                      }}
-                                    >
-                                      <LocateFixed className="h-3 w-3" />
-                                      Перейти к
-                                    </Button>
-                                    {/* Reply button — small yellow ghost button at bottom of bubble */}
-                                    {!comment.isResolved && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 gap-1 px-2 text-[10px] transition-colors"
-                                        title="Ответить на комментарий"
-                                        style={{
-                                          color: Y,
-                                          border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
-                                          clipPath: CHAMFER_3,
-                                        }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.1); }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                                        onClick={() => {
-                                          setReplyingTo(replyingTo === comment.id ? null : comment.id);
-                                          setReplyText('');
-                                          if (editingCommentId === comment.id) cancelEditingComment();
-                                        }}
-                                      >
-                                        <Reply className="h-3 w-3" />
-                                        Ответить
-                                      </Button>
-                                    )}
-                                    {comment.isResolved && (
-                                      <span className="text-[9px] text-[#4a8d6f]/60 italic">Тема закрыта</span>
-                                    )}
-                                  </div>
-                                </div>
-                                {/* Inline reply input — hidden when resolved */}
-                                <AnimatePresence>
-                                  {replyingTo === comment.id && !comment.isResolved && (
-                                    <motion.div
-                                      initial={{ opacity: 0, height: 0 }}
-                                      animate={{ opacity: 1, height: 'auto' }}
-                                      exit={{ opacity: 0, height: 0 }}
-                                      className="mt-2 ml-2 overflow-hidden border-l-2 pl-3"
-                                      style={{ borderColor: hexToRgba(Y, 0.4) }}
-                                    >
-                                      <Input
-                                        placeholder={`Ответить ${comment.userName}...`}
-                                        value={replyText}
-                                        onChange={(e) => setReplyText(e.target.value)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleReply();
-                                          }
-                                          if (e.key === 'Escape') {
-                                            setReplyingTo(null);
-                                            setReplyText('');
-                                          }
-                                        }}
-                                        className="mb-1.5 h-7 text-xs border-0 rounded-none"
-                                        style={HUD_INPUT_STYLE}
-                                        autoFocus
-                                      />
-                                      <div className="flex justify-end gap-1.5">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 px-2 text-[10px]"
-                                          onClick={() => {
-                                            setReplyingTo(null);
-                                            setReplyText('');
-                                          }}
-                                        >
-                                          Отмена
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          className="h-6 gap-1 border-0 rounded-none px-2 text-[10px]"
-                                          style={{
-                                            ...YELLOW_BUTTON_STYLE,
-                                            paddingTop: '3px',
-                                            paddingBottom: '3px',
-                                            paddingLeft: '8px',
-                                            paddingRight: '8px',
-                                          }}
-                                          onClick={handleReply}
-                                          disabled={!replyText.trim()}
-                                        >
-                                          <Send className="h-2.5 w-2.5" />
-                                          Ответить
-                                        </Button>
-                                      </div>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            </div>
-                          </motion.div>
-
-                          {/* NESTED REPLIES THREAD — indented with vertical yellow line connector */}
-                          {comment.replies.length > 0 && (
-                            <div
-                              className="mt-1 ml-9 space-y-1 border-l-2 pl-3"
-                              style={{ borderColor: hexToRgba(Y, 0.3) }}
-                            >
-                              <button
-                                className="flex items-center gap-1 text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
-                                onClick={() => toggleThread(comment.id)}
-                              >
-                                {collapsedThreads.has(comment.id) ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                <MessageSquareQuote className="h-3 w-3" />
-                                <span>{comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}</span>
-                              </button>
-                              <AnimatePresence initial={false}>
-                                {!collapsedThreads.has(comment.id) && comment.replies.map((reply) => (
-                                  <motion.div
-                                    key={reply.id}
-                                    id={`comment-${reply.id}`}
-                                    initial={{ opacity: 0, x: -6 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -6 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="group/reply flex items-start gap-2"
-                                    style={{ opacity: comment.isResolved ? 0.55 : 1 }}
-                                  >
-                                    {/* Reply avatar — smaller, yellow tinted */}
-                                    <Avatar className="h-6 w-6 shrink-0 ring-1 ring-[#0a0c10]">
-                                      <AvatarFallback
-                                        className="text-[8px] font-bold"
-                                        style={{
-                                          background: hexToRgba(C, 0.12),
-                                          color: C,
-                                          border: `1px solid ${hexToRgba(C, 0.35)}`,
-                                        }}
-                                      >
-                                        {getInitials(reply.userName)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    {/* Reply bubble — smaller, yellow left stripe */}
-                                    <div
-                                      data-comment-bubble
-                                      className="relative min-w-0 flex-1 transition-all duration-300 group-hover:shadow-[0_0_6px_rgba(199,160,8,0.15)]"
-                                      style={{
-                                        background: comment.isResolved ? BG_MAIN : hexToRgba(BG_CARD_TEAL, 0.85),
-                                        clipPath: CHAMFER_4,
-                                        boxShadow: INSET_BEVEL_SHADOW,
-                                      }}
-                                    >
-                                      <div
-                                        className="absolute left-0 top-0 bottom-0 w-[2px] pointer-events-none transition-all duration-200"
-                                        style={{
-                                          background: comment.isResolved ? hexToRgba(G, 0.5) : hexToRgba(Y, 0.7),
-                                          boxShadow:
-                                            focusedCommentIds.includes(reply.id)
-                                              ? `0 0 10px ${P}, 0 0 18px ${hexToRgba(P, 0.6)}`
-                                              : 'none',
-                                          width: focusedCommentIds.includes(reply.id) ? '3px' : '2px',
-                                        }}
-                                      />
-                                      {focusedCommentIds.includes(reply.id) && (
-                                        <>
-                                          {/* Pulsing outer glow outline */}
-                                          <div
-                                            className="absolute inset-0 pointer-events-none"
-                                            style={{
-                                              clipPath: CHAMFER_4,
-                                              animation: 'kb6-focus-glow 1.6s ease-in-out infinite',
-                                              ['--kb6-focus-color' as string]: P,
-                                              ['--kb6-focus-glow' as string]: hexToRgba(P, 0.55),
-                                            }}
-                                          />
-                                          {/* Bright flash frame — plays once on focus, fades over ~4.5s */}
-                                          <div
-                                            key={`flash-${reply.id}`}
-                                            className="absolute inset-0 pointer-events-none z-10"
-                                            style={{
-                                              clipPath: CHAMFER_4,
-                                              animation: 'kb6-focus-flash 4.5s ease-out forwards',
-                                              ['--kb6-focus-color' as string]: P,
-                                              ['--kb6-focus-glow' as string]: hexToRgba(P, 0.9),
-                                            }}
-                                          />
-                                          {/* Expanding ring — radiates outward once on focus */}
-                                          <div
-                                            key={`ring-${reply.id}`}
-                                            className="pointer-events-none absolute inset-0 z-0"
-                                            style={{
-                                              border: `3px solid ${P}`,
-                                              clipPath: CHAMFER_4,
-                                              animation: 'kb6-focus-ring-expand 1.8s ease-out forwards',
-                                            }}
-                                          />
-                                          {/* Diagonal sweep sheen */}
-                                          <div
-                                            className="pointer-events-none absolute inset-0 overflow-hidden"
-                                            style={{ clipPath: CHAMFER_4 }}
-                                          >
-                                            <div
-                                              className="absolute top-0 left-0 h-full w-1/3"
-                                              style={{
-                                                background: `linear-gradient(100deg, transparent 0%, ${hexToRgba(P, 0.18)} 50%, transparent 100%)`,
-                                                animation: 'kb6-focus-sweep 2.4s ease-in-out infinite',
-                                              }}
-                                            />
-                                          </div>
-                                        </>
-                                      )}
-                                      <div className="relative pl-2.5 pr-2 py-1.5">
-                                        {/* Header — name (left), edit/delete icons on hover (right) */}
-                                        <div className="flex items-center gap-1 mb-0.5">
-                                          <span
-                                            className="min-w-0 flex-1 truncate text-[11px] font-semibold"
-                                            style={{ color: TEXT_PRIMARY }}
-                                          >
-                                            {reply.userName}
-                                          </span>
-                                          <span
-                                            className="shrink-0 text-[9px]"
-                                            style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', opacity: 0.7 }}
-                                          >
-                                            {format(new Date(reply.createdAt), 'MMM d, h:mm a')}
-                                          </span>
-                                          {/* Reply actions — icon-only, always visible */}
-                                          <div className="flex items-center gap-0.5">
-                                            <button
-                                              className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
-                                              title="Изменить"
-                                              onClick={() => startEditingComment(reply)}
-                                            >
-                                              <Pencil className="h-2.5 w-2.5" />
-                                            </button>
-                                            <button
-                                              className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
-                                              title="Удалить"
-                                              onClick={() => handleDeleteComment(reply.id)}
-                                            >
-                                              <Trash2 className="h-2.5 w-2.5" />
-                                            </button>
-                                          </div>
-                                        </div>
-                                        {/* Reply text / edit mode */}
-                                        <AnimatePresence mode="wait">
-                                          {editingCommentId === reply.id ? (
-                                            <motion.div
-                                              key="edit"
-                                              initial={{ opacity: 0, height: 0 }}
-                                              animate={{ opacity: 1, height: 'auto' }}
-                                              exit={{ opacity: 0, height: 0 }}
-                                              className="overflow-hidden"
-                                            >
-                                              <div
-                                                className="p-1.5"
-                                                style={{
-                                                  background: hexToRgba(P, 0.08),
-                                                  border: `1px solid ${hexToRgba(P, 0.3)}`,
-                                                  clipPath: CHAMFER_3,
-                                                }}
-                                              >
-                                                <textarea
-                                                  className="w-full resize-none bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/50"
-                                                  style={{ color: TEXT_PRIMARY }}
-                                                  rows={1}
-                                                  value={editCommentText}
-                                                  onChange={(e) => setEditCommentText(e.target.value)}
-                                                  autoFocus
-                                                  onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && e.metaKey) {
-                                                      e.preventDefault();
-                                                      handleEditComment(reply.id);
-                                                    }
-                                                    if (e.key === 'Escape') cancelEditingComment();
-                                                  }}
-                                                  placeholder="Изменить ответ..."
-                                                />
-                                                <div className="flex justify-end gap-1 mt-1">
-                                                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={cancelEditingComment}>Отмена</Button>
-                                                  <Button
-                                                    size="sm"
-                                                    className="h-5 gap-0.5 border-0 rounded-none px-1.5 text-[9px]"
-                                                    style={{
-                                                      ...YELLOW_BUTTON_STYLE,
-                                                      paddingTop: '2px',
-                                                      paddingBottom: '2px',
-                                                      paddingLeft: '6px',
-                                                      paddingRight: '6px',
-                                                    }}
-                                                    onClick={() => handleEditComment(reply.id)}
-                                                    disabled={!editCommentText.trim()}
-                                                  >
-                                                    <Check className="h-2 w-2" /> Сохранить
-                                                  </Button>
-                                                </div>
-                                              </div>
-                                            </motion.div>
-                                          ) : (
-                                            <motion.p
-                                              key="text"
-                                              initial={{ opacity: 0 }}
-                                              animate={{ opacity: 1 }}
-                                              exit={{ opacity: 0 }}
-                                              className={`text-[11px] leading-relaxed ${comment.isResolved ? 'line-through' : ''}`}
-                                              style={{ color: TEXT_PRIMARY, opacity: comment.isResolved ? 0.6 : 0.85 }}
-                                            >
-                                              {reply.text}
-                                            </motion.p>
-                                          )}
-                                        </AnimatePresence>
-                                        {/* Footer — reply-to-reply button */}
-                                        {!comment.isResolved && (
-                                          <button
-                                            className="mt-0.5 text-[9px] uppercase tracking-wider transition-colors"
-                                            style={{ color: hexToRgba(Y, 0.7), fontFamily: 'var(--font-jetbrains-mono), monospace' }}
-                                            onMouseEnter={(e) => { e.currentTarget.style.color = Y; }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.color = hexToRgba(Y, 0.7); }}
-                                            onClick={() => {
-                                              setReplyingTo(replyingTo === reply.id ? null : reply.id);
-                                              setReplyText('');
-                                              if (editingCommentId === reply.id) cancelEditingComment();
-                                            }}
-                                          >
-                                            <Reply className="inline h-2.5 w-2.5" /> Ответить
-                                          </button>
-                                        )}
-                                        {/* Inline reply input for reply-to-reply — hidden when parent resolved */}
-                                        <AnimatePresence>
-                                          {replyingTo === reply.id && !comment.isResolved && (
-                                            <motion.div
-                                              initial={{ opacity: 0, height: 0 }}
-                                              animate={{ opacity: 1, height: 'auto' }}
-                                              exit={{ opacity: 0, height: 0 }}
-                                              className="mt-1 overflow-hidden"
-                                            >
-                                              <Input
-                                                placeholder={`Ответить ${reply.userName}...`}
-                                                value={replyText}
-                                                onChange={(e) => setReplyText(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault();
-                                                    handleReply();
-                                                  }
-                                                  if (e.key === 'Escape') {
-                                                    setReplyingTo(null);
-                                                    setReplyText('');
-                                                  }
-                                                }}
-                                                className="mb-1 h-6 text-[10px] border-0 rounded-none"
-                                                style={HUD_INPUT_STYLE}
-                                                autoFocus
-                                              />
-                                              <div className="flex justify-end gap-1">
-                                                <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Отмена</Button>
-                                                <Button
-                                                  size="sm"
-                                                  className="h-5 gap-0.5 border-0 rounded-none px-1.5 text-[9px]"
-                                                  style={{
-                                                    ...YELLOW_BUTTON_STYLE,
-                                                    paddingTop: '2px',
-                                                    paddingBottom: '2px',
-                                                    paddingLeft: '6px',
-                                                    paddingRight: '6px',
-                                                  }}
-                                                  onClick={handleReply}
-                                                  disabled={!replyText.trim()}
-                                                >
-                                                  <Send className="h-2 w-2" /> Ответить
-                                                </Button>
-                                              </div>
-                                            </motion.div>
-                                          )}
-                                        </AnimatePresence>
-                                      </div>
-                                    </div>
-                                  </motion.div>
-                                ))}
-                              </AnimatePresence>
-                            </div>
-                          )}
-                        </div>
-                          ))}
-                          {remainingCount > 0 && (
-                            <button
-                              onClick={() => setVisibleCommentCount((prev) => prev + 4)}
-                              className="w-full py-2.5 text-center text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-[1.01]"
-                              style={{
-                                color: Y,
-                                background: hexToRgba(Y, 0.08),
-                                border: `1px solid ${hexToRgba(Y, 0.3)}`,
-                                clipPath: CHAMFER_4,
-                                fontFamily: 'var(--font-jetbrains-mono), monospace',
-                              }}
-                            >
-                              Показать ещё {remainingCount} комм.
-                            </button>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div ref={commentsEndRef} />
-                </ScrollArea>
-
-
               </div>
             </div>
       </div>
