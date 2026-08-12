@@ -1,0 +1,1732 @@
+     1→'use client';
+     2→
+     3→import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  FolderKanban, Music2, Lightbulb, Users, ArrowRight, Plus,
+     7→  ChevronDown, ChevronRight, ChevronLeft, Disc3, AudioLines, Zap, Clock, Star, X,
+     8→  ArrowUp, ArrowDown, Flame, Layers, Key, Pencil, Check, AlertTriangle,
+     9→} from 'lucide-react';
+    10→import { useAuthStore, useDataStore, useNavigationStore, type Project } from '@/lib/store';
+    11→import { useKanbanStore, type Task } from '@/store/kanban-store';
+    12→import { hexToRgba } from '@/lib/utils';
+    13→import { CreateProjectDialog } from '@/components/shared/create-project-dialog';
+    14→import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+    15→
+    16→/* ─── palette (muted HUD tokens — strict spec) ─── */
+    17→const Y = '#c7a008';   // industrial desaturated gold (--accent-yellow)
+    18→const Y2 = '#9e7c06';  // darker gold
+    19→const C = '#00a8c6';   // controlled cyan (--accent-cyan)
+    20→const C2 = '#0085a0';  // darker cyan
+    21→const P = '#7b2cbf';   // deep violet (--accent-purple)
+    22→const P2 = '#5a1d8f';  // darker purple
+    23→const A = '#718096';   // muted grey (text-secondary)
+    24→const G = '#4a8d6f';   // muted green (for done state)
+    25→const MAX_QUICK_ACCESS = 7; // maximum cards in Quick Access panel
+    26→// Background tokens
+    27→const BG_MAIN = '#0a0c10';
+    28→const BG_PANEL = '#11141d';
+    29→const BG_CARD_PURPLE = '#161224';
+    30→const BG_CARD_TEAL = '#0e1a24';
+    31→const BORDER_MUTED = '#1f2633';
+    32→const TEXT_PRIMARY = '#e2e8f0';
+    33→const TEXT_SECONDARY = '#718096';
+    34→
+    35→const typeMeta: Record<string, { label: string; color: string; icon: typeof Disc3 }> = {
+    36→  album:   { label: 'Альбом',  color: P,         icon: Disc3 },       // purple card
+    37→  ep:      { label: 'EP',      color: P,         icon: AudioLines },  // purple card
+    38→  single:  { label: 'Сингл',   color: P,         icon: Music2 },       // purple card
+    39→  general: { label: 'Канбан',  color: C,         icon: FolderKanban },// blue card (kanban)
+    40→};
+    41→
+    42→const stHex: Record<string, string> = {
+    43→  draft: C, in_progress: C, mixing: P, mastering: G, released: C,
+    44→};
+    45→const stLabel: Record<string, string> = {
+    46→  draft: 'Черновик', in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз',
+    47→};
+    48→
+    49→const plural = (n: number, f: [string, string, string]) => {
+    50→  const m10 = n % 10, m100 = n % 100;
+    51→  if (m10 === 1 && m100 !== 11) return f[0];
+    52→  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return f[1];
+    53→  return f[2];
+    54→};
+    55→
+    56→const fmtDate = (s: string) =>
+    57→  new Date(s).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    58→
+    59→/* ─── shared types ─── */
+    60→type SortMode = 'date' | 'name' | 'type';
+    61→interface ModalItem {
+    62→  id: string;
+    63→  title: string;
+    64→  type: string;
+    65→  status: string;
+    66→  date: string;
+    67→  trackCount: number;
+    68→  onOpen: () => void;
+    69→}
+    70→
+    71→/* ─── Waveform Progress Bar — reusable animated audio waveform ─── */
+    72→/* progress: 0-100 (completion %). accentColor: hex color.              */
+    73→/* On hover: playhead sweeps 0%→progress%, filled bars equalize-bounce.  */
+    74→/* 0% edge case: waveform stays static + dim, no animation triggers.     */
+    75→function WaveformProgressBar({ progress, accentColor, height = 40, bars: barCount = 32 }: {
+    76→  progress: number;
+    77→  accentColor: string;
+    78→  height?: number;
+    79→  bars?: number;
+    80→}) {
+    81→  const [hovered, setHovered] = useState(false);
+    82→  const [h, setH] = useState(false);
+    83→  // Clamp + normalize
+    84→  const pct = Math.max(0, Math.min(100, Math.round(progress)));
+    85→  const hasProgress = pct > 0;
+    86→  // Deterministic waveform shape (pseudo-random from accentColor + bars count for stability)
+    87→  const waveBars = useMemo(() => {
+    88→    const seed = accentColor.split('').reduce((a, c) => a + c.charCodeAt(0), 0) + barCount * 17;
+    89→    return Array.from({ length: barCount }, (_, i) => {
+    90→      const base = 0.45 + 0.35 * Math.sin((i / barCount) * Math.PI * 4 + (seed % 7));
+    91→      const harm = 0.15 * Math.sin((i / barCount) * Math.PI * 11 + (seed % 13));
+    92→      const noise = ((seed * (i + 3) * 7) % 23) / 100 - 0.1;
+    93→      return Math.max(0.15, Math.min(0.95, base + harm + noise));
+    94→    });
+    95→  }, [accentColor, barCount]);
+    96→
+    97→  return (
+    98→    <div
+    99→      className="relative overflow-hidden"
+   100→      style={{
+   101→        height: `${height}px`,
+   102→        background: 'rgba(0,0,0,0.4)',
+   103→        borderRadius: '2px',
+   104→        border: `0.5px solid ${hexToRgba(accentColor, 0.2)}`,
+   105→      }}
+   106→      onMouseEnter={() => { setHovered(true); setH(true); }}
+   107→      onMouseLeave={() => { setHovered(false); setH(false); }}
+   108→    >
+   109→      {/* Center axis line */}
+   110→      <div className="absolute left-0 right-0 top-1/2 h-px pointer-events-none" style={{ background: hexToRgba(accentColor, 0.15) }} />
+   111→
+   112→      {/* Waveform bars */}
+   113→      <div className="absolute inset-0 flex items-center justify-between px-1 pointer-events-none">
+   114→        {waveBars.map((v, i) => {
+   115→          // Bar is "filled" if it's within the progress region (left→right)
+   116→          const barProgressPct = ((i + 1) / barCount) * 100;
+   117→          const isFilled = hasProgress && barProgressPct <= pct;
+   118→          // On hover with progress, bars up to pct animate; bars beyond pct stay muted
+   119→          const shouldAnimate = hovered && hasProgress && isFilled;
+   120→          return (
+   121→            <div
+   122→              key={i}
+   123→              style={{
+   124→                width: '2px',
+   125→                height: `${Math.round(v * 100)}%`,
+   126→                background: isFilled ? accentColor : hexToRgba(accentColor, 0.18),
+   127→                opacity: isFilled ? (h ? 1 : 0.75) : 0.5,
+   128→                boxShadow: isFilled ? `0 0 3px ${hexToRgba(accentColor, 0.7)}` : 'none',
+   129→                transformOrigin: 'center',
+   130→                borderRadius: '0.5px',
+   131→                // CSS variable for equalizer base height (so keyframe can scale around it)
+   132→                ['--kb5-base' as string]: v,
+   133→                animation: shouldAnimate ? `kb5-eq-bounce ${0.9 + (i % 5) * 0.18}s ease-in-out ${(i * 0.05).toFixed(2)}s infinite` : 'none',
+   134→                transition: 'opacity 280ms ease, background 280ms ease, box-shadow 280ms ease',
+   135→              }}
+   136→            />
+   137→          );
+   138→        })}
+   139→      </div>
+   140→
+   141→      {/* Progress divider marker (vertical line at progress boundary) — only if hasProgress */}
+   142→      {hasProgress && (
+   143→        <div
+   144→          className="absolute inset-y-0 pointer-events-none"
+   145→          style={{
+   146→            left: `${pct}%`,
+   147→            width: '1px',
+   148→            background: accentColor,
+   149→            boxShadow: `0 0 6px ${accentColor}, 0 0 3px ${accentColor}`,
+   150→            opacity: h ? 1 : 0.6,
+   151→            transition: 'opacity 220ms ease',
+   152→          }}
+   153→        />
+   154→      )}
+   155→
+   156→      {/* Playhead sweep — only animates on hover AND when there's progress */}
+   157→      {hovered && hasProgress && (
+   158→        <div
+   159→          className="absolute inset-y-0 pointer-events-none"
+   160→          style={{
+   161→            width: '24px',
+   162→            background: `linear-gradient(90deg, transparent, ${hexToRgba(accentColor, 0.3)} 40%, ${hexToRgba('#ffffff', 0.4)} 50%, ${hexToRgba(accentColor, 0.3)} 60%, transparent)`,
+   163→            ['--kb5-progress' as string]: `${pct}%`,
+   164→            animation: 'kb5-playhead-sweep 1.6s ease-out',
+   165→            boxShadow: `0 0 10px ${hexToRgba(accentColor, 0.5)}`,
+   166→          }}
+   167→        >
+   168→          {/* Playhead vertical line */}
+   169→          <div className="absolute inset-y-0 left-1/2 w-px" style={{ background: '#ffffff', boxShadow: `0 0 6px ${accentColor}` }} />
+   170→        </div>
+   171→      )}
+   172→
+   173→      {/* Progress percentage label (top-right) */}
+   174→      <div
+   175→        className="absolute top-0.5 right-1.5 text-[9px] font-extrabold tabular-nums font-mono pointer-events-none"
+   176→        style={{
+   177→          color: hasProgress ? accentColor : hexToRgba(accentColor, 0.4),
+   178→          textShadow: hasProgress ? `0 0 4px ${hexToRgba(accentColor, 0.5)}` : 'none',
+   179→          opacity: h ? 1 : 0.7,
+   180→          transition: 'opacity 220ms ease',
+   181→        }}
+   182→      >
+   183→        {pct}%
+   184→      </div>
+   185→    </div>
+   186→  );
+   187→}
+   188→
+   189→/* ─── Project Card — dark data slab with WaveformProgressBar ─── */
+   190→function ProjectCard({ project, trackCount, onClick, onKanban }: {
+   191→  project: Project; trackCount: number; onClick: () => void; onKanban: () => void;
+   192→}) {
+   193→  const [h, setH] = useState(false);
+   194→  const t = typeMeta[project.type] || typeMeta.general;
+   195→  const Icon = t.icon;
+   196→  const sc = stHex[project.status] || '#64748b';
+   197→  const sl = stLabel[project.status] || project.status;
+   198→  const hasKanban = !!project.kanbanTaskId;
+   199→  // Auto project cards are purple, inner content is always yellow.
+   200→  const isAutoProjectCard = project.type === 'album' || project.type === 'ep' || project.type === 'single';
+   201→  const contentColor = isAutoProjectCard ? Y : (t.color === C ? Y : t.color);
+   202→  // Compute progress %: based on track count (capped at 100) + status boost
+   203→  const progress = useMemo(() => {
+   204→    const trackPct = Math.min(80, trackCount * 12); // each track ~12%, capped at 80
+   205→    const statusBoost = project.status === 'released' ? 100 : project.status === 'mastering' ? 90 : project.status === 'mixing' ? 70 : project.status === 'in_progress' ? 40 : 0;
+   206→    return Math.max(trackPct, statusBoost);
+   207→  }, [trackCount, project.status]);
+   208→
+   209→  return (
+   210→    <div
+   211→      onClick={onClick}
+   212→      onMouseEnter={() => setH(true)}
+   213→      onMouseLeave={() => setH(false)}
+   214→      className="group relative cursor-pointer overflow-hidden"
+   215→      style={{
+   216→        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+   217→        background: project.type === 'album' ? '#161224' : project.type === 'ep' ? '#161224' : '#161224',
+   218→        borderTop: `2px solid ${h ? '#c7a008' : t.color}`,
+   219→        boxShadow: h
+   220→          ? `inset 0 1px 12px ${hexToRgba('#c7a008', 0.15)}, inset 0 0 0 1px ${hexToRgba('#c7a008', 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
+   221→          : `inset 0 1px 12px ${hexToRgba(t.color, 0.15)}, inset 0 0 0 1px ${hexToRgba(t.color, 0.3)}`,
+   222→        transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
+   223→        transform: h ? 'translateY(-3px)' : 'translateY(0)',
+   224→      }}
+   225→    >
+   226→      {/* ── Inner beveled frame (recessed screen effect) ── */}
+   227→      <div
+   228→        className="absolute inset-[3px] pointer-events-none transition-opacity duration-300"
+   229→        style={{
+   230→          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+   231→          boxShadow: h
+   232→            ? `inset 0 0 0 1px ${hexToRgba(t.color, 0.35)}, inset 0 0 14px ${hexToRgba(t.color, 0.15)}`
+   233→            : `inset 0 0 0 1px ${hexToRgba(t.color, 0.15)}`,
+   234→          opacity: h ? 1 : 0.5,
+   235→        }}
+   236→      />
+   237→
+   238→      {/* Top accent strip — color gradient */}
+   239→      <div
+   240→        className="h-[2px] w-full relative z-[2]"
+   241→        style={{
+   242→          background: `linear-gradient(90deg, transparent, ${t.color} 30%, ${t.color} 70%, transparent)`,
+   243→          boxShadow: `0 0 8px ${hexToRgba(t.color, 0.7)}`,
+   244→        }}
+   245→      />
+   246→
+   247→      {/* Cover strip — with type icon (left) */}
+   248→      <div
+   249→        className="h-16 flex items-center justify-between px-4 relative z-[2] overflow-hidden"
+   250→        style={{
+   251→          background: `linear-gradient(135deg, ${hexToRgba(t.color, h ? 0.28 : 0.16)}, ${hexToRgba(t.color, h ? 0.06 : 0.03)})`,
+   252→          borderBottom: `1px solid ${hexToRgba(t.color, 0.12)}`,
+   253→        }}
+   254→      >
+   255→        <div className="flex items-center gap-2 relative z-[2]">
+   256→          <div
+   257→            className="flex h-8 w-8 items-center justify-center"
+   258→            style={{
+   259→              clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+   260→              background: hexToRgba(contentColor, 0.2),
+   261→              border: `1px solid ${hexToRgba(contentColor, 0.5)}`,
+   262→              boxShadow: h ? `0 0 10px ${hexToRgba(contentColor, 0.5)}` : 'none',
+   263→            }}
+   264→          >
+   265→            <Icon className="w-4 h-4" style={{ color: contentColor, filter: `drop-shadow(0 0 2px ${contentColor})` }} />
+   266→          </div>
+   267→          <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: contentColor, textShadow: `0 0 4px ${hexToRgba(contentColor, 0.4)}` }}>{t.label}</span>
+   268→        </div>
+   269→      </div>
+   270→
+   271→      {/* Body */}
+   272→      <div className="p-4 relative z-[2]">
+   273→        {/* Title */}
+   274→        <h3
+   275→          className="mb-2 text-[15px] font-bold leading-snug transition-colors"
+   276→          style={{
+   277→            color: h ? '#ffffff' : '#e8eaed',
+   278→            letterSpacing: '0.01em',
+   279→            textShadow: h ? `0 0 8px ${hexToRgba(t.color, 0.4)}` : 'none',
+   280→          }}
+   281→        >
+   282→          {project.title}
+   283→        </h3>
+   284→
+   285→        {/* ── Waveform Progress Bar (animated audio waveform, playhead sweeps on hover) ── */}
+   286→        <div className="my-2.5">
+   287→          <WaveformProgressBar progress={progress} accentColor="#c7a008" height={48} bars={32} />
+   288→        </div>
+   289→
+   290→        {/* Meta row — monospace 11px opacity 0.6 per spec */}
+   291→        <div className="flex items-center gap-3 text-[11px]" style={{
+   292→          color: h ? hexToRgba(contentColor, 0.85) : TEXT_SECONDARY,
+   293→          fontFamily: 'var(--font-jetbrains-mono), monospace',
+   294→          opacity: 0.6,
+   295→        }}>
+   296→          <span className="flex items-center gap-1">
+   297→            <Music2 className="w-3 h-3" style={{ color: contentColor, opacity: h ? 1 : 0.65 }} />
+   298→            {trackCount} {plural(trackCount, ['трек', 'трека', 'треков'])}
+   299→          </span>
+   300→          <span className="flex items-center gap-1.5">
+   301→            {/* Status dot with matching colored glow */}
+   302→            <span className="w-1.5 h-1.5 rounded-full" style={{
+   303→              background: contentColor,
+   304→              boxShadow: `0 0 6px ${hexToRgba(contentColor, 0.6)}`,
+   305→            }} />
+   306→            {sl}
+   307→          </span>
+   308→        </div>
+   309→
+   310→        {hasKanban && (
+   311→          <button
+   312→            onClick={(e) => { e.stopPropagation(); onKanban(); }}
+   313→            className="mt-3 flex items-center gap-1.5 text-[11px] font-bold uppercase transition-all hover:scale-105"
+   314→            style={{
+   315→              color: contentColor,
+   316→              fontFamily: 'var(--font-jetbrains-mono), monospace',
+   317→              letterSpacing: '1px',
+   318→              clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+   319→              padding: '4px 8px',
+   320→              background: h ? hexToRgba(contentColor, 0.1) : 'transparent',
+   321→              border: `0.5px solid ${h ? hexToRgba(contentColor, 0.4) : hexToRgba(contentColor, 0.2)}`,
+   322→            }}
+   323→          >
+   324→            <Key className="w-3 h-3" />
+   325→            Открыть Kanban
+   326→          </button>
+   327→        )}
+   328→      </div>
+   329→    </div>
+   330→  );
+   331→}
+   332→
+   333→/* ─── Kanban Card — clean cyberpunk data slab with kanban waveform sign ─── */
+   334→function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
+   335→  const [h, setH] = useState(false);
+   336→  const isAuto = !!task.soundflowProjectId;
+   337→  // Yellow→Blue remap per spec: auto cards were yellow, now blue. Kanban cards stay cyan.
+   338→  const color = isAuto ? C : C;
+   339→  // Content color rule: Kanban cards are blue, inner content is always yellow.
+   340→  const contentColor = Y;
+   341→  const children = task.children || [];
+   342→  const done = children.filter(c => c.status === 'done').length;
+   343→  const pct = children.length > 0 ? Math.round((done / children.length) * 100) : 0;
+   344→  const TypeIcon = isAuto ? Music2 : FolderKanban;
+   345→
+   346→  return (
+   347→    <div
+   348→      onClick={onClick}
+   349→      onMouseEnter={() => setH(true)}
+   350→      onMouseLeave={() => setH(false)}
+   351→      className="relative cursor-pointer overflow-hidden"
+   352→      style={{
+   353→        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+   354→        background: '#0e1a24',
+   355→        borderTop: `2px solid ${h ? '#c7a008' : color}`,
+   356→        boxShadow: h
+   357→          ? `inset 0 1px 12px ${hexToRgba('#c7a008', 0.15)}, inset 0 0 0 1px ${hexToRgba('#c7a008', 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
+   358→          : `inset 0 1px 12px ${hexToRgba(color, 0.15)}, inset 0 0 0 1px ${hexToRgba(color, 0.3)}`,
+   359→        transition: 'box-shadow 280ms ease, transform 280ms ease',
+   360→        transform: h ? 'translateY(-3px)' : 'translateY(0)',
+   361→      }}
+   362→    >
+   363→      {/* Inner beveled frame (static, recessed screen effect) */}
+   364→      <div
+   365→        className="absolute inset-[3px] pointer-events-none transition-opacity duration-300"
+   366→        style={{
+   367→          clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+   368→          boxShadow: h
+   369→            ? `inset 0 0 0 1px ${hexToRgba(color, 0.3)}, inset 0 0 14px ${hexToRgba(color, 0.12)}`
+   370→            : `inset 0 0 0 1px ${hexToRgba(color, 0.12)}`,
+   371→          opacity: h ? 1 : 0.5,
+   372→        }}
+   373→      />
+   374→
+   375→      {/* Top accent strip */}
+   376→      <div
+   377→        className="h-[2px] w-full relative z-[2]"
+   378→        style={{
+   379→          background: `linear-gradient(90deg, transparent, ${color} 30%, ${color} 70%, transparent)`,
+   380→          boxShadow: `0 0 8px ${hexToRgba(color, 0.7)}`,
+   381→        }}
+   382→      />
+   383→
+   384→      <div className="p-4 relative z-[2]">
+   385→        {/* Header row: KANBAN badge + project type */}
+   386→        <div className="mb-3 flex items-center justify-between">
+   387→          <span
+   388→            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest"
+   389→            style={{
+   390→              background: hexToRgba(contentColor, h ? 0.22 : 0.14),
+   391→              color: contentColor,
+   392→              border: `1.5px solid ${hexToRgba(contentColor, h ? 0.65 : 0.4)}`,
+   393→              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+   394→              boxShadow: h ? `0 0 10px ${hexToRgba(contentColor, 0.4)}` : 'none',
+   395→              transition: 'all 220ms ease',
+   396→            }}
+   397→          >
+   398→            {/* Static status dot */}
+   399→            <span
+   400→              className="inline-block w-2 h-2 rounded-full"
+   401→              style={{ background: contentColor, boxShadow: `0 0 6px ${contentColor}` }}
+   402→            />
+   403→            {isAuto ? 'AUTO' : 'KANBAN'}
+   404→          </span>
+   405→          <span
+   406→            className="text-[10px] font-mono uppercase tracking-wider transition-colors"
+   407→            style={{ color: h ? hexToRgba(contentColor, 0.8) : 'rgba(100,116,139,0.7)' }}
+   408→          >
+   409→            {task.projectType || 'general'}
+   410→          </span>
+   411→        </div>
+   412→
+   413→        {/* Type icon (static, no bobbing) */}
+   414→        <div
+   415→          className="mb-2.5 flex h-10 w-10 items-center justify-center"
+   416→          style={{
+   417→            clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+   418→            background: h ? hexToRgba(contentColor, 0.28) : hexToRgba(contentColor, 0.14),
+   419→            border: `1.5px solid ${hexToRgba(contentColor, h ? 0.65 : 0.32)}`,
+   420→            boxShadow: h ? `0 0 16px ${hexToRgba(contentColor, 0.5)}` : 'none',
+   421→            transition: 'all 220ms ease',
+   422→          }}
+   423→        >
+   424→          <TypeIcon className="w-5 h-5" style={{ color: contentColor, filter: h ? `drop-shadow(0 0 4px ${contentColor})` : 'none' }} />
+   425→        </div>
+   426→
+   427→        {/* Title */}
+   428→        <h3
+   429→          className="mb-3 text-sm font-bold leading-tight line-clamp-2"
+   430→          style={{
+   431→            minHeight: '2.5em',
+   432→            color: h ? '#ffffff' : '#cbd5e1',
+   433→            textShadow: h ? `0 0 8px ${hexToRgba(contentColor, 0.4)}` : 'none',
+   434→            transition: 'color 200ms ease, text-shadow 200ms ease',
+   435→            letterSpacing: '0.01em',
+   436→          }}
+   437→        >
+   438→          {task.title}
+   439→        </h3>
+   440→
+   441→        {/* ── Waveform Progress Bar — distinctive kanban sign (animated audio waveform) ── */}
+   442→        <div className="my-2.5">
+   443→          <WaveformProgressBar progress={pct} accentColor="#c7a008" height={40} bars={28} />
+   444→        </div>
+   445→
+   446→        {/* Bottom data row */}
+   447→        <div className="flex items-center justify-between text-[9px] font-mono uppercase tracking-wider">
+   448→          <span className="flex items-center gap-1" style={{ color: h ? hexToRgba(contentColor, 0.9) : 'rgba(100,116,139,0.9)' }}>
+   449→            <Layers className="w-3 h-3" style={{ color: contentColor, opacity: h ? 1 : 0.65 }} />
+   450→            {children.length} {plural(children.length, ['board', 'boards', 'boards'])}
+   451→          </span>
+   452→          <span className="flex items-center gap-1" style={{ color: h ? hexToRgba(pct === 100 ? G : contentColor, 0.9) : 'rgba(100,116,139,0.9)' }}>
+   453→            <span
+   454→              className="w-1.5 h-1.5 rounded-full"
+   455→              style={{
+   456→                background: pct === 100 ? G : contentColor,
+   457→                boxShadow: `0 0 5px ${pct === 100 ? G : contentColor}`,
+   458→              }}
+   459→            />
+   460→            {done}/{children.length} done
+   461→          </span>
+   462→        </div>
+   463→      </div>
+   464→    </div>
+   465→  );
+   466→}
+   467→
+   468→/* ─── Idea Card ─── */
+   469→function IdeaCard({ idea, onClick }: { idea: { id: string; title: string; description?: string; createdAt: string }; onClick: () => void }) {
+   470→  const [h, setH] = useState(false);
+   471→  return (
+   472→    <div
+   473→      onClick={onClick}
+   474→      onMouseEnter={() => setH(true)}
+   475→      onMouseLeave={() => setH(false)}
+   476→      className="w-60 shrink-0 cursor-pointer p-4"
+   477→      style={{
+   478→        borderRadius: '10px',
+   479→        background: h ? `linear-gradient(135deg, ${hexToRgba(A, 0.15)}, rgba(16,20,30,0.95))` : `linear-gradient(135deg, ${hexToRgba(A, 0.08)}, rgba(14,18,28,0.85))`,
+   480→        border: `1px solid ${h ? hexToRgba(A, 0.5) : hexToRgba(A, 0.22)}`,
+   481→        boxShadow: h ? `0 0 0 1px ${hexToRgba(A, 0.15)}, 0 6px 24px ${hexToRgba(A, 0.15)}, 0 4px 12px rgba(0,0,0,0.3)` : `0 0 0 1px ${hexToRgba(A, 0.05)}, 0 4px 10px rgba(0,0,0,0.2)`,
+   482→        transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
+   483→        transform: h ? 'translateY(-3px) scale(1.01)' : 'none',
+   484→      }}
+   485→    >
+   486→      <div className="mb-2 flex items-center gap-2">
+   487→        <Lightbulb className="w-3.5 h-3.5" style={{ color: A, opacity: h ? 1 : 0.6 }} />
+   488→        <span className="text-[10px] font-medium text-slate-500">{fmtDate(idea.createdAt)}</span>
+   489→      </div>
+   490→      <h3 className="mb-1 text-sm font-medium text-slate-200 line-clamp-1">{idea.title}</h3>
+   491→      {idea.description && <p className="text-[11px] text-slate-500 line-clamp-2">{idea.description}</p>}
+   492→    </div>
+   493→  );
+   494→}
+   495→
+   496→/* ─── Stat Bar: cyberpunk 2077 HUD stat cells ─── */
+   497→function StatBar({ stats }: { stats: { icon: typeof FolderKanban; value: number; label: string; color: string }[] }) {
+   498→  return (
+   499→    <div className="flex items-center gap-1.5">
+   500→      {stats.map((s, i) => {
+   501→        const Icon = s.icon;
+   502→        return (
+   503→          <div key={s.label} className="flex items-center">
+   504→            {/* Tick divider between cells */}
+   505→            {i > 0 && (
+   506→              <div className="flex flex-col items-center mx-1 gap-0.5" style={{ opacity: 0.4 }}>
+   507→                <div style={{ width: '1px', height: '6px', background: '#00a8c6' }} />
+   508→                <div style={{ width: '3px', height: '3px', background: '#c7a008', borderRadius: '50%' }} />
+   509→                <div style={{ width: '1px', height: '6px', background: '#00a8c6' }} />
+   510→              </div>
+   511→            )}
+   512→            <div
+   513→              className="relative flex items-center gap-2 px-3 py-2 transition-all hover:bg-white/[0.04] group"
+   514→              style={{
+   515→                clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+   516→                background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+   517→                border: '1px solid rgba(0,168,198,0.4)',
+   518→                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
+   519→              }}
+   520→            >
+   521→              {/* Icon (no frame) */}
+   522→              <Icon className="w-5 h-5 shrink-0" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.4))' }} />
+   523→
+   524→              {/* Value + label */}
+   525→              <div className="flex flex-col leading-none">
+   526→                <span className="text-lg font-extrabold tabular-nums" style={{
+   527→                  color: '#e2e8f0',
+   528→                  fontFamily: 'var(--font-rajdhani), sans-serif',
+   529→                  fontWeight: 700,
+   530→                  textShadow: '0 0 4px rgba(0,168,198,0.15)',
+   531→                }}>{s.value}</span>
+   532→                <span className="text-[9px] font-bold uppercase mt-0.5" style={{
+   533→                  color: '#718096',
+   534→                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+   535→                  letterSpacing: '0.15em',
+   536→                }}>{s.label}</span>
+   537→              </div>
+   538→
+   539→              {/* Yellow corner bracket (bottom-right) */}
+   540→              <div className="absolute bottom-0 right-0 w-2 h-2 pointer-events-none" style={{
+   541→                borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+   542→                borderRight: '1.5px solid rgba(199,160,8,0.6)',
+   543→              }} />
+   544→              {/* Blue corner bracket (top-left) */}
+   545→              <div className="absolute top-0 left-0 w-2 h-2 pointer-events-none" style={{
+   546→                borderTop: '1.5px solid rgba(0,168,198,0.6)',
+   547→                borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+   548→              }} />
+   549→            </div>
+   550→          </div>
+   551→        );
+   552→      })}
+   553→    </div>
+   554→  );
+   555→}
+   556→
+   557→/* ─── Section header — uppercase bold wide-tracked title ─── */
+   558→function SectionHeader({ title, action, accentColor }: { title: string; action?: React.ReactNode; accentColor?: string }) {
+   559→  return (
+   560→    <div className="mb-4 flex items-center justify-between">
+   561→      <div className="flex items-center gap-2">
+   562→        {accentColor && (
+   563→          <div className="flex h-7 w-7 items-center justify-center" style={{
+   564→            clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+   565→            background: hexToRgba(accentColor, 0.15),
+   566→            border: `1px solid ${hexToRgba(accentColor, 0.4)}`,
+   567→          }}>
+   568→            <Zap className="w-3.5 h-3.5" style={{ color: accentColor }} />
+   569→          </div>
+   570→        )}
+   571→        <h2 className="text-sm font-bold uppercase" style={{
+   572→          color: TEXT_PRIMARY,
+   573→          fontFamily: 'var(--font-rajdhani), sans-serif',
+   574→          fontWeight: 700,
+   575→          letterSpacing: '2px',
+   576→        }}>{title}</h2>
+   577→      </div>
+   578→      {action}
+   579→    </div>
+   580→  );
+   581→}
+   582→
+   583→/* ─── Create Card — holographic terminal with rotating concentric rings ─── */
+   584→function CreateCard({ onClick, label }: { onClick: () => void; label: string }) {
+   585→  const [h, setH] = useState(false);
+   586→  return (
+   587→    <button
+   588→      type="button"
+   589→      onClick={onClick}
+   590→      onMouseEnter={() => setH(true)}
+   591→      onMouseLeave={() => setH(false)}
+   592→      className="group relative flex flex-col items-center justify-center overflow-hidden"
+   593→      style={{
+   594→        minHeight: '180px',
+   595→        clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+   596→        background: '#12131a',
+   597→        borderTop: h ? '2px solid #00a8c6' : '2px solid #c7a008',
+   598→        boxShadow: h
+   599→          ? `inset 0 1px 12px rgba(0,168,198,0.3), inset 0 0 0 2px rgba(0,168,198,0.7), 0 0 8px rgba(0,168,198,0.3), 0 4px 12px rgba(0,0,0,0.4)`
+   600→          : `inset 0 1px 12px rgba(199,160,8,0.15), inset 0 0 0 1px rgba(199,160,8,0.3)`,
+   601→        transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
+   602→        transform: h ? 'scale(1.04)' : 'scale(1)',
+   603→        cursor: 'pointer',
+   604→      }}
+   605→    >
+   606→      {/* Fine HUD grid overlay lines */}
+   607→      <div
+   608→        className="absolute inset-0 pointer-events-none"
+   609→        style={{
+   610→          opacity: h ? 0.20 : 0.08,
+   611→          backgroundImage: `
+   612→            linear-gradient(rgba(199,160,8,0.10) 1px, transparent 1px),
+   613→            linear-gradient(90deg, rgba(199,160,8,0.10) 1px, transparent 1px)
+   614→          `,
+   615→          backgroundSize: '14px 14px',
+   616→        }}
+   617→      />
+   618→
+   619→      {/* Faint corner technical text overlays (opacity 0.4, 9px monospace) */}
+   620→      <div className="absolute top-2 left-2.5 pointer-events-none" style={{
+   621→        fontFamily: 'var(--font-jetbrains-mono), monospace',
+   622→        fontSize: '9px',
+   623→        color: '#c7a008',
+   624→        opacity: 0.4,
+   625→        letterSpacing: '0.08em',
+   626→        lineHeight: '1.5',
+   627→      }}>
+   628→        <div>SECURITY ENCRYPTION ACTIVE</div>
+   629→        <div>PROJECTION: 60</div>
+   630→      </div>
+   631→      <div className="absolute bottom-2 right-2.5 pointer-events-none text-right" style={{
+   632→        fontFamily: 'var(--font-jetbrains-mono), monospace',
+   633→        fontSize: '9px',
+   634→        color: '#c7a008',
+   635→        opacity: 0.4,
+   636→        letterSpacing: '0.08em',
+   637→        lineHeight: '1.5',
+   638→      }}>
+   639→        <div>CODE: 1-00000.F0</div>
+   640→        <div>RING_SYS:ONLINE</div>
+   641→      </div>
+   642→
+   643→      {/* ── Holographic terminal: central ring core with rotating concentric data rings ── */}
+   644→      <div className="relative flex items-center justify-center" style={{ width: '88px', height: '88px' }}>
+   645→        {/* Outer thin ring */}
+   646→        <div
+   647→          className="absolute rounded-full pointer-events-none"
+   648→          style={{
+   649→            width: '88px', height: '88px',
+   650→            border: '1px solid rgba(199,160,8,0.35)',
+   651→            boxShadow: '0 0 8px rgba(199,160,8,0.25)',
+   652→            opacity: h ? 1 : 0.55,
+   653→            transition: 'opacity 280ms',
+   654→          }}
+   655→        />
+   656→        {/* Middle dashed data ring — rotating clockwise */}
+   657→        <div
+   658→          className="absolute pointer-events-none"
+   659→          style={{
+   660→            width: '68px', height: '68px',
+   661→            top: '50%', left: '50%',
+   662→            borderRadius: '50%',
+   663→            border: '1.5px dashed rgba(199,160,8,0.7)',
+   664→            background: 'transparent',
+   665→            animation: 'kb2-ring-spin-cw 8s linear infinite',
+   666→            boxShadow: '0 0 8px rgba(199,160,8,0.25)',
+   667→            opacity: h ? 1 : 0.65,
+   668→            transition: 'opacity 280ms',
+   669→          }}
+   670→        />
+   671→        {/* Inner solid gold ring — rotating counter-clockwise with data tick marks */}
+   672→        <div
+   673→          className="absolute pointer-events-none"
+   674→          style={{
+   675→            width: '52px', height: '52px',
+   676→            top: '50%', left: '50%',
+   677→            borderRadius: '50%',
+   678→            background: `conic-gradient(from 0deg, transparent 0deg, transparent 15deg, rgba(199,160,8,0.6) 16deg, rgba(199,160,8,0.6) 18deg, transparent 19deg, transparent 45deg, rgba(199,160,8,0.6) 46deg, rgba(199,160,8,0.6) 48deg, transparent 49deg, transparent 90deg, rgba(199,160,8,0.6) 91deg, rgba(199,160,8,0.6) 93deg, transparent 94deg, transparent 135deg, rgba(199,160,8,0.6) 136deg, rgba(199,160,8,0.6) 138deg, transparent 139deg, transparent 180deg, rgba(199,160,8,0.6) 181deg, rgba(199,160,8,0.6) 183deg, transparent 184deg, transparent 225deg, rgba(199,160,8,0.6) 226deg, rgba(199,160,8,0.6) 228deg, transparent 229deg, transparent 270deg, rgba(199,160,8,0.6) 271deg, rgba(199,160,8,0.6) 273deg, transparent 274deg, transparent 315deg, rgba(199,160,8,0.6) 316deg, rgba(199,160,8,0.6) 318deg, transparent 319deg)`,
+   679→            mask: 'radial-gradient(circle, transparent 22px, #000 23px, #000 25px, transparent 26px)',
+   680→            WebkitMask: 'radial-gradient(circle, transparent 22px, #000 23px, #000 25px, transparent 26px)',
+   681→            animation: 'kb2-ring-spin-ccw 6s linear infinite',
+   682→            opacity: h ? 1 : 0.7,
+   683→            transition: 'opacity 280ms',
+   684→          }}
+   685→        />
+   686→        {/* Central solid gold core with Plus icon */}
+   687→        <div
+   688→          className="relative flex items-center justify-center rounded-full"
+   689→          style={{
+   690→            width: '40px', height: '40px',
+   691→            background: 'linear-gradient(135deg, #c7a008 0%, #9e7c06 50%, #c7a008 100%)',
+   692→            boxShadow: '0 0 8px rgba(199,160,8,0.25), inset 0 1px 0 rgba(255,255,255,0.25)',
+   693→            animation: 'kb2-core-pulse 2.4s ease-in-out infinite',
+   694→          }}
+   695→        >
+   696→          <Plus
+   697→            className="w-6 h-6"
+   698→            style={{
+   699→              color: '#0a0b10',
+   700→              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.25))',
+   701→            }}
+   702→          />
+   703→        </div>
+   704→      </div>
+   705→
+   706→      <span
+   707→        className="mt-4 text-[11px] font-extrabold uppercase tracking-[0.18em]"
+   708→        style={{
+   709→          color: '#c7a008',
+   710→          textShadow: '0 0 8px rgba(199,160,8,0.25), 0 0 4px rgba(199,160,8,0.25)',
+   711→          animation: h ? 'kb2-holo-text 1.8s ease-in-out infinite' : 'none',
+   712→        }}
+   713→      >
+   714→        {label}
+   715→      </span>
+   716→    </button>
+   717→  );
+   718→}
+   719→
+   720→/* ─── Quick Access Card — dark data slab with waveform + clickable priority scale ─── */
+   721→function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
+   722→  item: ModalItem; onClick: () => void;
+   723→  onMoveTo: (targetIdx: number) => void; priority: number; total: number;
+   724→}) {
+   725→  const [h, setH] = useState(false);
+   726→  const [priorityOpen, setPriorityOpen] = useState(false);
+   727→  const [pendingPriority, setPendingPriority] = useState(priority);
+   728→  const t = typeMeta[item.type] || typeMeta.general;
+   729→  const sc = stHex[item.status] || '#64748b';
+   730→  const sl = stLabel[item.status] || item.status;
+   731→  // Content color rule: Quick Access cards are cyan, inner content is always yellow.
+   732→  const contentColor = Y;
+   733→  // Priority scale: always 7 segments (max 7 cards), filled = priority level
+   734→  const SCALE_SEGS = 7;
+   735→  const filledSegs = priority; // priority is 1-based, segments 0..priority-1 are filled
+   736→
+   737→  return (
+   738→    <div
+   739→      onClick={onClick}
+   740→      onMouseEnter={() => setH(true)}
+   741→      onMouseLeave={() => setH(false)}
+   742→      className="group relative w-60 shrink-0 cursor-pointer overflow-hidden"
+   743→      style={{
+   744→        clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+   745→        background: h
+   746→          ? `linear-gradient(135deg, ${hexToRgba(C, 0.22)}, rgba(10,14,22,0.96))`
+   747→          : `linear-gradient(135deg, ${hexToRgba(C, 0.10)}, rgba(10,14,22,0.88))`,
+   748→        boxShadow: h
+   749→          ? `inset 0 0 0 1px ${hexToRgba(C, 0.5)}, inset 0 0 0 3px ${hexToRgba('#c7a008', 0.8)}, 0 0 8px ${hexToRgba('#c7a008', 0.25)}, 0 4px 16px rgba(0,0,0,0.5)`
+   750→          : `inset 0 0 0 1px ${hexToRgba(C, 0.3)}, inset 0 0 0 2.5px ${hexToRgba('#c7a008', 0.55)}, 0 0 4px ${hexToRgba('#c7a008', 0.1)}, 0 2px 10px rgba(0,0,0,0.4)`,
+   751→        transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
+   752→        transform: h ? 'translateY(-3px)' : 'none',
+   753→      }}
+   754→    >
+   755→      {/* Beveled edge glow — top accent strip (cyan) */}
+   756→      <div
+   757→        className="h-[2px] w-full"
+   758→        style={{
+   759→          background: `linear-gradient(90deg, transparent, ${C} 30%, ${C} 70%, transparent)`,
+   760→          boxShadow: `0 0 8px ${hexToRgba(C, 0.7)}`,
+   761→        }}
+   762→      />
+   763→
+   764→      {/* Body */}
+   765→      <div className="p-3 pt-3.5 relative">
+   766→        {/* Type icon + label (left) | Priority scale (right) */}
+   767→        <div className="mb-2 flex items-center justify-between">
+   768→          <div className="flex items-center gap-1.5">
+   769→            <div
+   770→              className="flex h-6 w-6 items-center justify-center"
+   771→              style={{
+   772→                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+   773→                background: hexToRgba(contentColor, 0.18),
+   774→                border: `1px solid ${hexToRgba(contentColor, 0.5)}`,
+   775→                boxShadow: h ? `0 0 8px ${hexToRgba(contentColor, 0.5)}` : 'none',
+   776→              }}
+   777→            >
+   778→              <Zap className="w-3 h-3" style={{ color: contentColor, filter: `drop-shadow(0 0 2px ${contentColor})` }} />
+   779→            </div>
+   780→            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: contentColor, textShadow: `0 0 4px ${hexToRgba(contentColor, 0.4)}` }}>{t.label}</span>
+   781→          </div>
+   782→          {/* ── Priority scale (top-right) — click opens popup for convenient selection ── */}
+   783→            <Popover open={priorityOpen} onOpenChange={(open) => { setPriorityOpen(open); if (open) setPendingPriority(priority); }}>
+   784→              <PopoverTrigger asChild>
+   785→                <button
+   786→                  type="button"
+   787→                  onClick={(e) => { e.stopPropagation(); }}
+   788→                  className="flex gap-[2px] items-center transition-all hover:scale-105"
+   789→                  title="Нажмите, чтобы изменить приоритет"
+   790→                  aria-label="Изменить приоритет"
+   791→                  style={{ cursor: 'pointer', background: 'transparent', border: 'none', padding: 0 }}
+   792→                >
+   793→                  {Array.from({ length: SCALE_SEGS }).map((_, i) => {
+   794→                    const filled = i < filledSegs;
+   795→                    return (
+   796→                      <div
+   797→                        key={i}
+   798→                        style={{
+   799→                          width: '3px',
+   800→                          height: '14px',
+   801→                          background: filled ? contentColor : hexToRgba(contentColor, 0.18),
+   802→                          boxShadow: filled ? `0 0 4px ${hexToRgba(contentColor, 0.7)}` : 'none',
+   803→                          borderRadius: '0.5px',
+   804→                          transition: `transform 220ms cubic-bezier(0.34,1.56,0.64,1) ${i * 25}ms, background 180ms`,
+   805→                          transform: h && filled ? 'scaleY(1.15)' : 'scaleY(1)',
+   806→                        }}
+   807→                      />
+   808→                    );
+   809→                  })}
+   810→                </button>
+   811→              </PopoverTrigger>
+   812→            <PopoverContent
+   813→              align="end"
+   814→              sideOffset={6}
+   815→              className="p-3 w-56 rounded-none border-0 bg-transparent"
+   816→              style={{
+   817→                background: '#161a24',
+   818→                border: '1px solid #00a8c6',
+   819→                clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+   820→                boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+   821→              }}
+   822→              onClick={(e) => e.stopPropagation()}
+   823→            >
+   824→              <div className="mb-2 flex items-center justify-between">
+   825→                <span className="text-[10px] font-bold uppercase" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: '1px' }}>
+   826→                  Приоритет
+   827→                </span>
+   828→                <span className="text-[12px] font-extrabold tabular-nums" style={{ color: '#00a8c6', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+   829→                  {pendingPriority}/{SCALE_SEGS}
+   830→                </span>
+   831→              </div>
+   832→              {/* Interactive scale — click segments to preview value */}
+   833→              <div className="flex gap-[3px] mb-3 justify-center items-end" style={{ height: '32px' }}>
+   834→                {Array.from({ length: SCALE_SEGS }).map((_, i) => {
+   835→                  const filled = i < pendingPriority;
+   836→                  const isActive = i + 1 === pendingPriority;
+   837→                  return (
+   838→                    <button
+   839→                      key={i}
+   840→                      type="button"
+   841→                      onClick={(e) => { e.stopPropagation(); setPendingPriority(i + 1); }}
+   842→                      className="transition-all hover:scale-y-110"
+   843→                      style={{
+   844→                        flex: 1,
+   845→                        height: `${30 + (i % 3) * 8}%`,
+   846→                        background: filled ? '#00a8c6' : hexToRgba('#00a8c6', 0.15),
+   847→                        boxShadow: isActive ? '0 0 6px rgba(0,168,198,0.8)' : filled ? '0 0 3px rgba(0,168,198,0.5)' : 'none',
+   848→                        borderRadius: '1px',
+   849→                        cursor: 'pointer',
+   850→                        border: 'none',
+   851→                      }}
+   852→                      title={`Приоритет ${i + 1}`}
+   853→                    />
+   854→                  );
+   855→                })}
+   856→              </div>
+   857→              {/* Confirm / Cancel */}
+   858→              <div className="flex gap-2">
+   859→                <button
+   860→                  type="button"
+   861→                  onClick={(e) => { e.stopPropagation(); onMoveTo(pendingPriority - 1); setPriorityOpen(false); }}
+   862→                  className="flex-1 py-1.5 text-[10px] font-bold uppercase transition-all hover:scale-[1.02]"
+   863→                  style={{
+   864→                    background: '#00a8c6',
+   865→                    color: '#0a0c10',
+   866→                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+   867→                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+   868→                    letterSpacing: '1px',
+   869→                  }}
+   870→                >
+   871→                  Применить
+   872→                </button>
+   873→                <button
+   874→                  type="button"
+   875→                  onClick={(e) => { e.stopPropagation(); setPriorityOpen(false); }}
+   876→                  className="px-3 py-1.5 text-[10px] font-bold uppercase transition-all"
+   877→                  style={{
+   878→                    background: 'transparent',
+   879→                    color: '#718096',
+   880→                    border: '1px solid #232a3b',
+   881→                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+   882→                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+   883→                    letterSpacing: '1px',
+   884→                  }}
+   885→                >
+   886→                  Отмена
+   887→                </button>
+   888→              </div>
+   889→            </PopoverContent>
+   890→            </Popover>
+   891→        </div>
+   892→
+   893→        {/* Title */}
+   894→        <p className="text-sm font-bold line-clamp-1" style={{
+   895→          color: h ? '#ffffff' : '#cbd5e1',
+   896→          letterSpacing: '0.02em',
+   897→          fontFamily: 'monospace',
+   898→          textShadow: h ? `0 0 8px ${hexToRgba(contentColor, 0.4)}` : 'none',
+   899→        }}>
+   900→          {item.title}
+   901→        </p>
+   902→
+   903→        {/* Meta */}
+   904→        <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: h ? hexToRgba(contentColor, 0.85) : '#64748b', fontFamily: 'monospace' }}>
+   905→          <span className="flex items-center gap-1">
+   906→            <span className="w-1.5 h-1.5 rounded-full" style={{ background: contentColor, boxShadow: `0 0 4px ${hexToRgba(contentColor, 0.5)}` }} />
+   907→            {sl}
+   908→          </span>
+   909→          <span>·</span>
+   910→          <span className="flex items-center gap-1">
+   911→            <Music2 className="w-3 h-3" style={{ color: contentColor }} />
+   912→            {item.trackCount}
+   913→          </span>
+   914→        </div>
+   915→
+   916→        {/* ── Waveform Progress Bar (animated audio waveform, progress = priority-based) ── */}
+   917→        <div className="mt-2.5">
+   918→          <WaveformProgressBar progress={priority * 14} accentColor="#c7a008" height={32} bars={24} />
+   919→        </div>
+   920→      </div>
+   921→    </div>
+   922→  );
+   923→}
+   924→
+   925→/* ─── Carousel with arrow buttons ─── */
+   926→function Carousel({ children }: { children: React.ReactNode }) {
+   927→  const scrollRef = useRef<HTMLDivElement>(null);
+   928→  const [canLeft, setCanLeft] = useState(false);
+   929→  const [canRight, setCanRight] = useState(false);
+   930→
+   931→  const updateArrows = useCallback(() => {
+   932→    const el = scrollRef.current;
+   933→    if (!el) return;
+   934→    setCanLeft(el.scrollLeft > 8);
+   935→    setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+   936→  }, []);
+   937→
+   938→  useEffect(() => {
+   939→    updateArrows();
+   940→    const el = scrollRef.current;
+   941→    if (!el) return;
+   942→    el.addEventListener('scroll', updateArrows, { passive: true });
+   943→    window.addEventListener('resize', updateArrows);
+   944→    return () => {
+   945→      el.removeEventListener('scroll', updateArrows);
+   946→      window.removeEventListener('resize', updateArrows);
+   947→    };
+   948→  }, [updateArrows]);
+   949→
+   950→  const scroll = (dir: 'left' | 'right') => {
+   951→    const el = scrollRef.current;
+   952→    if (!el) return;
+   953→    const amount = el.clientWidth * 0.7;
+   954→    el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
+   955→  };
+   956→
+   957→  return (
+   958→    <div className="relative group/carousel" style={{ padding: '0 44px' }}>
+   959→      {/* Left arrow — custom chamfered frame, always active */}
+   960→      <button
+   961→        onClick={() => scroll('left')}
+   962→        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center transition-all duration-200"
+   963→        style={{
+   964→          background: '#161a24',
+   965→          border: '1px solid #00a8c6',
+   966→          borderRadius: '4px',
+   967→          boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+   968→          color: '#00a8c6',
+   969→          cursor: 'pointer',
+   970→          opacity: 0.9,
+   971→        }}
+   972→        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+   973→        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+   974→        aria-label="Прокрутить влево"
+   975→      >
+   976→        <ChevronLeft className="w-4 h-4" />
+   977→      </button>
+   978→
+   979→      {/* Scrollable container — hidden scrollbar */}
+   980→      <div
+   981→        ref={scrollRef}
+   982→        className="flex gap-3 overflow-x-auto py-1"
+   983→        style={{
+   984→          scrollbarWidth: 'none',
+   985→          msOverflowStyle: 'none',
+   986→        }}
+   987→      >
+   988→        {children}
+   989→      </div>
+   990→
+   991→      {/* Right arrow — custom chamfered frame, always active */}
+   992→      <button
+   993→        onClick={() => scroll('right')}
+   994→        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center transition-all duration-200"
+   995→        style={{
+   996→          background: '#161a24',
+   997→          border: '1px solid #00a8c6',
+   998→          borderRadius: '4px',
+   999→          boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+  1000→          color: '#00a8c6',
+  1001→          cursor: 'pointer',
+  1002→          opacity: 0.9,
+  1003→        }}
+  1004→        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+  1005→        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+  1006→        aria-label="Прокрутить вправо"
+  1007→      >
+  1008→        <ChevronRight className="w-4 h-4" />
+  1009→      </button>
+  1010→
+  1011→      {/* Hidden scrollbar CSS */}
+  1012→      <style>{`
+  1013→        .group\\/carousel > div::-webkit-scrollbar { display: none; }
+  1014→      `}</style>
+  1015→    </div>
+  1016→  );
+  1017→}
+  1018→
+  1019→/* ─── All Projects Modal ─── */
+  1020→function AllProjectsModal({
+  1021→  open, onClose, mode, items, quickAccess, toggleQuickAccess,
+  1022→}: {
+  1023→  open: boolean;
+  1024→  onClose: () => void;
+  1025→  mode: 'auto' | 'kanban';
+  1026→  items: ModalItem[];
+  1027→  quickAccess: string[];
+  1028→  toggleQuickAccess: (id: string, title?: string) => void;
+  1029→}) {
+  1030→  const [sortMode, setSortMode] = useState<SortMode>('date');
+  1031→
+  1032→  const sorted = useMemo(() => {
+  1033→    const arr = [...items];
+  1034→    arr.sort((a, b) => {
+  1035→      if (sortMode === 'date') return new Date(b.date).getTime() - new Date(a.date).getTime();
+  1036→      if (sortMode === 'name') return a.title.localeCompare(b.title, 'ru');
+  1037→      return (a.type || '').localeCompare(b.type || '');
+  1038→    });
+  1039→    return arr;
+  1040→  }, [items, sortMode]);
+  1041→
+  1042→  if (!open) return null;
+  1043→
+  1044→  return (
+  1045→    <motion.div
+  1046→      initial={{ opacity: 0 }}
+  1047→      animate={{ opacity: 1 }}
+  1048→      exit={{ opacity: 0 }}
+  1049→      transition={{ duration: 0.18 }}
+  1050→      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+  1051→      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+  1052→      onClick={onClose}
+  1053→    >
+  1054→      <motion.div
+  1055→        initial={{ scale: 0.96, y: 8 }}
+  1056→        animate={{ scale: 1, y: 0 }}
+  1057→        exit={{ scale: 0.96, y: 8 }}
+  1058→        transition={{ duration: 0.2 }}
+  1059→        onClick={(e) => e.stopPropagation()}
+  1060→        className="w-full max-w-3xl flex flex-col"
+  1061→        style={{
+  1062→          maxHeight: '80vh',
+  1063→          background: 'rgba(8,10,18,0.98)',
+  1064→          border: `1px solid ${hexToRgba(Y, 0.5)}`,
+  1065→          boxShadow: `0 0 50px ${hexToRgba(Y, 0.2)}, 0 20px 60px rgba(0,0,0,0.6)`,
+  1066→          clipPath: 'polygon(0 14px, 14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px))',
+  1067→        }}
+  1068→      >
+  1069→        <div
+  1070→          className="h-[2px] shrink-0"
+  1071→          style={{ background: `linear-gradient(90deg, transparent, ${Y}, transparent)` }}
+  1072→        />
+  1073→        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+  1074→          <h2 className="text-sm font-bold tracking-wide text-slate-100">
+  1075→            {mode === 'auto' ? 'Все проекты' : 'Все канбан-проекты'}
+  1076→          </h2>
+  1077→          <button
+  1078→            type="button"
+  1079→            onClick={onClose}
+  1080→            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-slate-200"
+  1081→          >
+  1082→            <X className="w-4 h-4" />
+  1083→          </button>
+  1084→        </div>
+  1085→        <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.04]">
+  1086→          <span className="text-[10px] uppercase tracking-wider text-slate-600">Сортировка:</span>
+  1087→          {(['date', 'name', 'type'] as SortMode[]).map((m) => (
+  1088→            <button
+  1089→              key={m}
+  1090→              type="button"
+  1091→              onClick={() => setSortMode(m)}
+  1092→              className="rounded px-2.5 py-1 text-[11px] font-medium transition-all"
+  1093→              style={{
+  1094→                background: sortMode === m ? hexToRgba(Y, 0.12) : 'transparent',
+  1095→                color: sortMode === m ? Y : '#94a3b8',
+  1096→                border: `1px solid ${sortMode === m ? hexToRgba(Y, 0.4) : 'rgba(255,255,255,0.06)'}`,
+  1097→              }}
+  1098→            >
+  1099→              {m === 'date' ? 'Дата' : m === 'name' ? 'Название' : 'Тип'}
+  1100→            </button>
+  1101→          ))}
+  1102→          <span className="ml-auto text-[10px] text-slate-600">
+  1103→            {sorted.length} {plural(sorted.length, ['проект', 'проекта', 'проектов'])}
+  1104→          </span>
+  1105→        </div>
+  1106→        <div
+  1107→          className="flex-1 overflow-y-auto p-2"
+  1108→          style={{ scrollbarWidth: 'thin', scrollbarColor: `${hexToRgba(Y, 0.3)} transparent` }}
+  1109→        >
+  1110→          {sorted.length === 0 ? (
+  1111→            <div className="text-center py-12 text-slate-600 text-sm">Нет проектов</div>
+  1112→          ) : (
+  1113→            sorted.map((item) => {
+  1114→              const t = typeMeta[item.type] || typeMeta.general;
+  1115→              const Icon = t.icon;
+  1116→              const sc = stHex[item.status] || '#64748b';
+  1117→              const sl = stLabel[item.status] || item.status;
+  1118→              const starred = quickAccess.includes(item.id);
+  1119→              return (
+  1120→                <div
+  1121→                  key={item.id}
+  1122→                  onClick={item.onOpen}
+  1123→                  className="group flex items-center gap-3 rounded-md px-3 py-2.5 cursor-pointer transition-colors hover:bg-white/[0.04]"
+  1124→                >
+  1125→                  <div
+  1126→                    className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
+  1127→                    style={{ background: hexToRgba(t.color, 0.1), border: `1px solid ${hexToRgba(t.color, 0.25)}` }}
+  1128→                  >
+  1129→                    <Icon className="w-4 h-4" style={{ color: t.color }} />
+  1130→                  </div>
+  1131→                  <div className="flex-1 min-w-0">
+  1132→                    <p className="text-sm font-medium text-slate-200 truncate group-hover:text-yellow-300 transition-colors">
+  1133→                      {item.title}
+  1134→                    </p>
+  1135→                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 text-[10px] text-slate-500">
+  1136→                      <span style={{ color: t.color }}>{t.label}</span>
+  1137→                      <span className="flex items-center gap-1">
+  1138→                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 4px ${hexToRgba(sc, 0.4)}` }} />
+  1139→                        {sl}
+  1140→                      </span>
+  1141→                      <span className="flex items-center gap-1">
+  1142→                        <Music2 className="w-3 h-3" />
+  1143→                        {item.trackCount}
+  1144→                      </span>
+  1145→                      <span className="flex items-center gap-1">
+  1146→                        <Clock className="w-3 h-3" />
+  1147→                        {fmtDate(item.date)}
+  1148→                      </span>
+  1149→                    </div>
+  1150→                  </div>
+  1151→                  <button
+  1152→                    type="button"
+  1153→                    onClick={(e) => { e.stopPropagation(); toggleQuickAccess(item.id, item.title); }}
+  1154→                    className="shrink-0 p-1.5 rounded-md transition-all hover:bg-white/[0.06]"
+  1155→                    style={{ color: starred ? Y : '#475569' }}
+  1156→                    title={starred ? 'Убрать из быстрого доступа' : 'В быстрый доступ'}
+  1157→                  >
+  1158→                    <Star className="w-4 h-4" style={{ color: starred ? Y : '#475569', fill: starred ? Y : 'none' }} />
+  1159→                  </button>
+  1160→                </div>
+  1161→              );
+  1162→            })
+  1163→          )}
+  1164→        </div>
+  1165→      </motion.div>
+  1166→    </motion.div>
+  1167→  );
+  1168→}
+  1169→
+  1170→/* ─── Manage Quick Access Modal — add/remove projects ─── */
+  1171→function ManageQuickAccessModal({
+  1172→  open, onClose, quickAccess, toggleQuickAccess, autoItems, kanbanItems, warning,
+  1173→}: {
+  1174→  open: boolean;
+  1175→  onClose: () => void;
+  1176→  quickAccess: string[];
+  1177→  toggleQuickAccess: (id: string, title?: string) => void;
+  1178→  autoItems: ModalItem[];
+  1179→  kanbanItems: ModalItem[];
+  1180→  warning: string | null;
+  1181→}) {
+  1182→  const all = [...autoItems, ...kanbanItems];
+  1183→  return (
+  1184→    <AnimatePresence>
+  1185→      {open && (
+  1186→        <motion.div
+  1187→          initial={{ opacity: 0 }}
+  1188→          animate={{ opacity: 1 }}
+  1189→          exit={{ opacity: 0 }}
+  1190→          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+  1191→          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+  1192→          onClick={onClose}
+  1193→        >
+  1194→          <motion.div
+  1195→            initial={{ scale: 0.92, y: 10 }}
+  1196→            animate={{ scale: 1, y: 0 }}
+  1197→            exit={{ scale: 0.92, y: 10 }}
+  1198→            transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+  1199→            className="relative w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+  1200→            style={{
+  1201→              clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
+  1202→              background: 'linear-gradient(180deg, rgba(0,168,198,0.10), rgba(8,10,18,0.98))',
+  1203→            }}
+  1204→            onClick={(e) => e.stopPropagation()}
+  1205→          >
+  1206→            {/* Border + top bar */}
+  1207→            <div className="absolute inset-0 pointer-events-none" style={{
+  1208→              padding: '1.5px',
+  1209→              background: 'linear-gradient(90deg, rgba(0,168,198,0.7) 0%, rgba(0,168,198,0.15) 50%, rgba(0,168,198,0.7) 100%)',
+  1210→              WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
+  1211→              WebkitMaskComposite: 'xor',
+  1212→              maskComposite: 'exclude',
+  1213→              clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))',
+  1214→            }} />
+  1215→            <div className="absolute left-0 right-0 top-0 h-[3px]" style={{
+  1216→              background: 'linear-gradient(90deg, transparent, #00a8c6 20%, #00a8c6 80%, transparent)',
+  1217→              boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+  1218→            }} />
+  1219→
+  1220→            {/* Header */}
+  1221→            <div className="flex items-center justify-between p-5 border-b border-cyan-500/15">
+  1222→              <div className="flex items-center gap-2">
+  1223→                <div className="flex h-8 w-8 items-center justify-center" style={{
+  1224→                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+  1225→                  background: 'rgba(0,168,198,0.18)',
+  1226→                  border: '1px solid rgba(0,168,198,0.5)',
+  1227→                }}>
+  1228→                  <Pencil className="w-4 h-4" style={{ color: '#00a8c6' }} />
+  1229→                </div>
+  1230→                <div>
+  1231→                  <h2 className="text-sm font-bold uppercase tracking-[0.18em]" style={{ color: '#00a8c6', textShadow: '0 0 8px rgba(0,168,198,0.25)' }}>
+  1232→                    Управление быстрым доступом
+  1233→                  </h2>
+  1234→                  <p className="text-[10px] text-slate-500 mt-0.5">
+  1235→                    {quickAccess.length}/{MAX_QUICK_ACCESS} · выберите проекты для закрепления
+  1236→                  </p>
+  1237→                </div>
+  1238→              </div>
+  1239→              <button onClick={onClose} className="p-1.5 text-slate-500 hover:text-cyan-400 transition-colors">
+  1240→                <X className="w-4 h-4" />
+  1241→              </button>
+  1242→            </div>
+  1243→
+  1244→            {/* Warning */}
+  1245→            {warning && (
+  1246→              <div className="mx-5 mt-3 px-3 py-2 flex items-center gap-2 text-[11px]" style={{
+  1247→                background: 'rgba(199,160,8,0.1)',
+  1248→                border: '1px solid rgba(199,160,8,0.4)',
+  1249→                color: '#c7a008',
+  1250→                clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+  1251→              }}>
+  1252→                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+  1253→                <span>{warning}</span>
+  1254→              </div>
+  1255→            )}
+  1256→
+  1257→            {/* List */}
+  1258→            <div className="flex-1 overflow-y-auto p-5" style={{ scrollbarWidth: 'thin' }}>
+  1259→              {all.length === 0 ? (
+  1260→                <p className="text-center text-sm text-slate-600 py-8">Нет доступных проектов</p>
+  1261→              ) : (
+  1262→                <div className="space-y-1.5">
+  1263→                  {all.map(item => {
+  1264→                    const inQuick = quickAccess.includes(item.id);
+  1265→                    const t = typeMeta[item.type] || typeMeta.general;
+  1266→                    return (
+  1267→                      <button
+  1268→                        key={item.id}
+  1269→                        onClick={() => toggleQuickAccess(item.id, item.title)}
+  1270→                        className="w-full flex items-center gap-3 p-2.5 transition-all hover:scale-[1.01] text-left"
+  1271→                        style={{
+  1272→                          clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
+  1273→                          background: inQuick ? hexToRgba(t.color, 0.12) : 'rgba(255,255,255,0.02)',
+  1274→                          border: `1px solid ${inQuick ? hexToRgba(t.color, 0.5) : 'rgba(255,255,255,0.05)'}`,
+  1275→                          boxShadow: inQuick ? `inset 2px 0 0 ${t.color}` : 'none',
+  1276→                        }}
+  1277→                      >
+  1278→                        <div className="flex h-7 w-7 items-center justify-center shrink-0" style={{
+  1279→                          clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+  1280→                          background: hexToRgba(t.color, 0.18),
+  1281→                          border: `1px solid ${hexToRgba(t.color, 0.4)}`,
+  1282→                        }}>
+  1283→                          <t.icon className="w-3.5 h-3.5" style={{ color: t.color }} />
+  1284→                        </div>
+  1285→                        <div className="flex-1 min-w-0">
+  1286→                          <p className="text-sm font-medium truncate" style={{ color: inQuick ? '#fff' : '#cbd5e1' }}>{item.title}</p>
+  1287→                          <p className="text-[10px] text-slate-500">{t.label} · {item.trackCount} треков</p>
+  1288→                        </div>
+  1289→                        <div
+  1290→                          className="flex h-6 w-6 items-center justify-center shrink-0 transition-all"
+  1291→                          style={{
+  1292→                            clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+  1293→                            background: inQuick ? t.color : 'transparent',
+  1294→                            border: `1px solid ${inQuick ? t.color : hexToRgba(t.color, 0.4)}`,
+  1295→                            boxShadow: inQuick ? `0 0 8px ${hexToRgba(t.color, 0.6)}` : 'none',
+  1296→                          }}
+  1297→                        >
+  1298→                          {inQuick ? <Check className="w-3 h-3" style={{ color: '#000' }} /> : <Plus className="w-3 h-3" style={{ color: t.color }} />}
+  1299→                        </div>
+  1300→                      </button>
+  1301→                    );
+  1302→                  })}
+  1303→                </div>
+  1304→              )}
+  1305→            </div>
+  1306→
+  1307→            {/* Footer */}
+  1308→            <div className="p-4 border-t border-cyan-500/15 flex items-center justify-between">
+  1309→              <span className="text-[10px] text-slate-600 uppercase tracking-wider">
+  1310→                Максимум {MAX_QUICK_ACCESS} проектов
+  1311→              </span>
+  1312→              <button
+  1313→                onClick={onClose}
+  1314→                className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105"
+  1315→                style={{
+  1316→                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+  1317→                  background: 'linear-gradient(135deg, #00a8c6, #00b4d4)',
+  1318→                  color: '#001824',
+  1319→                  boxShadow: '0 0 8px rgba(0,168,198,0.25)',
+  1320→                }}
+  1321→              >
+  1322→                Готово
+  1323→              </button>
+  1324→            </div>
+  1325→          </motion.div>
+  1326→        </motion.div>
+  1327→      )}
+  1328→    </AnimatePresence>
+  1329→  );
+  1330→}
+  1331→
+  1332→/* ═══ MAIN ═══ */
+  1333→export function HomeView() {
+  1334→  const user = useAuthStore(s => s.user);
+  1335→  const currentGroupId = useAuthStore(s => s.currentGroupId);
+  1336→  const currentGroup = useDataStore(s => s.currentGroup);
+  1337→  const projects = useDataStore(s => s.projects);
+  1338→  const ideas = useDataStore(s => s.ideas);
+  1339→  const tracks = useDataStore(s => s.tracks);
+  1340→  const navigate = useNavigationStore(s => s.navigate);
+  1341→
+  1342→  const [memberCount, setMemberCount] = useState(0);
+  1343→  const [kanbanProjects, setKanbanProjects] = useState<Task[]>([]);
+  1344→  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  1345→  const [allAutoOpen, setAllAutoOpen] = useState(false);
+  1346→  const [allKanbanOpen, setAllKanbanOpen] = useState(false);
+  1347→  const [quickAccess, setQuickAccess] = useState<string[]>([]);
+  1348→  const [manageQuickOpen, setManageQuickOpen] = useState(false);
+  1349→  const [quickWarning, setQuickWarning] = useState<string | null>(null);
+  1350→
+  1351→  const autoProjects = useMemo(() => projects.filter(p => p.kanbanTaskId), [projects]);
+  1352→  const recentIdeas = useMemo(() =>
+  1353→    [...ideas].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8),
+  1354→  [ideas]);
+  1355→
+  1356→  const getTrackCount = (pid: string) => tracks.filter(t => t.projectId === pid).length;
+  1357→
+  1358→  useEffect(() => {
+  1359→    if (!currentGroupId) return;
+  1360→    fetch(`/api/groups/${currentGroupId}/members`).then(r => r.json()).then(m => setMemberCount(Array.isArray(m) ? m.length : 0)).catch(() => {});
+  1361→  }, [currentGroupId]);
+  1362→
+  1363→  useEffect(() => {
+  1364→    fetch('/api/tasks?parentId=null').then(r => r.json()).then(data => {
+  1365→      const tasks: Task[] = Array.isArray(data) ? data : data.tasks || [];
+  1366→      setKanbanProjects(tasks);
+  1367→      useKanbanStore.getState().setProjects(tasks);
+  1368→    }).catch(() => {});
+  1369→  }, []);
+  1370→
+  1371→  useEffect(() => {
+  1372→    try {
+  1373→      const raw = localStorage.getItem('soundflow-quick-access');
+  1374→      if (raw) setQuickAccess(JSON.parse(raw) as string[]);
+  1375→    } catch { /* ignore */ }
+  1376→  }, []);
+  1377→
+  1378→  const goToKanban = (id: string) => { if (id) { navigate('kanban'); setTimeout(() => useKanbanStore.getState().selectProject(id), 220); } };
+  1379→
+  1380→  const toggleQuickAccess = (id: string, title?: string) => {
+  1381→    setQuickAccess(prev => {
+  1382→      if (prev.includes(id)) {
+  1383→        // removing — always allowed
+  1384→        const next = prev.filter(x => x !== id);
+  1385→        try { localStorage.setItem('soundflow-quick-access', JSON.stringify(next)); } catch { /* ignore */ }
+  1386→        return next;
+  1387→      }
+  1388→      // adding — enforce max 7
+  1389→      if (prev.length >= MAX_QUICK_ACCESS) {
+  1390→        setQuickWarning(`Достигнут максимум ${MAX_QUICK_ACCESS} проектов в быстром доступе. Удалите один, чтобы добавить «${title || 'проект'}».`);
+  1391→        setTimeout(() => setQuickWarning(null), 5000);
+  1392→        return prev;
+  1393→      }
+  1394→      const next = [...prev, id];
+  1395→      try { localStorage.setItem('soundflow-quick-access', JSON.stringify(next)); } catch { /* ignore */ }
+  1396→      return next;
+  1397→    });
+  1398→  };
+  1399→
+  1400→  const moveQuickAccess = (id: string, dir: 'up' | 'down') => {
+  1401→    setQuickAccess(prev => {
+  1402→      const idx = prev.indexOf(id);
+  1403→      if (idx < 0) return prev;
+  1404→      const target = dir === 'up' ? idx - 1 : idx + 1;
+  1405→      if (target < 0 || target >= prev.length) return prev;
+  1406→      const next = [...prev];
+  1407→      [next[idx], next[target]] = [next[target], next[idx]];
+  1408→      try { localStorage.setItem('soundflow-quick-access', JSON.stringify(next)); } catch { /* ignore */ }
+  1409→      return next;
+  1410→    });
+  1411→  };
+  1412→
+  1413→  const moveQuickAccessTo = (id: string, targetIdx: number) => {
+  1414→    setQuickAccess(prev => {
+  1415→      const from = prev.indexOf(id);
+  1416→      if (from < 0 || from === targetIdx) return prev;
+  1417→      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+  1418→      const next = [...prev];
+  1419→      const [moved] = next.splice(from, 1);
+  1420→      next.splice(targetIdx, 0, moved);
+  1421→      try { localStorage.setItem('soundflow-quick-access', JSON.stringify(next)); } catch { /* ignore */ }
+  1422→      return next;
+  1423→    });
+  1424→  };
+  1425→
+  1426→  const autoModalItems: ModalItem[] = useMemo(() => autoProjects.map(p => ({
+  1427→    id: p.id, title: p.title, type: p.type, status: p.status, date: p.createdAt,
+  1428→    trackCount: getTrackCount(p.id),
+  1429→    onOpen: () => { setAllAutoOpen(false); navigate('project-detail', p.id); },
+  1430→  })), [autoProjects, tracks]);
+  1431→
+  1432→  const kanbanModalItems: ModalItem[] = useMemo(() => kanbanProjects.map(t => ({
+  1433→    id: t.id, title: t.title, type: t.projectType || 'general', status: t.status, date: t.createdAt,
+  1434→    trackCount: (t.children || []).length,
+  1435→    onOpen: () => { setAllKanbanOpen(false); goToKanban(t.id); },
+  1436→  })), [kanbanProjects]);
+  1437→
+  1438→  const quickAccessItems: ModalItem[] = useMemo(() => {
+  1439→    const all = [...autoModalItems, ...kanbanModalItems];
+  1440→    return quickAccess
+  1441→      .map(id => all.find(it => it.id === id))
+  1442→      .filter((x): x is ModalItem => !!x);
+  1443→  }, [autoModalItems, kanbanModalItems, quickAccess]);
+  1444→
+  1445→  const stats = [
+  1446→    { icon: FolderKanban, value: projects.length, label: 'Проекты', color: Y },
+  1447→    { icon: Music2, value: tracks.length, label: 'Треки', color: C },
+  1448→    { icon: Lightbulb, value: ideas.length, label: 'Идеи', color: A },
+  1449→    { icon: Users, value: memberCount, label: 'Участники', color: G },
+  1450→  ];
+  1451→
+  1452→  return (
+  1453→    <div className="min-h-full relative" style={{ background: BG_MAIN }}>
+  1454→      {/* ── Global background: glassmorphism HUD grid + ambient depth glows ── */}
+  1455→      <div
+  1456→        className="pointer-events-none fixed inset-0"
+  1457→        style={{
+  1458→          zIndex: 0,
+  1459→          backgroundColor: BG_MAIN,
+  1460→          backgroundImage: `
+  1461→            radial-gradient(ellipse 80% 50% at 50% 0%, rgba(123,44,191,0.08) 0%, transparent 60%),
+  1462→            radial-gradient(ellipse 60% 40% at 90% 100%, rgba(0,168,198,0.06) 0%, transparent 55%),
+  1463→            linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+  1464→            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
+  1465→          `,
+  1466→          backgroundSize: '100% 100%, 100% 100%, 20px 20px, 20px 20px',
+  1467→        }}
+  1468→      />
+  1469→
+  1470→      <div className="relative mx-auto max-w-6xl px-5 py-6 lg:px-8 lg:py-8" style={{ zIndex: 1 }}>
+  1471→        {/* ── Header + Stats in one row ── */}
+  1472→        <motion.div
+  1473→          initial={{ opacity: 0, y: -8 }}
+  1474→          animate={{ opacity: 1, y: 0 }}
+  1475→          transition={{ duration: 0.35 }}
+  1476→          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+  1477→        >
+  1478→          <div>
+  1479→            <h1 className="text-xl font-bold lg:text-2xl" style={{
+  1480→              color: TEXT_PRIMARY,
+  1481→              fontFamily: 'var(--font-rajdhani), sans-serif',
+  1482→              fontWeight: 700,
+  1483→              letterSpacing: '0.04em',
+  1484→            }}>
+  1485→              Привет, {user?.displayName || 'музыкант'}
+  1486→            </h1>
+  1487→            <p className="mt-0.5 text-sm" style={{
+  1488→              color: TEXT_SECONDARY,
+  1489→              fontFamily: 'var(--font-jetbrains-mono), monospace',
+  1490→              letterSpacing: '0.08em',
+  1491→            }}>
+  1492→              {currentGroup?.name || 'SoundFlow'}{currentGroup?.genre ? ` · ${currentGroup.genre}` : ''}
+  1493→            </p>
+  1494→          </div>
+  1495→          <StatBar stats={stats} />
+  1496→        </motion.div>
+  1497→
+  1498→
+  1499→        {/* ── Quick Access — stat-panel style border ── */}
+  1500→        {quickAccessItems.length > 0 && (
+  1501→          <section className="mt-8 relative overflow-hidden" style={{
+  1502→            clipPath: 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)',
+  1503→            background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+  1504→            border: '1px solid rgba(0,168,198,0.4)',
+  1505→            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
+  1506→            padding: '22px',
+  1507→          }}>
+  1508→            {/* Blue corner bracket (top-left) */}
+  1509→            <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+  1510→              borderTop: '1.5px solid rgba(0,168,198,0.6)',
+  1511→              borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+  1512→            }} />
+  1513→            {/* Yellow corner bracket (bottom-right) */}
+  1514→            <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+  1515→              borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+  1516→              borderRight: '1.5px solid rgba(199,160,8,0.6)',
+  1517→            }} />
+  1518→
+  1519→            <div className="mb-4 flex items-center justify-between relative" style={{ zIndex: 2 }}>
+  1520→              <div className="flex items-center gap-2">
+  1521→                <div className="flex h-7 w-7 items-center justify-center" style={{
+  1522→                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+  1523→                  background: 'rgba(199,160,8,0.18)',
+  1524→                  border: '1px solid rgba(199,160,8,0.55)',
+  1525→                  boxShadow: '0 0 8px rgba(199,160,8,0.25)',
+  1526→                }}>
+  1527→                  <Zap className="w-3.5 h-3.5" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 3px rgba(199,160,8,0.25))' }} />
+  1528→                </div>
+  1529→                <h2 className="text-sm font-bold uppercase" style={{
+  1530→                  color: '#ffffff',
+  1531→                  fontFamily: 'var(--font-rajdhani), sans-serif',
+  1532→                  fontWeight: 700,
+  1533→                  letterSpacing: '2px',
+  1534→                }}>
+  1535→                  Быстрый доступ
+  1536→                </h2>
+  1537→              </div>
+  1538→              <div className="flex items-center gap-2">
+  1539→                <span className="text-[11px] font-bold uppercase px-2 py-1" style={{
+  1540→                  color: '#c7a008',
+  1541→                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+  1542→                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+  1543→                  background: 'rgba(199,160,8,0.08)',
+  1544→                  border: '1px solid rgba(199,160,8,0.3)',
+  1545→                  opacity: 0.85,
+  1546→                }}>
+  1547→                  {quickAccessItems.length}/{MAX_QUICK_ACCESS} активных
+  1548→                </span>
+  1549→                <button
+  1550→                  onClick={() => setManageQuickOpen(true)}
+  1551→                  className="flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 transition-all hover:scale-105"
+  1552→                  style={{
+  1553→                    color: '#c7a008',
+  1554→                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+  1555→                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+  1556→                    background: 'rgba(199,160,8,0.08)',
+  1557→                    border: '1px solid rgba(199,160,8,0.3)',
+  1558→                  }}
+  1559→                  title="Управлять быстрым доступом"
+  1560→                >
+  1561→                  <Pencil className="w-2.5 h-2.5" /> Изменить
+  1562→                </button>
+  1563→              </div>
+  1564→            </div>
+  1565→
+  1566→            <div className="relative" style={{ zIndex: 2 }}>
+  1567→              <Carousel>
+  1568→                {quickAccessItems.map((item, idx) => (
+  1569→                  <QuickAccessCard
+  1570→                    key={item.id}
+  1571→                    item={item}
+  1572→                    onClick={item.onOpen}
+  1573→                    onMoveTo={(targetIdx) => moveQuickAccessTo(item.id, targetIdx)}
+  1574→                    priority={idx + 1}
+  1575→                    total={quickAccessItems.length}
+  1576→                  />
+  1577→                ))}
+  1578→              </Carousel>
+  1579→            </div>
+  1580→          </section>
+  1581→        )}
+  1582→
+  1583→        {/* ── Auto Projects — stat-panel style border ── */}
+  1584→        <section className="mt-8 relative overflow-hidden" style={{
+  1585→          clipPath: 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)',
+  1586→          background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+  1587→          border: '1px solid rgba(199,160,8,0.4)',
+  1588→          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
+  1589→          padding: '22px',
+  1590→        }}>
+  1591→          {/* Blue corner bracket (top-left) */}
+  1592→          <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+  1593→            borderTop: '1.5px solid rgba(0,168,198,0.6)',
+  1594→            borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+  1595→          }} />
+  1596→          {/* Yellow corner bracket (bottom-right) */}
+  1597→          <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+  1598→            borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+  1599→            borderRight: '1.5px solid rgba(199,160,8,0.6)',
+  1600→          }} />
+  1601→
+  1602→          <div className="relative" style={{ zIndex: 2 }}>
+  1603→            <SectionHeader
+  1604→              title="Авто проекты"
+  1605→              accentColor={Y}
+  1606→              action={
+  1607→                <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase transition-all hover:scale-105" style={{
+  1608→                  color: 'rgba(199,160,8,0.85)',
+  1609→                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+  1610→                  letterSpacing: '1px',
+  1611→                }}>
+  1612→                  Все <ArrowRight className="w-3 h-3" />
+  1613→                </button>
+  1614→              }
+  1615→            />
+  1616→            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  1617→              <CreateCard onClick={() => setCreateProjectOpen(true)} label="Создать" />
+  1618→              {autoProjects.slice(0, 3).map(p => (
+  1619→                <ProjectCard
+  1620→                  key={p.id}
+  1621→                  project={p}
+  1622→                  trackCount={getTrackCount(p.id)}
+  1623→                  onClick={() => navigate('project-detail', p.id)}
+  1624→                  onKanban={() => p.kanbanTaskId && goToKanban(p.kanbanTaskId)}
+  1625→                />
+  1626→              ))}
+  1627→            </div>
+  1628→          </div>
+  1629→        </section>
+  1630→
+  1631→        {/* ── Kanban Projects — stat-panel style border ── */}
+  1632→        <section className="mt-6 relative overflow-hidden" style={{
+  1633→          clipPath: 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)',
+  1634→          background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+  1635→          border: '1px solid rgba(0,168,198,0.4)',
+  1636→          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
+  1637→          padding: '22px',
+  1638→        }}>
+  1639→          {/* Blue corner bracket (top-left) */}
+  1640→          <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+  1641→            borderTop: '1.5px solid rgba(0,168,198,0.6)',
+  1642→            borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+  1643→          }} />
+  1644→          {/* Yellow corner bracket (bottom-right) */}
+  1645→          <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+  1646→            borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+  1647→            borderRight: '1.5px solid rgba(199,160,8,0.6)',
+  1648→          }} />
+  1649→
+  1650→          <SectionHeader
+  1651→            title="Канбан проекты"
+  1652→            accentColor={C}
+  1653→            action={
+  1654→              <button onClick={() => setAllKanbanOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase transition-all hover:scale-105" style={{
+  1655→                color: '#00a8c6',
+  1656→                fontFamily: 'var(--font-jetbrains-mono), monospace',
+  1657→                letterSpacing: '1px',
+  1658→              }}>
+  1659→                Все <ArrowRight className="w-3 h-3" />
+  1660→              </button>
+  1661→            }
+  1662→          />
+  1663→          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  1664→            <CreateCard onClick={() => navigate('kanban')} label="Создать" />
+  1665→            {kanbanProjects.slice(0, 3).map(task => (
+  1666→              <KanbanCard key={task.id} task={task} onClick={() => goToKanban(task.id)} />
+  1667→            ))}
+  1668→          </div>
+  1669→        </section>
+  1670→
+  1671→        {/* ── Ideas ── */}
+  1672→        <section className="mt-8">
+  1673→          <SectionHeader
+  1674→            title="Лента идей"
+  1675→            action={
+  1676→              <button onClick={() => navigate('ideas')} className="flex items-center gap-1 text-[11px] font-medium text-slate-500 transition-colors hover:text-amber-400">
+  1677→                Все <ArrowRight className="w-3 h-3" />
+  1678→              </button>
+  1679→            }
+  1680→          />
+  1681→          {recentIdeas.length === 0 ? (
+  1682→            <div className="rounded-[10px] border border-dashed border-slate-800 py-10 text-center">
+  1683→              <p className="text-sm text-slate-600">Идей пока нет</p>
+  1684→              <button onClick={() => navigate('ideas')} className="mt-1 text-sm font-medium text-amber-400 hover:underline">добавить →</button>
+  1685→            </div>
+  1686→          ) : (
+  1687→            <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
+  1688→              {recentIdeas.map(idea => (
+  1689→                <IdeaCard key={idea.id} idea={idea} onClick={() => navigate('ideas')} />
+  1690→              ))}
+  1691→            </div>
+  1692→          )}
+  1693→        </section>
+  1694→      </div>
+  1695→
+  1696→      {/* Modals & Dialogs */}
+  1697→      <CreateProjectDialog open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
+  1698→      <ManageQuickAccessModal
+  1699→        open={manageQuickOpen}
+  1700→        onClose={() => setManageQuickOpen(false)}
+  1701→        quickAccess={quickAccess}
+  1702→        toggleQuickAccess={toggleQuickAccess}
+  1703→        autoItems={autoModalItems}
+  1704→        kanbanItems={kanbanModalItems}
+  1705→        warning={quickWarning}
+  1706→      />
+  1707→      <AnimatePresence>
+  1708→        {allAutoOpen && (
+  1709→          <AllProjectsModal
+  1710→            open={allAutoOpen}
+  1711→            mode="auto"
+  1712→            items={autoModalItems}
+  1713→            quickAccess={quickAccess}
+  1714→            toggleQuickAccess={toggleQuickAccess}
+  1715→            onClose={() => setAllAutoOpen(false)}
+  1716→          />
+  1717→        )}
+  1718→        {allKanbanOpen && (
+  1719→          <AllProjectsModal
+  1720→            open={allKanbanOpen}
+  1721→            mode="kanban"
+  1722→            items={kanbanModalItems}
+  1723→            quickAccess={quickAccess}
+  1724→            toggleQuickAccess={toggleQuickAccess}
+  1725→            onClose={() => setAllKanbanOpen(false)}
+  1726→          />
+  1727→        )}
+  1728→      </AnimatePresence>
+  1729→    </div>
+  1730→  );
+  1731→}
+  1732→

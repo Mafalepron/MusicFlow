@@ -27,31 +27,49 @@ import {
 import { useNavigationStore, useDataStore, useAuthStore } from '@/lib/store';
 import { useKanbanStore } from '@/store/kanban-store';
 import { useHeaderActionsStore } from '@/store/header-actions-store';
+import { hexToRgba } from '@/lib/utils';
 
+/* ─── Cyberpunk 2077 HUD palette (mirrors home-view.tsx) ─── */
+const Y = '#c7a008'; // industrial desaturated gold
+const C = '#00a8c6'; // controlled cyan
+const P = '#7b2cbf'; // deep violet
+const A = '#718096'; // muted grey
+const G = '#4a8d6f'; // muted green
+const BG_MAIN = '#0a0c10';
+const BG_PANEL = '#11141d';
+const BG_CARD_PURPLE = '#161224';
+const BG_CARD_TEAL = '#0e1a24';
+const BORDER_MUTED = '#1f2633';
+const TEXT_PRIMARY = '#e2e8f0';
+const TEXT_SECONDARY = '#718096';
+
+/* Status colors — muted HUD palette (draft/in_progress=C, mixing=P, mastering=G, released=C) */
 const statusColors: Record<string, string> = {
-  draft: '#F59E0B',
-  in_progress: '#3B82F6',
-  mixing: '#8A2BE2',
-  mastering: '#00E5FF',
-  released: '#10B981',
-  recording: '#F472B6',
-  review: '#FB923C',
+  draft: C,
+  in_progress: C,
+  mixing: P,
+  mastering: G,
+  released: C,
+  recording: P,
+  review: Y,
 };
 
+/* Russian labels for project status */
 const statusLabels: Record<string, string> = {
-  draft: 'Draft',
-  in_progress: 'In Progress',
-  mixing: 'Mixing',
-  mastering: 'Mastering',
-  released: 'Released',
-  recording: 'Recording',
-  review: 'Review',
+  draft: 'Черновик',
+  in_progress: 'В работе',
+  mixing: 'Сведение',
+  mastering: 'Мастеринг',
+  released: 'Релиз',
+  recording: 'Запись',
+  review: 'Проверка',
 };
 
-const typeBadgeColors: Record<string, string> = {
-  album: 'bg-[#8A2BE2]/20 text-[#8A2BE2]',
-  ep: 'bg-[#00E5FF]/20 text-[#00E5FF]',
-  single: 'bg-[#F59E0B]/20 text-[#F59E0B]',
+const typeLabels: Record<string, string> = {
+  album: 'Альбом',
+  ep: 'EP',
+  single: 'Сингл',
+  general: 'Канбан',
 };
 
 function formatDuration(ms?: number | null): string {
@@ -73,6 +91,56 @@ const listVariants: any = {
 const rowVariants: any = {
   hidden: { opacity: 0, x: -10 },
   show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+};
+
+/* Shared chamfer clip-paths (mirrors home-view.tsx bevel language) */
+const CHAMFER_8 = 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))';
+const CHAMFER_5 = 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))';
+const CHAMFER_4 = 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))';
+const CHAMFER_3 = 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))';
+const CHAMFER_PANEL = 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)';
+
+/* Panel border style — same as StatBar / Quick Access panel in home-view.tsx */
+const PANEL_BORDER_STYLE: React.CSSProperties = {
+  border: `1px solid ${hexToRgba(C, 0.4)}`,
+  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
+  background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+};
+
+/* Yellow CREATE-style button (mirrors CreateCard core — gold gradient, dark text, chamfered) */
+const YELLOW_BUTTON_STYLE: React.CSSProperties = {
+  color: '#0a0b10',
+  background: `linear-gradient(135deg, ${Y} 0%, #9e7c06 50%, ${Y} 100%)`,
+  fontFamily: 'var(--font-jetbrains-mono), monospace',
+  fontSize: '11px',
+  fontWeight: 700,
+  letterSpacing: '1.5px',
+  textTransform: 'uppercase',
+  clipPath: CHAMFER_4,
+  boxShadow: `0 0 8px ${hexToRgba(Y, 0.3)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+};
+
+/* Yellow tag/badge chip (chamfered, transparent yellow tint, yellow text) */
+const YELLOW_CHIP_STYLE: React.CSSProperties = {
+  color: Y,
+  fontFamily: 'var(--font-jetbrains-mono), monospace',
+  fontSize: '10px',
+  fontWeight: 700,
+  letterSpacing: '1px',
+  textTransform: 'uppercase',
+  clipPath: CHAMFER_3,
+  background: hexToRgba(Y, 0.1),
+  border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+};
+
+/* Cyan-bordered dark HUD input style */
+const HUD_INPUT_STYLE: React.CSSProperties = {
+  background: BG_MAIN,
+  border: `1px solid ${hexToRgba(C, 0.3)}`,
+  color: TEXT_PRIMARY,
+  fontFamily: 'var(--font-jetbrains-mono), monospace',
+  fontSize: '13px',
+  clipPath: CHAMFER_3,
 };
 
 export function ProjectDetailView() {
@@ -121,7 +189,7 @@ export function ProjectDetailView() {
           }, 300);
         },
         variant: 'outline',
-        className: 'border-[#00E5FF]/30 text-[#00E5FF] hover:bg-[#00E5FF]/10 hover:text-[#00E5FF]',
+        className: 'border-[#00a8c6]/30 text-[#00a8c6] hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]',
       });
     }
     setHeaderActions(actions);
@@ -253,103 +321,250 @@ export function ProjectDetailView() {
     }
   };
 
+  /* ── "Project not found" empty state — chamfered dark HUD panel with yellow icon ── */
   if (!project) {
     return (
-      <div className="flex flex-col items-center justify-center px-6 py-20">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1E1E28]">
-          <Music className="h-8 w-8 text-[#A0A0B0]" />
+      <div
+        className="flex flex-col items-center justify-center px-6 py-20"
+        style={{ background: BG_MAIN, minHeight: '100%' }}
+      >
+        <div
+          className="relative mb-4 flex h-16 w-16 items-center justify-center overflow-hidden"
+          style={{
+            clipPath: CHAMFER_8,
+            ...PANEL_BORDER_STYLE,
+          }}
+        >
+          <Music
+            className="h-7 w-7"
+            style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.5)})` }}
+          />
+          {/* Blue corner bracket (top-left) */}
+          <div className="absolute top-0 left-0 w-2 h-2 pointer-events-none" style={{
+            borderTop: '1.5px solid rgba(0,168,198,0.6)',
+            borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+          }} />
+          {/* Yellow corner bracket (bottom-right) */}
+          <div className="absolute bottom-0 right-0 w-2 h-2 pointer-events-none" style={{
+            borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+            borderRight: '1.5px solid rgba(199,160,8,0.6)',
+          }} />
         </div>
-        <h3 className="mb-1 text-base font-semibold text-foreground">Project not found</h3>
-        <p className="mb-6 text-sm text-[#A0A0B0]">
-          This project may have been deleted or doesn&apos;t exist.
+        <h3
+          className="mb-1 text-base font-bold uppercase"
+          style={{
+            color: TEXT_PRIMARY,
+            fontFamily: 'var(--font-rajdhani), sans-serif',
+            letterSpacing: '2px',
+          }}
+        >
+          Проект не найден
+        </h3>
+        <p className="mb-6 text-sm" style={{ color: TEXT_SECONDARY }}>
+          Этот проект, возможно, был удалён или не существует.
         </p>
         <Button
           onClick={() => navigate('projects')}
           variant="ghost"
-          className="text-[#A0A0B0] hover:text-foreground hover:bg-[#1E1E28]"
+          className="hover:bg-transparent"
+          style={{
+            ...YELLOW_CHIP_STYLE,
+            fontSize: '11px',
+            padding: '8px 14px',
+            clipPath: CHAMFER_4,
+          }}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Projects
+          К проектам
         </Button>
       </div>
     );
   }
 
+  const projectStatusColor = statusColors[project.status] || A;
+
   return (
-    <div className="space-y-6 p-6">
-      {/* Project Header */}
+    <div className="space-y-6 p-6" style={{ background: BG_MAIN, minHeight: '100%' }}>
+      {/* ─── Project Header — chamfered panel with blue/yellow corner brackets ─── */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
+        className="relative overflow-hidden"
+        style={{
+          clipPath: CHAMFER_PANEL,
+          ...PANEL_BORDER_STYLE,
+          padding: '20px 22px',
+        }}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-foreground">{project.title}</h1>
-            <span
-              className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ${
-                typeBadgeColors[project.type] || 'bg-[#8A2BE2]/20 text-[#8A2BE2]'
-              }`}
+        {/* Blue corner bracket (top-left) */}
+        <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+          borderTop: '1.5px solid rgba(0,168,198,0.6)',
+          borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+        }} />
+        {/* Yellow corner bracket (bottom-right) */}
+        <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+          borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+          borderRight: '1.5px solid rgba(199,160,8,0.6)',
+        }} />
+
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between relative" style={{ zIndex: 2 }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <h1
+              className="truncate text-2xl font-bold"
+              style={{
+                color: TEXT_PRIMARY,
+                fontFamily: 'var(--font-rajdhani), sans-serif',
+                letterSpacing: '0.5px',
+                textShadow: `0 0 8px ${hexToRgba(projectStatusColor, 0.3)}`,
+              }}
             >
-              {project.type}
+              {project.title}
+            </h1>
+            {/* Type badge — yellow tint chip, chamfered */}
+            <span
+              className="inline-flex items-center shrink-0 uppercase"
+              style={{
+                ...YELLOW_CHIP_STYLE,
+                padding: '3px 8px',
+                letterSpacing: '1.5px',
+                fontSize: '10px',
+                textShadow: `0 0 4px ${hexToRgba(Y, 0.4)}`,
+              }}
+            >
+              {typeLabels[project.type] || project.type}
             </span>
           </div>
 
+          {/* Status select — HUD dark style with cyan border */}
           <div className="flex items-center gap-3">
             <Select
               value={project.status}
               onValueChange={handleStatusChange}
             >
-              <SelectTrigger className="w-[160px] bg-[#15151A] border-[#25252D] text-sm">
+              <SelectTrigger
+                className="w-[180px] border-0 rounded-none data-[size=default]:h-9"
+                style={{
+                  background: BG_PANEL,
+                  border: `1px solid ${hexToRgba(C, 0.4)}`,
+                  color: TEXT_PRIMARY,
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '1px',
+                  textTransform: 'uppercase',
+                  clipPath: CHAMFER_3,
+                }}
+              >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#15151A] border-[#25252D]">
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="recording">Recording</SelectItem>
-                <SelectItem value="mixing">Mixing</SelectItem>
-                <SelectItem value="mastering">Mastering</SelectItem>
-                <SelectItem value="review">Review</SelectItem>
-                <SelectItem value="released">Released</SelectItem>
+              <SelectContent
+                className="border-0 rounded-none"
+                style={{
+                  background: BG_PANEL,
+                  border: `1px solid ${hexToRgba(C, 0.5)}`,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                }}
+              >
+                <SelectItem value="draft">Черновик</SelectItem>
+                <SelectItem value="in_progress">В работе</SelectItem>
+                <SelectItem value="recording">Запись</SelectItem>
+                <SelectItem value="mixing">Сведение</SelectItem>
+                <SelectItem value="mastering">Мастеринг</SelectItem>
+                <SelectItem value="review">Проверка</SelectItem>
+                <SelectItem value="released">Релиз</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
       </motion.div>
 
-      {/* Status Badge Bar */}
+      {/* ─── Status Badge Bar — HUD dot + colored label + yellow mono track count ─── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.3 }}
         className="flex items-center justify-between"
       >
-        <Badge
-          variant="outline"
-          className="border-transparent text-xs font-medium"
+        <div className="flex items-center gap-2">
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{
+              background: projectStatusColor,
+              boxShadow: `0 0 6px ${hexToRgba(projectStatusColor, 0.6)}`,
+            }}
+          />
+          <span
+            className="uppercase"
+            style={{
+              color: projectStatusColor,
+              fontFamily: 'var(--font-jetbrains-mono), monospace',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '1.5px',
+              textShadow: `0 0 4px ${hexToRgba(projectStatusColor, 0.3)}`,
+            }}
+          >
+            {statusLabels[project.status] || project.status}
+          </span>
+        </div>
+        <span
           style={{
-            color: statusColors[project.status] || '#A0A0B0',
-            backgroundColor: `${statusColors[project.status] || '#A0A0B0'}15`,
+            color: Y,
+            fontFamily: 'var(--font-jetbrains-mono), monospace',
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '1px',
+            opacity: 0.85,
           }}
         >
-          {statusLabels[project.status] || project.status}
-        </Badge>
-        <span className="text-xs text-[#A0A0B0]">
-          {projectTracks.length} {projectTracks.length === 1 ? 'track' : 'tracks'}
+          {projectTracks.length} {projectTracks.length === 1 ? 'трек' : 'треков'}
         </span>
       </motion.div>
 
-      {/* Tracks Section */}
+      {/* ─── Tracks Section ─── */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">Tracks</h2>
+          <div className="flex items-center gap-2">
+            {/* Yellow icon frame — matches SectionHeader in home-view.tsx */}
+            <div
+              className="flex h-7 w-7 items-center justify-center"
+              style={{
+                clipPath: CHAMFER_4,
+                background: hexToRgba(Y, 0.18),
+                border: `1px solid ${hexToRgba(Y, 0.55)}`,
+                boxShadow: `0 0 8px ${hexToRgba(Y, 0.25)}`,
+              }}
+            >
+              <Music
+                className="w-3.5 h-3.5"
+                style={{ color: Y, filter: `drop-shadow(0 0 3px ${hexToRgba(Y, 0.25)})` }}
+              />
+            </div>
+            <h2
+              className="text-sm font-bold uppercase"
+              style={{
+                color: TEXT_PRIMARY,
+                fontFamily: 'var(--font-rajdhani), sans-serif',
+                fontWeight: 700,
+                letterSpacing: '2px',
+              }}
+            >
+              Треки
+            </h2>
+          </div>
+          {/* Add Track button — yellow CREATE-style */}
           <Button
             onClick={() => setAddDialogOpen(true)}
-            size="sm"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            variant="ghost"
+            className="hover:bg-transparent"
+            style={{
+              ...YELLOW_BUTTON_STYLE,
+              padding: '8px 14px',
+            }}
           >
             <Plus className="mr-1.5 h-4 w-4" />
-            Add Track
+            Добавить трек
           </Button>
         </div>
 
@@ -362,120 +577,157 @@ export function ProjectDetailView() {
           >
             {projectTracks.map((track, index) => (
               <motion.div key={track.id} variants={rowVariants}>
-                <Card
-                  className="cursor-pointer border-[#25252D] bg-[#15151A] transition-colors hover:border-[#8A2BE2]/30 hover:bg-[#1A1A22]"
+                <TrackCard
+                  index={index}
+                  title={track.title}
+                  createdBy={track.createdBy}
+                  status={track.status}
+                  durationMs={track.durationMs}
+                  version={track.version}
+                  kanbanTaskId={track.kanbanTaskId}
+                  statusColor={statusColors[track.status] || A}
                   onClick={() => navigate('track-detail', selectedProjectId!, track.id)}
-                >
-                  <CardContent className="flex items-center gap-4 p-4">
-                    {/* Track Number */}
-                    <span className="w-8 text-center text-sm font-medium text-[#A0A0B0]">
-                      {String(index + 1).padStart(2, '0')}
-                    </span>
-
-                    {/* Title + Info */}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {track.title}
-                      </p>
-                      <p className="text-xs text-[#A0A0B0]">by {track.createdBy}</p>
-                    </div>
-
-                    {/* Status */}
-                    <Badge
-                      variant="outline"
-                      className="hidden border-transparent text-xs sm:inline-flex"
-                      style={{
-                        color: statusColors[track.status] || '#A0A0B0',
-                        backgroundColor: `${statusColors[track.status] || '#A0A0B0'}15`,
-                      }}
-                    >
-                      {statusLabels[track.status] || track.status}
-                    </Badge>
-
-                    {/* Duration */}
-                    <span className="hidden text-xs text-[#A0A0B0] md:block w-12 text-right">
-                      {formatDuration(track.durationMs)}
-                    </span>
-
-                    {/* Version */}
-                    <span className="hidden text-xs text-[#A0A0B0] lg:block">
-                      v{track.version}
-                    </span>
-
-                    {/* Focus on Kanban button */}
-                    {track.kanbanTaskId && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void focusTrackInKanban(track.kanbanTaskId!, project?.kanbanTaskId);
-                        }}
-                        className="hidden sm:flex items-center gap-1 rounded-md border border-[#00E5FF]/30 px-2 py-1 text-[10px] font-medium text-[#00E5FF] transition-all hover:bg-[#00E5FF]/10 hover:border-[#00E5FF]/50"
-                        title="Focus this track in Kanban"
-                      >
-                        <LayoutDashboard className="h-3 w-3" />
-                        Kanban
-                      </button>
-                    )}
-
-                    {/* Chevron indicator */}
-                    <ChevronRight className="h-4 w-4 shrink-0 text-[#A0A0B0]/60" />
-                  </CardContent>
-                </Card>
+                  onFocusKanban={
+                    track.kanbanTaskId
+                      ? () => focusTrackInKanban(track.kanbanTaskId!, project?.kanbanTaskId)
+                      : undefined
+                  }
+                />
               </motion.div>
             ))}
           </motion.div>
         ) : (
+          /* ── Empty state — chamfered dark panel with yellow icon ── */
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
-            className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#25252D] bg-[#15151A] px-6 py-16"
+            className="relative flex flex-col items-center justify-center overflow-hidden"
+            style={{
+              clipPath: CHAMFER_PANEL,
+              ...PANEL_BORDER_STYLE,
+              padding: '64px 24px',
+            }}
           >
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1E1E28]">
-              <Music className="h-7 w-7 text-[#A0A0B0]" />
+            {/* Blue corner bracket (top-left) */}
+            <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+              borderTop: '1.5px solid rgba(0,168,198,0.6)',
+              borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+            }} />
+            {/* Yellow corner bracket (bottom-right) */}
+            <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+              borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+              borderRight: '1.5px solid rgba(199,160,8,0.6)',
+            }} />
+            <div
+              className="mb-4 flex h-14 w-14 items-center justify-center"
+              style={{
+                clipPath: CHAMFER_5,
+                background: hexToRgba(Y, 0.12),
+                border: `1px solid ${hexToRgba(Y, 0.4)}`,
+                boxShadow: `0 0 12px ${hexToRgba(Y, 0.2)}`,
+              }}
+            >
+              <Music
+                className="h-7 w-7"
+                style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.5)})` }}
+              />
             </div>
-            <h3 className="mb-1 text-base font-semibold text-foreground">
-              No tracks yet
+            <h3
+              className="mb-1 text-base font-bold uppercase"
+              style={{
+                color: TEXT_PRIMARY,
+                fontFamily: 'var(--font-rajdhani), sans-serif',
+                letterSpacing: '2px',
+              }}
+            >
+              Треков пока нет
             </h3>
-            <p className="mb-6 text-sm text-[#A0A0B0]">
-              Add your first track to this project
+            <p className="mb-6 text-sm" style={{ color: TEXT_SECONDARY }}>
+              Добавьте первый трек в этот проект
             </p>
             <Button
               onClick={() => setAddDialogOpen(true)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              variant="ghost"
+              className="hover:bg-transparent"
+              style={{
+                ...YELLOW_BUTTON_STYLE,
+                padding: '10px 18px',
+              }}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add Track
+              Добавить трек
             </Button>
           </motion.div>
         )}
       </div>
 
-      {/* Add Track Dialog */}
+      {/* ─── Add Track Dialog — dark bg #11141d, cyan border, chamfered ─── */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="bg-[#15151A] border-[#25252D] sm:max-w-md">
+        <DialogContent
+          className="border-0 rounded-none sm:max-w-md"
+          style={{
+            background: BG_PANEL,
+            border: `1px solid ${hexToRgba(C, 0.5)}`,
+            boxShadow: `0 0 24px ${hexToRgba(C, 0.2)}, 0 8px 32px rgba(0,0,0,0.7)`,
+            clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 calc(100% - 8px), 0 8px)',
+          }}
+        >
           <DialogHeader>
-            <DialogTitle className="text-foreground">Add New Track</DialogTitle>
-            <DialogDescription className="text-[#A0A0B0]">
-              Add a track to this project. You can upload audio now or add it later.
+            <DialogTitle
+              className="uppercase"
+              style={{
+                color: TEXT_PRIMARY,
+                fontFamily: 'var(--font-rajdhani), sans-serif',
+                fontWeight: 700,
+                letterSpacing: '2px',
+              }}
+            >
+              Новый трек
+            </DialogTitle>
+            <DialogDescription style={{ color: TEXT_SECONDARY }}>
+              Добавьте трек в этот проект. Можно загрузить аудио сейчас или позже.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleAddTrack} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="track-title">Track Title</Label>
+              <Label
+                htmlFor="track-title"
+                className="uppercase"
+                style={{
+                  color: TEXT_SECONDARY,
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  fontSize: '10px',
+                  letterSpacing: '1.5px',
+                }}
+              >
+                Название трека
+              </Label>
               <Input
                 id="track-title"
-                placeholder="Enter track title"
+                placeholder="Введите название трека"
                 value={trackTitle}
                 onChange={(e) => setTrackTitle(e.target.value)}
                 required
-                className="bg-[#0B0B0F] border-[#25252D] text-foreground placeholder:text-[#A0A0B0]/50"
+                className="border-0 rounded-none"
+                style={HUD_INPUT_STYLE}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="audio-file">Audio File (optional)</Label>
+              <Label
+                htmlFor="audio-file"
+                className="uppercase"
+                style={{
+                  color: TEXT_SECONDARY,
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  fontSize: '10px',
+                  letterSpacing: '1.5px',
+                }}
+              >
+                Аудио файл (опционально)
+              </Label>
               <div className="relative">
                 <Input
                   id="audio-file"
@@ -486,17 +738,29 @@ export function ProjectDetailView() {
                     const file = e.target.files?.[0] || null;
                     setAudioFile(file);
                   }}
-                  className="bg-[#0B0B0F] border-[#25252D] text-[#A0A0B0] file:text-primary file:bg-primary/10 file:border-0 file:rounded-md file:px-3 file:py-1 file:mr-3 file:text-xs file:font-medium"
+                  className="border-0 rounded-none file:border-0 file:bg-transparent file:text-[#c7a008] file:mr-3 file:px-2 file:py-0.5"
+                  style={{
+                    ...HUD_INPUT_STYLE,
+                    fontSize: '11px',
+                    color: TEXT_SECONDARY,
+                  }}
                 />
               </div>
               {audioFile && (
-                <p className="text-xs text-[#A0A0B0]">
-                  Selected: {audioFile.name} ({(audioFile.size / (1024 * 1024)).toFixed(1)} MB)
+                <p
+                  className="text-xs flex items-center gap-1.5"
+                  style={{
+                    color: Y,
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  }}
+                >
+                  <Upload className="h-3 w-3" />
+                  {audioFile.name} ({(audioFile.size / (1024 * 1024)).toFixed(1)} MB)
                 </p>
               )}
             </div>
 
-            {/* Upload progress */}
+            {/* Upload progress — yellow waveform/progress per spec */}
             <AnimatePresence>
               {uploading && (
                 <motion.div
@@ -505,46 +769,81 @@ export function ProjectDetailView() {
                   exit={{ opacity: 0, height: 0 }}
                   className="space-y-2"
                 >
-                  <div className="flex items-center justify-between text-xs text-[#A0A0B0]">
+                  <div
+                    className="flex items-center justify-between text-xs"
+                    style={{
+                      color: TEXT_SECONDARY,
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    }}
+                  >
                     <span className="flex items-center gap-1.5">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Uploading...
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: Y }} />
+                      Загрузка...
                     </span>
-                    <span>{Math.round(uploadProgress)}%</span>
+                    <span style={{ color: Y }}>{Math.round(uploadProgress)}%</span>
                   </div>
-                  <Progress value={uploadProgress} className="h-1.5 bg-[#25252D]" />
+                  <Progress
+                    value={uploadProgress}
+                    className="h-1.5 rounded-none border-0 bg-[#1f2633] [&>[data-slot=progress-indicator]]:bg-[#c7a008]"
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
 
             {addError && (
-              <p className="text-sm text-red-400">{addError}</p>
+              <p
+                className="text-sm"
+                style={{
+                  color: '#ff5d5d',
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  fontSize: '11px',
+                }}
+              >
+                {addError}
+              </p>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="gap-2">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => setAddDialogOpen(false)}
                 disabled={uploading}
-                className="text-[#A0A0B0] hover:text-foreground hover:bg-[#1E1E28]"
+                className="hover:bg-transparent"
+                style={{
+                  color: TEXT_SECONDARY,
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '1.5px',
+                  textTransform: 'uppercase',
+                  clipPath: CHAMFER_3,
+                  background: 'transparent',
+                  border: `0.5px solid ${hexToRgba(A, 0.3)}`,
+                  padding: '8px 14px',
+                }}
               >
-                Cancel
+                Отмена
               </Button>
               <Button
                 type="submit"
                 disabled={uploading || !trackTitle.trim()}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                variant="ghost"
+                className="hover:bg-transparent"
+                style={{
+                  ...YELLOW_BUTTON_STYLE,
+                  padding: '8px 14px',
+                }}
               >
                 {uploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding...
+                    Добавление...
                   </>
                 ) : (
                   <>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Track
+                    Добавить трек
                   </>
                 )}
               </Button>
@@ -553,5 +852,171 @@ export function ProjectDetailView() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/* ─── Track Card — purple HUD slab with chamfered corners and yellow accents ─── */
+function TrackCard({
+  index,
+  title,
+  createdBy,
+  status,
+  durationMs,
+  version,
+  kanbanTaskId,
+  statusColor,
+  onClick,
+  onFocusKanban,
+}: {
+  index: number;
+  title: string;
+  createdBy: string;
+  status: string;
+  durationMs?: number | null;
+  version?: number | null;
+  kanbanTaskId?: string | null;
+  statusColor: string;
+  onClick: () => void;
+  onFocusKanban?: () => void;
+}) {
+  const [h, setH] = useState(false);
+
+  return (
+    <Card
+      onClick={onClick}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      className="group relative cursor-pointer overflow-hidden border-0 rounded-none p-0 gap-0 transition-all"
+      style={{
+        clipPath: CHAMFER_8,
+        background: BG_CARD_PURPLE,
+        borderTop: `2px solid ${h ? Y : P}`,
+        boxShadow: h
+          ? `inset 0 1px 12px ${hexToRgba(Y, 0.15)}, inset 0 0 0 1px ${hexToRgba(Y, 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
+          : `inset 0 1px 12px ${hexToRgba(P, 0.15)}, inset 0 0 0 1px ${hexToRgba(P, 0.3)}`,
+        transform: h ? 'translateY(-2px)' : 'translateY(0)',
+      }}
+    >
+      {/* Inner beveled frame (recessed screen effect — mirrors ProjectCard in home-view) */}
+      <div
+        className="absolute inset-[3px] pointer-events-none transition-opacity duration-300"
+        style={{
+          clipPath: CHAMFER_8,
+          boxShadow: h
+            ? `inset 0 0 0 1px ${hexToRgba(P, 0.35)}, inset 0 0 14px ${hexToRgba(P, 0.15)}`
+            : `inset 0 0 0 1px ${hexToRgba(P, 0.15)}`,
+          opacity: h ? 1 : 0.5,
+        }}
+      />
+
+      <CardContent className="relative p-0" style={{ zIndex: 2 }}>
+        <div className="flex items-center gap-4 p-4">
+          {/* Track number — yellow monospace */}
+          <span
+            className="w-8 text-center"
+            style={{
+              color: Y,
+              fontFamily: 'var(--font-jetbrains-mono), monospace',
+              fontSize: '13px',
+              fontWeight: 700,
+              textShadow: `0 0 4px ${hexToRgba(Y, 0.4)}`,
+            }}
+          >
+            {String(index + 1).padStart(2, '0')}
+          </span>
+
+          {/* Title + Info */}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
+              {title}
+            </p>
+            <p
+              className="text-xs"
+              style={{
+                color: TEXT_SECONDARY,
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+              }}
+            >
+              {createdBy}
+            </p>
+          </div>
+
+          {/* Status badge — yellow tint chamfered with colored status dot */}
+          <Badge
+            variant="outline"
+            className="hidden border-0 rounded-none sm:inline-flex uppercase"
+            style={{
+              ...YELLOW_CHIP_STYLE,
+              padding: '3px 8px',
+            }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                background: statusColor,
+                boxShadow: `0 0 6px ${hexToRgba(statusColor, 0.6)}`,
+              }}
+            />
+            {statusLabels[status] || status}
+          </Badge>
+
+          {/* Duration — monospace muted */}
+          <span
+            className="hidden w-12 text-right md:block"
+            style={{
+              color: TEXT_SECONDARY,
+              fontFamily: 'var(--font-jetbrains-mono), monospace',
+              fontSize: '11px',
+            }}
+          >
+            {formatDuration(durationMs)}
+          </span>
+
+          {/* Version — yellow mono */}
+          {version != null && (
+            <span
+              className="hidden lg:block"
+              style={{
+                color: Y,
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                fontSize: '11px',
+                opacity: 0.7,
+              }}
+            >
+              v{version}
+            </span>
+          )}
+
+          {/* Focus on Kanban button — yellow chip */}
+          {kanbanTaskId && onFocusKanban && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onFocusKanban();
+              }}
+              className="hidden sm:flex items-center gap-1 transition-all hover:scale-105"
+              style={{
+                ...YELLOW_CHIP_STYLE,
+                padding: '4px 8px',
+              }}
+              title="Открыть в Kanban"
+            >
+              <LayoutDashboard className="h-3 w-3" />
+              Kanban
+            </button>
+          )}
+
+          {/* Chevron indicator — yellow */}
+          <ChevronRight
+            className="h-4 w-4 shrink-0"
+            style={{
+              color: Y,
+              opacity: h ? 1 : 0.6,
+              transition: 'opacity 280ms ease',
+            }}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

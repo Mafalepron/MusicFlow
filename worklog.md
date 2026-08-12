@@ -2044,3 +2044,40 @@ Task: 4 fixes — (1) yellow outline layer on QA cards above blue, (2) remove ar
 4. StatBar: redesigned from single connected bar to 4 SEPARATE chamfered cells with gap-2 spacing. Each cell: clip-path 6px chamfer, dark glass gradient bg (#11141d→#0f121a), 1px blue border, inset bevel boxShadow, yellow accent line on top, yellow icon, yellow corner accent (bottom-right).
 
 VLM-verified: stat blocks separate+chamfered+spaced ✓, yellow icons+corners ✓, QA lightning yellow ✓, badges yellow ✓, card yellow outline layer above blue ✓, arrows no scale on hover ✓.
+
+---
+Task ID: PD2-RESTYLE
+Agent: full-stack-developer
+Task: Restyle project-detail-view.tsx to Cyberpunk 2077 HUD aesthetic
+
+Work Log:
+- Read /home/z/my-project/worklog.md to review prior agent work; checked KB14/KB15 home-view HUD color rules so the new project-detail styling stays consistent.
+- Read /home/z/my-project/src/components/views/home-view.tsx (lines 1-720 and 1490-1570) to extract the canonical HUD palette + clip-path / corner-bracket / chamfered-corner / StatBar panel-border patterns.
+- Read /home/z/my-project/src/components/views/project-detail-view.tsx (558 lines original) to understand all functionality (status change API call, add-track flow, file upload, focusTrackInKanban navigation, header-actions registration).
+- Read shadcn Button/Card/Badge/Progress/Select/Dialog component definitions to confirm they forward className + style props (so I can keep imports as-is and override visuals via inline style + className).
+- Confirmed `hexToRgba` already exists in /home/z/my-project/src/lib/utils.ts and is exported — imported it for inline rgba colors.
+- Rewrote project-detail-view.tsx end-to-end while preserving all imports, state, hooks, handlers and API calls. Changes:
+  1. Added HUD palette constants (Y/C/P/A/G + BG_MAIN/BG_PANEL/BG_CARD_PURPLE/BG_CARD_TEAL/BORDER_MUTED/TEXT_PRIMARY/TEXT_SECONDARY) and shared clip-path tokens (CHAMFER_8/5/4/3 + CHAMFER_PANEL), plus shared style objects PANEL_BORDER_STYLE / YELLOW_BUTTON_STYLE / YELLOW_CHIP_STYLE / HUD_INPUT_STYLE for consistency.
+  2. Replaced statusColors with muted HUD palette: draft=C, in_progress=C, mixing=P, mastering=G, released=C, recording=P, review=Y. Replaced statusLabels with Russian (Черновик, В работе, Сведение, Мастеринг, Релиз, Запись, Проверка) and added typeLabels map (Альбом/EP/Сингл/Канбан).
+  3. Project-not-found empty state: chamfered dark HUD panel with blue/yellow corner brackets, yellow Music icon with drop-shadow, Rajdhani uppercase title, yellow-chip back button.
+  4. Project header: chamfered panel (CHAMFER_PANEL) with cyan border + inset bevel + blue top-left + yellow bottom-right corner brackets. Title uses var(--font-rajdhani), letterSpacing 0.5px, text-shadow glow. Type badge = yellow chip (rgba(Y,0.1) bg, Y text, chamfer 3px). Status Select = dark HUD style (#11141d bg, cyan 0.4 border, JetBrains Mono uppercase, chamfer 3px, cyan-bordered dark dropdown).
+  5. Status badge bar: HUD status dot (status color + glow) + uppercase JetBrains Mono label + monospace yellow track count.
+  6. Tracks section header: yellow chamfered icon frame (Zap/SectionHeader pattern) + uppercase Rajdhani letterSpacing 2px "Треки" title + yellow CREATE-style Add Track button (gold gradient bg, dark text, chamfer 4px).
+  7. Each track Card: shadcn Card with className="border-0 rounded-none p-0 gap-0" + inline style overrides — purple bg #161224, chamfered CHAMFER_8, border-top 2px solid P at rest / Y on hover, inset bevel boxShadow, hover transform translateY(-2px). Inner beveled frame div mirrors ProjectCard in home-view. Track number = yellow JetBrains Mono with glow. Title = TEXT_PRIMARY white. Status badge = yellow chamfered chip with colored status dot. Duration/version = mono yellow/muted. Kanban focus button = yellow chip. Chevron = yellow with hover opacity transition. All inner HUD elements yellow per spec.
+  8. Empty-tracks state: chamfered dark panel with cyan border + inset bevel + blue/yellow corner brackets + chamfered yellow icon frame (Music with drop-shadow) + Rajdhani uppercase title + yellow CREATE-style Add Track button.
+  9. Add Track Dialog: dark bg #11141d, cyan 0.5 border, chamfered CHAMFER_PANEL-style clip-path, cyan glow boxShadow. DialogTitle uppercase Rajdhani letterSpacing 2px. Labels uppercase JetBrains Mono. Inputs dark bg with cyan 0.3 border + chamfer 3px. File input retains the Upload icon next to filename + JetBrains Mono yellow text. Progress bar uses [&>[data-slot=progress-indicator]]:bg-[#c7a008] Tailwind arbitrary variant to make the inner indicator yellow. Cancel = muted grey chip; Submit = yellow CREATE-style gold gradient button.
+- Preserved ALL functionality: useState/useRef/useMemo/useEffect hooks, navigate calls, handleStatusChange PATCH API, focusTrackInKanban pre-load + navigate + double-setTimeout select flow, handleAddTrack POST /api/tracks (FormData or JSON), header-actions registration for "Kanban" button, motion list/row stagger variants, AnimatePresence for upload progress.
+- Kept ALL imports as-is (Button, Badge, Card, CardContent, Input, Label, Progress, Dialog*, Select*, useNavigationStore/useDataStore/useAuthStore, useKanbanStore, useHeaderActionsStore). Added `import { hexToRgba } from '@/lib/utils';`.
+- Used inline styles only (no <style> blocks added). Used fontFamily: 'var(--font-rajdhani), sans-serif' for section/title labels and 'var(--font-jetbrains-mono), monospace' for technical labels (track number, status, duration, version, button labels).
+
+Verification:
+- `npx tsc --noEmit --pretty 2>&1 | grep -E "project-detail|error TS"` → 0 errors in project-detail-view.tsx (only pre-existing errors in unrelated files: examples/websocket/server.ts, skills/image-edit, skills/stock-analysis-skill, src/app/api/boards/route.ts, src/components/ui/sidebar.tsx).
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` → 200.
+- `bun run lint` → 0 errors in project-detail-view.tsx (the 9 reported errors are all pre-existing in home-view.tsx react-hooks/preserve-manual-memoization).
+- Checked /home/z/my-project/dev.log → only 200 responses, no compile errors.
+
+Stage Summary:
+- project-detail-view.tsx fully restyled to Cyberpunk 2077 HUD aesthetic matching home-view.tsx: dark #0a0c10 page bg, purple #161224 track cards with chamfered corners (8px polygon), purple #7b2cbf border-top at rest → yellow #c7a008 on hover, inset bevel boxShadow, yellow inner accents (track number, status badge, version, chevron), uppercase Rajdhani section titles with letterSpacing 2px, JetBrains Mono technical labels, chamfered cyan-bordered panels with blue top-left + yellow bottom-right corner brackets for header/empty/dialog.
+- All functionality preserved (navigation, status PATCH, add-track POST + file upload with progress, Kanban focus flow, header-actions registration).
+- Russian status labels (Черновик / В работе / Сведение / Мастеринг / Релиз) + Russian UI copy throughout.
+- 0 TypeScript errors in the file; dev server returns HTTP 200.
