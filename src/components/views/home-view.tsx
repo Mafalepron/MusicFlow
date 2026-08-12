@@ -745,21 +745,21 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
       style={{
         clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
         background: h
-          ? `linear-gradient(135deg, ${hexToRgba(t.color, 0.22)}, rgba(10,14,22,0.96))`
-          : `linear-gradient(135deg, ${hexToRgba(t.color, 0.10)}, rgba(10,14,22,0.88))`,
+          ? `linear-gradient(135deg, ${hexToRgba(C, 0.22)}, rgba(10,14,22,0.96))`
+          : `linear-gradient(135deg, ${hexToRgba(C, 0.10)}, rgba(10,14,22,0.88))`,
         boxShadow: h
-          ? `inset 0 0 0 1px ${hexToRgba(t.color, 0.5)}, inset 0 0 0 3px ${hexToRgba('#c7a008', 0.8)}, 0 0 8px ${hexToRgba('#c7a008', 0.25)}, 0 4px 16px rgba(0,0,0,0.5)`
-          : `inset 0 0 0 1px ${hexToRgba(t.color, 0.3)}, inset 0 0 0 2.5px ${hexToRgba('#c7a008', 0.55)}, 0 0 4px ${hexToRgba('#c7a008', 0.1)}, 0 2px 10px rgba(0,0,0,0.4)`,
+          ? `inset 0 0 0 1px ${hexToRgba(C, 0.5)}, inset 0 0 0 3px ${hexToRgba('#c7a008', 0.8)}, 0 0 8px ${hexToRgba('#c7a008', 0.25)}, 0 4px 16px rgba(0,0,0,0.5)`
+          : `inset 0 0 0 1px ${hexToRgba(C, 0.3)}, inset 0 0 0 2.5px ${hexToRgba('#c7a008', 0.55)}, 0 0 4px ${hexToRgba('#c7a008', 0.1)}, 0 2px 10px rgba(0,0,0,0.4)`,
         transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
         transform: h ? 'translateY(-3px)' : 'none',
       }}
     >
-      {/* Beveled edge glow — top accent strip */}
+      {/* Beveled edge glow — top accent strip (cyan) */}
       <div
         className="h-[2px] w-full"
         style={{
-          background: `linear-gradient(90deg, transparent, ${t.color} 30%, ${t.color} 70%, transparent)`,
-          boxShadow: `0 0 8px ${hexToRgba(t.color, 0.7)}`,
+          background: `linear-gradient(90deg, transparent, ${C} 30%, ${C} 70%, transparent)`,
+          boxShadow: `0 0 8px ${hexToRgba(C, 0.7)}`,
         }}
       />
 
