@@ -1649,9 +1649,10 @@ export function TrackDetailView() {
               <div
                 className="relative shrink-0 p-4 lg:p-6"
                 style={{
-                  ...PANEL_BORDER_STYLE,
+                  background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+                  border: `1px solid ${hexToRgba(C, 0.5)}`,
                   clipPath: CHAMFER_8,
-                  boxShadow: INSET_BEVEL_SHADOW,
+                  boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(C, 0.15)}`,
                 }}
               >
                 <CornerBrackets size={12} />
@@ -1671,13 +1672,13 @@ export function TrackDetailView() {
                       seekTo(p * duration);
                     }}
                   >
-                    {/* Background track — purple→cyan gradient fill with glow */}
+                    {/* Background track — purple→cyan gradient fill with yellow glow */}
                     <div
                       className="absolute inset-y-0 left-0 transition-all duration-100"
                       style={{
                         width: `${progress * 100}%`,
                         background: `linear-gradient(to right, ${P}, ${C})`,
-                        boxShadow: `0 0 8px ${hexToRgba(C, 0.6)}, 0 0 4px ${hexToRgba(P, 0.5)}`,
+                        boxShadow: `0 0 8px ${hexToRgba(C, 0.6)}, 0 0 4px ${hexToRgba(Y, 0.4)}`,
                         clipPath: CHAMFER_3,
                       }}
                     />
@@ -1704,11 +1705,12 @@ export function TrackDetailView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 rounded-none border-0 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
                           style={{
                             clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(C, 0.3)}`,
+                            border: `1px solid ${hexToRgba(Y, 0.3)}`,
                             background: BG_MAIN,
+                            color: Y,
                           }}
                           onClick={() => skip(-5)}
                         >
@@ -1720,17 +1722,19 @@ export function TrackDetailView() {
 
                     <Button
                       size="icon"
-                      className="h-10 w-10 rounded-none bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] text-white shadow-lg shadow-[#7b2cbf]/20 hover:shadow-[#7b2cbf]/40 transition-shadow border-0"
+                      className="h-11 w-11 rounded-none border-0"
                       style={{
                         clipPath: CHAMFER_4,
-                        boxShadow: `0 0 10px ${hexToRgba(P, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                        background: `linear-gradient(135deg, ${P} 0%, ${P2} 100%)`,
+                        boxShadow: `0 0 12px ${hexToRgba(P, 0.5)}, 0 0 4px ${hexToRgba(Y, 0.3)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                        border: `1.5px solid ${hexToRgba(Y, 0.4)}`,
                       }}
                       onClick={togglePlay}
                     >
                       {isPlaying ? (
-                        <Pause className="h-5 w-5" />
+                        <Pause className="h-5 w-5" style={{ color: '#fff', filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.5))' }} />
                       ) : (
-                        <Play className="h-5 w-5 ml-0.5" />
+                        <Play className="h-5 w-5 ml-0.5" style={{ color: Y, filter: `drop-shadow(0 0 2px ${Y})` }} />
                       )}
                     </Button>
 
@@ -1739,11 +1743,12 @@ export function TrackDetailView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 rounded-none border-0 hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]"
+                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
                           style={{
                             clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(C, 0.3)}`,
+                            border: `1px solid ${hexToRgba(Y, 0.3)}`,
                             background: BG_MAIN,
+                            color: Y,
                           }}
                           onClick={() => skip(5)}
                         >
@@ -1900,19 +1905,32 @@ export function TrackDetailView() {
                       : 'border-[#1f2633]'
                   }`}
                   style={{
-                    background: BG_CARD_TEAL,
-                    border: `1px solid ${hexToRgba(C, 0.4)}`,
+                    background: `linear-gradient(135deg, ${BG_CARD_TEAL} 0%, ${BG_MAIN} 100%)`,
+                    border: `1px solid ${hexToRgba(C, 0.5)}`,
                     clipPath: CHAMFER_8,
-                    boxShadow: INSET_BEVEL_SHADOW,
+                    boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(C, 0.15)}`,
                   }}
                 >
                   <CornerBrackets size={10} />
-                  {/* Empty state when no audio */}
+                  {/* Empty state — show glowing waveform placeholder */}
                   {!currentAudioUrl && (
-                    <div className="flex h-24 flex-col items-center justify-center gap-2">
-                      <Music2 className="h-6 w-6 text-muted-foreground/30" />
-                      <span className="text-xs text-muted-foreground/50">
-                        No audio uploaded — upload a version or add audio to this track
+                    <div className="flex h-24 flex-col items-center justify-center gap-2 relative overflow-hidden">
+                      {/* Glowing waveform bars placeholder */}
+                      <div className="flex items-center gap-[2px] h-12 mb-2">
+                        {Array.from({ length: 40 }).map((_, i) => (
+                          <div key={i} style={{
+                            width: '2px',
+                            height: `${30 + Math.sin(i * 0.5) * 30 + Math.random() * 20}%`,
+                            background: `linear-gradient(180deg, ${hexToRgba(P, 0.6)}, ${hexToRgba(C, 0.6)})`,
+                            boxShadow: `0 0 3px ${hexToRgba(C, 0.4)}`,
+                            borderRadius: '1px',
+                            opacity: 0.7,
+                          }} />
+                        ))}
+                      </div>
+                      <Music2 className="h-5 w-5" style={{ color: Y, filter: `drop-shadow(0 0 3px ${hexToRgba(Y, 0.4)})` }} />
+                      <span className="text-xs" style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', opacity: 0.6 }}>
+                        Нет аудио — загрузите версию или добавьте аудио
                       </span>
                     </div>
                   )}
@@ -2288,9 +2306,9 @@ export function TrackDetailView() {
                     <MessageCircle className="h-4 w-4" style={{ color: Y }} />
                     <h2
                       className="text-sm font-semibold uppercase"
-                      style={SECTION_TITLE_STYLE}
+                      style={{ ...SECTION_TITLE_STYLE, color: '#ffffff' }}
                     >
-                      Timestamp Comments
+                      Комментарии по таймстемпам
                     </h2>
                     <Badge
                       variant="secondary"
@@ -2598,10 +2616,10 @@ export function TrackDetailView() {
                                   : 'border-[#1f2633]'
                             }`}
                             style={{
-                              background: comment.isResolved ? BG_MAIN : BG_CARD_PURPLE,
+                              background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
                               clipPath: CHAMFER_8,
                               opacity: comment.isResolved ? 0.6 : 1,
-                              borderTop: `2px solid ${comment.isResolved ? BORDER_MUTED : P}`,
+                              borderTop: `2px solid ${comment.isResolved ? BORDER_MUTED : C}`,
                               boxShadow: INSET_BEVEL_SHADOW,
                             }}
                           >
