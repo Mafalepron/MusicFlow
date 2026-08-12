@@ -336,9 +336,8 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const isAuto = !!task.soundflowProjectId;
   // Yellow→Blue remap per spec: auto cards were yellow, now blue. Kanban cards stay cyan.
   const color = isAuto ? C : C;
-  // Content color rule: if card is blue (cyan), inner content is yellow. If purple, stays purple.
-  const isBlueCard = color === C;
-  const contentColor = isBlueCard ? Y : color;
+  // Content color rule: Kanban cards are blue, inner content is always yellow.
+  const contentColor = Y;
   const children = task.children || [];
   const done = children.filter(c => c.status === 'done').length;
   const pct = children.length > 0 ? Math.round((done / children.length) * 100) : 0;
@@ -729,9 +728,8 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
   const t = typeMeta[item.type] || typeMeta.general;
   const sc = stHex[item.status] || '#64748b';
   const sl = stLabel[item.status] || item.status;
-  // Content color rule: if card is blue (cyan), inner content is yellow. If purple, stays purple.
-  const isBlueCard = t.color === C;
-  const contentColor = isBlueCard ? Y : t.color;
+  // Content color rule: Quick Access cards are cyan, inner content is always yellow.
+  const contentColor = Y;
   // Priority scale: always 7 segments (max 7 cards), filled = priority level
   const SCALE_SEGS = 7;
   const filledSegs = priority; // priority is 1-based, segments 0..priority-1 are filled
