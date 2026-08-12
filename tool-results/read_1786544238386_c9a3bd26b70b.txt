@@ -1,0 +1,502 @@
+  2300→                            background: `linear-gradient(180deg, ${hexToRgba(P, 0.6)}, ${hexToRgba(C, 0.6)})`,
+  2301→                            boxShadow: `0 0 3px ${hexToRgba(C, 0.4)}`,
+  2302→                            borderRadius: '1px',
+  2303→                            opacity: 0.7,
+  2304→                          }} />
+  2305→                        ))}
+  2306→                      </div>
+  2307→                      <Music2 className="h-5 w-5" style={{ color: Y, filter: `drop-shadow(0 0 3px ${hexToRgba(Y, 0.4)})` }} />
+  2308→                      <span className="text-xs" style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', opacity: 0.6 }}>
+  2309→                        Нет аудио — загрузите версию или добавьте аудио
+  2310→                      </span>
+  2311→                    </div>
+  2312→                  )}
+  2313→                  {!waveformReady && currentAudioUrl && (
+  2314→                    <div className="flex h-24 items-center justify-center">
+  2315→                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#7b2cbf] border-t-transparent" />
+  2316→                      <span className="ml-2 text-xs text-muted-foreground">
+  2317→                        Loading waveform...
+  2318→                      </span>
+  2319→                    </div>
+  2320→                  )}
+  2321→                  <div className="relative"
+  2322→                    onMouseMove={(e) => {
+  2323→                      const rect = e.currentTarget.getBoundingClientRect();
+  2324→                      const x = e.clientX - rect.left;
+  2325→                      const pct = x / rect.width;
+  2326→                      if (duration > 0 && waveformReady) {
+  2327→                        const ms = Math.round(pct * duration * 1000);
+  2328→                        setWaveformHoverTime({ x, ms });
+  2329→                      }
+  2330→                    }}
+  2331→                    onMouseLeave={() => setWaveformHoverTime(null)}
+  2332→                  >
+  2333→                    <canvas
+  2334→                      ref={canvasRef}
+  2335→                      className={`h-24 w-full ${!waveformReady ? 'hidden' : ''} ${
+  2336→                        markerMode === 'range'
+  2337→                          ? 'cursor-ew-resize'
+  2338→                          : 'cursor-crosshair'
+  2339→                      }`}
+  2340→                      onClick={handleWaveformClick}
+  2341→                    />
+  2342→                    {/* Hover time tooltip — follows cursor along waveform — yellow HUD chip */}
+  2343→                    {waveformHoverTime && (
+  2344→                      <div
+  2345→                        className="pointer-events-none absolute top-1 z-20 -translate-x-1/2"
+  2346→                        style={{ left: waveformHoverTime.x }}
+  2347→                      >
+  2348→                        <span
+  2349→                          className="px-1.5 py-0.5 text-[10px] font-bold shadow-lg"
+  2350→                          style={{
+  2351→                            background: hexToRgba(Y, 0.95),
+  2352→                            color: '#0a0b10',
+  2353→                            clipPath: CHAMFER_3,
+  2354→                            fontFamily: 'var(--font-jetbrains-mono), monospace',
+  2355→                          }}
+  2356→                        >
+  2357→                          {formatTimestamp(waveformHoverTime.ms)}
+  2358→                        </span>
+  2359→                      </div>
+  2360→                    )}
+  2361→                    {/* Range highlight bars for range comments */}
+  2362→                    {waveformReady && displayDuration > 0 &&
+  2363→                      comments
+  2364→                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+  2365→                        .map((comment) => {
+  2366→                        const startPct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
+  2367→                        const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
+  2368→                        const isFocused = focusedCommentId === comment.id;
+  2369→                        const isHovered = hoveredMarkerId === comment.id;
+  2370→                        return (
+  2371→                          <div
+  2372→                            key={`range-${comment.id}`}
+  2373→                            className={`absolute top-0 h-full z-[5] rounded-sm transition-all pointer-events-none ${
+  2374→                              isFocused ? 'bg-[#c7a008]/15 border-y-2 border-[#c7a008]/60' :
+  2375→                              isHovered ? 'bg-[#c7a008]/10 border-y-2 border-[#c7a008]/40' :
+  2376→                              comment.isResolved ? 'bg-[#4a8d6f]/8 border-y-2 border-[#4a8d6f]/20' :
+  2377→                              'bg-[#c7a008]/8 border-y-2 border-[#c7a008]/20'
+  2378→                            }`}
+  2379→                            style={{
+  2380→                              left: `${startPct * 100}%`,
+  2381→                              width: `${(endPct - startPct) * 100}%`,
+  2382→                            }}
+  2383→                          />
+  2384→                        );
+  2385→                      })
+  2386→                    }
+  2387→                    {/* Range selection preview (while user is selecting a range) */}
+  2388→                    {waveformReady && displayDuration > 0 && isSelectingRange && rangeStartMs > 0 && (
+  2389→                      <div className="contents">
+  2390→                        <div
+  2391→                          className="absolute top-0 h-full z-[6] bg-[#c7a008]/10 border-y-2 border-[#c7a008]/40 pointer-events-none"
+  2392→                          style={{
+  2393→                            left: `${(rangeStartMs / 1000 / duration) * 100}%`,
+  2394→                            width: `${((rangeEndMsState - rangeStartMs) / 1000 / duration) * 100}%`,
+  2395→                          }}
+  2396→                        />
+  2397→                        <div
+  2398→                          className="absolute top-0 z-[7] h-full w-0.5 bg-[#c7a008] pointer-events-none"
+  2399→                          style={{ left: `${(rangeStartMs / 1000 / duration) * 100}%` }}
+  2400→                        />
+  2401→                        {rangeEndMsState > rangeStartMs && (
+  2402→                          <div
+  2403→                            className="absolute top-0 z-[7] h-full w-0.5 bg-[#c7a008] pointer-events-none"
+  2404→                            style={{ left: `${(rangeEndMsState / 1000 / duration) * 100}%` }}
+  2405→                          />
+  2406→                        )}
+  2407→                      </div>
+  2408→                    )}
+  2409→                    {/* HTML overlay markers for interactive hover/click — only for active version */}
+  2410→                    {waveformReady && displayDuration > 0 &&
+  2411→                      comments
+  2412→                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id)
+  2413→                        .map((comment) => {
+  2414→                        const pct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
+  2415→                        if (pct < 0 || pct > 1) return null;
+  2416→                        const isHovered = hoveredMarkerId === comment.id;
+  2417→                        const isFocused = focusedCommentId === comment.id;
+  2418→                        const isRange = !!(comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs);
+  2419→                        return (
+  2420→                          <motion.button
+  2421→                            key={comment.id}
+  2422→                            onMouseEnter={(e) => {
+  2423→                              if (markerHideTimerRef.current) {
+  2424→                                clearTimeout(markerHideTimerRef.current);
+  2425→                                markerHideTimerRef.current = null;
+  2426→                              }
+  2427→                              const rect = e.currentTarget.getBoundingClientRect();
+  2428→                              const isRight = rect.left > window.innerWidth / 2;
+  2429→                              setHoveredMarkerId(comment.id);
+  2430→                              setMarkerTooltipPos({ top: rect.top - 8, left: isRight ? rect.right : rect.left, right: isRight });
+  2431→                            }}
+  2432→                            onMouseLeave={() => {
+  2433→                              markerTooltipHoverRef.current = false;
+  2434→                              markerHideTimerRef.current = setTimeout(() => {
+  2435→                                if (!markerTooltipHoverRef.current) {
+  2436→                                  setHoveredMarkerId(null);
+  2437→                                  setMarkerTooltipPos(null);
+  2438→                                }
+  2439→                              }, 200);
+  2440→                            }}
+  2441→                            onClick={(e) => {
+  2442→                              e.stopPropagation();
+  2443→                              handleMarkerClick(comment);
+  2444→                            }}
+  2445→                            initial={false}
+  2446→                            animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
+  2447→                            transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+  2448→                            className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
+  2449→                            style={{ left: `${pct * 100}%` }}
+  2450→                            title={''}
+  2451→                          >
+  2452→                            {/* Marker shape: pin (circle) for point, diamond for range */}
+  2453→                            {isRange ? (
+  2454→                              <>
+  2455→                                {/* Range marker: diamond shape */}
+  2456→                                <div
+  2457→                                  className={`rotate-45 transition-all duration-150 ${
+  2458→                                    isFocused
+  2459→                                      ? 'h-4 w-4 bg-[#c7a008] shadow-[0_0_10px_rgba(199,160,8,0.6)]'
+  2460→                                      : isHovered
+  2461→                                        ? 'h-3.5 w-3.5 bg-[#c7a008]/80 shadow-[0_0_8px_rgba(199,160,8,0.5)]'
+  2462→                                        : comment.isResolved
+  2463→                                          ? 'h-2.5 w-2.5 bg-[#4a8d6f]'
+  2464→                                          : 'h-2.5 w-2.5 bg-[#c7a008]'
+  2465→                                  }`}
+  2466→                                />
+  2467→                                {/* Vertical line */}
+  2468→                                <div
+  2469→                                  className={`absolute left-1/2 top-full h-4 w-0.5 -translate-x-1/2 -rotate-0 transition-colors ${
+  2470→                                    isFocused ? 'bg-[#c7a008]/60' : isHovered ? 'bg-[#c7a008]/40' : 'bg-[#c7a008]/20'
+  2471→                                  }`}
+  2472→                                />
+  2473→                              </>
+  2474→                            ) : (
+  2475→                              <>
+  2476→                                {/* Point marker: circle pin */}
+  2477→                                <div
+  2478→                                  className={`rounded-full border-2 transition-all duration-150 ${
+  2479→                                    isFocused
+  2480→                                      ? 'h-4 w-4 border-[#00a8c6] bg-[#00a8c6]/30 shadow-[0_0_8px_rgba(0,168,198,0.5)]'
+  2481→                                      : isHovered
+  2482→                                        ? 'h-3.5 w-3.5 border-[#00a8c6] bg-[#00a8c6]/40 shadow-[0_0_8px_rgba(0,168,198,0.5)]'
+  2483→                                        : comment.isResolved
+  2484→                                          ? 'h-2.5 w-2.5 border-[#4a8d6f] bg-[#4a8d6f]'
+  2485→                                          : 'h-2.5 w-2.5 border-[#00a8c6] bg-[#00a8c6]'
+  2486→                                  }`}
+  2487→                                  style={{ borderColor: 'inherit' }}
+  2488→                                >
+  2489→                                  <div className="m-auto h-1 w-1 rounded-full bg-white" />
+  2490→                                </div>
+  2491→
+  2492→                                {/* Vertical line down from pin */}
+  2493→                                <div
+  2494→                                  className={`absolute left-1/2 top-full h-4 w-px -translate-x-1/2 transition-colors ${
+  2495→                                    isFocused ? 'bg-[#00a8c6]/60' : isHovered ? 'bg-[#00a8c6]/40' : 'bg-[#00a8c6]/20'
+  2496→                                  }`}
+  2497→                                />
+  2498→                              </>
+  2499→                            )}
+  2500→
+  2501→                          </motion.button>
+  2502→                        );
+  2503→                      })}
+  2504→                    {/* Range END markers — smaller diamonds at the end position of range comments */}
+  2505→                    {waveformReady && displayDuration > 0 &&
+  2506→                      comments
+  2507→                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+  2508→                        .map((comment) => {
+  2509→                          const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
+  2510→                          if (endPct < 0 || endPct > 1) return null;
+  2511→                          const isFocused = focusedCommentId === comment.id;
+  2512→                          const isHovered = hoveredMarkerId === comment.id;
+  2513→                          return (
+  2514→                            <motion.button
+  2515→                              key={`end-marker-${comment.id}`}
+  2516→                              onMouseEnter={(e) => {
+  2517→                                if (markerHideTimerRef.current) {
+  2518→                                  clearTimeout(markerHideTimerRef.current);
+  2519→                                  markerHideTimerRef.current = null;
+  2520→                                }
+  2521→                                const rect = e.currentTarget.getBoundingClientRect();
+  2522→                                const isRight = rect.left > window.innerWidth / 2;
+  2523→                                setHoveredMarkerId(comment.id);
+  2524→                                setMarkerTooltipPos({ top: rect.top - 8, left: isRight ? rect.right : rect.left, right: isRight });
+  2525→                              }}
+  2526→                              onMouseLeave={() => {
+  2527→                                markerTooltipHoverRef.current = false;
+  2528→                                markerHideTimerRef.current = setTimeout(() => {
+  2529→                                  if (!markerTooltipHoverRef.current) {
+  2530→                                    setHoveredMarkerId(null);
+  2531→                                    setMarkerTooltipPos(null);
+  2532→                                  }
+  2533→                                }, 200);
+  2534→                              }}
+  2535→                              onClick={(e) => {
+  2536→                                e.stopPropagation();
+  2537→                                handleMarkerClick(comment);
+  2538→                              }}
+  2539→                              initial={false}
+  2540→                              animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
+  2541→                              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+  2542→                              className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
+  2543→                              style={{ left: `${endPct * 100}%` }}
+  2544→                              title={''}
+  2545→                            >
+  2546→                              <div
+  2547→                                className={`rotate-45 transition-all duration-150 ${
+  2548→                                  isFocused
+  2549→                                    ? 'h-3.5 w-3.5 bg-[#c7a008] shadow-[0_0_8px_rgba(199,160,8,0.5)]'
+  2550→                                    : isHovered
+  2551→                                      ? 'h-3 w-3 bg-[#c7a008]/80 shadow-[0_0_6px_rgba(199,160,8,0.4)]'
+  2552→                                      : comment.isResolved
+  2553→                                        ? 'h-2 w-2 bg-[#4a8d6f]'
+  2554→                                        : 'h-2 w-2 bg-[#c7a008]'
+  2555→                                }`}
+  2556→                              />
+  2557→                              <div
+  2558→                                className={`absolute left-1/2 top-full h-3 w-0.5 -translate-x-1/2 transition-colors ${
+  2559→                                  isFocused ? 'bg-[#c7a008]/50' : isHovered ? 'bg-[#c7a008]/35' : 'bg-[#c7a008]/15'
+  2560→                                }`}
+  2561→                              />
+  2562→                            </motion.button>
+  2563→                          );
+  2564→                        })}
+  2565→                  </div>
+  2566→                  <p className="mt-1.5 text-center text-[10px] text-muted-foreground/50">
+  2567→                    {currentAudioUrl
+  2568→                      ? `Click on waveform to seek · ${markerMode === 'range' ? 'First click sets range start, second click sets end' : 'Click to place a marker at that position'}`
+  2569→                      : 'Upload audio to enable waveform interaction'}
+  2570→                  </p>
+  2571→                </div>
+  2572→              </div>
+  2573→
+  2574→              {/* Marker hover tooltip — rendered via portal to escape overflow clipping */}
+  2575→              {hoveredMarkerId && markerTooltipPos && (() => {
+  2576→                const comment = comments.find((c) => c.id === hoveredMarkerId);
+  2577→                if (!comment) return null;
+  2578→                return createPortal(
+  2579→                  <AnimatePresence>
+  2580→                    <motion.div
+  2581→                      initial={{ opacity: 0, y: 4, scale: 0.95 }}
+  2582→                      animate={{ opacity: 1, y: 0, scale: 1 }}
+  2583→                      exit={{ opacity: 0, y: 4, scale: 0.95 }}
+  2584→                      transition={{ duration: 0.12 }}
+  2585→                      className="relative fixed z-[9999] px-3 py-2 shadow-2xl shadow-black/70"
+  2586→                      style={{
+  2587→                        background: BG_PANEL,
+  2588→                        border: `1px solid ${hexToRgba(C, 0.4)}`,
+  2589→                        clipPath: CHAMFER_5,
+  2590→                        boxShadow: INSET_BEVEL_SHADOW,
+  2591→                        bottom: window.innerHeight - markerTooltipPos.top + 4,
+  2592→                        left: markerTooltipPos.right ? 'auto' : markerTooltipPos.left,
+  2593→                        right: markerTooltipPos.right ? window.innerWidth - markerTooltipPos.left : 'auto',
+  2594→                        minWidth: 200,
+  2595→                        maxWidth: 280,
+  2596→                        whiteSpace: 'normal',
+  2597→                        transform: markerTooltipPos.right ? 'translateX(100%)' : 'translateX(-50%)',
+  2598→                      }}
+  2599→                      onClick={(e) => e.stopPropagation()}
+  2600→                      onMouseEnter={() => {
+  2601→                        markerTooltipHoverRef.current = true;
+  2602→                        if (markerHideTimerRef.current) {
+  2603→                          clearTimeout(markerHideTimerRef.current);
+  2604→                          markerHideTimerRef.current = null;
+  2605→                        }
+  2606→                      }}
+  2607→                      onMouseLeave={() => {
+  2608→                        markerTooltipHoverRef.current = false;
+  2609→                        setHoveredMarkerId(null);
+  2610→                        setMarkerTooltipPos(null);
+  2611→                      }}
+  2612→                    >
+  2613→                      <CornerBrackets size={8} />
+  2614→                      <div className="flex items-center gap-2">
+  2615→                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7b2cbf]/20 text-[9px] font-bold text-[#7b2cbf]">
+  2616→                          {getInitials(comment.userName)}
+  2617→                        </div>
+  2618→                        <div className="min-w-0 flex-1">
+  2619→                          <p className="truncate text-[11px] font-semibold text-foreground leading-tight">
+  2620→                            {comment.userName}
+  2621→                            {commentNumberMap.get(comment.id) && (
+  2622→                              <span className="ml-1.5 text-xs font-bold" style={{ color: Y }}>
+  2623→                                #{commentNumberMap.get(comment.id)}
+  2624→                              </span>
+  2625→                            )}
+  2626→                          </p>
+  2627→                          <p className="text-[10px] text-muted-foreground leading-tight">
+  2628→                            {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+  2629→                              ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
+  2630→                              : formatTimestamp(comment.timestampMs)} · {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+  2631→                          </p>
+  2632→                        </div>
+  2633→                      </div>
+  2634→                      <div className="mt-1 border-t border-border/50 pt-1">
+  2635→                        <p className="line-clamp-3 text-[10px] text-muted-foreground/70">
+  2636→                          {comment.text}
+  2637→                        </p>
+  2638→                      </div>
+  2639→                      <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-border/50 pt-1.5">
+  2640→                        <button
+  2641→                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#7b2cbf]/15 hover:text-[#7b2cbf]"
+  2642→                          onClick={(e) => {
+  2643→                            e.stopPropagation();
+  2644→                            startEditingComment(comment);
+  2645→                            handleMarkerClick(comment);
+  2646→                          }}
+  2647→                        >
+  2648→                          <Pencil className="h-2.5 w-2.5" />
+  2649→                          Edit
+  2650→                        </button>
+  2651→                        <button
+  2652→                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#4a8d6f]/15 hover:text-[#4a8d6f]"
+  2653→                          onClick={(e) => {
+  2654→                            e.stopPropagation();
+  2655→                            handleToggleResolved(comment.id, comment.isResolved);
+  2656→                          }}
+  2657→                        >
+  2658→                          {comment.isResolved ? <DoubleCheckIcon className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
+  2659→                          {comment.isResolved ? 'Unresolve' : 'Resolve'}
+  2660→                        </button>
+  2661→                        <button
+  2662→                          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+  2663→                          onClick={(e) => {
+  2664→                            e.stopPropagation();
+  2665→                            handleDeleteComment(comment.id);
+  2666→                          }}
+  2667→                        >
+  2668→                          <Trash2 className="h-2.5 w-2.5" />
+  2669→                          Delete
+  2670→                        </button>
+  2671→                      </div>
+  2672→                    </motion.div>
+  2673→                  </AnimatePresence>,
+  2674→                  document.body
+  2675→                );
+  2676→              })()}
+  2677→
+  2678→              {/* Comments Section */}
+  2679→              <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 lg:px-6">
+  2680→                <div className="flex items-center justify-between mb-3">
+  2681→                  <div className="flex items-center gap-2">
+  2682→                    <MessageCircle className="h-4 w-4" style={{ color: Y }} />
+  2683→                    <h2
+  2684→                      className="text-sm font-semibold uppercase"
+  2685→                      style={{ ...SECTION_TITLE_STYLE, color: '#ffffff' }}
+  2686→                    >
+  2687→                      Комментарии по таймстемпам
+  2688→                    </h2>
+  2689→                    <Badge
+  2690→                      variant="secondary"
+  2691→                      className="h-5 px-1.5 text-[10px]"
+  2692→                      style={{
+  2693→                        background: hexToRgba(Y, 0.15),
+  2694→                        color: Y,
+  2695→                        border: `0.5px solid ${hexToRgba(Y, 0.5)}`,
+  2696→                        clipPath: CHAMFER_3,
+  2697→                      }}
+  2698→                    >
+  2699→                      {comments.length}
+  2700→                    </Badge>
+  2701→                  </div>
+  2702→                  <Button
+  2703→                    variant="outline"
+  2704→                    size="sm"
+  2705→                    className="h-7 gap-1.5 text-xs border-0 rounded-none"
+  2706→                    style={{
+  2707→                      ...YELLOW_BUTTON_STYLE,
+  2708→                      paddingRight: '10px',
+  2709→                      paddingLeft: '10px',
+  2710→                      paddingTop: '4px',
+  2711→                      paddingBottom: '4px',
+  2712→                    }}
+  2713→                    onClick={() => {
+  2714→                      setCommentTimestamp(Math.round(currentTime * 1000));
+  2715→                      setRangeStartMs(0);
+  2716→                      setRangeEndMsState(0);
+  2717→                      setIsSelectingRange(false);
+  2718→                      setShowCommentInput(true);
+  2719→                    }}
+  2720→                  >
+  2721→                    <Plus className="h-3 w-3" />
+  2722→                    Add Comment
+  2723→                  </Button>
+  2724→                </div>
+  2725→
+  2726→                {/* Participant presence — online indicators (chat moved to global floating widget) */}
+  2727→                {groupMembers.length > 0 && (
+  2728→                  <div
+  2729→                    className="relative mb-3 flex items-center gap-2 px-3 py-2"
+  2730→                    style={{
+  2731→                      background: BG_PANEL,
+  2732→                      border: `1px solid ${hexToRgba(C, 0.4)}`,
+  2733→                      clipPath: CHAMFER_5,
+  2734→                      boxShadow: INSET_BEVEL_SHADOW,
+  2735→                    }}
+  2736→                  >
+  2737→                    <CornerBrackets size={8} />
+  2738→                    <div className="flex items-center">
+  2739→                      {groupMembers.slice(0, 6).map((member, idx) => {
+  2740→                        const isOnline = onlineUserIds.has(member.userId);
+  2741→                        return (
+  2742→                          <div
+  2743→                            key={member.userId}
+  2744→                            className="relative"
+  2745→                            style={{ marginLeft: idx > 0 ? '-6px' : '0', zIndex: 6 - idx }}
+  2746→                          >
+  2747→                            <Avatar className="h-6 w-6 border-2 border-background">
+  2748→                              <AvatarFallback
+  2749→                                className={`text-[8px] ${
+  2750→                                  isOnline
+  2751→                                    ? 'bg-[#4a8d6f]/20 text-[#4a8d6f]'
+  2752→                                    : 'bg-[#161224] text-muted-foreground'
+  2753→                                }`}
+  2754→                              >
+  2755→                                {getInitials(member.displayName)}
+  2756→                              </AvatarFallback>
+  2757→                            </Avatar>
+  2758→                            {/* Online indicator dot */}
+  2759→                            <div
+  2760→                              className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-background ${
+  2761→                                isOnline ? 'bg-[#4a8d6f]' : 'bg-[#718096]'
+  2762→                              }`}
+  2763→                            />
+  2764→                          </div>
+  2765→                        );
+  2766→                      })}
+  2767→                      {groupMembers.length > 6 && (
+  2768→                        <div
+  2769→                          className="flex h-6 w-6 items-center justify-center rounded-full bg-[#161224] border-2 border-background text-[8px] font-medium text-muted-foreground"
+  2770→                          style={{ marginLeft: '-6px', zIndex: 0 }}
+  2771→                        >
+  2772→                          +{groupMembers.length - 6}
+  2773→                        </div>
+  2774→                      )}
+  2775→                    </div>
+  2776→                    <span className="text-[10px]" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+  2777→                      <span style={{ color: G }}>{onlineUserIds.size} online</span> · {groupMembers.length} member{groupMembers.length !== 1 ? 's' : ''}
+  2778→                    </span>
+  2779→                  </div>
+  2780→                )}
+  2781→
+  2782→                <AnimatePresence>
+  2783→                  {showCommentInput && (
+  2784→                    <motion.div
+  2785→                      initial={{ opacity: 0, height: 0 }}
+  2786→                      animate={{ opacity: 1, height: 'auto' }}
+  2787→                      exit={{ opacity: 0, height: 0 }}
+  2788→                      className="mb-3 overflow-hidden"
+  2789→                    >
+  2790→                      <div
+  2791→                        className="relative border p-3"
+  2792→                        style={{
+  2793→                          background: BG_PANEL,
+  2794→                          borderColor: markerMode === 'range' ? hexToRgba(Y, 0.5) : hexToRgba(C, 0.3),
+  2795→                          clipPath: CHAMFER_5,
+  2796→                          boxShadow: INSET_BEVEL_SHADOW,
+  2797→                        }}
+  2798→                      >
+  2799→                        <CornerBrackets size={8} />
+
+[showing lines 2300-2799 of 3672; use offset=2800 with limit to continue reading]

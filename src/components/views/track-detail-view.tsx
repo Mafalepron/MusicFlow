@@ -313,6 +313,24 @@ function getInitials(name?: string | null): string {
     .slice(0, 2);
 }
 
+// Recursively flatten ALL descendants of a task tree.
+// The backend returns tasks with up to 3 levels of `children` (task → child → grandchild),
+// but this helper is generic so it works for any depth. Used by the track + project
+// progress panels to count every subtask regardless of how deep it nests.
+function countAllDescendants(tasks: { children?: unknown[] }[]): any[] {
+  const result: any[] = [];
+  const walk = (nodes: unknown[]) => {
+    for (const n of nodes as any[]) {
+      result.push(n);
+      if (n && Array.isArray(n.children) && n.children.length > 0) {
+        walk(n.children);
+      }
+    }
+  };
+  walk(tasks as unknown[]);
+  return result;
+}
+
 // The backend API returns comments with a nested `user` object
 // (e.g. `user: { displayName, ... }`), but the frontend store types expect a
 // flat `userName` field. This normalizer bridges that gap so the rest of the
@@ -612,6 +630,26 @@ export function TrackDetailView() {
   const [markerTooltipPos, setMarkerTooltipPos] = useState<{ top: number; left: number; right: boolean } | null>(null);
   const markerTooltipHoverRef = useRef(false);
   const markerHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pinned marker tooltip — when a marker is clicked the tooltip stays open
+  // until the user closes it (X button) or clicks elsewhere. Lets the user
+  // interact with the Edit/Resolve/Delete buttons without fighting the 200ms
+  // hover hide timer.
+  const [pinnedMarkerId, setPinnedMarkerId] = useState<string | null>(null);
+  // Helper: compute + apply the tooltip position for a given marker element.
+  // The tooltip is centered horizontally on the marker (left = marker center x)
+  // and anchored just above it. The `right` flag tells the tooltip to also clamp
+  // itself inside the viewport when the marker sits near the right edge.
+  const showMarkerTooltipFor = useCallback((el: HTMLElement, commentId: string) => {
+    if (markerHideTimerRef.current) {
+      clearTimeout(markerHideTimerRef.current);
+      markerHideTimerRef.current = null;
+    }
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const isRight = centerX > window.innerWidth - 160; // within 160px of right edge
+    setHoveredMarkerId(commentId);
+    setMarkerTooltipPos({ top: rect.top - 8, left: centerX, right: isRight });
+  }, []);
 
 
   // Comment state
@@ -720,7 +758,9 @@ export function TrackDetailView() {
       return;
     }
     let cancelled = false;
-    fetch(`/api/tasks?parentId=${encodeURIComponent(kanbanTaskId)}&deep=true`)
+    // Fetch the project kanban task BY ID with deep=true so we get its
+    // full children subtree and can recursively count all descendants.
+    fetch(`/api/tasks?id=${encodeURIComponent(kanbanTaskId)}&deep=true`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (cancelled) return;
@@ -738,27 +778,29 @@ export function TrackDetailView() {
   }, [projectOfTrack?.kanbanTaskId]);
 
   // Compute kanban progress statistics for the currently-selected track.
-  // Flatten every direct child of every fetched track-task and bucket by status.
+  // Flatten ALL descendants (not just direct children) of every fetched track-task
+  // and bucket them by status — gives a true reflection of the track's kanban position.
   const trackProgress = useMemo(() => {
-    const allChildren = trackTasks.flatMap((t) => t.children || []);
-    const total = allChildren.length;
-    const done = allChildren.filter((c) => c.status === 'done').length;
-    const inProgress = allChildren.filter((c) => c.status === 'in-progress').length;
-    const review = allChildren.filter((c) => c.status === 'review').length;
-    const todo = allChildren.filter((c) => c.status === 'todo').length;
+    const allDescendants = countAllDescendants(trackTasks);
+    const total = allDescendants.length;
+    const done = allDescendants.filter((c) => c.status === 'done').length;
+    const inProgress = allDescendants.filter((c) => c.status === 'in-progress').length;
+    const review = allDescendants.filter((c) => c.status === 'review').length;
+    const todo = allDescendants.filter((c) => c.status === 'todo').length;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-    return { allChildren, total, done, inProgress, review, todo, pct };
+    return { allChildren: allDescendants, total, done, inProgress, review, todo, pct };
   }, [trackTasks]);
 
-  // Project-level progress: count direct children of the project's kanban task.
+  // Project-level progress: count ALL descendants of the project's kanban task
+  // (recursively, not just direct children).
   const projectProgress = useMemo(() => {
     if (!projectTask) return null;
-    const children = projectTask.children || [];
-    const total = children.length;
-    const done = children.filter((c) => c.status === 'done').length;
-    const inProgress = children.filter((c) => c.status === 'in-progress').length;
-    const review = children.filter((c) => c.status === 'review').length;
-    const todo = children.filter((c) => c.status === 'todo').length;
+    const allDescendants = countAllDescendants([projectTask]);
+    const total = allDescendants.length;
+    const done = allDescendants.filter((c) => c.status === 'done').length;
+    const inProgress = allDescendants.filter((c) => c.status === 'in-progress').length;
+    const review = allDescendants.filter((c) => c.status === 'review').length;
+    const todo = allDescendants.filter((c) => c.status === 'todo').length;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     return { total, done, inProgress, review, todo, pct };
   }, [projectTask]);
@@ -1192,6 +1234,32 @@ export function TrackDetailView() {
     },
     [seekTo]
   );
+
+  // Global click listener — when a pinned marker tooltip is open, dismiss it
+  // if the user clicks anywhere outside the tooltip (and outside any marker).
+  // Marker buttons + tooltip both call `e.stopPropagation()` on their click
+  // handlers, so this listener only fires for "outside" clicks.
+  useEffect(() => {
+    if (!pinnedMarkerId) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      // Dismiss the pinned tooltip on any outside click.
+      setPinnedMarkerId(null);
+      // Also clear hoveredMarkerId + position so the tooltip fully closes.
+      setHoveredMarkerId(null);
+      setMarkerTooltipPos(null);
+    };
+    // Defer registration by a tick so the click that *opened* the tooltip
+    // doesn't immediately close it.
+    const t = setTimeout(() => {
+      document.addEventListener('click', handler);
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('click', handler);
+    };
+  }, [pinnedMarkerId]);
 
   // --- Comments ---
 
@@ -1655,125 +1723,6 @@ export function TrackDetailView() {
         </Select>
       </motion.div>
 
-      {/* Version Panel — dark HUD tabs with chamfered corners */}
-      <div
-        className="relative shrink-0 px-4 py-3 lg:px-6"
-        style={{
-          borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
-        }}
-      >
-        {/* Corner brackets — HUD strip indicators */}
-        <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
-          borderTop: '1.5px solid rgba(0,168,198,0.6)',
-          borderLeft: '1.5px solid rgba(0,168,198,0.6)',
-        }} />
-        <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
-          borderBottom: '1.5px solid rgba(199,160,8,0.6)',
-          borderRight: '1.5px solid rgba(199,160,8,0.6)',
-        }} />
-        <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          {versions.map((v) => {
-            const isActive = activeVersion?.id === v.id;
-            return (
-              <motion.button
-                key={v.id}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setActiveVersionId(v.id)}
-                className={`shrink-0 px-4 py-2 text-xs font-semibold transition-all ${
-                  isActive
-                    ? 'text-white'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-                style={
-                  isActive
-                    ? {
-                        background: `linear-gradient(to right, ${P}, ${P2})`,
-                        clipPath: CHAMFER_4,
-                        boxShadow: `0 0 8px ${hexToRgba(P, 0.35)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
-                      }
-                    : {
-                        background: BG_CARD_PURPLE,
-                        border: `1px solid ${hexToRgba(C, 0.25)}`,
-                        clipPath: CHAMFER_4,
-                        boxShadow: INSET_BEVEL_SHADOW,
-                      }
-                }
-              >
-                <span>{v.version === 1 && !v.label ? 'Original' : v.label || `v${v.version}`}</span>
-                {v.commentCount !== undefined && v.commentCount > 0 && (
-                  <span
-                    className={`ml-2 px-1.5 py-0.5 text-[9px] ${
-                      isActive ? 'text-white' : 'text-muted-foreground'
-                    }`}
-                    style={{
-                      background: isActive ? hexToRgba(Y, 0.25) : BG_MAIN,
-                      color: isActive ? Y : undefined,
-                      clipPath: CHAMFER_3,
-                    }}
-                  >
-                    {v.commentCount}
-                  </span>
-                )}
-                {/* Active yellow indicator dot */}
-                {isActive && (
-                  <span
-                    className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full"
-                    style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}` }}
-                  />
-                )}
-              </motion.button>
-            );
-          })}
-          {/* Add Version button — chamfered, yellow on hover */}
-          <motion.button
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setShowAddVersionDialog(true)}
-            className="flex shrink-0 items-center gap-1.5 border border-dashed bg-transparent px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-[#c7a008]"
-            style={{
-              borderColor: hexToRgba(Y, 0.5),
-              clipPath: CHAMFER_4,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.6); }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.5); }}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Version
-          </motion.button>
-        </div>
-        {/* Current version info */}
-        {activeVersion && (
-          <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: `${TEXT_SECONDARY}b3`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-            <span>Version {activeVersion.version}</span>
-            <span style={{ color: Y }}>·</span>
-            <span>{activeVersion.label || `v${activeVersion.version}`}</span>
-            {activeVersion.durationMs && (
-              <>
-                <span style={{ color: Y }}>·</span>
-                <span>{formatDuration(activeVersion.durationMs / 1000)}</span>
-              </>
-            )}
-            {activeVersion.commentCount !== undefined && (
-              <>
-                <span style={{ color: Y }}>·</span>
-                <span>{activeVersion.commentCount} comment{activeVersion.commentCount !== 1 ? 's' : ''}</span>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Add Version Dialog */}
-      <AddVersionDialog
-        open={showAddVersionDialog}
-        onOpenChange={setShowAddVersionDialog}
-        onSubmit={handleAddVersion}
-        isUploading={isUploadingVersion}
-        uploadProgress={uploadProgress}
-        nextVersion={versions.length + 1}
-      />
-
       {/* ─── Kanban Progress Panel — track + project stats tree ─── */}
       <div
         className="relative shrink-0 px-4 py-3 lg:px-6"
@@ -1841,7 +1790,7 @@ export function TrackDetailView() {
                 >
                   <div className="flex flex-col gap-1.5">
                     {trackTasks.map((tt) => {
-                      const subtasks = tt.children || [];
+                      const subtasks = countAllDescendants([tt]);
                       const subTotal = subtasks.length;
                       const subDone = subtasks.filter((c) => c.status === 'done').length;
                       const subPct = subTotal > 0 ? Math.round((subDone / subTotal) * 100) : 0;
@@ -2018,6 +1967,125 @@ export function TrackDetailView() {
         </div>
       </div>
 
+      {/* Version Panel — dark HUD tabs with chamfered corners */}
+      <div
+        className="relative shrink-0 px-4 py-3 lg:px-6"
+        style={{
+          borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
+        }}
+      >
+        {/* Corner brackets — HUD strip indicators */}
+        <div className="absolute top-0 left-0 w-3 h-3 pointer-events-none" style={{
+          borderTop: '1.5px solid rgba(0,168,198,0.6)',
+          borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+        }} />
+        <div className="absolute bottom-0 right-0 w-3 h-3 pointer-events-none" style={{
+          borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+          borderRight: '1.5px solid rgba(199,160,8,0.6)',
+        }} />
+        <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {versions.map((v) => {
+            const isActive = activeVersion?.id === v.id;
+            return (
+              <motion.button
+                key={v.id}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setActiveVersionId(v.id)}
+                className={`shrink-0 px-4 py-2 text-xs font-semibold transition-all ${
+                  isActive
+                    ? 'text-white'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                style={
+                  isActive
+                    ? {
+                        background: `linear-gradient(to right, ${P}, ${P2})`,
+                        clipPath: CHAMFER_4,
+                        boxShadow: `0 0 8px ${hexToRgba(P, 0.35)}, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                      }
+                    : {
+                        background: BG_CARD_PURPLE,
+                        border: `1px solid ${hexToRgba(C, 0.25)}`,
+                        clipPath: CHAMFER_4,
+                        boxShadow: INSET_BEVEL_SHADOW,
+                      }
+                }
+              >
+                <span>{v.version === 1 && !v.label ? 'Original' : v.label || `v${v.version}`}</span>
+                {v.commentCount !== undefined && v.commentCount > 0 && (
+                  <span
+                    className={`ml-2 px-1.5 py-0.5 text-[9px] ${
+                      isActive ? 'text-white' : 'text-muted-foreground'
+                    }`}
+                    style={{
+                      background: isActive ? hexToRgba(Y, 0.25) : BG_MAIN,
+                      color: isActive ? Y : undefined,
+                      clipPath: CHAMFER_3,
+                    }}
+                  >
+                    {v.commentCount}
+                  </span>
+                )}
+                {/* Active yellow indicator dot */}
+                {isActive && (
+                  <span
+                    className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full"
+                    style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}` }}
+                  />
+                )}
+              </motion.button>
+            );
+          })}
+          {/* Add Version button — chamfered, yellow on hover */}
+          <motion.button
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setShowAddVersionDialog(true)}
+            className="flex shrink-0 items-center gap-1.5 border border-dashed bg-transparent px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-[#c7a008]"
+            style={{
+              borderColor: hexToRgba(Y, 0.5),
+              clipPath: CHAMFER_4,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.6); }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = hexToRgba(Y, 0.5); }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Version
+          </motion.button>
+        </div>
+        {/* Current version info */}
+        {activeVersion && (
+          <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{ color: `${TEXT_SECONDARY}b3`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+            <span>Version {activeVersion.version}</span>
+            <span style={{ color: Y }}>·</span>
+            <span>{activeVersion.label || `v${activeVersion.version}`}</span>
+            {activeVersion.durationMs && (
+              <>
+                <span style={{ color: Y }}>·</span>
+                <span>{formatDuration(activeVersion.durationMs / 1000)}</span>
+              </>
+            )}
+            {activeVersion.commentCount !== undefined && (
+              <>
+                <span style={{ color: Y }}>·</span>
+                <span>{activeVersion.commentCount} comment{activeVersion.commentCount !== 1 ? 's' : ''}</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Add Version Dialog */}
+      <AddVersionDialog
+        open={showAddVersionDialog}
+        onOpenChange={setShowAddVersionDialog}
+        onSubmit={handleAddVersion}
+        isUploading={isUploadingVersion}
+        uploadProgress={uploadProgress}
+        nextVersion={versions.length + 1}
+      />
+
       {/* Main content — single full-width column (chat moved to global floating widget) */}
       <div className="min-h-0 flex-1">
         <div className="flex h-full flex-col">
@@ -2067,7 +2135,7 @@ export function TrackDetailView() {
                       }}
                     />
                   </div>
-                  <div className="mt-1.5 flex justify-between text-[11px]" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                  <div className="mt-1.5 flex justify-between text-[11px]" style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                     <span>{formatDuration(currentTime)}</span>
                     <span>{formatDuration(displayDuration)}</span>
                   </div>
@@ -2187,7 +2255,7 @@ export function TrackDetailView() {
                   </div>
 
                   {/* Keyboard shortcut hint */}
-                  <p className="ml-auto hidden text-[11px] lg:block" style={{ color: `${TEXT_SECONDARY}cc`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                  <p className="ml-auto hidden text-[11px] lg:block" style={{ color: `${Y}cc`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                     Space: Play/Pause · ←→: Skip 5s
                   </p>
                 </div>
@@ -2420,17 +2488,11 @@ export function TrackDetailView() {
                           <motion.button
                             key={comment.id}
                             onMouseEnter={(e) => {
-                              if (markerHideTimerRef.current) {
-                                clearTimeout(markerHideTimerRef.current);
-                                markerHideTimerRef.current = null;
-                              }
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const isRight = rect.left > window.innerWidth / 2;
-                              setHoveredMarkerId(comment.id);
-                              setMarkerTooltipPos({ top: rect.top - 8, left: isRight ? rect.right : rect.left, right: isRight });
+                              showMarkerTooltipFor(e.currentTarget, comment.id);
                             }}
                             onMouseLeave={() => {
                               markerTooltipHoverRef.current = false;
+                              if (pinnedMarkerId === comment.id) return; // pinned: keep visible
                               markerHideTimerRef.current = setTimeout(() => {
                                 if (!markerTooltipHoverRef.current) {
                                   setHoveredMarkerId(null);
@@ -2441,6 +2503,9 @@ export function TrackDetailView() {
                             onClick={(e) => {
                               e.stopPropagation();
                               handleMarkerClick(comment);
+                              // Pin the tooltip so it stays open after click.
+                              setPinnedMarkerId(comment.id);
+                              showMarkerTooltipFor(e.currentTarget, comment.id);
                             }}
                             initial={false}
                             animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
@@ -2514,17 +2579,11 @@ export function TrackDetailView() {
                             <motion.button
                               key={`end-marker-${comment.id}`}
                               onMouseEnter={(e) => {
-                                if (markerHideTimerRef.current) {
-                                  clearTimeout(markerHideTimerRef.current);
-                                  markerHideTimerRef.current = null;
-                                }
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const isRight = rect.left > window.innerWidth / 2;
-                                setHoveredMarkerId(comment.id);
-                                setMarkerTooltipPos({ top: rect.top - 8, left: isRight ? rect.right : rect.left, right: isRight });
+                                showMarkerTooltipFor(e.currentTarget, comment.id);
                               }}
                               onMouseLeave={() => {
                                 markerTooltipHoverRef.current = false;
+                                if (pinnedMarkerId === comment.id) return; // pinned: keep visible
                                 markerHideTimerRef.current = setTimeout(() => {
                                   if (!markerTooltipHoverRef.current) {
                                     setHoveredMarkerId(null);
@@ -2535,6 +2594,9 @@ export function TrackDetailView() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleMarkerClick(comment);
+                                // Pin the tooltip so it stays open after click.
+                                setPinnedMarkerId(comment.id);
+                                showMarkerTooltipFor(e.currentTarget, comment.id);
                               }}
                               initial={false}
                               animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
@@ -2571,10 +2633,14 @@ export function TrackDetailView() {
                 </div>
               </div>
 
-              {/* Marker hover tooltip — rendered via portal to escape overflow clipping */}
-              {hoveredMarkerId && markerTooltipPos && (() => {
-                const comment = comments.find((c) => c.id === hoveredMarkerId);
+              {/* Marker hover/click tooltip — rendered via portal to escape overflow clipping.
+                  Renders on hover AND when pinned (after click). Cyberpunk 2077 styled:
+                  dark bg, yellow border, chamfered corners, corner brackets. */}
+              {((hoveredMarkerId || pinnedMarkerId) && markerTooltipPos) && (() => {
+                const id = hoveredMarkerId || pinnedMarkerId;
+                const comment = comments.find((c) => c.id === id);
                 if (!comment) return null;
+                const isPinned = pinnedMarkerId === comment.id;
                 return createPortal(
                   <AnimatePresence>
                     <motion.div
@@ -2582,19 +2648,19 @@ export function TrackDetailView() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 4, scale: 0.95 }}
                       transition={{ duration: 0.12 }}
-                      className="relative fixed z-[9999] px-3 py-2 shadow-2xl shadow-black/70"
+                      className="fixed z-[9999] px-3 py-2 shadow-2xl shadow-black/70"
                       style={{
                         background: BG_PANEL,
-                        border: `1px solid ${hexToRgba(C, 0.4)}`,
+                        border: `1px solid ${hexToRgba(Y, 0.6)}`,
                         clipPath: CHAMFER_5,
-                        boxShadow: INSET_BEVEL_SHADOW,
+                        boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 12px ${hexToRgba(Y, 0.25)}`,
                         bottom: window.innerHeight - markerTooltipPos.top + 4,
                         left: markerTooltipPos.right ? 'auto' : markerTooltipPos.left,
-                        right: markerTooltipPos.right ? window.innerWidth - markerTooltipPos.left : 'auto',
-                        minWidth: 200,
-                        maxWidth: 280,
+                        right: markerTooltipPos.right ? 12 : 'auto',
+                        minWidth: 220,
+                        maxWidth: 300,
                         whiteSpace: 'normal',
-                        transform: markerTooltipPos.right ? 'translateX(100%)' : 'translateX(-50%)',
+                        transform: markerTooltipPos.right ? 'none' : 'translateX(-50%)',
                       }}
                       onClick={(e) => e.stopPropagation()}
                       onMouseEnter={() => {
@@ -2606,17 +2672,44 @@ export function TrackDetailView() {
                       }}
                       onMouseLeave={() => {
                         markerTooltipHoverRef.current = false;
+                        // If pinned (clicked), keep the tooltip open even when the
+                        // mouse leaves — user must click the X button or click
+                        // elsewhere to dismiss a pinned tooltip.
+                        if (pinnedMarkerId === comment.id) return;
                         setHoveredMarkerId(null);
                         setMarkerTooltipPos(null);
                       }}
                     >
                       <CornerBrackets size={8} />
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7b2cbf]/20 text-[9px] font-bold text-[#7b2cbf]">
+                      {/* Close (X) button — top-right corner, yellow on hover */}
+                      <button
+                        className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center text-muted-foreground transition-colors hover:text-[#c7a008]"
+                        style={{ clipPath: CHAMFER_3 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPinnedMarkerId(null);
+                          setHoveredMarkerId(null);
+                          setMarkerTooltipPos(null);
+                        }}
+                        aria-label="Close marker tooltip"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      <div className="flex items-center gap-2 pr-5">
+                        {/* User initials avatar — yellow chip */}
+                        <div
+                          className="flex h-6 w-6 shrink-0 items-center justify-center text-[9px] font-bold"
+                          style={{
+                            background: hexToRgba(Y, 0.15),
+                            color: Y,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                            clipPath: CHAMFER_3,
+                          }}
+                        >
                           {getInitials(comment.userName)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[11px] font-semibold text-foreground leading-tight">
+                          <p className="truncate text-[11px] font-semibold leading-tight" style={{ color: TEXT_PRIMARY }}>
                             {comment.userName}
                             {commentNumberMap.get(comment.id) && (
                               <span className="ml-1.5 text-xs font-bold" style={{ color: Y }}>
@@ -2624,32 +2717,53 @@ export function TrackDetailView() {
                               </span>
                             )}
                           </p>
-                          <p className="text-[10px] text-muted-foreground leading-tight">
+                          <p className="text-[10px] leading-tight" style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                             {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
                               ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
                               : formatTimestamp(comment.timestampMs)} · {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
                           </p>
                         </div>
                       </div>
-                      <div className="mt-1 border-t border-border/50 pt-1">
-                        <p className="line-clamp-3 text-[10px] text-muted-foreground/70">
+                      <div className="mt-1.5 border-t pt-1.5" style={{ borderColor: hexToRgba(Y, 0.25) }}>
+                        <p className="line-clamp-3 text-[10px] leading-relaxed" style={{ color: TEXT_PRIMARY, opacity: 0.85 }}>
                           {comment.text}
                         </p>
                       </div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t border-border/50 pt-1.5">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t pt-1.5" style={{ borderColor: hexToRgba(Y, 0.25) }}>
+                        {/* Edit button — yellow styled */}
                         <button
-                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#7b2cbf]/15 hover:text-[#7b2cbf]"
+                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors"
+                          style={{
+                            color: Y,
+                            background: hexToRgba(Y, 0.08),
+                            border: `0.5px solid ${hexToRgba(Y, 0.4)}`,
+                            clipPath: CHAMFER_3,
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.2); }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.08); }}
                           onClick={(e) => {
                             e.stopPropagation();
                             startEditingComment(comment);
                             handleMarkerClick(comment);
+                            setPinnedMarkerId(null);
+                            setHoveredMarkerId(null);
+                            setMarkerTooltipPos(null);
                           }}
                         >
                           <Pencil className="h-2.5 w-2.5" />
                           Edit
                         </button>
+                        {/* Resolve button — cyan styled */}
                         <button
-                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-[#4a8d6f]/15 hover:text-[#4a8d6f]"
+                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors"
+                          style={{
+                            color: C,
+                            background: hexToRgba(C, 0.08),
+                            border: `0.5px solid ${hexToRgba(C, 0.4)}`,
+                            clipPath: CHAMFER_3,
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(C, 0.2); }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = hexToRgba(C, 0.08); }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleToggleResolved(comment.id, comment.isResolved);
@@ -2658,17 +2772,42 @@ export function TrackDetailView() {
                           {comment.isResolved ? <DoubleCheckIcon className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
                           {comment.isResolved ? 'Unresolve' : 'Resolve'}
                         </button>
+                        {/* Delete button — yellow styled with red hover hint */}
                         <button
-                          className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+                          className="ml-auto flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors"
+                          style={{
+                            color: Y,
+                            background: hexToRgba(Y, 0.08),
+                            border: `0.5px solid ${hexToRgba(Y, 0.4)}`,
+                            clipPath: CHAMFER_3,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = '#ff5a5a';
+                            e.currentTarget.style.background = 'rgba(255,90,90,0.15)';
+                            e.currentTarget.style.borderColor = 'rgba(255,90,90,0.5)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = Y;
+                            e.currentTarget.style.background = hexToRgba(Y, 0.08);
+                            e.currentTarget.style.borderColor = hexToRgba(Y, 0.4);
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteComment(comment.id);
+                            setPinnedMarkerId(null);
+                            setHoveredMarkerId(null);
+                            setMarkerTooltipPos(null);
                           }}
                         >
                           <Trash2 className="h-2.5 w-2.5" />
                           Delete
                         </button>
                       </div>
+                      {isPinned && (
+                        <div className="mt-1.5 text-center text-[9px] uppercase tracking-widest" style={{ color: hexToRgba(Y, 0.6), fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                          ◆ Pinned — click × to close
+                        </div>
+                      )}
                     </motion.div>
                   </AnimatePresence>,
                   document.body
@@ -2779,180 +2918,6 @@ export function TrackDetailView() {
                   </div>
                 )}
 
-                <AnimatePresence>
-                  {showCommentInput && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mb-3 overflow-hidden"
-                    >
-                      <div
-                        className="relative border p-3"
-                        style={{
-                          background: BG_PANEL,
-                          borderColor: markerMode === 'range' ? hexToRgba(Y, 0.5) : hexToRgba(C, 0.3),
-                          clipPath: CHAMFER_5,
-                          boxShadow: INSET_BEVEL_SHADOW,
-                        }}
-                      >
-                        <CornerBrackets size={8} />
-                        <CardContent className="p-0">
-                          {/* Marker mode toggle */}
-                          <div className="mb-2 flex items-center gap-2">
-                            <div
-                              className="flex items-center border p-0.5"
-                              style={{
-                                background: BG_MAIN,
-                                border: `1px solid ${BORDER_MUTED}`,
-                                clipPath: CHAMFER_3,
-                              }}
-                            >
-                              <button
-                                onClick={() => {
-                                  setMarkerMode('point');
-                                  setIsSelectingRange(false);
-                                }}
-                                className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
-                                  markerMode === 'point'
-                                    ? 'bg-[#00a8c6] text-black shadow-sm shadow-[#00a8c6]/30'
-                                    : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                              >
-                                <MapPin className="h-2.5 w-2.5" />
-                                Point
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setMarkerMode('range');
-                                  setIsSelectingRange(false);
-                                }}
-                                className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-medium transition-all ${
-                                  markerMode === 'range'
-                                    ? 'bg-[#c7a008] text-black shadow-sm shadow-[#c7a008]/30'
-                                    : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                              >
-                                <MoveHorizontal className="h-2.5 w-2.5" />
-                                Range
-                              </button>
-                            </div>
-
-                            {/* Timestamp / range display */}
-                            {markerMode === 'range' ? (
-                              <div className="flex items-center gap-1.5">
-                                <Badge
-                                  variant="outline"
-                                  className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
-                                >
-                                  {formatTimestamp(rangeStartMs || commentTimestamp || Math.round(currentTime * 1000))}
-                                </Badge>
-                                <span className="text-[10px] text-muted-foreground">→</span>
-                                {isSelectingRange ? (
-                                  <Badge
-                                    variant="outline"
-                                    className="border-[#c7a008]/30 text-[#c7a008] text-[10px] animate-pulse"
-                                  >
-                                    Click end point…
-                                  </Badge>
-                                ) : rangeEndMsState > 0 ? (
-                                  <Badge
-                                    variant="outline"
-                                    className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
-                                  >
-                                    {formatTimestamp(rangeEndMsState)}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-[10px] text-muted-foreground/60">
-                                    Click start on waveform
-                                  </span>
-                                )}
-                                {rangeEndMsState > rangeStartMs && (
-                                  <span className="text-[9px] text-muted-foreground/50">
-                                    ({formatDuration((rangeEndMsState - rangeStartMs) / 1000)})
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5">
-                                <Badge
-                                  variant="outline"
-                                  className="border-[#00a8c6]/30 text-[#00a8c6] text-[10px]"
-                                >
-                                  {formatTimestamp(commentTimestamp || Math.round(currentTime * 1000))}
-                                </Badge>
-                                <span className="text-[10px] text-muted-foreground">
-                                  at this timestamp
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Range selection in-progress indicator on waveform hint */}
-                          {markerMode === 'range' && isSelectingRange && (
-                            <p className="mb-2 text-[10px] text-[#c7a008]">
-                              📍 Range start set — now click on the waveform to set the end point
-                            </p>
-                          )}
-
-                          <Input
-                            placeholder="Write your comment..."
-                            value={newCommentText}
-                            onChange={(e) => setNewCommentText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                if (markerMode === 'range' && isSelectingRange) return; // don't submit while selecting
-                                handleAddComment();
-                              }
-                              if (e.key === 'Escape') {
-                                setShowCommentInput(false);
-                                setNewCommentText('');
-                                setRangeStartMs(0);
-                                setRangeEndMsState(0);
-                                setIsSelectingRange(false);
-                              }
-                            }}
-                            className="mb-2 h-8 text-sm border-0 rounded-none"
-                            style={HUD_INPUT_STYLE}
-                            autoFocus
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() => {
-                                setShowCommentInput(false);
-                                setNewCommentText('');
-                                setRangeStartMs(0);
-                                setRangeEndMsState(0);
-                                setIsSelectingRange(false);
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="h-7 border-0 rounded-none text-xs"
-                              style={{
-                                ...YELLOW_BUTTON_STYLE,
-                                paddingRight: '10px',
-                                paddingLeft: '10px',
-                                paddingTop: '4px',
-                                paddingBottom: '4px',
-                              }}
-                              onClick={handleAddComment}
-                              disabled={!newCommentText.trim() || (markerMode === 'range' && isSelectingRange)}
-                            >
-                              Post Comment
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
                 <ScrollArea className="flex-1" style={{ minHeight: 0 }}>
                   <div className="space-y-2 pb-4">
@@ -2977,61 +2942,99 @@ export function TrackDetailView() {
                       );
                       return tree.map((comment) => (
                         <div key={comment.id}>
-                          {/* TOP-LEVEL COMMENT CARD — dark purple HUD slab, chamfered */}
+                          {/* TOP-LEVEL COMMENT — chat-style row: avatar LEFT, content bubble RIGHT */}
                           <motion.div
                             id={`comment-${comment.id}`}
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
-                            className={`group relative border p-3 transition-colors ${
-                              focusedCommentId === comment.id
-                                ? comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
-                                  ? 'border-[#c7a008]/50'
-                                  : 'border-[#00a8c6]/50'
-                                : comment.isResolved
-                                  ? 'border-[#1f2633]'
-                                  : 'border-[#1f2633]'
-                            }`}
-                            style={{
-                              background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
-                              clipPath: CHAMFER_8,
-                              opacity: comment.isResolved ? 0.6 : 1,
-                              borderTop: `2px solid ${comment.isResolved ? BORDER_MUTED : C}`,
-                              boxShadow: INSET_BEVEL_SHADOW,
-                            }}
+                            className="group flex items-start gap-2.5"
+                            style={{ opacity: comment.isResolved ? 0.6 : 1 }}
                           >
-                            <CornerBrackets size={8} />
-                            <div className="flex items-start gap-2.5">
-                              <Avatar className="h-6 w-6 shrink-0">
-                                <AvatarFallback className="text-[9px] bg-[#161224] text-muted-foreground">
-                                  {getInitials(comment.userName)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <Badge
-                                    variant="outline"
-                                    className="h-5 px-1.5 text-xs font-bold border-0"
+                            {/* Avatar — chat-style circular avatar with colored ring */}
+                            <Avatar className="h-7 w-7 shrink-0 ring-2 ring-[#0a0c10]">
+                              <AvatarFallback
+                                className="text-[10px] font-bold"
+                                style={{
+                                  background: hexToRgba(Y, 0.15),
+                                  color: Y,
+                                  border: `1px solid ${hexToRgba(Y, 0.4)}`,
+                                }}
+                              >
+                                {getInitials(comment.userName)}
+                              </AvatarFallback>
+                            </Avatar>
+
+                            {/* Content bubble — dark teal with yellow left border (quote indicator) */}
+                            <div
+                              className="relative min-w-0 flex-1"
+                              style={{
+                                background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
+                                clipPath: CHAMFER_5,
+                                boxShadow: INSET_BEVEL_SHADOW,
+                              }}
+                            >
+                              {/* Yellow left border — quote/reply indicator stripe */}
+                              <div
+                                className="absolute left-0 top-0 bottom-0 w-[3px] pointer-events-none"
+                                style={{
+                                  background: comment.isResolved ? hexToRgba(G, 0.6) : Y,
+                                  boxShadow: comment.isResolved ? 'none' : `0 0 6px ${hexToRgba(Y, 0.5)}`,
+                                }}
+                              />
+                              {/* Focused-comment outline highlight */}
+                              {focusedCommentId === comment.id && (
+                                <div
+                                  className="absolute inset-0 pointer-events-none"
+                                  style={{
+                                    border: `1px solid ${
+                                      comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
+                                        ? hexToRgba(Y, 0.6)
+                                        : hexToRgba(C, 0.6)
+                                    }`,
+                                    clipPath: CHAMFER_5,
+                                  }}
+                                />
+                              )}
+                              <div className="relative pl-3.5 pr-3 py-2.5">
+                                {/* Header row — name + #chip (left), timestamp + actions (right) */}
+                                <div className="flex items-start gap-2 mb-1">
+                                  {/* Comment number badge — small yellow chamfered chip attached to bubble */}
+                                  <span
+                                    className="shrink-0 px-1.5 py-0.5 text-[10px] font-bold"
                                     style={{
                                       background: hexToRgba(Y, 0.15),
                                       color: Y,
-                                      border: `0.5px solid ${hexToRgba(Y, 0.4)}`,
+                                      border: `0.5px solid ${hexToRgba(Y, 0.5)}`,
                                       clipPath: CHAMFER_3,
                                       fontFamily: 'var(--font-jetbrains-mono), monospace',
                                     }}
                                   >
                                     #{commentNumberMap.get(comment.id) ?? '?'}
-                                  </Badge>
-                                  <span className="text-xs font-medium text-foreground">
+                                  </span>
+                                  <span
+                                    className="min-w-0 flex-1 truncate text-xs font-semibold"
+                                    style={{ color: TEXT_PRIMARY }}
+                                  >
                                     {comment.userName}
                                   </span>
-                                  {comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs ? (
-                                    <MoveHorizontal className="h-3 w-3 text-[#c7a008] shrink-0" />
-                                  ) : (
-                                    <MapPin className="h-3 w-3 text-[#00a8c6] shrink-0" />
+                                  {/* Resolved checkmark — green */}
+                                  {comment.isResolved && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          className="shrink-0 rounded p-0.5 text-[#4a8d6f] transition-colors hover:bg-[#4a8d6f]/15"
+                                          onClick={() => handleToggleResolved(comment.id, comment.isResolved)}
+                                        >
+                                          <DoubleCheckIcon className="h-3.5 w-3.5" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{comment.isResolved ? 'Unresolve' : 'Resolve'}</TooltipContent>
+                                    </Tooltip>
                                   )}
+                                  {/* Timestamp — yellow monospace, top-right of bubble */}
                                   <Badge
                                     variant="outline"
-                                    className={`h-4 px-1 text-[10px] cursor-pointer transition-colors ${
+                                    className={`shrink-0 h-4 px-1 text-[10px] cursor-pointer transition-colors ${
                                       comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs
                                         ? 'border-[#c7a008]/30 text-[#c7a008] hover:bg-[#c7a008]/10'
                                         : 'border-[#00a8c6]/30 text-[#00a8c6] hover:bg-[#00a8c6]/10'
@@ -3046,28 +3049,12 @@ export function TrackDetailView() {
                                       ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
                                       : formatTimestamp(comment.timestampMs)}
                                   </Badge>
-                                  {/* Resolve checkmark — after timestamp, left side */}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        className={`rounded p-0.5 transition-colors ${
-                                          comment.isResolved
-                                            ? 'text-[#4a8d6f] hover:bg-[#4a8d6f]/15'
-                                            : 'text-muted-foreground/40 hover:bg-[#4a8d6f]/15 hover:text-[#4a8d6f]'
-                                        }`}
-                                        onClick={() => handleToggleResolved(comment.id, comment.isResolved)}
-                                      >
-                                        {comment.isResolved ? <DoubleCheckIcon className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>{comment.isResolved ? 'Unresolve' : 'Resolve'}</TooltipContent>
-                                  </Tooltip>
-                                  {/* Edit / Delete actions */}
-                                  <div className="ml-auto flex items-center gap-0.5 opacity-40 transition-opacity hover:opacity-100">
+                                  {/* Edit / Delete — small icon-only buttons that appear on hover */}
+                                  <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <button
-                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#7b2cbf]/15 hover:text-[#7b2cbf]"
+                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
                                           onClick={() => startEditingComment(comment)}
                                         >
                                           <Pencil className="h-3 w-3" />
@@ -3098,9 +3085,17 @@ export function TrackDetailView() {
                                       exit={{ opacity: 0, height: 0 }}
                                       className="overflow-hidden"
                                     >
-                                      <div className="rounded-md border border-[#7b2cbf]/30 bg-[#7b2cbf]/5 p-2">
+                                      <div
+                                        className="p-2"
+                                        style={{
+                                          background: hexToRgba(P, 0.08),
+                                          border: `1px solid ${hexToRgba(P, 0.3)}`,
+                                          clipPath: CHAMFER_3,
+                                        }}
+                                      >
                                         <textarea
-                                          className="w-full resize-none bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
+                                          className="w-full resize-none bg-transparent text-xs outline-none placeholder:text-muted-foreground/50"
+                                          style={{ color: TEXT_PRIMARY }}
                                           rows={2}
                                           value={editCommentText}
                                           onChange={(e) => setEditCommentText(e.target.value)}
@@ -3129,7 +3124,14 @@ export function TrackDetailView() {
                                             </Button>
                                             <Button
                                               size="sm"
-                                              className="h-6 gap-1 bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] px-2 text-[10px] text-white hover:shadow-[#7b2cbf]/30 hover:shadow-lg"
+                                              className="h-6 gap-1 border-0 rounded-none px-2 text-[10px]"
+                                              style={{
+                                                ...YELLOW_BUTTON_STYLE,
+                                                paddingTop: '3px',
+                                                paddingBottom: '3px',
+                                                paddingLeft: '8px',
+                                                paddingRight: '8px',
+                                              }}
                                               onClick={() => handleEditComment(comment.id)}
                                               disabled={!editCommentText.trim()}
                                             >
@@ -3146,54 +3148,68 @@ export function TrackDetailView() {
                                       initial={{ opacity: 0 }}
                                       animate={{ opacity: 1 }}
                                       exit={{ opacity: 0 }}
-                                      className="text-xs text-muted-foreground leading-relaxed"
+                                      className={`text-xs leading-relaxed ${comment.isResolved ? 'line-through' : ''}`}
+                                      style={{ color: TEXT_PRIMARY, opacity: comment.isResolved ? 0.7 : 0.9 }}
                                     >
                                       {comment.text}
                                     </motion.p>
                                   )}
                                 </AnimatePresence>
-                                {/* Comment creation time — left, under text */}
-                                <span className="text-[10px] text-muted-foreground/40">
-                                  {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
-                                </span>
+                                {/* Footer row — creation time (left), Reply + Jump-to (right) */}
                                 <div className="mt-1.5 flex items-center gap-2">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="ml-auto h-6 gap-1 px-2 text-[10px] text-[#00a8c6] hover:text-[#00a8c6] hover:bg-[#00a8c6]/10"
-                                        onClick={() => seekTo(comment.timestampMs / 1000)}
-                                      >
-                                        <LocateFixed className="h-3 w-3" />
-                                        Jump to
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Jump to this timestamp</TooltipContent>
-                                  </Tooltip>
-                                  {!comment.isResolved && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 gap-1 px-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-[#161224]"
-                                        onClick={() => {
-                                          setReplyingTo(replyingTo === comment.id ? null : comment.id);
-                                          setReplyText('');
-                                          if (editingCommentId === comment.id) cancelEditingComment();
-                                        }}
-                                      >
-                                        <Reply className="h-3 w-3" />
-                                        Reply
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Reply to this comment</TooltipContent>
-                                  </Tooltip>
-                                  )}
-                                  {comment.isResolved && (
-                                    <span className="text-[9px] text-[#4a8d6f]/60 italic">Thread closed</span>
-                                  )}
+                                  <span
+                                    className="text-[10px]"
+                                    style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', opacity: 0.7 }}
+                                  >
+                                    {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
+                                  </span>
+                                  <div className="ml-auto flex items-center gap-1">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 gap-1 px-2 text-[10px] text-[#00a8c6] hover:text-[#00a8c6] hover:bg-[#00a8c6]/10"
+                                          onClick={() => seekTo(comment.timestampMs / 1000)}
+                                        >
+                                          <LocateFixed className="h-3 w-3" />
+                                          Jump to
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Jump to this timestamp</TooltipContent>
+                                    </Tooltip>
+                                    {/* Reply button — small yellow ghost button at bottom of bubble */}
+                                    {!comment.isResolved && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 gap-1 px-2 text-[10px] transition-colors"
+                                            style={{
+                                              color: Y,
+                                              border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+                                              clipPath: CHAMFER_3,
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.1); }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                            onClick={() => {
+                                              setReplyingTo(replyingTo === comment.id ? null : comment.id);
+                                              setReplyText('');
+                                              if (editingCommentId === comment.id) cancelEditingComment();
+                                            }}
+                                          >
+                                            <Reply className="h-3 w-3" />
+                                            Reply
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Reply to this comment</TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                    {comment.isResolved && (
+                                      <span className="text-[9px] text-[#4a8d6f]/60 italic">Thread closed</span>
+                                    )}
+                                  </div>
                                 </div>
                                 {/* Inline reply input — hidden when resolved */}
                                 <AnimatePresence>
@@ -3202,7 +3218,8 @@ export function TrackDetailView() {
                                       initial={{ opacity: 0, height: 0 }}
                                       animate={{ opacity: 1, height: 'auto' }}
                                       exit={{ opacity: 0, height: 0 }}
-                                      className="mt-2 ml-2 overflow-hidden border-l-2 border-[#7b2cbf]/30 pl-3"
+                                      className="mt-2 ml-2 overflow-hidden border-l-2 pl-3"
+                                      style={{ borderColor: hexToRgba(Y, 0.4) }}
                                     >
                                       <Input
                                         placeholder={`Reply to ${comment.userName}...`}
@@ -3218,7 +3235,8 @@ export function TrackDetailView() {
                                             setReplyText('');
                                           }
                                         }}
-                                        className="mb-1.5 h-7 text-xs"
+                                        className="mb-1.5 h-7 text-xs border-0 rounded-none"
+                                        style={HUD_INPUT_STYLE}
                                         autoFocus
                                       />
                                       <div className="flex justify-end gap-1.5">
@@ -3235,7 +3253,14 @@ export function TrackDetailView() {
                                         </Button>
                                         <Button
                                           size="sm"
-                                          className="h-6 gap-1 bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] px-2 text-[10px] text-white hover:shadow-[#7b2cbf]/30 hover:shadow-lg"
+                                          className="h-6 gap-1 border-0 rounded-none px-2 text-[10px]"
+                                          style={{
+                                            ...YELLOW_BUTTON_STYLE,
+                                            paddingTop: '3px',
+                                            paddingBottom: '3px',
+                                            paddingLeft: '8px',
+                                            paddingRight: '8px',
+                                          }}
                                           onClick={handleReply}
                                           disabled={!replyText.trim()}
                                         >
@@ -3250,9 +3275,12 @@ export function TrackDetailView() {
                             </div>
                           </motion.div>
 
-                          {/* NESTED REPLIES THREAD */}
+                          {/* NESTED REPLIES THREAD — indented with vertical yellow line connector */}
                           {comment.replies.length > 0 && (
-                            <div className="ml-4 mt-1 space-y-1 border-l-2 border-[#7b2cbf]/20 pl-3">
+                            <div
+                              className="mt-1 ml-9 space-y-1 border-l-2 pl-3"
+                              style={{ borderColor: hexToRgba(Y, 0.3) }}
+                            >
                               <button
                                 className="flex items-center gap-1 text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
                                 onClick={() => toggleThread(comment.id)}
@@ -3270,39 +3298,67 @@ export function TrackDetailView() {
                                     animate={{ opacity: 1, x: 0 }}
                                     exit={{ opacity: 0, x: -6 }}
                                     transition={{ duration: 0.15 }}
-                                    className={`relative border p-2.5 transition-colors ${
-                                      focusedCommentId === reply.id
-                                        ? 'border-[#7b2cbf]/40'
-                                        : comment.isResolved
-                                          ? 'border-[#1f2633]'
-                                          : 'border-[#1f2633]'
-                                    }`}
-                                    style={{
-                                      background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
-                                      clipPath: CHAMFER_5,
-                                      opacity: comment.isResolved ? 0.5 : 1,
-                                      borderTop: `2px solid ${comment.isResolved ? BORDER_MUTED : C}`,
-                                      boxShadow: INSET_BEVEL_SHADOW,
-                                    }}
+                                    className="group/reply flex items-start gap-2"
+                                    style={{ opacity: comment.isResolved ? 0.55 : 1 }}
                                   >
-                                    <CornerBrackets size={6} />
-                                    <div className="flex items-start gap-2">
-                                      <Avatar className="h-5 w-5 shrink-0">
-                                        <AvatarFallback className="text-[8px] bg-[#161224] text-muted-foreground">
-                                          {getInitials(reply.userName)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div className="min-w-0 flex-1">
+                                    {/* Reply avatar — smaller, yellow tinted */}
+                                    <Avatar className="h-6 w-6 shrink-0 ring-1 ring-[#0a0c10]">
+                                      <AvatarFallback
+                                        className="text-[8px] font-bold"
+                                        style={{
+                                          background: hexToRgba(C, 0.12),
+                                          color: C,
+                                          border: `1px solid ${hexToRgba(C, 0.35)}`,
+                                        }}
+                                      >
+                                        {getInitials(reply.userName)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    {/* Reply bubble — smaller, yellow left stripe */}
+                                    <div
+                                      className="relative min-w-0 flex-1"
+                                      style={{
+                                        background: comment.isResolved ? BG_MAIN : hexToRgba(BG_CARD_TEAL, 0.85),
+                                        clipPath: CHAMFER_4,
+                                        boxShadow: INSET_BEVEL_SHADOW,
+                                      }}
+                                    >
+                                      <div
+                                        className="absolute left-0 top-0 bottom-0 w-[2px] pointer-events-none"
+                                        style={{
+                                          background: comment.isResolved ? hexToRgba(G, 0.5) : hexToRgba(Y, 0.7),
+                                        }}
+                                      />
+                                      {focusedCommentId === reply.id && (
+                                        <div
+                                          className="absolute inset-0 pointer-events-none"
+                                          style={{
+                                            border: `1px solid ${hexToRgba(P, 0.5)}`,
+                                            clipPath: CHAMFER_4,
+                                          }}
+                                        />
+                                      )}
+                                      <div className="relative pl-2.5 pr-2 py-1.5">
+                                        {/* Header — name (left), edit/delete icons on hover (right) */}
                                         <div className="flex items-center gap-1 mb-0.5">
-                                          <span className="text-[11px] font-medium text-foreground">
+                                          <span
+                                            className="min-w-0 flex-1 truncate text-[11px] font-semibold"
+                                            style={{ color: TEXT_PRIMARY }}
+                                          >
                                             {reply.userName}
                                           </span>
-                                          {/* Reply actions — no timestamp badge, no resolve */}
-                                          <div className="ml-auto flex items-center gap-0.5 opacity-30 transition-opacity hover:opacity-100">
+                                          <span
+                                            className="shrink-0 text-[9px]"
+                                            style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', opacity: 0.7 }}
+                                          >
+                                            {format(new Date(reply.createdAt), 'MMM d, h:mm a')}
+                                          </span>
+                                          {/* Reply actions — icon-only, hover-revealed */}
+                                          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/reply:opacity-100 focus-within:opacity-100">
                                             <Tooltip>
                                               <TooltipTrigger asChild>
                                                 <button
-                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#7b2cbf]/15 hover:text-[#7b2cbf]"
+                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
                                                   onClick={() => startEditingComment(reply)}
                                                 >
                                                   <Pencil className="h-2.5 w-2.5" />
@@ -3333,9 +3389,17 @@ export function TrackDetailView() {
                                               exit={{ opacity: 0, height: 0 }}
                                               className="overflow-hidden"
                                             >
-                                              <div className="rounded border border-[#7b2cbf]/20 bg-[#7b2cbf]/5 p-1.5">
+                                              <div
+                                                className="p-1.5"
+                                                style={{
+                                                  background: hexToRgba(P, 0.08),
+                                                  border: `1px solid ${hexToRgba(P, 0.3)}`,
+                                                  clipPath: CHAMFER_3,
+                                                }}
+                                              >
                                                 <textarea
-                                                  className="w-full resize-none bg-transparent text-[11px] text-foreground outline-none placeholder:text-muted-foreground/50"
+                                                  className="w-full resize-none bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/50"
+                                                  style={{ color: TEXT_PRIMARY }}
                                                   rows={1}
                                                   value={editCommentText}
                                                   onChange={(e) => setEditCommentText(e.target.value)}
@@ -3351,7 +3415,19 @@ export function TrackDetailView() {
                                                 />
                                                 <div className="flex justify-end gap-1 mt-1">
                                                   <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={cancelEditingComment}>Cancel</Button>
-                                                  <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] px-1.5 text-[9px] text-white" onClick={() => handleEditComment(reply.id)} disabled={!editCommentText.trim()}>
+                                                  <Button
+                                                    size="sm"
+                                                    className="h-5 gap-0.5 border-0 rounded-none px-1.5 text-[9px]"
+                                                    style={{
+                                                      ...YELLOW_BUTTON_STYLE,
+                                                      paddingTop: '2px',
+                                                      paddingBottom: '2px',
+                                                      paddingLeft: '6px',
+                                                      paddingRight: '6px',
+                                                    }}
+                                                    onClick={() => handleEditComment(reply.id)}
+                                                    disabled={!editCommentText.trim()}
+                                                  >
                                                     <Check className="h-2 w-2" /> Save
                                                   </Button>
                                                 </div>
@@ -3363,19 +3439,20 @@ export function TrackDetailView() {
                                               initial={{ opacity: 0 }}
                                               animate={{ opacity: 1 }}
                                               exit={{ opacity: 0 }}
-                                              className="text-[11px] text-muted-foreground leading-relaxed"
+                                              className={`text-[11px] leading-relaxed ${comment.isResolved ? 'line-through' : ''}`}
+                                              style={{ color: TEXT_PRIMARY, opacity: comment.isResolved ? 0.6 : 0.85 }}
                                             >
                                               {reply.text}
                                             </motion.p>
                                           )}
                                         </AnimatePresence>
-                                        <div className="mt-1 flex items-center gap-1.5">
-                                          <span className="text-[9px] text-muted-foreground/40">
-                                            {format(new Date(reply.createdAt), 'MMM d, h:mm a')}
-                                          </span>
-                                          {!comment.isResolved && (
+                                        {/* Footer — reply-to-reply button */}
+                                        {!comment.isResolved && (
                                           <button
-                                            className="text-[9px] text-muted-foreground/40 transition-colors hover:text-[#7b2cbf]"
+                                            className="mt-0.5 text-[9px] uppercase tracking-wider transition-colors"
+                                            style={{ color: hexToRgba(Y, 0.7), fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.color = Y; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.color = hexToRgba(Y, 0.7); }}
                                             onClick={() => {
                                               setReplyingTo(replyingTo === reply.id ? null : reply.id);
                                               setReplyText('');
@@ -3384,8 +3461,7 @@ export function TrackDetailView() {
                                           >
                                             <Reply className="inline h-2.5 w-2.5" /> Reply
                                           </button>
-                                          )}
-                                        </div>
+                                        )}
                                         {/* Inline reply input for reply-to-reply — hidden when parent resolved */}
                                         <AnimatePresence>
                                           {replyingTo === reply.id && !comment.isResolved && (
@@ -3409,12 +3485,25 @@ export function TrackDetailView() {
                                                     setReplyText('');
                                                   }
                                                 }}
-                                                className="mb-1 h-6 text-[10px]"
+                                                className="mb-1 h-6 text-[10px] border-0 rounded-none"
+                                                style={HUD_INPUT_STYLE}
                                                 autoFocus
                                               />
                                               <div className="flex justify-end gap-1">
                                                 <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px]" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Cancel</Button>
-                                                <Button size="sm" className="h-5 gap-0.5 bg-gradient-to-r from-[#7b2cbf] to-[#5a1d8f] px-1.5 text-[9px] text-white" onClick={handleReply} disabled={!replyText.trim()}>
+                                                <Button
+                                                  size="sm"
+                                                  className="h-5 gap-0.5 border-0 rounded-none px-1.5 text-[9px]"
+                                                  style={{
+                                                    ...YELLOW_BUTTON_STYLE,
+                                                    paddingTop: '2px',
+                                                    paddingBottom: '2px',
+                                                    paddingLeft: '6px',
+                                                    paddingRight: '6px',
+                                                  }}
+                                                  onClick={handleReply}
+                                                  disabled={!replyText.trim()}
+                                                >
                                                   <Send className="h-2 w-2" /> Reply
                                                 </Button>
                                               </div>
@@ -3434,6 +3523,188 @@ export function TrackDetailView() {
                   </div>
                   <div ref={commentsEndRef} />
                 </ScrollArea>
+
+                <AnimatePresence>
+                  {showCommentInput && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      className="shrink-0 pt-2"
+                    >
+                      <div
+                        className="relative p-2.5"
+                        style={{
+                          background: BG_PANEL,
+                          border: `1px solid ${hexToRgba(Y, 0.45)}`,
+                          clipPath: CHAMFER_5,
+                          boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 8px ${hexToRgba(Y, 0.12)}`,
+                        }}
+                      >
+                        <CornerBrackets size={8} />
+                        {/* Chip row — marker mode + timestamp / range chips */}
+                        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                          {/* Marker mode toggle */}
+                          <div
+                            className="flex items-center border p-0.5"
+                            style={{
+                              background: BG_MAIN,
+                              border: `1px solid ${BORDER_MUTED}`,
+                              clipPath: CHAMFER_3,
+                            }}
+                          >
+                            <button
+                              onClick={() => {
+                                setMarkerMode('point');
+                                setIsSelectingRange(false);
+                              }}
+                              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium transition-all ${
+                                markerMode === 'point'
+                                  ? 'text-black'
+                                  : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                              style={
+                                markerMode === 'point'
+                                  ? { background: C, clipPath: CHAMFER_3, boxShadow: `0 0 4px ${hexToRgba(Y, 0.4)}` }
+                                  : undefined
+                              }
+                            >
+                              <MapPin className="h-2.5 w-2.5" />
+                              Point
+                            </button>
+                            <button
+                              onClick={() => {
+                                setMarkerMode('range');
+                                setIsSelectingRange(false);
+                              }}
+                              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium transition-all ${
+                                markerMode === 'range'
+                                  ? 'text-black'
+                                  : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                              style={
+                                markerMode === 'range'
+                                  ? { background: Y, clipPath: CHAMFER_3, boxShadow: `0 0 4px ${hexToRgba(Y, 0.4)}` }
+                                  : undefined
+                              }
+                            >
+                              <MoveHorizontal className="h-2.5 w-2.5" />
+                              Range
+                            </button>
+                          </div>
+                          {/* Timestamp / range chips */}
+                          {markerMode === 'range' ? (
+                            <div className="flex items-center gap-1.5">
+                              <Badge
+                                variant="outline"
+                                className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
+                                style={{ clipPath: CHAMFER_3 }}
+                              >
+                                {formatTimestamp(rangeStartMs || commentTimestamp || Math.round(currentTime * 1000))}
+                              </Badge>
+                              <span className="text-[10px]" style={{ color: Y }}>→</span>
+                              {isSelectingRange ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-[#c7a008]/30 text-[#c7a008] text-[10px] animate-pulse"
+                                  style={{ clipPath: CHAMFER_3 }}
+                                >
+                                  Click end point…
+                                </Badge>
+                              ) : rangeEndMsState > 0 ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
+                                  style={{ clipPath: CHAMFER_3 }}
+                                >
+                                  {formatTimestamp(rangeEndMsState)}
+                                </Badge>
+                              ) : (
+                                <span className="text-[10px]" style={{ color: `${Y}99` }}>
+                                  Click start on waveform
+                                </span>
+                              )}
+                              {rangeEndMsState > rangeStartMs && (
+                                <span className="text-[9px]" style={{ color: `${Y}cc` }}>
+                                  ({formatDuration((rangeEndMsState - rangeStartMs) / 1000)})
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="border-[#00a8c6]/30 text-[#00a8c6] text-[10px]"
+                              style={{ clipPath: CHAMFER_3 }}
+                            >
+                              {formatTimestamp(commentTimestamp || Math.round(currentTime * 1000))}
+                            </Badge>
+                          )}
+                          {/* Range selection in-progress hint chip */}
+                          {markerMode === 'range' && isSelectingRange && (
+                            <span className="text-[10px] font-bold" style={{ color: Y }}>
+                              📍 Range start set — click waveform to set end
+                            </span>
+                          )}
+                          {/* Cancel (X) button — right side of chip row */}
+                          <button
+                            className="ml-auto flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-[#c7a008]"
+                            style={{ clipPath: CHAMFER_3 }}
+                            onClick={() => {
+                              setShowCommentInput(false);
+                              setNewCommentText('');
+                              setRangeStartMs(0);
+                              setRangeEndMsState(0);
+                              setIsSelectingRange(false);
+                            }}
+                            aria-label="Close comment input"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                        {/* Composer row — input (flex-1) + send button, chat-style */}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder="Write a comment at this timestamp..."
+                            value={newCommentText}
+                            onChange={(e) => setNewCommentText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                if (markerMode === 'range' && isSelectingRange) return; // don't submit while selecting
+                                handleAddComment();
+                              }
+                              if (e.key === 'Escape') {
+                                setShowCommentInput(false);
+                                setNewCommentText('');
+                                setRangeStartMs(0);
+                                setRangeEndMsState(0);
+                                setIsSelectingRange(false);
+                              }
+                            }}
+                            className="h-9 flex-1 text-sm border-0 rounded-none"
+                            style={HUD_INPUT_STYLE}
+                            autoFocus
+                          />
+                          <Button
+                            size="icon"
+                            className="h-9 w-9 shrink-0 border-0 rounded-none"
+                            style={{
+                              clipPath: CHAMFER_4,
+                              background: `linear-gradient(135deg, ${Y} 0%, ${Y2} 100%)`,
+                              boxShadow: `0 0 8px ${hexToRgba(Y, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+                              color: '#0a0b10',
+                            }}
+                            onClick={handleAddComment}
+                            disabled={!newCommentText.trim() || (markerMode === 'range' && isSelectingRange)}
+                            aria-label="Post comment"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
       </div>

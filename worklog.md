@@ -2240,3 +2240,94 @@ Stage Summary:
 - Track-detail view renders a new "ПРОГРЕСС ТРЕКА" HUD panel between the version panel and the audio player: yellow-bordered chamfered HUD with corner brackets, waveform progress bar (height=32, bars=24, gold accent), 5 status-dot stats (total/done/in-progress/review/todo), and a compact tree breakdown showing each track task with a mini progress bar + done/total count.
 - A compact project-level summary appears next to the track progress (responsive: stacks below on mobile, right column on lg+): big % readout, mini progress bar, 4 status-dot grid. Shows "Нет kanban-задачи" placeholder when project has no kanbanTaskId.
 - All existing functionality preserved (audio player, waveform canvas, marker/comment CRUD, version upload, socket.io presence, header-actions registration, navigation). TypeScript clean, ESLint clean for modified files, dev server HTTP 200.
+
+---
+Task ID: TD6-FIX5
+Agent: full-stack-developer
+Task: Fix 5 issues in track-detail-view.tsx (swap layout, recursive kanban count, yellow audio text, marker tooltip, chat-like comments)
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load context from previous agents (5-a, 7-a, 5-b, TD6-1…TD6-4).
+- Read the entire 3671-line /home/z/my-project/src/components/views/track-detail-view.tsx in chunks to map every section (palette/helpers, IdeasStoriesStrip, hooks/state, audio playback, waveform canvas, marker tooltip via createPortal, comments section with top-level + reply cards, AddVersionDialog).
+- Read /home/z/my-project/src/store/kanban-store.ts to confirm Task type hierarchy (Task → TaskChild[] → TaskGrandchild[]; TaskGrandchild has no `children` field) so the recursive count helper would type-check.
+- Read /home/z/my-project/src/app/api/tasks/route.ts to understand the existing GET filters (parentId / boardId / soundflowTrackId / deep) and confirm where to add an `id` filter for fetching the project kanban task by ID.
+
+Issue 1 — Swap track progress area and version download buttons:
+- Wrote /home/z/my-project/swap_blocks.py to extract the Version Panel + AddVersionDialog JSX block (118 lines) and move it from BEFORE the Kanban Progress Panel to AFTER it.
+- After the swap the layout is: contextual row → Kanban Progress Panel → Version Panel → AddVersionDialog → Main content (audio player + waveform + comments). Verified via `grep -n "Version Panel\|Kanban Progress Panel\|Main content"` (Kanban now at line 1680, Version at 1924, Main content at 2043).
+
+Issue 2 — Track/project progress should reflect actual kanban positions:
+- Added `id` filter support to /api/tasks/route.ts GET handler — when `?id=<taskId>&deep=true` is passed, returns a single task by ID with 2-level children. Updated the `childrenArgs` condition to include `!!id` so deep=true works with the new filter.
+- Added `countAllDescendants(tasks)` helper in track-detail-view.tsx (just after `getInitials`) — recursively walks `children` arrays of any depth and returns a flat list of all descendants. Uses `unknown[]`/`any[]` typing to stay generic across Task/TaskChild/TaskGrandchild shapes.
+- Updated the project kanban fetch URL from `/api/tasks?parentId=…&deep=true` (which fetched the project's children, not the project itself) to `/api/tasks?id=…&deep=true` so `projectTask` now IS the project's kanban task (with its own `.children`).
+- Rewrote `trackProgress` useMemo to use `countAllDescendants(trackTasks)` instead of `trackTasks.flatMap(t => t.children || [])` — now counts ALL descendants of every track-task.
+- Rewrote `projectProgress` useMemo to use `countAllDescendants([projectTask])` — now recursively counts every descendant of the project kanban task (not just direct children).
+- Updated the per-trackTask mini-tree breakdown (inside the Kanban Progress Panel) to use `countAllDescendants([tt])` so each row's done/total count reflects the full subtask tree.
+
+Issue 3 — Audio player small text → yellow:
+- Changed the time display `<div>` (currentTime / displayDuration) `style={{ color: TEXT_SECONDARY, ... }}` → `style={{ color: Y, ... }}`.
+- Changed the keyboard shortcut hint `<p>` ("Space: Play/Pause · ←→: Skip 5s") `style={{ color: `${TEXT_SECONDARY}cc`, ... }}` → `style={{ color: `${Y}cc`, ... }}`.
+- Both elements live inside the Audio Player HUD panel (lines 2046-2216), which is the only section touched per the task scope.
+
+Issue 4 — Fix marker hover/click popup:
+- Added new state `pinnedMarkerId` and helper `showMarkerTooltipFor(el, commentId)` that computes the marker's center X + top, sets `hoveredMarkerId` + `markerTooltipPos`, and clears any pending hide timer. The `right` flag is now triggered when the marker center is within 160px of the right viewport edge (so the tooltip clamps inside the viewport instead of being pushed off-screen).
+- Updated both point-marker and range-end-marker motion.button onClick handlers to call `setPinnedMarkerId(comment.id)` + `showMarkerTooltipFor(e.currentTarget, comment.id)` (in addition to `handleMarkerClick`). This makes the tooltip render on click, not just hover.
+- Updated both onMouseLeave handlers to skip the hide timer when `pinnedMarkerId === comment.id` — pinned tooltips stay open even after the mouse leaves the marker.
+- Added a global document click listener useEffect (registered on next tick after pinning) that dismisses the pinned tooltip on any outside click. Because marker buttons + the tooltip itself call `e.stopPropagation()` on their click handlers, the listener only fires for actual "outside" clicks.
+- Fixed the portal-rendered motion.div positioning bug: changed `className="relative fixed z-[9999] …"` → `className="fixed z-[9999] …"` (the `relative` was overriding `fixed` so the tooltip was being positioned relatively inside document.body instead of the viewport).
+- Fixed the right-side positioning logic: the previous `transform: translateX(100%)` was pushing the tooltip off-screen for right-side markers. New logic uses `left: markerCenter` + `transform: translateX(-50%)` (centers tooltip on marker) for normal markers, and `right: 12px` + `transform: none` for near-right-edge markers (clamps inside viewport).
+- Cyberpunk 2077 restyling of the tooltip: border color changed from `hexToRgba(C, 0.4)` (cyan) → `hexToRgba(Y, 0.6)` (yellow), added `0 0 12px ${hexToRgba(Y, 0.25)}` glow, kept CornerBrackets + CHAMFER_5 + BG_PANEL dark bg.
+- Replaced the purple-bg initials avatar with a yellow chamfered chip (`hexToRgba(Y, 0.15)` bg, yellow text, `0.5px solid yellow` border, CHAMFER_3).
+- Timestamp text changed from `text-muted-foreground` to yellow monospace (`color: Y`).
+- Comment text changed from `text-muted-foreground/70` to `TEXT_PRIMARY` at 0.85 opacity (more readable on dark bg).
+- Edit / Resolve / Delete buttons restyled:
+  * Edit → yellow chamfered chip (`color: Y`, `hexToRgba(Y, 0.08)` bg, `0.5px solid ${hexToRgba(Y, 0.4)}` border, CHAMFER_3); hover darkens bg to `hexToRgba(Y, 0.2)`.
+  * Resolve → cyan chamfered chip (same style but with `C` color); hover darkens bg to `hexToRgba(C, 0.2)`.
+  * Delete → yellow chip with red hover (color/bg/border swap to `#ff5a5a` on hover).
+- Added a small X close button (top-right, chamfered, yellow on hover) and a "◆ Pinned — click × to close" hint at the bottom of the tooltip when pinned.
+- Edit/Delete now also clear the pinned tooltip state after their action fires so the tooltip closes immediately.
+
+Issue 5 — Redesign comment blocks to be chat-like:
+- Rewrote the TOP-LEVEL COMMENT CARD as a chat-style row:
+  * Wrapper: `flex items-start gap-2.5` with `opacity: 0.6` when resolved.
+  * Avatar LEFT (h-7 w-7) — yellow-tinted AvatarFallback with `hexToRgba(Y, 0.15)` bg + `0.5px solid ${hexToRgba(Y, 0.4)}` border, `ring-2 ring-[#0a0c10]` outer ring (chat-message feel).
+  * Content bubble RIGHT — `relative min-w-0 flex-1` with `BG_CARD_TEAL` (or `BG_MAIN` when resolved) background, `CHAMFER_5` chamfer, `INSET_BEVEL_SHADOW`.
+  * Yellow left-border stripe: absolute-positioned 3px-wide div on the left edge of the bubble (`background: Y` with `0 0 6px ${hexToRgba(Y, 0.5)}` glow). Switches to green (`hexToRgba(G, 0.6)`) when resolved.
+  * Focused-comment outline: absolute-positioned inset div with cyan/yellow border that shows when `focusedCommentId === comment.id` (replaces the old card-border highlight).
+  * Header row: `#N` comment-number chip (small yellow chamfered CHAMFER_3 chip with monospace font) on the LEFT, user name in `TEXT_PRIMARY`, optional green DoubleCheckIcon for resolved comments, timestamp Badge (yellow/cyan depending on point/range) at TOP-RIGHT, hover-revealed Edit/Delete icon buttons.
+  * Edit/Delete buttons: `opacity-0 group-hover:opacity-100` (icon-only, appear on hover). Edit hover = `hover:bg-[#c7a008]/15 hover:text-[#c7a008]` (yellow), Delete hover = `hover:bg-red-500/15 hover:text-red-400` (red).
+  * Comment text: `color: TEXT_PRIMARY` with `opacity: 0.9` (or 0.7 when resolved) + `line-through` class when resolved (strikethrough on resolved).
+  * Edit mode: yellow-bordered CHAMFER_3 box with `hexToRgba(P, 0.08)` bg, textarea, yellow Save button (YELLOW_BUTTON_STYLE).
+  * Footer row: yellow monospace creation time on the LEFT, Jump-to button (cyan) + Reply button (yellow ghost with `0.5px solid ${hexToRgba(Y, 0.3)}` border + CHAMFER_3) on the RIGHT. Reply button is hidden when the comment is resolved (shows "Thread closed" instead).
+  * Inline reply input: yellow left-border stripe (`borderColor: hexToRgba(Y, 0.4)`), HUD_INPUT_STYLE Input, yellow Reply button.
+- Rewrote the NESTED REPLIES THREAD:
+  * Container: `ml-9 border-l-2 pl-3` with `borderColor: hexToRgba(Y, 0.3)` (vertical yellow line connector) — was previously `ml-4 border-l-2 border-[#7b2cbf]/20` (purple). The `ml-9` indents the thread under the parent comment's bubble (which sits to the right of the avatar).
+  * Reply card: chat-style row `flex items-start gap-2` with `group/reply` className (for independent hover tracking). Smaller avatar (h-6 w-6) with cyan-tinted AvatarFallback (`hexToRgba(C, 0.12)` bg, `C` color).
+  * Reply bubble: `relative min-w-0 flex-1` with `hexToRgba(BG_CARD_TEAL, 0.85)` bg (slightly translucent so it reads as "smaller/secondary"), `CHAMFER_4` chamfer, 2px yellow left stripe (`hexToRgba(Y, 0.7)`). Switches to `BG_MAIN` + green stripe when parent resolved.
+  * Focused-reply outline: absolute-positioned inset div with purple border.
+  * Header: name (LEFT, truncate) + yellow monospace timestamp + hover-revealed Edit/Delete icons.
+  * Reply text: `color: TEXT_PRIMARY` with `line-through` when parent resolved.
+  * Edit mode: purple-tinted CHAMFER_3 box + yellow Save button.
+  * Reply-to-reply button: yellow uppercase ghost chip at the bottom (`text-[9px]`, `color: hexToRgba(Y, 0.7)` that brightens to `Y` on hover).
+  * Inline reply input for reply-to-reply: HUD_INPUT_STYLE Input + yellow Reply button.
+- Moved the "Add Comment" input from ABOVE the comments ScrollArea to BELOW it (chat composer at the bottom of the comments section). Used a Python script to extract the old `AnimatePresence + showCommentInput` block and re-insert it after the ScrollArea close (inside the Comments Section wrapper div).
+- Restructured the Add Comment input as a chat composer bar:
+  * Top chip row: marker mode toggle (Point/Range buttons with CHAMFER_3), timestamp/range chips (yellow for range, cyan for point), range-selection hint, and an X close button (right side) — replaces the old "Cancel" ghost button.
+  * Bottom composer row: `Input` (flex-1, HUD_INPUT_STYLE) + Send `Button` (size="icon", h-9 w-9, yellow gradient bg, CHAMFER_4, with `Send` icon) — chat-composer layout. Replaces the old "Post Comment" yellow button.
+  * The whole composer is wrapped in a yellow-bordered CHAMFER_5 HUD panel with CornerBrackets + `0 0 8px ${hexToRgba(Y, 0.12)}` glow.
+  * AnimatePresence transition changed from `{ opacity, height }` (collapse) to `{ opacity, y: 8 }` (slide-up from bottom) for the chat-composer feel.
+
+Verification:
+- `npx tsc --noEmit --pretty 2>&1 | grep -E "track-detail|api/tasks"` → no output (no type errors in modified files).
+- `npx eslint src/components/views/track-detail-view.tsx src/app/api/tasks/route.ts` → no output (no lint errors).
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` → `200`.
+- dev.log shows repeated `Compiled in Nms` with no errors related to track-detail-view.tsx; the only Fast Refresh reloads were during intermediate edit states.
+- All imports/state/hooks/handlers preserved: socket.io (presence, comment:new/updated/deleted), audio playback, waveform canvas, marker click → seekTo, AddVersionDialog upload via XHR, Add Comment via fetch POST, Reply via fetch POST, Edit/Resolve/Delete via fetch PUT/DELETE, kanban progress fetch via `/api/tasks?soundflowTrackId=…` and `/api/tasks?id=…&deep=true`, keyboard shortcuts (Space / Arrow keys), header-actions registration.
+
+Stage Summary:
+- Layout order is now: Kanban Progress Panel → Version Panel → Audio Player (was: Version → Kanban → Audio).
+- Track + project progress now recursively counts ALL descendants via `countAllDescendants()`, with the project kanban task fetched by ID (via the new `?id=` filter on /api/tasks) instead of by parentId.
+- Audio player time display + keyboard hint are now yellow (#c7a008) instead of muted grey.
+- Marker tooltip renders on hover AND on click (click pins it open), is positioned correctly inside the viewport (fixed the `relative fixed` className bug + the `translateX(100%)` off-screen bug), and uses cyberpunk 2077 yellow-border styling with yellow/cyan chamfered action buttons.
+- Comment cards are redesigned as chat-style rows: yellow-stripe bubble on the right of each avatar, yellow #N chip, yellow monospace timestamps, hover-revealed edit/delete icons, green checkmark + strikethrough + dimmed opacity for resolved state, indented reply thread with vertical yellow line connector, smaller cyan-stripe reply bubbles. The Add Comment input is now a chat composer bar (Input + Send icon button) at the BOTTOM of the comments section.
+- All functionality intact (audio, markers, comments, replies, socket.io, versions, keyboard shortcuts, header-actions).
