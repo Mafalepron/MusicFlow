@@ -1741,6 +1741,45 @@ export function TrackDetailView() {
           />
         </div>
 
+      </motion.div>
+
+      {/* ─── Kanban Progress Panel — track + project stats tree ─── */}
+      <div
+        className="relative shrink-0 px-4 py-3 lg:px-6"
+        style={{
+          borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
+        }}
+      >
+        <div
+          className="relative"
+          style={{
+            background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+            clipPath: CHAMFER_8,
+            boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
+          }}
+        >
+          <CornerBrackets size={12} />
+
+          <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-3 lg:p-4">
+            {/* Track progress — spans 2 columns on lg */}
+            <div className="lg:col-span-2">
+              {/* Section title */}
+              <div className="mb-2 flex items-center gap-2">
+                <Zap className="h-4 w-4" style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }} />
+                <h3
+                  className="text-[13px]"
+                  style={{
+                    ...SECTION_TITLE_STYLE,
+                    fontSize: '13px',
+                    letterSpacing: '2px',
+                  }}
+                >
+                  Прогресс трека
+                </h3>
+              </div>
+              {/* Status + Kanban buttons — moved to progress panel */}
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
         {/* Status selector — Cyberpunk 2077 HUD: dark bg, cyan border, chamfered,
             yellow monospace text, cyan-on-hover options */}
         <Select value={track.status} onValueChange={handleStatusChange}>
@@ -1841,43 +1880,8 @@ export function TrackDetailView() {
             Канбан
           </button>
         )}
-      </motion.div>
-
-      {/* ─── Kanban Progress Panel — track + project stats tree ─── */}
-      <div
-        className="relative shrink-0 px-4 py-3 lg:px-6"
-        style={{
-          borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
-        }}
-      >
-        <div
-          className="relative"
-          style={{
-            background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
-            border: `1px solid ${hexToRgba(Y, 0.5)}`,
-            clipPath: CHAMFER_8,
-            boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
-          }}
-        >
-          <CornerBrackets size={12} />
-
-          <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-3 lg:p-4">
-            {/* Track progress — spans 2 columns on lg */}
-            <div className="lg:col-span-2">
-              {/* Section title */}
-              <div className="mb-2 flex items-center gap-2">
-                <Zap className="h-4 w-4" style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }} />
-                <h3
-                  className="text-[13px]"
-                  style={{
-                    ...SECTION_TITLE_STYLE,
-                    fontSize: '13px',
-                    letterSpacing: '2px',
-                  }}
-                >
-                  Прогресс трека
-                </h3>
               </div>
+
 
               {/* Waveform progress bar */}
               <WaveformProgressBar
@@ -3329,22 +3333,8 @@ export function TrackDetailView() {
                             id={`comment-${comment.id}`}
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
-                            className="group flex items-start gap-2.5 transition-all duration-200 hover:translate-x-0.5"
+                            className="group flex items-start gap-2.5"
                             style={{ opacity: comment.isResolved ? 0.6 : 1 }}
-                            onMouseEnter={(e) => {
-                              const bubble = e.currentTarget.querySelector('[data-comment-bubble]') as HTMLElement;
-                              if (bubble) {
-                                bubble.style.boxShadow = `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.2)}`;
-                                bubble.style.background = comment.isResolved ? BG_MAIN : `linear-gradient(135deg, ${hexToRgba(C, 0.08)}, ${BG_CARD_TEAL})`;
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              const bubble = e.currentTarget.querySelector('[data-comment-bubble]') as HTMLElement;
-                              if (bubble) {
-                                bubble.style.boxShadow = INSET_BEVEL_SHADOW;
-                                bubble.style.background = comment.isResolved ? BG_MAIN : BG_CARD_TEAL;
-                              }
-                            }}
                           >
                             {/* Avatar — chat-style circular avatar with colored ring */}
                             <Avatar className="h-7 w-7 shrink-0 ring-2 ring-[#0a0c10]">
@@ -3363,7 +3353,7 @@ export function TrackDetailView() {
                             {/* Content bubble — dark teal with yellow left border (quote indicator) */}
                             <div
                               data-comment-bubble
-                              className="relative min-w-0 flex-1 transition-all duration-200"
+                              className="relative min-w-0 flex-1 transition-all duration-300 group-hover:shadow-[0_0_8px_rgba(199,160,8,0.2)]"
                               style={{
                                 background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
                                 clipPath: CHAMFER_5,
@@ -3714,17 +3704,11 @@ export function TrackDetailView() {
                                     {/* Reply bubble — smaller, yellow left stripe */}
                                     <div
                                       data-comment-bubble
-                                      className="relative min-w-0 flex-1 transition-all duration-200"
+                                      className="relative min-w-0 flex-1 transition-all duration-300 group-hover:shadow-[0_0_6px_rgba(199,160,8,0.15)]"
                                       style={{
                                         background: comment.isResolved ? BG_MAIN : hexToRgba(BG_CARD_TEAL, 0.85),
                                         clipPath: CHAMFER_4,
                                         boxShadow: INSET_BEVEL_SHADOW,
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        e.currentTarget.style.boxShadow = `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 6px ${hexToRgba(Y, 0.15)}`;
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.boxShadow = INSET_BEVEL_SHADOW;
                                       }}
                                     >
                                       <div

@@ -85,21 +85,6 @@ export function WaveformProgressBar({
         })}
       </div>
 
-      {/* Progress divider marker (vertical line at progress boundary) — only if hasProgress */}
-      {hasProgress && (
-        <div
-          className="absolute inset-y-0 pointer-events-none"
-          style={{
-            left: `${pct}%`,
-            width: '1px',
-            background: accentColor,
-            boxShadow: `0 0 6px ${accentColor}, 0 0 3px ${accentColor}`,
-            opacity: h ? 1 : 0.6,
-            transition: 'opacity 220ms ease',
-          }}
-        />
-      )}
-
       {/* Playhead sweep — only animates on hover AND when there's progress */}
       {hovered && hasProgress && (
         <div
@@ -116,19 +101,6 @@ export function WaveformProgressBar({
           <div className="absolute inset-y-0 left-1/2 w-px" style={{ background: '#ffffff', boxShadow: `0 0 6px ${accentColor}` }} />
         </div>
       )}
-
-      {/* Progress percentage label (top-right) */}
-      <div
-        className="absolute top-0.5 right-1.5 text-[9px] font-extrabold tabular-nums font-mono pointer-events-none"
-        style={{
-          color: hasProgress ? accentColor : hexToRgba(accentColor, 0.4),
-          textShadow: hasProgress ? `0 0 4px ${hexToRgba(accentColor, 0.5)}` : 'none',
-          opacity: h ? 1 : 0.7,
-          transition: 'opacity 220ms ease',
-        }}
-      >
-        {pct}%
-      </div>
     </div>
   );
 }
