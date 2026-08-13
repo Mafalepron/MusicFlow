@@ -3100,18 +3100,19 @@ export function TrackDetailView() {
                 <AnimatePresence>
                   {showCommentInput && (
                     <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                       className="shrink-0 pt-2"
                     >
                       <div
                         className="relative p-2.5"
                         style={{
-                          background: BG_PANEL,
-                          border: `1px solid ${hexToRgba(Y, 0.45)}`,
+                          background: `linear-gradient(135deg, ${hexToRgba(Y, 0.06)} 0%, ${BG_PANEL} 50%, ${hexToRgba(C, 0.04)} 100%)`,
+                          border: `1px solid ${hexToRgba(Y, 0.6)}`,
                           clipPath: CHAMFER_5,
-                          boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 8px ${hexToRgba(Y, 0.12)}`,
+                          boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 12px ${hexToRgba(Y, 0.25)}, 0 0 4px ${hexToRgba(Y, 0.15)}`,
                         }}
                       >
                         <CornerBrackets size={8} />
@@ -3310,8 +3311,22 @@ export function TrackDetailView() {
                             id={`comment-${comment.id}`}
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
-                            className="group flex items-start gap-2.5"
+                            className="group flex items-start gap-2.5 transition-all duration-200 hover:translate-x-0.5"
                             style={{ opacity: comment.isResolved ? 0.6 : 1 }}
+                            onMouseEnter={(e) => {
+                              const bubble = e.currentTarget.querySelector('[data-comment-bubble]') as HTMLElement;
+                              if (bubble) {
+                                bubble.style.boxShadow = `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.2)}`;
+                                bubble.style.background = comment.isResolved ? BG_MAIN : `linear-gradient(135deg, ${hexToRgba(C, 0.08)}, ${BG_CARD_TEAL})`;
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              const bubble = e.currentTarget.querySelector('[data-comment-bubble]') as HTMLElement;
+                              if (bubble) {
+                                bubble.style.boxShadow = INSET_BEVEL_SHADOW;
+                                bubble.style.background = comment.isResolved ? BG_MAIN : BG_CARD_TEAL;
+                              }
+                            }}
                           >
                             {/* Avatar — chat-style circular avatar with colored ring */}
                             <Avatar className="h-7 w-7 shrink-0 ring-2 ring-[#0a0c10]">
@@ -3329,7 +3344,8 @@ export function TrackDetailView() {
 
                             {/* Content bubble — dark teal with yellow left border (quote indicator) */}
                             <div
-                              className="relative min-w-0 flex-1"
+                              data-comment-bubble
+                              className="relative min-w-0 flex-1 transition-all duration-200"
                               style={{
                                 background: comment.isResolved ? BG_MAIN : BG_CARD_TEAL,
                                 clipPath: CHAMFER_5,
@@ -3679,11 +3695,18 @@ export function TrackDetailView() {
                                     </Avatar>
                                     {/* Reply bubble — smaller, yellow left stripe */}
                                     <div
-                                      className="relative min-w-0 flex-1"
+                                      data-comment-bubble
+                                      className="relative min-w-0 flex-1 transition-all duration-200"
                                       style={{
                                         background: comment.isResolved ? BG_MAIN : hexToRgba(BG_CARD_TEAL, 0.85),
                                         clipPath: CHAMFER_4,
                                         boxShadow: INSET_BEVEL_SHADOW,
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.boxShadow = `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 6px ${hexToRgba(Y, 0.15)}`;
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.boxShadow = INSET_BEVEL_SHADOW;
                                       }}
                                     >
                                       <div
