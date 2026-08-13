@@ -2359,14 +2359,14 @@ export function TrackDetailView() {
                       }`}
                       onClick={handleWaveformClick}
                     />
-                    {/* Hover time tooltip — follows cursor along waveform — yellow HUD chip */}
-                    {waveformHoverTime && (
+                    {/* Hover time tooltip — above cursor, outside waveform area */}
+                    {waveformHoverTime && !hoveredMarkerId && !pinnedMarkerId && (
                       <div
-                        className="pointer-events-none absolute top-1 z-20 -translate-x-1/2"
-                        style={{ left: waveformHoverTime.x }}
+                        className="pointer-events-none absolute z-30 -translate-x-1/2"
+                        style={{ left: waveformHoverTime.x, bottom: '100%', marginBottom: '4px' }}
                       >
                         <span
-                          className="px-1.5 py-0.5 text-[10px] font-bold shadow-lg"
+                          className="px-1.5 py-0.5 text-[10px] font-bold shadow-lg whitespace-nowrap"
                           style={{
                             background: hexToRgba(Y, 0.95),
                             color: '#0a0b10',
