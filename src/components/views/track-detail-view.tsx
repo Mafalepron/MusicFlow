@@ -696,6 +696,7 @@ export function TrackDetailView() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [showCommentInput, setShowCommentInput] = useState(false);
+  const [visibleCommentCount, setVisibleCommentCount] = useState(4);
   const [commentTimestamp, setCommentTimestamp] = useState(0);
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
   const commentsEndRef = useRef<HTMLDivElement | null>(null);
@@ -3096,6 +3097,188 @@ export function TrackDetailView() {
                   </span>
                 </div>
 
+                <AnimatePresence>
+                  {showCommentInput && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      className="shrink-0 pt-2"
+                    >
+                      <div
+                        className="relative p-2.5"
+                        style={{
+                          background: BG_PANEL,
+                          border: `1px solid ${hexToRgba(Y, 0.45)}`,
+                          clipPath: CHAMFER_5,
+                          boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 8px ${hexToRgba(Y, 0.12)}`,
+                        }}
+                      >
+                        <CornerBrackets size={8} />
+                        {/* Chip row — marker mode + timestamp / range chips */}
+                        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                          {/* Marker mode toggle */}
+                          <div
+                            className="flex items-center border p-0.5"
+                            style={{
+                              background: BG_MAIN,
+                              border: `1px solid ${BORDER_MUTED}`,
+                              clipPath: CHAMFER_3,
+                            }}
+                          >
+                            <button
+                              onClick={() => {
+                                setMarkerMode('point');
+                                setIsSelectingRange(false);
+                              }}
+                              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium transition-all ${
+                                markerMode === 'point'
+                                  ? 'text-black'
+                                  : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                              style={
+                                markerMode === 'point'
+                                  ? { background: C, clipPath: CHAMFER_3, boxShadow: `0 0 4px ${hexToRgba(Y, 0.4)}` }
+                                  : undefined
+                              }
+                            >
+                              <MapPin className="h-2.5 w-2.5" />
+                              Point
+                            </button>
+                            <button
+                              onClick={() => {
+                                setMarkerMode('range');
+                                setIsSelectingRange(false);
+                              }}
+                              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium transition-all ${
+                                markerMode === 'range'
+                                  ? 'text-black'
+                                  : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                              style={
+                                markerMode === 'range'
+                                  ? { background: Y, clipPath: CHAMFER_3, boxShadow: `0 0 4px ${hexToRgba(Y, 0.4)}` }
+                                  : undefined
+                              }
+                            >
+                              <MoveHorizontal className="h-2.5 w-2.5" />
+                              Range
+                            </button>
+                          </div>
+                          {/* Timestamp / range chips */}
+                          {markerMode === 'range' ? (
+                            <div className="flex items-center gap-1.5">
+                              <Badge
+                                variant="outline"
+                                className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
+                                style={{ clipPath: CHAMFER_3 }}
+                              >
+                                {formatTimestamp(rangeStartMs || commentTimestamp || Math.round(currentTime * 1000))}
+                              </Badge>
+                              <span className="text-[10px]" style={{ color: Y }}>→</span>
+                              {isSelectingRange ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-[#c7a008]/30 text-[#c7a008] text-[10px] animate-pulse"
+                                  style={{ clipPath: CHAMFER_3 }}
+                                >
+                                  Кликните конец…
+                                </Badge>
+                              ) : rangeEndMsState > 0 ? (
+                                <Badge
+                                  variant="outline"
+                                  className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
+                                  style={{ clipPath: CHAMFER_3 }}
+                                >
+                                  {formatTimestamp(rangeEndMsState)}
+                                </Badge>
+                              ) : (
+                                <span className="text-[10px]" style={{ color: `${Y}99` }}>
+                                  Кликните начало на волне
+                                </span>
+                              )}
+                              {rangeEndMsState > rangeStartMs && (
+                                <span className="text-[9px]" style={{ color: `${Y}cc` }}>
+                                  ({formatDuration((rangeEndMsState - rangeStartMs) / 1000)})
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="border-[#00a8c6]/30 text-[#00a8c6] text-[10px]"
+                              style={{ clipPath: CHAMFER_3 }}
+                            >
+                              {formatTimestamp(commentTimestamp || Math.round(currentTime * 1000))}
+                            </Badge>
+                          )}
+                          {/* Range selection in-progress hint chip */}
+                          {markerMode === 'range' && isSelectingRange && (
+                            <span className="text-[10px] font-bold" style={{ color: Y }}>
+                              📍 Начало диапазона — кликните волну для конца
+                            </span>
+                          )}
+                          {/* Cancel (X) button — right side of chip row */}
+                          <button
+                            className="ml-auto flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-[#c7a008]"
+                            style={{ clipPath: CHAMFER_3 }}
+                            onClick={() => {
+                              setShowCommentInput(false);
+                              setNewCommentText('');
+                              setRangeStartMs(0);
+                              setRangeEndMsState(0);
+                              setIsSelectingRange(false);
+                            }}
+                            aria-label="Close comment input"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                        {/* Composer row — input (flex-1) + send button, chat-style */}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder="Комментарий в этом таймстемпе..."
+                            value={newCommentText}
+                            onChange={(e) => setNewCommentText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                if (markerMode === 'range' && isSelectingRange) return; // don't submit while selecting
+                                handleAddComment();
+                              }
+                              if (e.key === 'Escape') {
+                                setShowCommentInput(false);
+                                setNewCommentText('');
+                                setRangeStartMs(0);
+                                setRangeEndMsState(0);
+                                setIsSelectingRange(false);
+                              }
+                            }}
+                            className="h-9 flex-1 text-sm border-0 rounded-none"
+                            style={HUD_INPUT_STYLE}
+                            autoFocus
+                          />
+                          <Button
+                            size="icon"
+                            className="h-9 w-9 shrink-0 border-0 rounded-none"
+                            style={{
+                              clipPath: CHAMFER_4,
+                              background: `linear-gradient(135deg, ${Y} 0%, ${Y2} 100%)`,
+                              boxShadow: `0 0 8px ${hexToRgba(Y, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+                              color: '#0a0b10',
+                            }}
+                            onClick={handleAddComment}
+                            disabled={!newCommentText.trim() || (markerMode === 'range' && isSelectingRange)}
+                            aria-label="Post comment"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <ScrollArea className="flex-1" style={{ minHeight: 0 }}>
                   <div className="space-y-2 pb-4">
                     {(() => {
@@ -3116,7 +3299,11 @@ export function TrackDetailView() {
                           <p className="text-xs" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Нет комментариев. Кликните по волне, чтобы добавить.</p>
                         </div>
                       );
-                      return tree.map((comment) => (
+                      const visibleTree = tree.slice(0, visibleCommentCount);
+                      const remainingCount = tree.length - visibleCommentCount;
+                      return (
+                        <>
+                          {visibleTree.map((comment) => (
                         <div key={comment.id}>
                           {/* TOP-LEVEL COMMENT — chat-style row: avatar LEFT, content bubble RIGHT */}
                           <motion.div
@@ -3694,193 +3881,30 @@ export function TrackDetailView() {
                             </div>
                           )}
                         </div>
-                      ));
+                          ))}
+                          {remainingCount > 0 && (
+                            <button
+                              onClick={() => setVisibleCommentCount((prev) => prev + 4)}
+                              className="w-full py-2.5 text-center text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-[1.01]"
+                              style={{
+                                color: Y,
+                                background: hexToRgba(Y, 0.08),
+                                border: `1px solid ${hexToRgba(Y, 0.3)}`,
+                                clipPath: CHAMFER_4,
+                                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                              }}
+                            >
+                              Показать ещё {remainingCount} комм.
+                            </button>
+                          )}
+                        </>
+                      );
                     })()}
                   </div>
                   <div ref={commentsEndRef} />
                 </ScrollArea>
 
-                <AnimatePresence>
-                  {showCommentInput && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      className="shrink-0 pt-2"
-                    >
-                      <div
-                        className="relative p-2.5"
-                        style={{
-                          background: BG_PANEL,
-                          border: `1px solid ${hexToRgba(Y, 0.45)}`,
-                          clipPath: CHAMFER_5,
-                          boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 8px ${hexToRgba(Y, 0.12)}`,
-                        }}
-                      >
-                        <CornerBrackets size={8} />
-                        {/* Chip row — marker mode + timestamp / range chips */}
-                        <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                          {/* Marker mode toggle */}
-                          <div
-                            className="flex items-center border p-0.5"
-                            style={{
-                              background: BG_MAIN,
-                              border: `1px solid ${BORDER_MUTED}`,
-                              clipPath: CHAMFER_3,
-                            }}
-                          >
-                            <button
-                              onClick={() => {
-                                setMarkerMode('point');
-                                setIsSelectingRange(false);
-                              }}
-                              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium transition-all ${
-                                markerMode === 'point'
-                                  ? 'text-black'
-                                  : 'text-muted-foreground hover:text-foreground'
-                              }`}
-                              style={
-                                markerMode === 'point'
-                                  ? { background: C, clipPath: CHAMFER_3, boxShadow: `0 0 4px ${hexToRgba(Y, 0.4)}` }
-                                  : undefined
-                              }
-                            >
-                              <MapPin className="h-2.5 w-2.5" />
-                              Point
-                            </button>
-                            <button
-                              onClick={() => {
-                                setMarkerMode('range');
-                                setIsSelectingRange(false);
-                              }}
-                              className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium transition-all ${
-                                markerMode === 'range'
-                                  ? 'text-black'
-                                  : 'text-muted-foreground hover:text-foreground'
-                              }`}
-                              style={
-                                markerMode === 'range'
-                                  ? { background: Y, clipPath: CHAMFER_3, boxShadow: `0 0 4px ${hexToRgba(Y, 0.4)}` }
-                                  : undefined
-                              }
-                            >
-                              <MoveHorizontal className="h-2.5 w-2.5" />
-                              Range
-                            </button>
-                          </div>
-                          {/* Timestamp / range chips */}
-                          {markerMode === 'range' ? (
-                            <div className="flex items-center gap-1.5">
-                              <Badge
-                                variant="outline"
-                                className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
-                                style={{ clipPath: CHAMFER_3 }}
-                              >
-                                {formatTimestamp(rangeStartMs || commentTimestamp || Math.round(currentTime * 1000))}
-                              </Badge>
-                              <span className="text-[10px]" style={{ color: Y }}>→</span>
-                              {isSelectingRange ? (
-                                <Badge
-                                  variant="outline"
-                                  className="border-[#c7a008]/30 text-[#c7a008] text-[10px] animate-pulse"
-                                  style={{ clipPath: CHAMFER_3 }}
-                                >
-                                  Кликните конец…
-                                </Badge>
-                              ) : rangeEndMsState > 0 ? (
-                                <Badge
-                                  variant="outline"
-                                  className="border-[#c7a008]/30 text-[#c7a008] text-[10px]"
-                                  style={{ clipPath: CHAMFER_3 }}
-                                >
-                                  {formatTimestamp(rangeEndMsState)}
-                                </Badge>
-                              ) : (
-                                <span className="text-[10px]" style={{ color: `${Y}99` }}>
-                                  Кликните начало на волне
-                                </span>
-                              )}
-                              {rangeEndMsState > rangeStartMs && (
-                                <span className="text-[9px]" style={{ color: `${Y}cc` }}>
-                                  ({formatDuration((rangeEndMsState - rangeStartMs) / 1000)})
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="border-[#00a8c6]/30 text-[#00a8c6] text-[10px]"
-                              style={{ clipPath: CHAMFER_3 }}
-                            >
-                              {formatTimestamp(commentTimestamp || Math.round(currentTime * 1000))}
-                            </Badge>
-                          )}
-                          {/* Range selection in-progress hint chip */}
-                          {markerMode === 'range' && isSelectingRange && (
-                            <span className="text-[10px] font-bold" style={{ color: Y }}>
-                              📍 Начало диапазона — кликните волну для конца
-                            </span>
-                          )}
-                          {/* Cancel (X) button — right side of chip row */}
-                          <button
-                            className="ml-auto flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-[#c7a008]"
-                            style={{ clipPath: CHAMFER_3 }}
-                            onClick={() => {
-                              setShowCommentInput(false);
-                              setNewCommentText('');
-                              setRangeStartMs(0);
-                              setRangeEndMsState(0);
-                              setIsSelectingRange(false);
-                            }}
-                            aria-label="Close comment input"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                        {/* Composer row — input (flex-1) + send button, chat-style */}
-                        <div className="flex items-center gap-2">
-                          <Input
-                            placeholder="Комментарий в этом таймстемпе..."
-                            value={newCommentText}
-                            onChange={(e) => setNewCommentText(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                if (markerMode === 'range' && isSelectingRange) return; // don't submit while selecting
-                                handleAddComment();
-                              }
-                              if (e.key === 'Escape') {
-                                setShowCommentInput(false);
-                                setNewCommentText('');
-                                setRangeStartMs(0);
-                                setRangeEndMsState(0);
-                                setIsSelectingRange(false);
-                              }
-                            }}
-                            className="h-9 flex-1 text-sm border-0 rounded-none"
-                            style={HUD_INPUT_STYLE}
-                            autoFocus
-                          />
-                          <Button
-                            size="icon"
-                            className="h-9 w-9 shrink-0 border-0 rounded-none"
-                            style={{
-                              clipPath: CHAMFER_4,
-                              background: `linear-gradient(135deg, ${Y} 0%, ${Y2} 100%)`,
-                              boxShadow: `0 0 8px ${hexToRgba(Y, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
-                              color: '#0a0b10',
-                            }}
-                            onClick={handleAddComment}
-                            disabled={!newCommentText.trim() || (markerMode === 'range' && isSelectingRange)}
-                            aria-label="Post comment"
-                          >
-                            <Send className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+
               </div>
             </div>
       </div>
