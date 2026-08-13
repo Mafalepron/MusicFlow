@@ -887,6 +887,23 @@ export function TrackDetailView() {
   const [localKanbanTitle, setLocalKanbanTitle] = useState<string | null>(null);
   const [localKanbanPriority, setLocalKanbanPriority] = useState<string | null>(null);
 
+  // --- Track text (lyrics/notes) ---
+  // Stored inside the kanban task's `trackConfig` JSON string under a `trackText`
+  // key (separate from `description`, which is the inline "Описание" field in
+  // section B). Parsed on kanban task change, edited inline in the right column,
+  // saved via PUT /api/tasks { id, trackConfig: JSON.stringify({...existing, trackText}) }.
+  const [localTrackText, setLocalTrackText] = useState<string>('');
+  const [trackTextDraft, setTrackTextDraft] = useState<string>('');
+  const [trackTextFocused, setTrackTextFocused] = useState(false);
+  const trackTextSaveInFlightRef = useRef(false);
+
+  // --- References count ---
+  // The track's project has a kanbanTaskId. The project's kanban boards include a
+  // "Референсы" board (title contains "Референсы" / "References" OR boardType
+  // === 'references'). We fetch /api/boards?projectId=<kanbanTaskId>, find the
+  // references board and count its top-level tasks.
+  const [referencesCount, setReferencesCount] = useState<number | null>(null);
+
   // Reset the local kanban-field mirrors whenever the underlying kanban task changes
   // (e.g. when the user switches to a different track).
   const primaryKanbanTask = trackTasks[0] ?? null;
@@ -895,12 +912,30 @@ export function TrackDetailView() {
       setLocalKanbanDescription(null);
       setLocalKanbanTitle(null);
       setLocalKanbanPriority(null);
+      setLocalTrackText('');
+      setTrackTextDraft('');
       return;
     }
     setLocalKanbanDescription(primaryKanbanTask.description);
     setLocalKanbanTitle(primaryKanbanTask.title);
     setLocalKanbanPriority(primaryKanbanTask.priority);
-  }, [primaryKanbanTask?.id, primaryKanbanTask?.description, primaryKanbanTask?.title, primaryKanbanTask?.priority]);
+    // Parse trackConfig JSON to extract `trackText` (lyrics / notes).
+    // The trackConfig field is a JSON string stored on the kanban Task; if it's
+    // null/invalid or lacks `trackText`, fall back to '' (empty editor).
+    let parsedText = '';
+    if (primaryKanbanTask.trackConfig) {
+      try {
+        const cfg = JSON.parse(primaryKanbanTask.trackConfig);
+        if (cfg && typeof cfg.trackText === 'string') {
+          parsedText = cfg.trackText;
+        }
+      } catch {
+        // Ignore malformed JSON — treat as empty.
+      }
+    }
+    setLocalTrackText(parsedText);
+    setTrackTextDraft(parsedText);
+  }, [primaryKanbanTask?.id, primaryKanbanTask?.description, primaryKanbanTask?.title, primaryKanbanTask?.priority, primaryKanbanTask?.trackConfig]);
 
   useEffect(() => {
     if (!selectedTrackId) {
@@ -928,6 +963,7 @@ export function TrackDetailView() {
     const kanbanTaskId = projectOfTrack?.kanbanTaskId;
     if (!kanbanTaskId) {
       setProjectTask(null);
+      setReferencesCount(null);
       return;
     }
     let cancelled = false;
@@ -947,6 +983,36 @@ export function TrackDetailView() {
       .catch(() => {
         if (!cancelled) setProjectTask(null);
       });
+
+    // Fetch the project's kanban boards and locate the "Референсы" board
+    // (matched by title containing "Референсы" / "References" — case-insensitive —
+    // OR by boardType === 'references'). The boards endpoint returns each board
+    // with a top-level `tasks` array (only parentId === null entries), so we
+    // sum the count of those tasks as the references total.
+    fetch(`/api/boards?projectId=${encodeURIComponent(kanbanTaskId)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (cancelled) return;
+        const boards: Array<{ title: string; boardType: string; tasks?: unknown[] }> =
+          data && Array.isArray(data.boards) ? data.boards : [];
+        const refBoard = boards.find((b) => {
+          const t = (b.title || '').toLowerCase();
+          return (
+            b.boardType === 'references' ||
+            t.includes('референс') ||
+            t.includes('reference')
+          );
+        });
+        if (refBoard && Array.isArray(refBoard.tasks)) {
+          setReferencesCount(refBoard.tasks.length);
+        } else {
+          setReferencesCount(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setReferencesCount(null);
+      });
+
     return () => { cancelled = true; };
   }, [projectOfTrack?.kanbanTaskId]);
 
@@ -1784,6 +1850,55 @@ export function TrackDetailView() {
     [primaryKanbanTask?.id]
   );
 
+  // --- Track text (lyrics/notes) editing ---
+  // Persists the textarea's value into the kanban task's `trackConfig` JSON
+  // under the `trackText` key. We merge with any existing trackConfig keys
+  // (so other tools that store data in trackConfig keep working). Saved on
+  // blur OR Ctrl/Cmd+Enter; a ref-guard prevents double-saves when both fire.
+  const handleSaveTrackText = useCallback(async () => {
+    if (trackTextSaveInFlightRef.current) return;
+    const kanbanTaskId = primaryKanbanTask?.id;
+    if (!kanbanTaskId) return;
+    const newText = trackTextDraft;
+    trackTextSaveInFlightRef.current = true;
+    if (newText === localTrackText) {
+      trackTextSaveInFlightRef.current = false;
+      return;
+    }
+    setSavingField('trackText');
+    setLocalTrackText(newText);
+    // Merge with existing trackConfig keys (parse, override trackText, re-stringify).
+    let existingCfg: Record<string, unknown> = {};
+    if (primaryKanbanTask?.trackConfig) {
+      try {
+        const parsed = JSON.parse(primaryKanbanTask.trackConfig);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          existingCfg = parsed as Record<string, unknown>;
+        }
+      } catch {
+        // Ignore malformed JSON — start fresh.
+      }
+    }
+    const mergedCfg = { ...existingCfg, trackText: newText };
+    try {
+      await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: kanbanTaskId, trackConfig: JSON.stringify(mergedCfg) }),
+      });
+      setTrackTasks((prev) =>
+        prev.map((t) =>
+          t.id === kanbanTaskId ? { ...t, trackConfig: JSON.stringify(mergedCfg) } : t
+        )
+      );
+    } catch {
+      // Silently fail
+    } finally {
+      setSavingField(null);
+      trackTextSaveInFlightRef.current = false;
+    }
+  }, [primaryKanbanTask?.id, primaryKanbanTask?.trackConfig, trackTextDraft, localTrackText]);
+
 
   // --- Fetch Versions ---
 
@@ -2311,6 +2426,79 @@ export function TrackDetailView() {
                         Канбан
                       </button>
                     )}
+
+                    {/* Priority Select — moved here from the Track Info Grid.
+                        Renders inline next to Status + Канбан; uses a compact
+                        HUD-styled Select colored by the current priority. */}
+                    {primaryKanbanTask ? (
+                      <Select
+                        value={localKanbanPriority ?? 'medium'}
+                        onValueChange={handlePriorityChange}
+                      >
+                        <SelectTrigger
+                          size="sm"
+                          className="relative w-[140px] shrink-0 h-8 border-0 rounded-none hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
+                          style={{
+                            background: BG_PANEL,
+                            border: `1px solid ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.5)}`,
+                            clipPath: CHAMFER_4,
+                            color: priorityColor(localKanbanPriority ?? 'medium'),
+                            fontFamily: 'var(--font-jetbrains-mono), monospace',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            letterSpacing: '1px',
+                            textTransform: 'uppercase',
+                            boxShadow: INSET_BEVEL_SHADOW,
+                          }}
+                        >
+                          <SelectValue />
+                          {savingField === 'priority' && (
+                            <span
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-block h-1.5 w-1.5 animate-pulse rounded-full"
+                              style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
+                            />
+                          )}
+                        </SelectTrigger>
+                        <SelectContent
+                          className="border-0 rounded-none p-1 min-w-[160px]"
+                          style={{
+                            background: BG_PANEL,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                            clipPath: CHAMFER_4,
+                            boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
+                          }}
+                        >
+                          {(['high', 'medium', 'low'] as const).map((p) => (
+                            <SelectItem
+                              key={p}
+                              value={p}
+                              className="focus:!bg-[#0a0c10] data-[highlighted]:!bg-[#0a0c10] hover:!bg-[#0a0c10] border-0 rounded-none"
+                              style={{
+                                color: priorityColor(p),
+                                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                letterSpacing: '0.5px',
+                                textTransform: 'uppercase',
+                                clipPath: CHAMFER_3,
+                                padding: '4px 8px',
+                              }}
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <span
+                                  className="h-1.5 w-1.5 rounded-full"
+                                  style={{
+                                    backgroundColor: priorityColor(p),
+                                    boxShadow: `0 0 4px ${hexToRgba(priorityColor(p), 0.6)}`,
+                                  }}
+                                />
+                                {priorityLabel(p)}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -2501,6 +2689,10 @@ export function TrackDetailView() {
               </div>
 
               {/* ── C. Track Info Grid — 3×2 grid of small HUD stat cells ── */}
+              {/* Priority used to live here as the 6th cell; it has been moved
+                  up to the Profile Header row (next to Status + Канбан button)
+                  per the new layout. Grid now has 5 cells: Номер, Длительность,
+                  Референсы, Дедлайн, Автор. */}
               <div
                 className="mt-3 grid grid-cols-3 gap-1.5"
               >
@@ -2516,17 +2708,28 @@ export function TrackDetailView() {
                     (track.durationMs ?? 0) / 1000
                   )}
                 />
-                {/* Version */}
-                <InfoStatCell label="Версия" value={`v${track.version}`} />
-                {/* Created date */}
+                {/* References — count of top-level tasks on the project's
+                    "Референсы" kanban board. Shows "—" while loading or when
+                    the project has no references board. */}
                 <InfoStatCell
-                  label="Создан"
+                  label="Референсы"
                   value={
-                    trackDetail?.createdAt
-                      ? format(new Date(trackDetail.createdAt), 'dd.MM.yy')
-                      : track.createdAt
-                        ? format(new Date(track.createdAt), 'dd.MM.yy')
-                        : '—'
+                    referencesCount === null
+                      ? '—'
+                      : referencesCount === 0
+                        ? 'Нет'
+                        : `${referencesCount} реф.`
+                  }
+                />
+                {/* Deadline — read from the first trackTask's deadline field
+                    (the primary kanban task linked to this track). Formatted
+                    DD.MM.YY; "Нет" when no deadline is set. */}
+                <InfoStatCell
+                  label="Дедлайн"
+                  value={
+                    primaryKanbanTask?.deadline
+                      ? format(new Date(primaryKanbanTask.deadline), 'dd.MM.yy')
+                      : 'Нет'
                   }
                 />
                 {/* Created by */}
@@ -2534,152 +2737,33 @@ export function TrackDetailView() {
                   label="Автор"
                   value={trackDetail?.creator?.displayName || '—'}
                 />
-                {/* Priority (editable) */}
-                <div
-                  className="relative flex flex-col gap-0.5 px-2 py-1.5"
-                  style={{
-                    background: BG_MAIN,
-                    border: `0.5px solid ${hexToRgba(C, 0.25)}`,
-                    clipPath: CHAMFER_3,
-                    boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.6)',
-                  }}
-                >
-                  <span
-                    className="text-[8px]"
-                    style={{
-                      color: Y,
-                      fontFamily: 'var(--font-jetbrains-mono), monospace',
-                      fontWeight: 700,
-                      letterSpacing: '1px',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Приоритет
-                  </span>
-                  {primaryKanbanTask ? (
-                    <Select
-                      value={localKanbanPriority ?? 'medium'}
-                      onValueChange={handlePriorityChange}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        className="h-5 w-full border-0 rounded-none px-0 py-0 hover:!bg-transparent data-[state=open]:!bg-transparent"
-                        style={{
-                          background: 'transparent',
-                          color: priorityColor(localKanbanPriority ?? 'medium'),
-                          fontFamily: 'var(--font-jetbrains-mono), monospace',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          letterSpacing: '0.5px',
-                          textTransform: 'uppercase',
-                          boxShadow: 'none',
-                        }}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent
-                        className="border-0 rounded-none p-1 min-w-[140px]"
-                        style={{
-                          background: BG_PANEL,
-                          border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                          clipPath: CHAMFER_4,
-                          boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
-                        }}
-                      >
-                        {(['high', 'medium', 'low'] as const).map((p) => (
-                          <SelectItem
-                            key={p}
-                            value={p}
-                            className="focus:!bg-[#0a0c10] data-[highlighted]:!bg-[#0a0c10] hover:!bg-[#0a0c10] border-0 rounded-none"
-                            style={{
-                              color: priorityColor(p),
-                              fontFamily: 'var(--font-jetbrains-mono), monospace',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              letterSpacing: '0.5px',
-                              textTransform: 'uppercase',
-                              clipPath: CHAMFER_3,
-                              padding: '4px 8px',
-                            }}
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <span
-                                className="h-1.5 w-1.5 rounded-full"
-                                style={{
-                                  backgroundColor: priorityColor(p),
-                                  boxShadow: `0 0 4px ${hexToRgba(priorityColor(p), 0.6)}`,
-                                }}
-                              />
-                              {priorityLabel(p)}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span
-                      className="text-[11px]"
-                      style={{
-                        color: TEXT_SECONDARY,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        fontWeight: 700,
-                      }}
-                    >
-                      —
-                    </span>
-                  )}
-                  {savingField === 'priority' && (
-                    <span
-                      className="absolute right-1 top-1 inline-block h-1 w-1 animate-pulse rounded-full"
-                      style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
-                    />
-                  )}
-                </div>
               </div>
 
-              {/* ── D. Progress Section — waveform + status dots + task tree (kept) ── */}
-              <div className="mt-3">
-                <div className="mb-1.5 flex items-center gap-1.5">
-                  <Zap
-                    className="h-3.5 w-3.5"
-                    style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }}
-                  />
-                  <span
-                    className="text-[10px]"
-                    style={{
-                      ...SECTION_TITLE_STYLE,
-                      fontSize: '10px',
-                      letterSpacing: '1.5px',
-                    }}
-                  >
-                    Прогресс трека
-                  </span>
-                </div>
-
-                {/* Waveform progress bar */}
-                <WaveformProgressBar
-                  progress={trackProgress.pct}
-                  accentColor={Y}
-                  height={32}
-                  bars={24}
-                />
-
-                {/* Compact stats row — colored status dots */}
-                <div
-                  className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]"
-                  style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
-                >
-                  <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
-                  <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
-                  <StatDot label="В РАБОТЕ" count={trackProgress.inProgress} color={C} />
-                  <StatDot label="ПРОВЕРКА" count={trackProgress.review} color={Y} />
-                  <StatDot label="TODO" count={trackProgress.todo} color={A} />
-                </div>
-
-                {/* Tree-like breakdown — one row per trackTask with mini progress bar */}
-                {trackTasks.length > 0 && (
+              {/* ── D. Task tree breakdown — one row per trackTask with mini progress bar ──
+                  The WaveformProgressBar + StatDot row used to live here too;
+                  they have been moved under the audio player (above the
+                  comments section) per the new layout. Only the task tree
+                  breakdown remains in the Profile Panel. */}
+              {trackTasks.length > 0 && (
+                <div className="mt-3">
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <Zap
+                      className="h-3.5 w-3.5"
+                      style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }}
+                    />
+                    <span
+                      className="text-[10px]"
+                      style={{
+                        ...SECTION_TITLE_STYLE,
+                        fontSize: '10px',
+                        letterSpacing: '1.5px',
+                      }}
+                    >
+                      Задачи трека
+                    </span>
+                  </div>
                   <div
-                    className="mt-3 max-h-44 overflow-y-auto pr-1"
+                    className="max-h-44 overflow-y-auto pr-1"
                     style={{
                       scrollbarWidth: 'thin',
                       scrollbarColor: `${hexToRgba(Y, 0.4)} transparent`,
@@ -2760,23 +2844,28 @@ export function TrackDetailView() {
                       })}
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {/* RIGHT (lg:col-span-1): Project progress summary — kept verbatim */}
+            {/* RIGHT (lg:col-span-1): Track text editor (lyrics/notes).
+                Stored in the kanban task's `trackConfig` JSON under `trackText`.
+                Saves on blur or Ctrl/Cmd+Enter via PUT /api/tasks {id, trackConfig}. */}
             <div
-              className="relative flex flex-col justify-between gap-2 p-2.5 lg:p-3"
+              className="relative flex flex-col gap-2 p-2.5 lg:p-3"
               style={{
                 background: BG_MAIN,
-                border: `1px solid ${hexToRgba(C, 0.35)}`,
+                border: `1px solid ${hexToRgba(Y, 0.35)}`,
                 clipPath: CHAMFER_5,
                 boxShadow: INSET_BEVEL_SHADOW,
               }}
             >
-              <div>
-                <div className="mb-1.5 flex items-center gap-1.5">
-                  <LayoutDashboard className="h-3.5 w-3.5" style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.5)})` }} />
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  <MessageSquareQuote
+                    className="h-3.5 w-3.5"
+                    style={{ color: Y, filter: `drop-shadow(0 0 3px ${hexToRgba(Y, 0.5)})` }}
+                  />
                   <span
                     className="text-[10px]"
                     style={{
@@ -2785,79 +2874,88 @@ export function TrackDetailView() {
                       letterSpacing: '1.5px',
                     }}
                   >
-                    Проект
+                    Текст трека
                   </span>
                 </div>
-                <div
-                  className="truncate text-[11px]"
-                  style={{
-                    color: TEXT_PRIMARY,
-                    fontFamily: 'var(--font-rajdhani), sans-serif',
-                    fontWeight: 600,
-                  }}
-                  title={projectOfTrack?.title || '—'}
-                >
-                  {projectOfTrack?.title || '—'}
-                </div>
+                {savingField === 'trackText' && (
+                  <span
+                    className="flex items-center gap-1 text-[9px]"
+                    style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: '0.5px' }}
+                  >
+                    <span
+                      className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
+                      style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
+                    />
+                    Сохранение…
+                  </span>
+                )}
               </div>
 
-              {projectProgress ? (
-                <>
-                  {/* Big percentage readout */}
-                  <div className="flex items-baseline gap-1">
-                    <span
-                      className="tabular-nums"
-                      style={{
-                        color: Y,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        fontSize: '24px',
-                        fontWeight: 800,
-                        lineHeight: 1,
-                        textShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
-                      }}
-                    >
-                      {projectProgress.pct}
-                    </span>
-                    <span style={{ color: hexToRgba(Y, 0.6), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}>%</span>
-                  </div>
-
-                  {/* Mini project progress bar */}
-                  <div
-                    className="relative h-1.5 w-full"
-                    style={{
-                      background: BG_MAIN,
-                      border: `0.5px solid ${hexToRgba(C, 0.3)}`,
-                      clipPath: CHAMFER_3,
-                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+              {primaryKanbanTask ? (
+                <div
+                  className="relative flex-1"
+                  style={{
+                    background: '#0a0c10',
+                    border: `1px solid ${trackTextFocused ? hexToRgba(Y, 0.8) : hexToRgba(BORDER_MUTED, 1)}`,
+                    clipPath: CHAMFER_4,
+                    boxShadow: trackTextFocused
+                      ? `0 0 8px ${hexToRgba(Y, 0.35)}`
+                      : 'inset 0 1px 1px rgba(0,0,0,0.6)',
+                    transition: 'border-color 120ms ease, box-shadow 120ms ease',
+                    padding: '6px 8px',
+                  }}
+                >
+                  <textarea
+                    value={trackTextDraft}
+                    onChange={(e) => setTrackTextDraft(e.target.value)}
+                    onFocus={() => setTrackTextFocused(true)}
+                    onBlur={() => {
+                      setTrackTextFocused(false);
+                      handleSaveTrackText();
                     }}
-                  >
-                    <div
-                      className="absolute inset-y-0 left-0"
-                      style={{
-                        width: `${projectProgress.pct}%`,
-                        background: `linear-gradient(to right, ${P}, ${Y})`,
-                        boxShadow: `0 0 4px ${hexToRgba(Y, 0.5)}`,
-                      }}
-                    />
-                  </div>
-
-                  {/* Compact project stats */}
-                  <div
-                    className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9px]"
-                    style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
-                  >
-                    <StatDot label="ВСЕГО" count={projectProgress.total} color={A} compact />
-                    <StatDot label="ГОТОВО" count={projectProgress.done} color={G} compact />
-                    <StatDot label="В РАБОТЕ" count={projectProgress.inProgress} color={C} compact />
-                    <StatDot label="ПРОВЕРКА" count={projectProgress.review} color={Y} compact />
-                  </div>
-                </>
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                        e.preventDefault();
+                        handleSaveTrackText();
+                      }
+                    }}
+                    placeholder="Текст трека, лирика, заметки… ⌘+Enter — сохранить"
+                    className="w-full resize-none border-0 bg-transparent px-1 py-1 text-[12px] outline-none placeholder:opacity-40"
+                    style={{
+                      color: TEXT_PRIMARY,
+                      fontFamily: 'var(--font-rajdhani), sans-serif',
+                      fontWeight: 500,
+                      lineHeight: 1.45,
+                      minHeight: '180px',
+                    }}
+                  />
+                </div>
               ) : (
                 <div
-                  className="text-center text-[10px]"
-                  style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                  className="px-2.5 py-2 text-[11px]"
+                  style={{
+                    background: BG_MAIN,
+                    border: `0.5px solid ${hexToRgba(BORDER_MUTED, 1)}`,
+                    clipPath: CHAMFER_3,
+                    color: TEXT_SECONDARY,
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  }}
                 >
-                  Нет kanban-задачи
+                  Нет связанной kanban-задачи.
+                </div>
+              )}
+
+              {/* Hint — Ctrl+Enter to save; appears even when empty */}
+              {primaryKanbanTask && (
+                <div
+                  className="text-[9px]"
+                  style={{
+                    color: TEXT_SECONDARY,
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  ⌘+Enter — сохранить · Сохранение автоматически при потере фокуса
                 </div>
               )}
             </div>
@@ -3752,6 +3850,132 @@ export function TrackDetailView() {
                     Пробел: Играть/Пауза · ←→: Перемотка 5с
                   </p>
                 </div>
+              </div>
+
+              {/* ─── Track Progress + Project Progress ───
+                  Moved out of the Track Profile Panel per the new layout: the
+                  WaveformProgressBar + StatDot row (track progress) and a new
+                  horizontal cyan Project Progress bar sit directly under the
+                  audio player, above the comments section. Full width. */}
+
+              {/* Track progress — yellow waveform with chamfered yellow frame.
+                  Step 4: bars=48 (denser than the previous 24), wrapped in a
+                  6px-padded CHAMFER_5 container with a yellow border + faint
+                  yellow tint so the bar reads as a framed HUD element. */}
+              <div className="shrink-0 px-4 pt-3 lg:px-6">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Zap
+                      className="h-3.5 w-3.5"
+                      style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }}
+                    />
+                    <span
+                      className="text-[10px]"
+                      style={{
+                        ...SECTION_TITLE_STYLE,
+                        fontSize: '10px',
+                        letterSpacing: '1.5px',
+                      }}
+                    >
+                      Прогресс трека
+                    </span>
+                  </div>
+                  {/* Compact stats row — colored status dots.
+                      Step 5: removed В РАБОТЕ + ПРОВЕРКА, renamed TODO → ОЖИДАНИЕ. */}
+                  <div
+                    className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]"
+                    style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                  >
+                    <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
+                    <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
+                    <StatDot label="ОЖИДАНИЕ" count={trackProgress.todo} color={A} />
+                  </div>
+                </div>
+                <div
+                  style={{
+                    border: `1px solid ${hexToRgba(Y, 0.4)}`,
+                    clipPath: CHAMFER_5,
+                    padding: '6px',
+                    background: hexToRgba(Y, 0.04),
+                  }}
+                >
+                  <WaveformProgressBar
+                    progress={trackProgress.pct}
+                    accentColor={Y}
+                    height={32}
+                    bars={48}
+                  />
+                </div>
+
+                {/* Project progress — horizontal cyan bar, visually distinct
+                    from the yellow track progress above.
+                    Step 8: thinner than the track progress, cyan border + cyan
+                    fill gradient. Shows "Прогресс проекта" title, percentage,
+                    and done/total count. */}
+                {projectProgress ? (
+                  <div className="mt-3">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <LayoutDashboard
+                          className="h-3 w-3"
+                          style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.5)})` }}
+                        />
+                        <span
+                          className="text-[10px]"
+                          style={{
+                            ...SECTION_TITLE_STYLE,
+                            fontSize: '10px',
+                            letterSpacing: '1.5px',
+                            color: C,
+                          }}
+                        >
+                          Прогресс проекта
+                        </span>
+                      </div>
+                      <div
+                        className="flex items-center gap-2 text-[10px]"
+                        style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                      >
+                        <span
+                          className="tabular-nums"
+                          style={{
+                            color: C,
+                            fontWeight: 800,
+                            textShadow: `0 0 6px ${hexToRgba(C, 0.4)}`,
+                          }}
+                        >
+                          {projectProgress.pct}%
+                        </span>
+                        <span
+                          className="tabular-nums"
+                          style={{ color: TEXT_SECONDARY }}
+                        >
+                          {projectProgress.done}/{projectProgress.total}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Horizontal cyan bar — thinner than the WaveformProgressBar */}
+                    <div
+                      className="relative h-2 w-full"
+                      style={{
+                        background: BG_MAIN,
+                        border: `1px solid ${hexToRgba(C, 0.5)}`,
+                        clipPath: CHAMFER_3,
+                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                      }}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0"
+                        style={{
+                          width: `${projectProgress.pct}%`,
+                          background: `linear-gradient(to right, ${P2}, ${C})`,
+                          boxShadow: `0 0 6px ${hexToRgba(C, 0.6)}`,
+                          transition: 'width 320ms ease',
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {/* Comments Section */}

@@ -2519,3 +2519,78 @@ Stage Summary:
 - The "Канбан Progress Panel" inside track-detail-view.tsx is now the "Track Profile Panel": an inline-editable HUD with five sections (cover/header, description, info grid, progress, project summary). Title clicks to edit (Enter saves via PATCH /api/tracks/:id + PUT /api/tasks for the linked kanban task). Description is the kanban task's description (click to edit, save via PUT /api/tasks). Priority is an inline Select that saves immediately. Status changes are now persistent (PATCH /api/tracks/:id + PUT /api/tasks to mirror onto kanban).
 - All existing functionality (audio player, waveform, markers, comments, replies, versions, socket.io, header-actions, keyboard shortcuts) is preserved.
 
+
+---
+Task ID: TP3-REFACTOR
+Agent: full-stack-developer
+Task: Make 8 specific changes to the Track Profile panel in /home/z/my-project/src/components/views/track-detail-view.tsx
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load prior context (TD5/6/7-FIX5, OB1-RESTYLE).
+- Read track-detail-view.tsx lines 1-130 (palette + chamfer constants) and 1740-2150 + 2160-2620 + 2620-2980 (Track Profile Panel: header → description → info grid → progress section → right column).
+- Confirmed the existing palette constants (Y, Y2, C, C2, P, P2, G, A, BG_MAIN, BG_PANEL, BG_CARD_PURPLE, BG_CARD_TEAL, BORDER_MUTED, TEXT_PRIMARY, TEXT_SECONDARY) and chamfer helpers (CHAMFER_3/4/5/8, INSET_BEVEL_SHADOW, SECTION_TITLE_STYLE, YELLOW_BUTTON_STYLE).
+- Verified `/api/tasks` PUT route already accepts `{ id, trackConfig }` (line 154 of tasks/route.ts).
+- Verified `/api/boards?projectId=<kanbanTaskId>` returns each board with a top-level `tasks` array (parentId === null) — used to count references.
+- Verified the kanban `Task` interface exposes `trackConfig: string | null` and `deadline: string | null`.
+
+State additions (near the existing `localKanbanDescription`/`localKanbanPriority` mirrors):
+- `localTrackText`, `trackTextDraft`, `trackTextFocused`, `trackTextSaveInFlightRef` — track lyrics/notes editor state.
+- `referencesCount: number | null` — count of top-level tasks on the project's "Референсы" kanban board.
+
+useEffect updates:
+- Extended the existing `primaryKanbanTask`-watching useEffect to also parse `primaryKanbanTask.trackConfig` JSON and extract `trackText` into `localTrackText`/`trackTextDraft`. Malformed JSON is treated as empty.
+- Extended the existing `projectOfTrack?.kanbanTaskId`-watching useEffect to ALSO fetch `/api/boards?projectId=<kanbanTaskId>`, locate the references board (title matches /референс/i or /reference/i, OR `boardType === 'references'`), and store its top-level tasks count in `referencesCount`.
+
+New handler:
+- `handleSaveTrackText` — saves `trackTextDraft` into the kanban task's `trackConfig` JSON under a `trackText` key, merging with any existing trackConfig keys so other tools that use trackConfig keep working. Persisted via `PUT /api/tasks { id, trackConfig: JSON.stringify(mergedCfg) }`. Ref-guarded against Enter+blur double-fire. Shows "Сохранение…" via `savingField = 'trackText'`. Also mirrors locally into `trackTasks`.
+
+JSX changes (Track Profile Panel + area below audio player):
+
+1. **Step 2 — Priority Select moved to Profile Header**:
+   Removed the entire 6th InfoStatGrid cell (the `relative flex flex-col gap-0.5` div with the inline priority Select). Added a new compact Select inline after the Канбан button in the existing `<div className="mt-2 flex items-center gap-2 flex-wrap">` row. New Select uses w-[140px], h-8, CHAMFER_4, BG_PANEL bg, INSET_BEVEL_SHADOW, with the SelectTrigger border + value colored by `priorityColor(localKanbanPriority ?? 'medium')`. Pulsing yellow dot when `savingField === 'priority'`.
+
+2. **Step 1 — "Версия" → "Референсы"**:
+   Replaced the third InfoStatCell with `<InfoStatCell label="Референсы" value={referencesCount === null ? '—' : referencesCount === 0 ? 'Нет' : `${referencesCount} реф.`} />`. Shows "—" while loading / no references board, "Нет" when the board exists but is empty, "N реф." when N > 0.
+
+3. **Step 3 — "Создан" → "Дедлайн"**:
+   Replaced the fourth InfoStatCell with `<InfoStatCell label="Дедлайн" value={primaryKanbanTask?.deadline ? format(new Date(primaryKanbanTask.deadline), 'dd.MM.yy') : 'Нет'} />`. Reads `deadline` from the first trackTask (the primary kanban task linked to the track). DD.MM.YY format; "Нет" when null.
+
+   Final Info Grid is now 5 cells: Номер · Длительность · Референсы · Дедлайн · Автор (priority removed, formerly the 6th cell). Layout is `grid-cols-3 gap-1.5`, so the 5 cells render as a 3×2 grid with the 6th slot empty.
+
+4. **Step 6 — Move WaveformProgressBar + StatDots out of the Profile Panel**:
+   The old "D. Progress Section" (which contained the Zap+"Прогресс трека" title, WaveformProgressBar, StatDot row, and task tree) is replaced with a slimmed-down "D. Task tree breakdown" section that contains only:
+   - A Zap icon + "Задачи трека" section title.
+   - The task tree breakdown (unchanged — one row per trackTask with ├─ connector, title, 20px-wide mini progress bar, done/total count).
+   The WaveformProgressBar + StatDot row were moved to sit directly under the audio player (above the comments section), as a new full-width section.
+
+5. **Step 7 — RIGHT column replaced with "Текст трека" textarea**:
+   Replaced the entire RIGHT-column project progress summary (LayoutDashboard icon + "Проект" heading, project title, big % readout, mini progress bar, 2×2 StatDot grid, "Нет kanban-задачи" fallback) with a new track text editor:
+   - Section header: MessageSquareQuote icon + "Текст трека" Rajdhani uppercase title + "Сохранение…" indicator (pulsing yellow dot) when `savingField === 'trackText'`.
+   - Editable `<textarea>` wrapped in a CHAMFER_4 box with BG `#0a0c10`, BORDER_MUTED border that switches to `hexToRgba(Y, 0.8)` + yellow glow on focus. Min height 180px, Rajdhani font, 12px text.
+   - Keyboard: Ctrl/Cmd+Enter saves; blur also saves. Placeholder is "Текст трека, лирика, заметки… ⌘+Enter — сохранить".
+   - Hint text below the editor: "⌘+Enter — сохранить · Сохранение автоматически при потере фокуса".
+   - Falls back to "Нет связанной kanban-задачи." hint when no primary kanban task is linked.
+
+6. **Below audio player — new "Track Progress + Project Progress" section** (inserted between the Audio Player panel and the Comments Section):
+   - Section title row: Zap icon + "Прогресс трека" Rajdhani uppercase on the left; the modified StatDot row (Step 5) on the right.
+   - **Step 5 — Modified StatDot row**: kept ВСЕГО + ГОТОВО + (renamed TODO → ОЖИДАНИЕ). Removed "В РАБОТЕ" and "ПРОВЕРКА" dots entirely.
+   - **Step 4 — WaveformProgressBar with frame**: bars changed from 24 → 48 (denser). Wrapped in a div with `border: 1px solid hexToRgba(Y, 0.4)`, `clipPath: CHAMFER_5`, `padding: '6px'`, `background: hexToRgba(Y, 0.04)`. Height stays at 32px, accent Y.
+   - **Step 8 — Project progress bar**: rendered only when `projectProgress` is non-null. Title row: LayoutDashboard icon + "Прогресс проекта" (cyan-tinted SECTION_TITLE_STYLE) on the left; percentage (cyan tabular-nums with glow text-shadow) + done/total count on the right. Bar: `relative h-2 w-full` (thinner than the WaveformProgressBar's 32px), BG_MAIN bg, `1px solid hexToRgba(C, 0.5)` border, CHAMFER_3, inset shadow. Fill is an absolute left-anchored div with `width: pct%`, `linear-gradient(to right, P2, C)` background, `0 0 6px hexToRgba(C, 0.6)` glow, 320ms width transition.
+
+Critical constraints honored:
+- Audio player (seek bar, transport buttons, volume slider, keyboard shortcut hint), waveform canvas + marker tooltips + range selection, comments section (chat-style + replies + sort), versions panel + AddVersionDialog, socket.io presence + comment events, header-actions registration, keyboard shortcuts — all untouched and preserved.
+- Existing palette + chamfer constants reused (Y/C/P/G/A, BG_MAIN/PANEL, BORDER_MUTED, CHAMFER_3/4/5/8, INSET_BEVEL_SHADOW, SECTION_TITLE_STYLE, YELLOW_BUTTON_STYLE).
+- `WaveformProgressBar` import (line 78) and `StatDot` component (line 184) reused unchanged — only the call sites + labels were modified.
+- All UI text is Russian (Референсы, Дедлайн, Текст трека, Прогресс трека, Прогресс проекта, ОЖИДАНИЕ, Задачи трека, etc.).
+- PUT /api/tasks `{id, trackConfig: JSON.stringify(mergedCfg)}` is the only new persistence call — the route already supports `trackConfig` updates (verified in `/api/tasks/route.ts` PUT handler line 154).
+
+Verification:
+- `npx tsc --noEmit --pretty 2>&1 | grep -E "track-detail|error TS" | head -10` → no output (no type errors in the modified file).
+- `bun run lint 2>&1 | grep -iE "track-detail"` → no output (no lint errors in the modified file; the 9 pre-existing `react-hooks/preserve-manual-memoization` errors all live in `home-view.tsx`, not in `track-detail-view.tsx`).
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` → 200.
+- dev.log shows the new `/api/boards?projectId=<kanbanTaskId>` call returning 200 alongside the existing `/api/tasks?soundflowTrackId=…&deep=true` and `/api/tasks?id=…&deep=true` calls. No errors.
+
+Stage Summary:
+- Track Profile Panel LEFT column now reads: A. Profile Header (cover + title + status Select + Канбан + priority Select) → B. Description (inline editable, unchanged) → C. Track Info Grid (5 cells: Номер, Длительность, Референсы, Дедлайн, Автор) → D. Task tree breakdown only (no waveform, no stat dots).
+- Track Profile Panel RIGHT column is now a "Текст трека" textarea that persists to `trackConfig.trackText` on blur / Ctrl+Enter via PUT /api/tasks.
+- A new full-width section sits between the audio player and the comments: a yellow-bordered CHAMFER_5 frame containing the denser (bars=48) yellow WaveformProgressBar, the modified StatDot row (ВСЕГО, ГОТОВО, ОЖИДАНИЕ), and a horizontal cyan Project Progress bar (thinner, with percentage + done/total count).
