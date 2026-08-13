@@ -887,29 +887,28 @@ function TrackCard({
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       className="group relative cursor-pointer overflow-hidden"
-      whileHover={{ scale: 1.01, y: -2 }}
+      whileHover={{ y: -2 }}
       whileTap={{ scale: 0.99 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       style={{
         clipPath: CHAMFER_8,
         background: h
-          ? `linear-gradient(135deg, ${hexToRgba(C, 0.15)} 0%, ${BG_CARD_TEAL} 100%)`
-          : `linear-gradient(135deg, ${BG_CARD_TEAL} 0%, ${BG_PANEL} 100%)`,
+          ? `linear-gradient(135deg, ${hexToRgba(C, 0.18)} 0%, ${hexToRgba(Y, 0.08)} 50%, ${BG_CARD_TEAL} 100%)`
+          : `linear-gradient(135deg, ${hexToRgba(Y, 0.04)} 0%, ${BG_CARD_TEAL} 40%, ${BG_PANEL} 100%)`,
         borderTop: `2px solid ${h ? Y : C}`,
         boxShadow: h
           ? `inset 0 1px 12px ${hexToRgba(Y, 0.15)}, inset 0 0 0 1px ${hexToRgba(Y, 0.4)}, 0 0 8px ${hexToRgba(Y, 0.15)}, 0 4px 16px rgba(0,0,0,0.5)`
           : `inset 0 1px 12px ${hexToRgba(C, 0.1)}, inset 0 0 0 1px ${hexToRgba(C, 0.25)}`,
+        transition: 'background 280ms ease, box-shadow 280ms ease, border-top 280ms ease',
       }}
     >
-      {/* Cyan scan line on hover */}
+      {/* Subtle top glow line on hover (static, no glitch animation) */}
       {h && (
         <div
-          className="absolute inset-x-0 h-1 pointer-events-none"
+          className="absolute inset-x-0 top-0 h-[2px] pointer-events-none"
           style={{
-            top: 0,
-            background: `linear-gradient(90deg, transparent, ${Y}, transparent)`,
-            boxShadow: `0 0 8px ${Y}`,
-            animation: 'kb2-scan-sweep 1.2s ease-out',
+            background: `linear-gradient(90deg, transparent, ${Y} 30%, ${Y} 70%, transparent)`,
+            boxShadow: `0 0 6px ${Y}`,
           }}
         />
       )}
