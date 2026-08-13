@@ -3003,13 +3003,21 @@ export function TrackDetailView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1.5 text-xs border-0 rounded-none"
+                    className="h-7 gap-1.5 text-xs border-0 rounded-none transition-all"
                     style={{
                       ...YELLOW_BUTTON_STYLE,
                       paddingRight: '10px',
                       paddingLeft: '10px',
                       paddingTop: '4px',
                       paddingBottom: '4px',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = `0 0 16px ${hexToRgba(Y, 0.6)}, 0 0 6px ${hexToRgba(Y, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.35)`;
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = (YELLOW_BUTTON_STYLE.boxShadow as string) || '';
+                      e.currentTarget.style.transform = 'scale(1)';
                     }}
                     onClick={() => {
                       setCommentTimestamp(Math.round(currentTime * 1000));
@@ -3261,18 +3269,28 @@ export function TrackDetailView() {
                           />
                           <Button
                             size="icon"
-                            className="h-9 w-9 shrink-0 border-0 rounded-none"
+                            className="h-9 w-9 shrink-0 border-0 rounded-none transition-all"
                             style={{
                               clipPath: CHAMFER_4,
                               background: `linear-gradient(135deg, ${Y} 0%, ${Y2} 100%)`,
                               boxShadow: `0 0 8px ${hexToRgba(Y, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
                               color: '#0a0b10',
                             }}
+                            onMouseEnter={(e) => {
+                              if (!e.currentTarget.disabled) {
+                                e.currentTarget.style.boxShadow = `0 0 16px ${hexToRgba(Y, 0.7)}, 0 0 6px ${hexToRgba(Y, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.35)`;
+                                e.currentTarget.style.transform = 'scale(1.08)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = `0 0 8px ${hexToRgba(Y, 0.4)}, inset 0 1px 0 rgba(255,255,255,0.25)`;
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }}
                             onClick={handleAddComment}
                             disabled={!newCommentText.trim() || (markerMode === 'range' && isSelectingRange)}
                             aria-label="Post comment"
                           >
-                            <Send className="h-4 w-4" />
+                            <Send className="h-4 w-4" style={{ filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.3))' }} />
                           </Button>
                         </div>
                       </div>
