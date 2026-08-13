@@ -3100,19 +3100,19 @@ export function TrackDetailView() {
                 <AnimatePresence>
                   {showCommentInput && (
                     <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      initial={{ opacity: 0, y: 10, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                      className="shrink-0 pt-2"
+                      exit={{ opacity: 0, y: 10, scale: 0.97 }}
+                      transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+                      className="shrink-0 mt-3 mb-4"
                     >
                       <div
-                        className="relative p-2.5"
+                        className="relative p-3"
                         style={{
-                          background: `linear-gradient(135deg, ${hexToRgba(Y, 0.06)} 0%, ${BG_PANEL} 50%, ${hexToRgba(C, 0.04)} 100%)`,
-                          border: `1px solid ${hexToRgba(Y, 0.6)}`,
+                          background: `linear-gradient(135deg, ${hexToRgba(Y, 0.12)} 0%, ${BG_PANEL} 40%, ${hexToRgba(C, 0.06)} 100%)`,
+                          border: `2px solid ${Y}`,
                           clipPath: CHAMFER_5,
-                          boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 12px ${hexToRgba(Y, 0.25)}, 0 0 4px ${hexToRgba(Y, 0.15)}`,
+                          boxShadow: `${INSET_BEVEL_SHADOW}, 0 0 16px ${hexToRgba(Y, 0.4)}, 0 0 6px ${hexToRgba(Y, 0.25)}, inset 0 0 12px ${hexToRgba(Y, 0.08)}`,
                         }}
                       >
                         <CornerBrackets size={8} />
@@ -3280,7 +3280,7 @@ export function TrackDetailView() {
                   )}
                 </AnimatePresence>
 
-                <ScrollArea className="flex-1" style={{ minHeight: 0 }}>
+                <ScrollArea className="flex-1" style={{ minHeight: 0, marginTop: showCommentInput ? '12px' : '0' }}>
                   <div className="space-y-2 pb-4">
                     {(() => {
                       const tree = sortedTree;
