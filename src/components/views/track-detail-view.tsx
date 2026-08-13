@@ -2209,61 +2209,43 @@ export function TrackDetailView() {
                 }}
               >
                 <CornerBrackets size={12} />
-                {/* Segmented seek bar — 10 HUD equalizer segments, each chamfered.
-                    Filled segments use yellow→cyan gradient with glow; unfilled dark grey. */}
+                {/* Seek bar — continuous smooth bar, no segments */}
                 <div className="mb-3">
-                  <div className="flex h-3 gap-1.5">
-                    {Array.from({ length: 10 }).map((_, i) => {
-                      const segProgress = progress * 10;
-                      const isFilled = i < Math.floor(segProgress);
-                      const isPartial = i === Math.floor(segProgress) && segProgress > i;
-                      const partialWidth = isPartial ? (segProgress - i) * 100 : (isFilled ? 100 : 0);
-                      return (
-                        <div
-                          key={i}
-                          className="group/seg relative flex-1 cursor-pointer"
-                          style={{
-                            background: BG_MAIN,
-                            clipPath: CHAMFER_4,
-                            boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                            border: `0.5px solid ${hexToRgba(BORDER_MUTED, 0.8)}`,
-                          }}
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const x = e.clientX - rect.left;
-                            // Map click position within segment to overall progress
-                            const segPct = (i + x / rect.width) / 10;
-                            seekTo(segPct * duration);
-                          }}
-                          title={`Перейти к ${Math.round(((i + 0.5) / 10) * 100)}%`}
-                        >
-                          {/* Filled fill — yellow→cyan gradient with glow */}
-                          <div
-                            className="absolute inset-0 transition-all duration-150"
-                            style={{
-                              width: `${partialWidth}%`,
-                              background: `linear-gradient(to right, ${Y}, ${C})`,
-                              clipPath: CHAMFER_4,
-                              boxShadow: partialWidth > 0
-                                ? `0 0 6px ${hexToRgba(Y, 0.6)}, 0 0 3px ${hexToRgba(C, 0.5)}`
-                                : 'none',
-                            }}
-                          />
-                          {/* Empty segment dim indicator */}
-                          {partialWidth === 0 && (
-                            <div
-                              className="absolute inset-0 opacity-15"
-                              style={{
-                                background: `linear-gradient(to right, ${hexToRgba(A, 0.4)}, ${hexToRgba(A, 0.2)})`,
-                                clipPath: CHAMFER_4,
-                              }}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
+                  <div
+                    className="group relative h-2.5 w-full cursor-pointer"
+                    style={{
+                      background: BG_MAIN,
+                      clipPath: CHAMFER_3,
+                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                    }}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const p = x / rect.width;
+                      seekTo(p * duration);
+                    }}
+                  >
+                    {/* Continuous fill — yellow→cyan gradient with glow */}
+                    <div
+                      className="absolute inset-y-0 left-0 transition-all duration-100"
+                      style={{
+                        width: `${progress * 100}%`,
+                        background: `linear-gradient(to right, ${P}, ${Y})`,
+                        boxShadow: `0 0 6px ${hexToRgba(Y, 0.6)}, 0 0 3px ${hexToRgba(P, 0.4)}`,
+                        clipPath: CHAMFER_3,
+                      }}
+                    />
+                    {/* Thumb */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3.5 w-3.5 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
+                      style={{
+                        left: `${progress * 100}%`,
+                        background: '#ffffff',
+                        boxShadow: `0 0 6px ${Y}, 0 0 2px ${Y}`,
+                      }}
+                    />
                   </div>
-                  {/* Time display row — large yellow current / smaller grey total + percentage badge */}
+                  {/* Time display row — large yellow current / smaller grey total */}
                   <div className="mt-2 flex items-baseline justify-between gap-2">
                     <span
                       className="tabular-nums"
@@ -2277,21 +2259,6 @@ export function TrackDetailView() {
                       }}
                     >
                       {formatDuration(currentTime)}
-                    </span>
-                    <span
-                      className="px-2 py-0.5 tabular-nums"
-                      style={{
-                        color: Y,
-                        background: hexToRgba(Y, 0.12),
-                        border: `0.5px solid ${hexToRgba(Y, 0.5)}`,
-                        clipPath: CHAMFER_3,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        letterSpacing: '0.5px',
-                      }}
-                    >
-                      {Math.round(progress * 100)}%
                     </span>
                     <span
                       className="tabular-nums"
@@ -2326,7 +2293,7 @@ export function TrackDetailView() {
                           <SkipBack className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Назад 5с</TooltipContent>
+                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Назад 5с</TooltipContent>
                     </Tooltip>
 
                     <Button
@@ -2365,7 +2332,7 @@ export function TrackDetailView() {
                           <SkipForward className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Вперёд 5с</TooltipContent>
+                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Вперёд 5с</TooltipContent>
                     </Tooltip>
                   </div>
 
@@ -2392,7 +2359,7 @@ export function TrackDetailView() {
                           )}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
+                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>
                         {isMuted ? 'Включить звук' : 'Выключить звук'}
                       </TooltipContent>
                     </Tooltip>
@@ -3212,7 +3179,7 @@ export function TrackDetailView() {
                                           <DoubleCheckIcon className="h-3.5 w-3.5" />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent>{comment.isResolved ? 'Отменить' : 'Решено'}</TooltipContent>
+                                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>{comment.isResolved ? 'Отменить' : 'Решено'}</TooltipContent>
                                     </Tooltip>
                                   )}
                                   {/* Timestamp — yellow monospace, top-right of bubble */}
@@ -3244,7 +3211,7 @@ export function TrackDetailView() {
                                           <Pencil className="h-3 w-3" />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Изменить комментарий</TooltipContent>
+                                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Изменить комментарий</TooltipContent>
                                     </Tooltip>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -3255,7 +3222,7 @@ export function TrackDetailView() {
                                           <Trash2 className="h-3 w-3" />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Удалить комментарий</TooltipContent>
+                                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Удалить комментарий</TooltipContent>
                                     </Tooltip>
                                   </div>
                                 </div>
@@ -3360,7 +3327,7 @@ export function TrackDetailView() {
                                           Перейти к
                                         </Button>
                                       </TooltipTrigger>
-                                      <TooltipContent>Перейти к этому таймстемпу</TooltipContent>
+                                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Перейти к этому таймстемпу</TooltipContent>
                                     </Tooltip>
                                     {/* Reply button — small yellow ghost button at bottom of bubble */}
                                     {!comment.isResolved && (
@@ -3387,7 +3354,7 @@ export function TrackDetailView() {
                                             Ответить
                                           </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>Ответить на комментарий</TooltipContent>
+                                        <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Ответить на комментарий</TooltipContent>
                                       </Tooltip>
                                     )}
                                     {comment.isResolved && (
@@ -3548,7 +3515,7 @@ export function TrackDetailView() {
                                                   <Pencil className="h-2.5 w-2.5" />
                                                 </button>
                                               </TooltipTrigger>
-                                              <TooltipContent>Изменить</TooltipContent>
+                                              <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Изменить</TooltipContent>
                                             </Tooltip>
                                             <Tooltip>
                                               <TooltipTrigger asChild>
@@ -3559,7 +3526,7 @@ export function TrackDetailView() {
                                                   <Trash2 className="h-2.5 w-2.5" />
                                                 </button>
                                               </TooltipTrigger>
-                                              <TooltipContent>Удалить</TooltipContent>
+                                              <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Удалить</TooltipContent>
                                             </Tooltip>
                                           </div>
                                         </div>
