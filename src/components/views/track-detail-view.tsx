@@ -1799,17 +1799,7 @@ export function TrackDetailView() {
               boxShadow: INSET_BEVEL_SHADOW,
             }}
           >
-            <div className="flex items-center gap-1.5">
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{
-                  backgroundColor: statusDotColors[track.status] || A,
-                  boxShadow: `0 0 4px ${hexToRgba(statusDotColors[track.status] || A, 0.8)}`,
-                }}
-              />
-              <SelectValue />
-              <ChevronDown className="h-3 w-3 ml-auto opacity-70" style={{ color: Y }} />
-            </div>
+            <SelectValue />
           </SelectTrigger>
           <SelectContent
             className="border-0 rounded-none p-1 min-w-[180px]"
