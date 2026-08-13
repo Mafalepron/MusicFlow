@@ -2387,3 +2387,49 @@ Critical constraints honored:
 - `npx tsc --noEmit` reports ZERO errors in `track-detail-view.tsx` (the only tsc errors are pre-existing in unrelated files: examples/websocket/server.ts, skills/image-edit, skills/stock-analysis-skill, src/app/api/boards/route.ts, src/components/ui/sidebar.tsx).
 - `bun run lint` reports ZERO errors for `track-detail-view.tsx` (all 9 lint errors are pre-existing in project-chat.tsx, app-header.tsx, home-view.tsx).
 - `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` returns 200.
+
+---
+Task ID: OB1-RESTYLE
+Agent: full-stack-developer
+Task: Restyle onboarding-view.tsx to match the Cyberpunk 2077 HUD aesthetic used in home-view.tsx
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand prior agent context.
+- Read /home/z/my-project/src/components/views/onboarding-view.tsx (337 lines) — original shadcn Card/Tabs/Input/Button layout with English copy.
+- Read /home/z/my-project/src/components/views/home-view.tsx (first 50 lines + targeted reads around lines 469–604, 1340–1540, 920–1119) to extract palette constants, HUD panel clipPath, corner bracket pattern, and the CreateCard holographic ring composition. Verified keyframes kb-breathe / kb2-ring-spin-* are defined in /home/z/my-project/src/app/cyberpunk.css (lines 1509+).
+- Confirmed holographic double-ring pattern by reading app-header.tsx (lines 254–268): outer ring 1.5px cyan + glow, inner ring 1px purple + glow, Music icon centered.
+- Reviewed shadcn primitives (tabs.tsx, select.tsx, input.tsx, button.tsx) — confirmed `cn` uses twMerge so custom className props override defaults; props spread allows inline `style` passthrough.
+
+Changes to /home/z/my-project/src/components/views/onboarding-view.tsx (full rewrite, same logic signature):
+1. Palette block at top of file (Y, Y2, C, P, G, A, BG_MAIN, BG_PANEL, BG_CARD_PURPLE, BG_CARD_TEAL, BORDER_MUTED, TEXT_PRIMARY, TEXT_SECONDARY) — matches home-view.tsx exactly.
+2. clipPath constants CHAMFER_4 (symmetric 8-point 4px) and CHAMFER_12 (asymmetric: top-left/top-right/bottom-right chamfered, square bottom-left — exact spec value).
+3. Removed unused Card/CardHeader/CardContent/CardTitle/CardDescription imports (replaced with custom HUD panel). Kept Button, Input, Label, Tabs, Select, framer-motion, lucide-react, and all three zustand store imports.
+4. New in-file helper components following the home-view inline-style pattern:
+   - `HudPanel` — chamfered cyan-bordered panel with blue top-left + yellow bottom-right corner brackets, inset bevel boxShadow, subtle cyan glow.
+   - `HudButton` — yellow gradient (135deg #c7a008 → #9e7c06) with chamfered corners, dark text, hover scale(1.02) + brighter glow via useState hover tracking.
+   - `HudLabel` — uppercase yellow JetBrains Mono with text-shadow glow.
+   - `HudInput` — dark #0a0c10 bg, cyan border rgba(0,168,198,0.3), chamfered corners, focus:border #c7a008 + focus:shadow yellow glow, removed purple focus ring via focus-visible:ring-0.
+   - `HudError` — red #ef4444 chamfered container, monospace JetBrains Mono, with `!` prefix.
+   - `HudTabTrigger` — yellow gradient + dark text + glow when active, transparent + yellow text when inactive (controlled via parent state).
+5. Logo area: holographic double-ring (outer 1.5px cyan with kb-breathe animation, inner 1px purple with kb-breathe animation 0.6s delay), Music icon yellow #c7a008 with drop-shadow. Title "SoundFlow" in Rajdhani yellow letterSpacing 0.06em with text-shadow glow. Subtitle "Сотрудничай над музыкой вместе" in JetBrains Mono TEXT_SECONDARY.
+6. Background: BG_MAIN #0a0c10 with HUD grid pattern (linear-gradients 20px grid) + radial glows (purple top-center, cyan bottom-right) + two blurred radial blobs for depth.
+7. Auth card: HudPanel with cyan top accent strip, title "ДОСТУП К СИСТЕМЕ" (Rajdhani uppercase letterSpacing 2px white with text-shadow), subtitle "Войдите или создайте аккаунт".
+8. Tabs converted to controlled (value + onValueChange) with state authTab / groupTab so active styling can be applied via inline style. Tab labels Russian: "ВХОД" / "РЕГИСТРАЦИЯ" for auth step, "СОЗДАТЬ" / "ПРИСОЕДИНИТЬСЯ" (with Users / UserPlus icons) for group step.
+9. Group step card: HudPanel with yellow top accent strip, title "СОЗДАТЬ ИЛИ ПРИСОЕДИНИТЬСЯ", subtitle "Настройте пространство для сотрудничества".
+10. Form inputs all use HudInput with Russian placeholders:
+    - "ваш@email.ru", "Введите пароль", "Ваше имя", "Создайте пароль (мин 6 символов)"
+    - "Название бэнда или группы", "Над чем вы работаете?", "напр. Электроника, Рок", "напр. Гитара, Вокал", "Введите код приглашения"
+11. Labels Russian: "Почта", "Пароль", "Имя", "Название группы", "Описание", "Жанр", "Ваша роль", "Инструмент", "Код приглашения".
+12. Submit buttons: "ВОЙТИ" / "СОЗДАТЬ АККАУНТ" / "СОЗДАТЬ ГРУППУ" / "ПРИСОЕДИНИТЬСЯ"; loading states "Вход..." / "Создание..." / "Подключение...".
+13. Select dropdowns styled cyberpunk: bg #0a0c10, cyan border, JetBrains Mono, hover/focus yellow border, SelectContent dark with chamfered clipPath, SelectItem focus bg rgba(199,160,8,0.15) + yellow text. Roles translated: Владелец / Продюсер / Музыкант / Гость.
+14. Error fallbacks in all four handlers translated to Russian: "Регистрация не удалась", "Вход не удался", "Не удалось создать группу", "Не удалось присоединиться к группе", "Не авторизован", "Что-то пошло не так".
+15. Animations: original framer-motion entrance (opacity+y) preserved; kb-breathe pulsing glow on both logo rings; hover scale(1.02) on submit buttons.
+16. All imports/state/hooks/handlers/API calls preserved verbatim — fetch URLs (/api/auth/register, /api/auth/login, /api/groups, /api/groups/join), store methods (setUser, setCurrentGroupId, setCurrentGroupName, setCurrentGroupInviteCode, setMemberInfo, navigate, setCurrentGroup), useAuthStore.getState().user pattern, error handling try/catch shape, navigation flow (navigate('home') after success).
+
+Verification:
+- `npx tsc --noEmit --pretty 2>&1 | grep -E "onboarding|error TS" | head -10` → no output (clean).
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` → 200.
+- `bun run lint` → 0 errors in onboarding-view.tsx (9 pre-existing errors in home-view.tsx are unrelated react-hooks/preserve-manual-memoization warnings, not introduced by this task).
+- dev.log shows `✓ Compiled in 491ms` and `GET / 200` after the edit — no runtime/compile errors.
+
+Status: COMPLETE. Onboarding view now matches the Cyberpunk 2077 HUD aesthetic of home-view.tsx; all functionality (login, register, create group, join group, navigation) intact; all user-facing text translated to Russian.
