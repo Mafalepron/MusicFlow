@@ -2433,3 +2433,89 @@ Verification:
 - dev.log shows `✓ Compiled in 491ms` and `GET / 200` after the edit — no runtime/compile errors.
 
 Status: COMPLETE. Onboarding view now matches the Cyberpunk 2077 HUD aesthetic of home-view.tsx; all functionality (login, register, create group, join group, navigation) intact; all user-facing text translated to Russian.
+
+---
+Task ID: TP2-BUILD
+Agent: full-stack-developer
+Task: Transform the Kanban Progress Panel in track-detail-view.tsx into a "Track Profile" panel with editable fields (title, description, priority) connected to kanban, plus a PATCH handler on /api/tracks/[id] for persistent status/title updates.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to load prior context (TD5/6/7-FIX5, OB1-RESTYLE).
+- Read track-detail-view.tsx lines 1-130 (palette + chamfer constants) and 1740-2100 (existing Kanban Progress Panel) to understand what to replace.
+- Verified /api/tasks PUT route already supports {id, title, description, status, priority, assignee, category, deadline, trackConfig}.
+- Verified /api/tasks GET route already supports ?soundflowTrackId=<id>&deep=true (added by TD6-FIX5).
+- Verified the store Track interface exposes { id, title, trackNumber?, audioUrl, durationMs?, status, version, createdBy, kanbanTaskId?, createdAt } but NOT a creator displayName — needed a fetch to /api/tracks/[id] to retrieve `creator: { id, displayName, avatarUrl }`.
+
+1. PATCH handler on /api/tracks/[id]/route.ts:
+- Wrote a new `PATCH` exported function alongside the existing `GET`. Accepts `{ title?, status?, audioUrl? }` JSON body, validates the track exists (404 otherwise), builds an update data object with only the supplied fields, returns 400 when no fields supplied, persists via `db.track.update` with the same includes as GET (creator, project, sourceIdea, kanbanTasks, _count) so the response shape is identical to GET.
+
+2. Track detail fetch for creator display name:
+- Added `trackDetail` state holding `{ creator?, createdAt? }` plus a useEffect that calls `fetch('/api/tracks/' + selectedTrackId)` on mount/selectedTrackId-change, populating `trackDetail.creator.displayName` which feeds the InfoStatCell "Автор" cell.
+
+3. Inline-editing state + saving indicator:
+- Added state: `editingTitle`, `titleDraft`, `editingDescription`, `descriptionDraft`, `savingField` (string|null), and three local mirrors of the kanban task fields (`localKanbanDescription`, `localKanbanTitle`, `localKanbanPriority`) so the UI shows the edited text immediately while the fetch is in flight.
+- Added `primaryKanbanTask = trackTasks[0] ?? null` derived value (the first kanban task linked to the track is treated as the primary one).
+- Added a useEffect that resets the local mirrors whenever the underlying kanban task changes (track switch or refetch).
+- Added `titleSaveInFlightRef` + `descSaveInFlightRef` ref-guards to prevent double-saves when Enter (onKeyDown) and blur (onBlur) fire in quick succession.
+
+4. Updated `handleStatusChange` (was local-only):
+- Now async. Optimistically updates the store via `updateTrackStatus` + emits `track:update_status` via socket (preserved behavior). Then PATCHes /api/tracks/:id with `{ status: newStatus }` and finally PUTs /api/tasks `{ id, status }` to mirror the change onto the linked kanban task (best-effort). Sets `savingField = 'status'` while in flight so the header shows a "Сохранение…" indicator.
+
+5. New inline edit handlers:
+- `handleStartEditTitle` — populates titleDraft from track.title, opens editor.
+- `handleSaveTitle` — guards against double-fire via ref, optimistic zustand `useDataStore.setState` patch on the tracks array, PATCHes /api/tracks/:id with `{ title }`, mirrors onto the kanban task via PUT /api/tasks `{ id, title }`, updates `setHeaderTitle` so the unified AppHeader reflects the new title, refreshes `localKanbanTitle`.
+- `handleStartEditDescription` / `handleSaveDescription` — opens textarea, saves via PUT /api/tasks `{ id, description }`, mirrors locally into `trackTasks` + `localKanbanDescription`.
+- `handlePriorityChange` — Select onValueChange that PUTs /api/tasks `{ id, priority }`, mirrors locally.
+
+6. Replaced the entire "Kanban Progress Panel" JSX block with a new "Track Profile Panel" block (~720 lines) that keeps the existing 3-column grid (lg:col-span-2 left + lg:col-span-1 right) but rebuilds the LEFT column with 5 sections:
+
+  A. Profile Header — flex row with:
+     - 80×80 chamfered Cover Image placeholder (E): purple→main gradient, yellow border, CornerBrackets, big yellow monospace track number readout (`String(trackNumber ?? 1).padStart(2,'0')`), small cyan Music2 icon at bottom-right when `track.audioUrl` exists, "ТР" label at top-left.
+     - Title row: click-to-edit inline. Display mode renders a `<button>` with the title in Rajdhani white + hover-revealed Pencil icon. Edit mode swaps in an `<Input>` wrapped in a yellow-bordered CHAMFER_3 box with yellow glow; Enter saves, Escape cancels, blur saves.
+     - Subline: purple `v{track.version}` chip + project title + "Сохранение…" indicator (pulsing yellow dot) when `savingField` is set.
+     - Status selector + Канбан button: kept verbatim from the previous panel (cyberpunk-styled Select with colored status dots, LayoutDashboard Канбан button).
+
+  B. Description Section — three states:
+     - No kanban task → small "Нет связанной kanban-задачи" hint.
+     - Empty description → dashed-yellow-border CHAMFER_3 button with "Нет описания" + yellow "Добавить" button.
+     - Has description → teal-tinted HUD bubble with 2px yellow left stripe, white Rajdhani text, hover-revealed Pencil icon — click opens editor.
+     - Edit mode → yellow-bordered CHAMFER_4 box with a `<textarea>` (3 rows), ⌘+Enter hint, "Отмена" + "Сохранить" buttons (yellow gradient). Save/Cancel use small h-6 chamfered HUD buttons.
+
+  C. Track Info Grid — 3×2 grid of small HUD stat cells. Five `InfoStatCell` components (Номер / Длительность / Версия / Создан / Автор) + one custom Priority cell that hosts a Select dropdown:
+     - Each InfoStatCell: BG_MAIN bg, cyan-25% border, CHAMFER_3, inset shadow; 8px yellow uppercase JetBrains Mono label on top, 12px white Rajdhani value below (truncate + title attr).
+     - Priority cell: same outer styling but the value slot is a transparent Select showing the current priority in its own color (high=red #ff5a5a, medium=yellow Y, low=green G). SelectContent is a chamfered HUD dropdown with a colored status dot + Russian label per option (Высокий/Средний/Низкий). Pulsing yellow dot when `savingField === 'priority'`.
+
+  D. Progress Section (kept verbatim from previous Kanban Progress Panel):
+     - Section title row with Zap icon + "Прогресс трека" Rajdhani uppercase heading.
+     - WaveformProgressBar (height=32, bars=24, gold accent).
+     - StatDot row: ВСЕГО / ГОТОВО / В РАБОТЕ / ПРОВЕРКА / TODO counts.
+     - Tree breakdown: one row per trackTask with `├─` connector, title (truncate), 20-px-wide mini progress bar (purple→yellow gradient), done/total count.
+
+  E. Cover Image — included inside section A (see above).
+
+- The RIGHT column (lg:col-span-1) — Project progress summary — kept verbatim from the previous panel: LayoutDashboard icon + "Проект" heading, project title, big yellow percentage readout with text-shadow glow, mini progress bar, 2×2 StatDot grid, "Нет kanban-задачи" fallback.
+
+7. New helper functions added (placed right after `countAllDescendants`):
+- `PRIORITY_COLORS` map: high→#ff5a5a, medium→Y, low→G.
+- `PRIORITY_LABELS` map: high→Высокий, medium→Средний, low→Низкий.
+- `priorityColor(p)` / `priorityLabel(p)` accessors with sensible fallbacks.
+- `InfoStatCell({ label, value })` — the small HUD stat cell component (yellow label + white value, chamfered, inset bevel).
+
+Critical constraints honored:
+- Audio player, waveform canvas, marker tooltip, comments (chat-style + replies), versions panel, AddVersionDialog, socket.io presence, header-actions registration, keyboard shortcuts — all untouched and preserved.
+- No new dependencies; uses only existing shadcn primitives (Select, Input, Button, Avatar, ScrollArea, Dialog, Tooltip, Badge, Card) and existing icons (Pencil, Check, X, Plus, LayoutDashboard, Zap, Music2).
+- Same palette constants (Y, Y2, C, C2, P, P2, G, A, BG_MAIN, BG_PANEL, BG_CARD_PURPLE, BG_CARD_TEAL, BORDER_MUTED, TEXT_PRIMARY, TEXT_SECONDARY), same chamfer clipPaths (CHAMFER_3/4/5/8), same CornerBrackets + INSET_BEVEL_SHADOW + SECTION_TITLE_STYLE + YELLOW_BUTTON_STYLE pattern as the rest of the file.
+- All UI text is Russian (Сохранение…, Описание, Нет описания, Добавить, Отмена, Сохранить, Номер, Длительность, Версия, Создан, Автор, Приоритет, etc.).
+- Purple CSS-variable override wrapper (set on the outermost `<div>` of the view) is preserved so all shadcn popups (Select dropdowns, Tooltips) inherit yellow/cyan instead of the global purple.
+
+Verification:
+- `npx tsc --noEmit --pretty 2>&1 | grep -E "track-detail|tracks/\[id\]|error TS" | head -10` → no output (no type errors in modified files).
+- `bun run lint` → 0 errors in track-detail-view.tsx and the PATCH route file.
+- `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` → 200.
+- dev.log shows `✓ Compiled in 272ms / 415ms / 204ms / 433ms` after each edit with no errors.
+
+Stage Summary:
+- /api/tracks/[id]/route.ts now exports both GET and PATCH; PATCH accepts { title, status, audioUrl } and returns the full updated track record with the same shape as GET (creator, project, kanbanTaskId, commentsCount).
+- The "Канбан Progress Panel" inside track-detail-view.tsx is now the "Track Profile Panel": an inline-editable HUD with five sections (cover/header, description, info grid, progress, project summary). Title clicks to edit (Enter saves via PATCH /api/tracks/:id + PUT /api/tasks for the linked kanban task). Description is the kanban task's description (click to edit, save via PUT /api/tasks). Priority is an inline Select that saves immediately. Status changes are now persistent (PATCH /api/tracks/:id + PUT /api/tasks to mirror onto kanban).
+- All existing functionality (audio player, waveform, markers, comments, replies, versions, socket.io, header-actions, keyboard shortcuts) is preserved.
+

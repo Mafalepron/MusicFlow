@@ -371,6 +371,69 @@ function countAllDescendants(tasks: { children?: unknown[] }[]): any[] {
   return result;
 }
 
+// --- Priority helpers (used by the Track Profile info grid) ---
+
+const PRIORITY_COLORS: Record<string, string> = {
+  high: '#ff5a5a',
+  medium: Y,
+  low: G,
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  high: 'Высокий',
+  medium: 'Средний',
+  low: 'Низкий',
+};
+
+function priorityColor(p: string): string {
+  return PRIORITY_COLORS[p] ?? Y;
+}
+
+function priorityLabel(p: string): string {
+  return PRIORITY_LABELS[p] ?? p;
+}
+
+// Small HUD stat cell — yellow uppercase label on top, white value below.
+// Used in the 3×2 Track Info Grid (track #, duration, version, etc.).
+function InfoStatCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      className="flex flex-col gap-0.5 px-2 py-1.5"
+      style={{
+        background: BG_MAIN,
+        border: `0.5px solid ${hexToRgba(C, 0.25)}`,
+        clipPath: CHAMFER_3,
+        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.6)',
+      }}
+    >
+      <span
+        className="text-[8px]"
+        style={{
+          color: Y,
+          fontFamily: 'var(--font-jetbrains-mono), monospace',
+          fontWeight: 700,
+          letterSpacing: '1px',
+          textTransform: 'uppercase',
+        }}
+      >
+        {label}
+      </span>
+      <span
+        className="truncate tabular-nums text-[12px]"
+        style={{
+          color: TEXT_PRIMARY,
+          fontFamily: 'var(--font-rajdhani), sans-serif',
+          fontWeight: 700,
+          letterSpacing: '0.3px',
+        }}
+        title={value}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
 // The backend API returns comments with a nested `user` object
 // (e.g. `user: { displayName, ... }`), but the frontend store types expect a
 // flat `userName` field. This normalizer bridges that gap so the rest of the
@@ -772,6 +835,72 @@ export function TrackDetailView() {
   // (fetched by parentId). Used to show a project-level progress summary next to
   // the track progress. Stays null when the project has no linked kanbanTaskId.
   const [projectTask, setProjectTask] = useState<Task | null>(null);
+
+  // --- Track Profile panel state ---
+  // The store Track only exposes `createdBy` (a user id). To display the
+  // creator's display name + avatar in the Track Profile panel we fetch the
+  // full track record (which includes `creator: { id, displayName, avatarUrl }`).
+  const [trackDetail, setTrackDetail] = useState<{
+    creator?: { id: string; displayName: string; avatarUrl?: string | null };
+    createdAt?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!selectedTrackId) {
+      setTrackDetail(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/tracks/${encodeURIComponent(selectedTrackId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setTrackDetail({
+          creator: data.creator,
+          createdAt: data.createdAt,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setTrackDetail(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTrackId]);
+
+  // Inline editing state for the Track Profile panel.
+  // Each field tracks its own editing/draft/saving state so the user can edit
+  // title, description and priority without affecting one another.
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
+  // Track which field is currently being saved (for "saving..." indicator)
+  const [savingField, setSavingField] = useState<string | null>(null);
+  // Ref-guard to prevent double-saves when Enter + onBlur fire in quick succession.
+  const titleSaveInFlightRef = useRef(false);
+  const descSaveInFlightRef = useRef(false);
+
+  // Local copy of the kanban Task description (kept in sync after PUT updates)
+  // so the user sees their edited text immediately without waiting for a refetch.
+  const [localKanbanDescription, setLocalKanbanDescription] = useState<string | null>(null);
+  const [localKanbanTitle, setLocalKanbanTitle] = useState<string | null>(null);
+  const [localKanbanPriority, setLocalKanbanPriority] = useState<string | null>(null);
+
+  // Reset the local kanban-field mirrors whenever the underlying kanban task changes
+  // (e.g. when the user switches to a different track).
+  const primaryKanbanTask = trackTasks[0] ?? null;
+  useEffect(() => {
+    if (!primaryKanbanTask) {
+      setLocalKanbanDescription(null);
+      setLocalKanbanTitle(null);
+      setLocalKanbanPriority(null);
+      return;
+    }
+    setLocalKanbanDescription(primaryKanbanTask.description);
+    setLocalKanbanTitle(primaryKanbanTask.title);
+    setLocalKanbanPriority(primaryKanbanTask.priority);
+  }, [primaryKanbanTask?.id, primaryKanbanTask?.description, primaryKanbanTask?.title, primaryKanbanTask?.priority]);
 
   useEffect(() => {
     if (!selectedTrackId) {
@@ -1472,18 +1601,189 @@ export function TrackDetailView() {
   }, [selectedTrackId, addComment, updateCommentStore, removeCommentStore, user]);
 
   // --- Status Change ---
+  // Updates the track's status both locally (zustand store + socket emit) and
+  // persistently via PATCH /api/tracks/:id. If the track is linked to a kanban
+  // Task, that task's status is also synced via PUT /api/tasks so the kanban
+  // board reflects the same status as the track profile.
 
   const handleStatusChange = useCallback(
-    (newStatus: string) => {
-      if (!selectedTrackId) return;
+    async (newStatus: string) => {
+      if (!selectedTrackId || !track) return;
+      // Optimistic local update
       updateTrackStatus(selectedTrackId, newStatus);
       socketRef.current?.emit('track:update_status', {
         trackId: selectedTrackId,
         status: newStatus,
       });
+
+      // Persist to /api/tracks/:id
+      setSavingField('status');
+      try {
+        await fetch(`/api/tracks/${encodeURIComponent(selectedTrackId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+      } catch {
+        // Silently fail — local state already reflects the user's intent
+      } finally {
+        setSavingField(null);
+      }
+
+      // Mirror status onto the linked kanban task (if any)
+      const kanbanTaskId = primaryKanbanTask?.id;
+      if (kanbanTaskId) {
+        try {
+          await fetch('/api/tasks', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: kanbanTaskId, status: newStatus }),
+          });
+          // Mirror locally so the UI reflects the change immediately
+          setTrackTasks((prev) =>
+            prev.map((t) =>
+              t.id === kanbanTaskId ? { ...t, status: newStatus as Task['status'] } : t
+            )
+          );
+        } catch {
+          // Best-effort sync — failure here doesn't affect the track record
+        }
+      }
     },
-    [selectedTrackId, updateTrackStatus]
+    [selectedTrackId, track, updateTrackStatus, primaryKanbanTask?.id]
   );
+
+  // --- Inline title editing ---
+  // Saves the new title to BOTH the track record (PATCH /api/tracks/:id) and
+  // the linked kanban task (PUT /api/tasks) so the two stay in sync.
+
+  const handleStartEditTitle = useCallback(() => {
+    setTitleDraft(track?.title ?? '');
+    setEditingTitle(true);
+  }, [track?.title]);
+
+  const handleSaveTitle = useCallback(async () => {
+    if (titleSaveInFlightRef.current) return;
+    if (!selectedTrackId || !track) return;
+    const newTitle = titleDraft.trim();
+    if (!newTitle || newTitle === track.title) {
+      setEditingTitle(false);
+      return;
+    }
+    titleSaveInFlightRef.current = true;
+    setEditingTitle(false);
+    setSavingField('title');
+    // Optimistic local update — patch the in-memory store Track so the UI
+    // reflects the new title immediately (zustand store tracks array).
+    useDataStore.setState((s) => ({
+      tracks: s.tracks.map((t) =>
+        t.id === selectedTrackId ? { ...t, title: newTitle } : t
+      ),
+    }));
+    try {
+      await fetch(`/api/tracks/${encodeURIComponent(selectedTrackId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      // Mirror onto linked kanban task
+      const kanbanTaskId = primaryKanbanTask?.id;
+      if (kanbanTaskId) {
+        await fetch('/api/tasks', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: kanbanTaskId, title: newTitle }),
+        });
+        setLocalKanbanTitle(newTitle);
+        setTrackTasks((prev) =>
+          prev.map((t) =>
+            t.id === kanbanTaskId ? { ...t, title: newTitle } : t
+          )
+        );
+      }
+      setHeaderTitle(newTitle);
+    } catch {
+      // Silently fail
+    } finally {
+      setSavingField(null);
+      titleSaveInFlightRef.current = false;
+    }
+  }, [selectedTrackId, track, titleDraft, primaryKanbanTask?.id, setHeaderTitle]);
+
+  // --- Inline description editing (kanban task description) ---
+
+  const handleStartEditDescription = useCallback(() => {
+    setDescriptionDraft(localKanbanDescription ?? '');
+    setEditingDescription(true);
+  }, [localKanbanDescription]);
+
+  const handleSaveDescription = useCallback(async () => {
+    if (descSaveInFlightRef.current) return;
+    const kanbanTaskId = primaryKanbanTask?.id;
+    if (!kanbanTaskId) {
+      setEditingDescription(false);
+      return;
+    }
+    const newText = descriptionDraft.trim();
+    descSaveInFlightRef.current = true;
+    setEditingDescription(false);
+    if (newText === (localKanbanDescription ?? '')) {
+      descSaveInFlightRef.current = false;
+      return;
+    }
+    setSavingField('description');
+    setLocalKanbanDescription(newText || null);
+    try {
+      await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: kanbanTaskId, description: newText }),
+      });
+      setTrackTasks((prev) =>
+        prev.map((t) =>
+          t.id === kanbanTaskId
+            ? { ...t, description: newText || null }
+            : t
+        )
+      );
+    } catch {
+      // Silently fail
+    } finally {
+      setSavingField(null);
+      descSaveInFlightRef.current = false;
+    }
+  }, [primaryKanbanTask?.id, descriptionDraft, localKanbanDescription]);
+
+  // --- Priority editing (kanban task priority) ---
+
+  const handlePriorityChange = useCallback(
+    async (newPriority: string) => {
+      const kanbanTaskId = primaryKanbanTask?.id;
+      if (!kanbanTaskId) return;
+      setLocalKanbanPriority(newPriority);
+      setSavingField('priority');
+      try {
+        await fetch('/api/tasks', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: kanbanTaskId, priority: newPriority }),
+        });
+        setTrackTasks((prev) =>
+          prev.map((t) =>
+            t.id === kanbanTaskId
+              ? { ...t, priority: newPriority as Task['priority'] }
+              : t
+          )
+        );
+      } catch {
+        // Silently fail
+      } finally {
+        setSavingField(null);
+      }
+    },
+    [primaryKanbanTask?.id]
+  );
+
 
   // --- Fetch Versions ---
 
@@ -1743,7 +2043,7 @@ export function TrackDetailView() {
 
       </motion.div>
 
-      {/* ─── Kanban Progress Panel — track + project stats tree ─── */}
+      {/* ─── Track Profile Panel — editable track + kanban metadata ─── */}
       <div
         className="relative shrink-0 px-4 py-3 lg:px-6"
         style={{
@@ -1762,225 +2062,709 @@ export function TrackDetailView() {
           <CornerBrackets size={12} />
 
           <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-3 lg:p-4">
-            {/* Track progress — spans 2 columns on lg */}
+            {/* LEFT (lg:col-span-2): Track Profile header + description + info grid + progress */}
             <div className="lg:col-span-2">
-              {/* Section title */}
-              <div className="mb-2 flex items-center gap-2">
-                <Zap className="h-4 w-4" style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }} />
-                <h3
-                  className="text-[13px]"
-                  style={{
-                    ...SECTION_TITLE_STYLE,
-                    fontSize: '13px',
-                    letterSpacing: '2px',
-                  }}
-                >
-                  Прогресс трека
-                </h3>
-              </div>
-              {/* Status + Kanban buttons — moved to progress panel */}
-              <div className="mt-2 flex items-center gap-2 flex-wrap">
-        {/* Status selector — Cyberpunk 2077 HUD: dark bg, cyan border, chamfered,
-            yellow monospace text, cyan-on-hover options */}
-        <Select value={track.status} onValueChange={handleStatusChange}>
-          <SelectTrigger
-            size="sm"
-            className="w-[150px] shrink-0 h-8 border-0 rounded-none hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
-            style={{
-              background: BG_PANEL,
-              border: `1px solid ${hexToRgba(C, 0.5)}`,
-              clipPath: CHAMFER_4,
-              color: Y,
-              fontFamily: 'var(--font-jetbrains-mono), monospace',
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-              boxShadow: INSET_BEVEL_SHADOW,
-            }}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent
-            className="border-0 rounded-none p-1 min-w-[180px]"
-            style={{
-              background: BG_PANEL,
-              border: `1px solid ${hexToRgba(C, 0.5)}`,
-              clipPath: CHAMFER_4,
-              boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
-            }}
-          >
-            {STATUS_OPTIONS.map((status) => (
-              <SelectItem
-                key={status}
-                value={status}
-                className="focus:!bg-[#0a0c10] focus:!text-[#00a8c6] data-[highlighted]:!bg-[#0a0c10] data-[highlighted]:!text-[#00a8c6] hover:!bg-[#0a0c10] hover:!text-[#00a8c6] !text-[#c7a008] border-0 rounded-none"
-                style={{
-                  fontFamily: 'var(--font-jetbrains-mono), monospace',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  letterSpacing: '0.5px',
-                  clipPath: CHAMFER_3,
-                  padding: '4px 8px',
-                }}
-              >
-                <span className="flex items-center gap-1.5">
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{
-                      backgroundColor: statusDotColors[status] || A,
-                      boxShadow: `0 0 4px ${hexToRgba(statusDotColors[status] || A, 0.6)}`,
-                    }}
-                  />
-                  {statusLabels[status] || status}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Open in Kanban button — next to status selector */}
-        {projectOfTrack?.kanbanTaskId && (
-          <button
-            onClick={() => {
-              const project = useDataStore.getState().projects.find((p) => p.id === selectedProjectId);
-              if (!project?.kanbanTaskId) return;
-              useNavigationStore.getState().navigate('kanban');
-              const taskId = project.kanbanTaskId;
-              setTimeout(() => {
-                useKanbanStore.getState().selectProject(taskId);
-              }, 300);
-            }}
-            className="flex items-center gap-1.5 shrink-0 h-8 px-3 transition-all hover:scale-105"
-            style={{
-              clipPath: CHAMFER_4,
-              background: hexToRgba(C, 0.1),
-              border: `1px solid ${hexToRgba(C, 0.5)}`,
-              color: C,
-              fontFamily: 'var(--font-jetbrains-mono), monospace',
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-              boxShadow: INSET_BEVEL_SHADOW,
-            }}
-            title="Открыть в Канбане"
-          >
-            <LayoutDashboard className="h-3.5 w-3.5" />
-            Канбан
-          </button>
-        )}
-              </div>
-
-
-              {/* Waveform progress bar */}
-              <WaveformProgressBar
-                progress={trackProgress.pct}
-                accentColor={Y}
-                height={32}
-                bars={24}
-              />
-
-              {/* Compact stats row — colored status dots */}
-              <div
-                className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]"
-                style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
-              >
-                <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
-                <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
-                <StatDot label="В РАБОТЕ" count={trackProgress.inProgress} color={C} />
-                <StatDot label="ПРОВЕРКА" count={trackProgress.review} color={Y} />
-                <StatDot label="TODO" count={trackProgress.todo} color={A} />
-              </div>
-
-              {/* Tree-like breakdown — one row per trackTask with mini progress bar */}
-              {trackTasks.length > 0 && (
+              {/* ── A. Profile Header ─ cover + title + status + Канбан ── */}
+              <div className="flex items-start gap-3">
+                {/* E. Cover Image — text-based placeholder (Track has no coverUrl).
+                    80×80 chamfered HUD cell with the track number + audio icon. */}
                 <div
-                  className="mt-3 max-h-44 overflow-y-auto pr-1"
+                  className="relative flex h-20 w-20 shrink-0 items-center justify-center"
                   style={{
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: `${hexToRgba(Y, 0.4)} transparent`,
+                    background: `linear-gradient(135deg, ${BG_CARD_PURPLE} 0%, ${BG_MAIN} 100%)`,
+                    border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                    clipPath: CHAMFER_5,
+                    boxShadow: INSET_BEVEL_SHADOW,
                   }}
+                  title={track.title}
                 >
-                  <div className="flex flex-col gap-1.5">
-                    {trackTasks.map((tt) => {
-                      const subtasks = countAllDescendants([tt]);
-                      const subTotal = subtasks.length;
-                      const subDone = subtasks.filter((c) => c.status === 'done').length;
-                      const subPct = subTotal > 0 ? Math.round((subDone / subTotal) * 100) : 0;
-                      return (
-                        <div
-                          key={tt.id}
-                          className="flex items-center gap-2 px-2 py-1"
-                          style={{
-                            background: BG_MAIN,
-                            border: `1px solid ${hexToRgba(C, 0.2)}`,
-                            clipPath: CHAMFER_3,
-                          }}
-                        >
-                          {/* Tree connector */}
-                          <span
-                            className="select-none"
-                            style={{ color: hexToRgba(Y, 0.5), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}
-                          >
-                            ├─
-                          </span>
-                          {/* Title */}
-                          <span
-                            className="min-w-0 flex-1 truncate"
+                  <CornerBrackets size={8} />
+                  {/* Track number — large yellow monospace readout */}
+                  <span
+                    className="tabular-nums leading-none"
+                    style={{
+                      color: Y,
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                      fontSize: '26px',
+                      fontWeight: 800,
+                      textShadow: `0 0 8px ${hexToRgba(Y, 0.6)}`,
+                    }}
+                  >
+                    {String(track.trackNumber ?? 1).padStart(2, '0')}
+                  </span>
+                  {/* Audio indicator — bottom-right when audio exists */}
+                  {track.audioUrl ? (
+                    <span
+                      className="absolute bottom-1 right-1 flex items-center gap-0.5"
+                      style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.7)})` }}
+                      title="Аудио загружено"
+                    >
+                      <Music2 className="h-3 w-3" />
+                    </span>
+                  ) : null}
+                  {/* Top-left chip — "ТР" marker */}
+                  <span
+                    className="absolute top-1 left-1"
+                    style={{
+                      color: hexToRgba(Y, 0.7),
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                      fontSize: '8px',
+                      fontWeight: 700,
+                      letterSpacing: '1px',
+                    }}
+                  >
+                    ТР
+                  </span>
+                </div>
+
+                {/* Right side of header: title + status + Канбан */}
+                <div className="min-w-0 flex-1">
+                  {/* Title row — click to edit inline */}
+                  {editingTitle ? (
+                    <div
+                      className="flex items-center gap-1.5"
+                      style={{
+                        background: BG_MAIN,
+                        border: `1px solid ${hexToRgba(Y, 0.8)}`,
+                        clipPath: CHAMFER_3,
+                        boxShadow: `0 0 8px ${hexToRgba(Y, 0.35)}`,
+                        padding: '2px 4px',
+                      }}
+                    >
+                      <Input
+                        autoFocus
+                        value={titleDraft}
+                        onChange={(e) => setTitleDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSaveTitle();
+                          } else if (e.key === 'Escape') {
+                            setEditingTitle(false);
+                          }
+                        }}
+                        onBlur={handleSaveTitle}
+                        className="h-7 border-0 bg-transparent px-1.5 text-sm focus-visible:ring-0"
+                        style={{
+                          color: TEXT_PRIMARY,
+                          fontFamily: 'var(--font-rajdhani), sans-serif',
+                          fontWeight: 700,
+                          letterSpacing: '0.5px',
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleStartEditTitle}
+                      className="group flex max-w-full items-center gap-1.5 text-left transition-colors hover:opacity-90"
+                      title="Кликните, чтобы изменить название"
+                    >
+                      <h3
+                        className="truncate text-base"
+                        style={{
+                          color: '#ffffff',
+                          fontFamily: 'var(--font-rajdhani), sans-serif',
+                          fontWeight: 700,
+                          letterSpacing: '0.6px',
+                          textShadow: `0 0 6px ${hexToRgba(Y, 0.25)}`,
+                        }}
+                      >
+                        {track.title}
+                      </h3>
+                      <Pencil
+                        className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                        style={{ color: Y }}
+                      />
+                    </button>
+                  )}
+
+                  {/* Subline: project + version chip */}
+                  <div
+                    className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px]"
+                    style={{
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                      color: TEXT_SECONDARY,
+                    }}
+                  >
+                    <span
+                      className="px-1.5 py-0.5"
+                      style={{
+                        background: hexToRgba(P, 0.15),
+                        border: `0.5px solid ${hexToRgba(P, 0.4)}`,
+                        color: '#b794f4',
+                        clipPath: CHAMFER_3,
+                        fontWeight: 700,
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      v{track.version}
+                    </span>
+                    <span className="opacity-70">
+                      {projectOfTrack?.title || 'Без проекта'}
+                    </span>
+                    {savingField && (
+                      <span
+                        className="ml-auto flex items-center gap-1"
+                        style={{
+                          color: Y,
+                          letterSpacing: '0.5px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        <span
+                          className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
+                          style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
+                        />
+                        Сохранение…
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Status + Kanban buttons */}
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    <Select value={track.status} onValueChange={handleStatusChange}>
+                      <SelectTrigger
+                        size="sm"
+                        className="w-[150px] shrink-0 h-8 border-0 rounded-none hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
+                        style={{
+                          background: BG_PANEL,
+                          border: `1px solid ${hexToRgba(C, 0.5)}`,
+                          clipPath: CHAMFER_4,
+                          color: Y,
+                          fontFamily: 'var(--font-jetbrains-mono), monospace',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          letterSpacing: '1px',
+                          textTransform: 'uppercase',
+                          boxShadow: INSET_BEVEL_SHADOW,
+                        }}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent
+                        className="border-0 rounded-none p-1 min-w-[180px]"
+                        style={{
+                          background: BG_PANEL,
+                          border: `1px solid ${hexToRgba(C, 0.5)}`,
+                          clipPath: CHAMFER_4,
+                          boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
+                        }}
+                      >
+                        {STATUS_OPTIONS.map((status) => (
+                          <SelectItem
+                            key={status}
+                            value={status}
+                            className="focus:!bg-[#0a0c10] focus:!text-[#00a8c6] data-[highlighted]:!bg-[#0a0c10] data-[highlighted]:!text-[#00a8c6] hover:!bg-[#0a0c10] hover:!text-[#00a8c6] !text-[#c7a008] border-0 rounded-none"
                             style={{
-                              color: TEXT_PRIMARY,
-                              fontFamily: 'var(--font-rajdhani), sans-serif',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                            }}
-                            title={tt.title}
-                          >
-                            {tt.title}
-                          </span>
-                          {/* Mini progress bar */}
-                          <div
-                            className="relative h-1.5 w-20 shrink-0"
-                            style={{
-                              background: BG_MAIN,
-                              border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
-                              clipPath: CHAMFER_3,
-                              boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                            }}
-                          >
-                            <div
-                              className="absolute inset-y-0 left-0"
-                              style={{
-                                width: `${subPct}%`,
-                                background: `linear-gradient(to right, ${P}, ${Y})`,
-                                boxShadow: `0 0 4px ${hexToRgba(Y, 0.5)}`,
-                                transition: 'width 220ms ease',
-                              }}
-                            />
-                          </div>
-                          {/* Done/total count */}
-                          <span
-                            className="shrink-0 tabular-nums"
-                            style={{
-                              color: subDone === subTotal && subTotal > 0 ? G : Y,
                               fontFamily: 'var(--font-jetbrains-mono), monospace',
-                              fontSize: '10px',
-                              fontWeight: 700,
-                              minWidth: '34px',
-                              textAlign: 'right',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              letterSpacing: '0.5px',
+                              clipPath: CHAMFER_3,
+                              padding: '4px 8px',
                             }}
                           >
-                            {subDone}/{subTotal}
-                          </span>
-                        </div>
-                      );
-                    })}
+                            <span className="flex items-center gap-1.5">
+                              <span
+                                className="h-1.5 w-1.5 rounded-full"
+                                style={{
+                                  backgroundColor: statusDotColors[status] || A,
+                                  boxShadow: `0 0 4px ${hexToRgba(statusDotColors[status] || A, 0.6)}`,
+                                }}
+                              />
+                              {statusLabels[status] || status}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {projectOfTrack?.kanbanTaskId && (
+                      <button
+                        onClick={() => {
+                          const project = useDataStore.getState().projects.find((p) => p.id === selectedProjectId);
+                          if (!project?.kanbanTaskId) return;
+                          useNavigationStore.getState().navigate('kanban');
+                          const taskId = project.kanbanTaskId;
+                          setTimeout(() => {
+                            useKanbanStore.getState().selectProject(taskId);
+                          }, 300);
+                        }}
+                        className="flex items-center gap-1.5 shrink-0 h-8 px-3 transition-all hover:scale-105"
+                        style={{
+                          clipPath: CHAMFER_4,
+                          background: hexToRgba(C, 0.1),
+                          border: `1px solid ${hexToRgba(C, 0.5)}`,
+                          color: C,
+                          fontFamily: 'var(--font-jetbrains-mono), monospace',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          letterSpacing: '1px',
+                          textTransform: 'uppercase',
+                          boxShadow: INSET_BEVEL_SHADOW,
+                        }}
+                        title="Открыть в Канбане"
+                      >
+                        <LayoutDashboard className="h-3.5 w-3.5" />
+                        Канбан
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* ── B. Description Section ─ kanban task description, inline-editable ── */}
+              <div className="mt-3">
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <span
+                    className="text-[10px]"
+                    style={{
+                      ...SECTION_TITLE_STYLE,
+                      fontSize: '10px',
+                      letterSpacing: '1.5px',
+                    }}
+                  >
+                    Описание
+                  </span>
+                  {savingField === 'description' && (
+                    <span
+                      className="flex items-center gap-1 text-[9px]"
+                      style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: '0.5px' }}
+                    >
+                      <span
+                        className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
+                        style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
+                      />
+                      Сохранение…
+                    </span>
+                  )}
+                </div>
+
+                {!primaryKanbanTask ? (
+                  // No linked kanban task — show a hint instead of an editor
+                  <div
+                    className="px-2.5 py-2 text-[11px]"
+                    style={{
+                      background: BG_MAIN,
+                      border: `0.5px solid ${hexToRgba(BORDER_MUTED, 1)}`,
+                      clipPath: CHAMFER_3,
+                      color: TEXT_SECONDARY,
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    }}
+                  >
+                    Нет связанной kanban-задачи.
+                  </div>
+                ) : editingDescription ? (
+                  // Edit mode: textarea + Save / Cancel buttons
+                  <div
+                    className="relative"
+                    style={{
+                      background: BG_MAIN,
+                      border: `1px solid ${hexToRgba(Y, 0.8)}`,
+                      clipPath: CHAMFER_4,
+                      boxShadow: `0 0 8px ${hexToRgba(Y, 0.35)}`,
+                      padding: '6px 8px 8px',
+                    }}
+                  >
+                    <textarea
+                      autoFocus
+                      value={descriptionDraft}
+                      onChange={(e) => setDescriptionDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault();
+                          handleSaveDescription();
+                        } else if (e.key === 'Escape') {
+                          setEditingDescription(false);
+                        }
+                      }}
+                      placeholder="Опишите трек — настроение, референсы, инструкции…"
+                      rows={3}
+                      className="w-full resize-none border-0 bg-transparent px-1 py-1 text-[12px] outline-none placeholder:opacity-40"
+                      style={{
+                        color: TEXT_PRIMARY,
+                        fontFamily: 'var(--font-rajdhani), sans-serif',
+                        fontWeight: 500,
+                        lineHeight: 1.4,
+                      }}
+                    />
+                    <div className="mt-1.5 flex items-center justify-between">
+                      <span
+                        className="text-[9px]"
+                        style={{
+                          color: TEXT_SECONDARY,
+                          fontFamily: 'var(--font-jetbrains-mono), monospace',
+                          letterSpacing: '0.5px',
+                        }}
+                      >
+                        ⌘+Enter — сохранить
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingDescription(false)}
+                          className="flex h-6 items-center gap-1 px-2 transition-all hover:opacity-80"
+                          style={{
+                            background: BG_PANEL,
+                            border: `0.5px solid ${hexToRgba(A, 0.5)}`,
+                            color: TEXT_SECONDARY,
+                            clipPath: CHAMFER_3,
+                            fontFamily: 'var(--font-jetbrains-mono), monospace',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            letterSpacing: '0.5px',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                          Отмена
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveDescription}
+                          className="flex h-6 items-center gap-1 px-2.5 transition-all hover:brightness-110"
+                          style={YELLOW_BUTTON_STYLE}
+                        >
+                          <Check className="h-3 w-3" />
+                          Сохранить
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : localKanbanDescription ? (
+                  // Display mode: HUD bubble with the description text
+                  <button
+                    type="button"
+                    onClick={handleStartEditDescription}
+                    className="group relative block w-full px-2.5 py-2 text-left transition-all hover:brightness-110"
+                    style={{
+                      background: hexToRgba(BG_CARD_TEAL, 0.7),
+                      border: `0.5px solid ${hexToRgba(C, 0.3)}`,
+                      borderLeft: `2px solid ${Y}`,
+                      clipPath: CHAMFER_3,
+                      boxShadow: `inset 0 1px 1px rgba(255,255,255,0.04), 0 0 6px ${hexToRgba(Y, 0.1)}`,
+                    }}
+                  >
+                    <p
+                      className="whitespace-pre-wrap break-words text-[12px]"
+                      style={{
+                        color: TEXT_PRIMARY,
+                        fontFamily: 'var(--font-rajdhani), sans-serif',
+                        fontWeight: 500,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {localKanbanDescription}
+                    </p>
+                    <Pencil
+                      className="absolute right-1.5 top-1.5 h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100"
+                      style={{ color: Y }}
+                    />
+                  </button>
+                ) : (
+                  // Empty state: "Нет описания" + "Добавить описание" button
+                  <button
+                    type="button"
+                    onClick={handleStartEditDescription}
+                    className="group flex w-full items-center justify-between px-2.5 py-2 text-left transition-all hover:brightness-110"
+                    style={{
+                      background: BG_MAIN,
+                      border: `0.5px dashed ${hexToRgba(Y, 0.4)}`,
+                      clipPath: CHAMFER_3,
+                    }}
+                  >
+                    <span
+                      className="text-[11px]"
+                      style={{
+                        color: TEXT_SECONDARY,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      Нет описания
+                    </span>
+                    <span
+                      className="flex h-6 items-center gap-1 px-2 transition-all group-hover:brightness-110"
+                      style={{
+                        ...YELLOW_BUTTON_STYLE,
+                        fontSize: '10px',
+                        padding: '2px 8px',
+                      }}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Добавить
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {/* ── C. Track Info Grid — 3×2 grid of small HUD stat cells ── */}
+              <div
+                className="mt-3 grid grid-cols-3 gap-1.5"
+              >
+                {/* Track # */}
+                <InfoStatCell
+                  label="Номер"
+                  value={String(track.trackNumber ?? 1).padStart(2, '0')}
+                />
+                {/* Duration */}
+                <InfoStatCell
+                  label="Длительность"
+                  value={formatDuration(
+                    (track.durationMs ?? 0) / 1000
+                  )}
+                />
+                {/* Version */}
+                <InfoStatCell label="Версия" value={`v${track.version}`} />
+                {/* Created date */}
+                <InfoStatCell
+                  label="Создан"
+                  value={
+                    trackDetail?.createdAt
+                      ? format(new Date(trackDetail.createdAt), 'dd.MM.yy')
+                      : track.createdAt
+                        ? format(new Date(track.createdAt), 'dd.MM.yy')
+                        : '—'
+                  }
+                />
+                {/* Created by */}
+                <InfoStatCell
+                  label="Автор"
+                  value={trackDetail?.creator?.displayName || '—'}
+                />
+                {/* Priority (editable) */}
+                <div
+                  className="relative flex flex-col gap-0.5 px-2 py-1.5"
+                  style={{
+                    background: BG_MAIN,
+                    border: `0.5px solid ${hexToRgba(C, 0.25)}`,
+                    clipPath: CHAMFER_3,
+                    boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.6)',
+                  }}
+                >
+                  <span
+                    className="text-[8px]"
+                    style={{
+                      color: Y,
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                      fontWeight: 700,
+                      letterSpacing: '1px',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Приоритет
+                  </span>
+                  {primaryKanbanTask ? (
+                    <Select
+                      value={localKanbanPriority ?? 'medium'}
+                      onValueChange={handlePriorityChange}
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        className="h-5 w-full border-0 rounded-none px-0 py-0 hover:!bg-transparent data-[state=open]:!bg-transparent"
+                        style={{
+                          background: 'transparent',
+                          color: priorityColor(localKanbanPriority ?? 'medium'),
+                          fontFamily: 'var(--font-jetbrains-mono), monospace',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          letterSpacing: '0.5px',
+                          textTransform: 'uppercase',
+                          boxShadow: 'none',
+                        }}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent
+                        className="border-0 rounded-none p-1 min-w-[140px]"
+                        style={{
+                          background: BG_PANEL,
+                          border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                          clipPath: CHAMFER_4,
+                          boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
+                        }}
+                      >
+                        {(['high', 'medium', 'low'] as const).map((p) => (
+                          <SelectItem
+                            key={p}
+                            value={p}
+                            className="focus:!bg-[#0a0c10] data-[highlighted]:!bg-[#0a0c10] hover:!bg-[#0a0c10] border-0 rounded-none"
+                            style={{
+                              color: priorityColor(p),
+                              fontFamily: 'var(--font-jetbrains-mono), monospace',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              letterSpacing: '0.5px',
+                              textTransform: 'uppercase',
+                              clipPath: CHAMFER_3,
+                              padding: '4px 8px',
+                            }}
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span
+                                className="h-1.5 w-1.5 rounded-full"
+                                style={{
+                                  backgroundColor: priorityColor(p),
+                                  boxShadow: `0 0 4px ${hexToRgba(priorityColor(p), 0.6)}`,
+                                }}
+                              />
+                              {priorityLabel(p)}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span
+                      className="text-[11px]"
+                      style={{
+                        color: TEXT_SECONDARY,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontWeight: 700,
+                      }}
+                    >
+                      —
+                    </span>
+                  )}
+                  {savingField === 'priority' && (
+                    <span
+                      className="absolute right-1 top-1 inline-block h-1 w-1 animate-pulse rounded-full"
+                      style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* ── D. Progress Section — waveform + status dots + task tree (kept) ── */}
+              <div className="mt-3">
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <Zap
+                    className="h-3.5 w-3.5"
+                    style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }}
+                  />
+                  <span
+                    className="text-[10px]"
+                    style={{
+                      ...SECTION_TITLE_STYLE,
+                      fontSize: '10px',
+                      letterSpacing: '1.5px',
+                    }}
+                  >
+                    Прогресс трека
+                  </span>
+                </div>
+
+                {/* Waveform progress bar */}
+                <WaveformProgressBar
+                  progress={trackProgress.pct}
+                  accentColor={Y}
+                  height={32}
+                  bars={24}
+                />
+
+                {/* Compact stats row — colored status dots */}
+                <div
+                  className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]"
+                  style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                >
+                  <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
+                  <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
+                  <StatDot label="В РАБОТЕ" count={trackProgress.inProgress} color={C} />
+                  <StatDot label="ПРОВЕРКА" count={trackProgress.review} color={Y} />
+                  <StatDot label="TODO" count={trackProgress.todo} color={A} />
+                </div>
+
+                {/* Tree-like breakdown — one row per trackTask with mini progress bar */}
+                {trackTasks.length > 0 && (
+                  <div
+                    className="mt-3 max-h-44 overflow-y-auto pr-1"
+                    style={{
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: `${hexToRgba(Y, 0.4)} transparent`,
+                    }}
+                  >
+                    <div className="flex flex-col gap-1.5">
+                      {trackTasks.map((tt) => {
+                        const subtasks = countAllDescendants([tt]);
+                        const subTotal = subtasks.length;
+                        const subDone = subtasks.filter((c) => c.status === 'done').length;
+                        const subPct = subTotal > 0 ? Math.round((subDone / subTotal) * 100) : 0;
+                        return (
+                          <div
+                            key={tt.id}
+                            className="flex items-center gap-2 px-2 py-1"
+                            style={{
+                              background: BG_MAIN,
+                              border: `1px solid ${hexToRgba(C, 0.2)}`,
+                              clipPath: CHAMFER_3,
+                            }}
+                          >
+                            {/* Tree connector */}
+                            <span
+                              className="select-none"
+                              style={{ color: hexToRgba(Y, 0.5), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}
+                            >
+                              ├─
+                            </span>
+                            {/* Title */}
+                            <span
+                              className="min-w-0 flex-1 truncate"
+                              style={{
+                                color: TEXT_PRIMARY,
+                                fontFamily: 'var(--font-rajdhani), sans-serif',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                              }}
+                              title={tt.title}
+                            >
+                              {tt.title}
+                            </span>
+                            {/* Mini progress bar */}
+                            <div
+                              className="relative h-1.5 w-20 shrink-0"
+                              style={{
+                                background: BG_MAIN,
+                                border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+                                clipPath: CHAMFER_3,
+                                boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                              }}
+                            >
+                              <div
+                                className="absolute inset-y-0 left-0"
+                                style={{
+                                  width: `${subPct}%`,
+                                  background: `linear-gradient(to right, ${P}, ${Y})`,
+                                  boxShadow: `0 0 4px ${hexToRgba(Y, 0.5)}`,
+                                  transition: 'width 220ms ease',
+                                }}
+                              />
+                            </div>
+                            {/* Done/total count */}
+                            <span
+                              className="shrink-0 tabular-nums"
+                              style={{
+                                color: subDone === subTotal && subTotal > 0 ? G : Y,
+                                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                minWidth: '34px',
+                                textAlign: 'right',
+                              }}
+                            >
+                              {subDone}/{subTotal}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Project progress — compact summary, 1 column */}
+            {/* RIGHT (lg:col-span-1): Project progress summary — kept verbatim */}
             <div
               className="relative flex flex-col justify-between gap-2 p-2.5 lg:p-3"
               style={{
