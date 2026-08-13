@@ -964,30 +964,8 @@ export function TrackDetailView() {
 
     setHeaderTitle(track.title);
 
-    const kanbanTaskId = projectOfTrack?.kanbanTaskId;
-    if (kanbanTaskId) {
-      setHeaderActions([
-        {
-          id: 'open-in-kanban',
-          label: 'Открыть в Канбане',
-          icon: <LayoutDashboard className="h-3.5 w-3.5" />,
-          variant: 'outline',
-          onClick: () => {
-            const project = useDataStore
-              .getState()
-              .projects.find((p) => p.id === selectedProjectId);
-            if (!project?.kanbanTaskId) return;
-            useNavigationStore.getState().navigate('kanban');
-            const taskId = project.kanbanTaskId;
-            setTimeout(() => {
-              useKanbanStore.getState().selectProject(taskId);
-            }, 300);
-          },
-        },
-      ]);
-    } else {
-      setHeaderActions([]);
-    }
+    // "Open in Kanban" button is now rendered inline next to the status selector
+    setHeaderActions([]);
 
     return () => {
       setHeaderActions([]);
@@ -1830,6 +1808,38 @@ export function TrackDetailView() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* Open in Kanban button — next to status selector */}
+        {projectOfTrack?.kanbanTaskId && (
+          <button
+            onClick={() => {
+              const project = useDataStore.getState().projects.find((p) => p.id === selectedProjectId);
+              if (!project?.kanbanTaskId) return;
+              useNavigationStore.getState().navigate('kanban');
+              const taskId = project.kanbanTaskId;
+              setTimeout(() => {
+                useKanbanStore.getState().selectProject(taskId);
+              }, 300);
+            }}
+            className="flex items-center gap-1.5 shrink-0 h-8 px-3 transition-all hover:scale-105"
+            style={{
+              clipPath: CHAMFER_4,
+              background: hexToRgba(C, 0.1),
+              border: `1px solid ${hexToRgba(C, 0.5)}`,
+              color: C,
+              fontFamily: 'var(--font-jetbrains-mono), monospace',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '1px',
+              textTransform: 'uppercase',
+              boxShadow: INSET_BEVEL_SHADOW,
+            }}
+            title="Открыть в Канбане"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            Канбан
+          </button>
+        )}
       </motion.div>
 
       {/* ─── Kanban Progress Panel — track + project stats tree ─── */}
@@ -2198,205 +2208,6 @@ export function TrackDetailView() {
       {/* Main content — single full-width column (chat moved to global floating widget) */}
       <div className="min-h-0 flex-1">
         <div className="flex h-full flex-col">
-          {/* Audio Player — HUD panel with chamfered corners, corner brackets, inset bevel */}
-              <div
-                className="relative shrink-0 p-4 lg:p-6"
-                style={{
-                  background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
-                  border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                  clipPath: CHAMFER_8,
-                  boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
-                }}
-              >
-                <CornerBrackets size={12} />
-                {/* Seek bar — continuous smooth bar, no segments */}
-                <div className="mb-3">
-                  <div
-                    className="group relative h-2.5 w-full cursor-pointer"
-                    style={{
-                      background: BG_MAIN,
-                      clipPath: CHAMFER_3,
-                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                    }}
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const x = e.clientX - rect.left;
-                      const p = x / rect.width;
-                      seekTo(p * duration);
-                    }}
-                  >
-                    {/* Continuous fill — yellow→cyan gradient with glow */}
-                    <div
-                      className="absolute inset-y-0 left-0 transition-all duration-100"
-                      style={{
-                        width: `${progress * 100}%`,
-                        background: `linear-gradient(to right, ${P}, ${Y})`,
-                        boxShadow: `0 0 6px ${hexToRgba(Y, 0.6)}, 0 0 3px ${hexToRgba(P, 0.4)}`,
-                        clipPath: CHAMFER_3,
-                      }}
-                    />
-                    {/* Thumb */}
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3.5 w-3.5 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
-                      style={{
-                        left: `${progress * 100}%`,
-                        background: '#ffffff',
-                        boxShadow: `0 0 6px ${Y}, 0 0 2px ${Y}`,
-                      }}
-                    />
-                  </div>
-                  {/* Time display row — large yellow current / smaller grey total */}
-                  <div className="mt-2 flex items-baseline justify-between gap-2">
-                    <span
-                      className="tabular-nums"
-                      style={{
-                        color: Y,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        fontSize: '16px',
-                        fontWeight: 800,
-                        textShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
-                        letterSpacing: '0.5px',
-                      }}
-                    >
-                      {formatDuration(currentTime)}
-                    </span>
-                    <span
-                      className="tabular-nums"
-                      style={{
-                        color: TEXT_SECONDARY,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        fontSize: '11px',
-                      }}
-                    >
-                      {formatDuration(displayDuration)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Controls row — transport buttons + volume + hint */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
-                          style={{
-                            clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                            background: BG_MAIN,
-                            color: Y,
-                          }}
-                          onClick={() => skip(-5)}
-                        >
-                          <SkipBack className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Назад 5с</TooltipContent>
-                    </Tooltip>
-
-                    <Button
-                      size="icon"
-                      className="h-12 w-12 rounded-none border-0"
-                      style={{
-                        clipPath: CHAMFER_4,
-                        // Purple→yellow gradient bg per cyberpunk 2077 spec
-                        background: `linear-gradient(135deg, ${P} 0%, ${Y} 100%)`,
-                        boxShadow: `0 0 16px ${hexToRgba(Y, 0.55)}, 0 0 8px ${hexToRgba(P, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
-                        border: `1.5px solid ${hexToRgba(Y, 0.5)}`,
-                      }}
-                      onClick={togglePlay}
-                    >
-                      {isPlaying ? (
-                        <Pause className="h-5 w-5" style={{ color: '#fff', filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.6))' }} />
-                      ) : (
-                        <Play className="h-5 w-5 ml-0.5" style={{ color: Y, filter: `drop-shadow(0 0 3px ${Y})` }} />
-                      )}
-                    </Button>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
-                          style={{
-                            clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                            background: BG_MAIN,
-                            color: Y,
-                          }}
-                          onClick={() => skip(5)}
-                        >
-                          <SkipForward className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Вперёд 5с</TooltipContent>
-                    </Tooltip>
-                  </div>
-
-                  {/* Volume — chamfered slider with yellow fill */}
-                  <div className="flex items-center gap-2 ml-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-none border-0 hover:bg-[#c7a008]/10"
-                          style={{
-                            clipPath: CHAMFER_4,
-                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                            background: BG_MAIN,
-                            color: Y,
-                          }}
-                          onClick={() => setIsMuted(!isMuted)}
-                        >
-                          {isMuted || volume === 0 ? (
-                            <VolumeX className="h-4 w-4" />
-                          ) : (
-                            <Volume2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>
-                        {isMuted ? 'Включить звук' : 'Выключить звук'}
-                      </TooltipContent>
-                    </Tooltip>
-                    <div
-                      className="group relative h-2 w-24 cursor-pointer"
-                      style={{
-                        background: BG_MAIN,
-                        clipPath: CHAMFER_3,
-                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                        border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
-                      }}
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        setVolume(Math.max(0, Math.min(1, x / rect.width)));
-                        if (isMuted) setIsMuted(false);
-                      }}
-                    >
-                      <div
-                        className="absolute inset-y-0 left-0 transition-all"
-                        style={{
-                          width: `${(isMuted ? 0 : volume) * 100}%`,
-                          background: `linear-gradient(to right, ${Y2}, ${Y})`,
-                          clipPath: CHAMFER_3,
-                          boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}`,
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Keyboard shortcut hint */}
-                  <p className="ml-auto hidden text-[11px] lg:block" style={{ color: `${Y}cc`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                    Пробел: Играть/Пауза · ←→: Перемотка 5с
-                  </p>
-                </div>
-              </div>
-
               {/* Waveform */}
               <div className="shrink-0 px-4 pt-4 lg:px-6">
                 {/* Marker mode toolbar — always visible near waveform */}
@@ -2674,27 +2485,43 @@ export function TrackDetailView() {
                               </>
                             ) : (
                               <>
-                                {/* Point marker: circle pin */}
+                                {/* Point marker: cyberpunk HUD diamond pin */}
                                 <div
-                                  className={`rounded-full border-2 transition-all duration-150 ${
-                                    isFocused
-                                      ? 'h-4 w-4 border-[#00a8c6] bg-[#00a8c6]/30 shadow-[0_0_8px_rgba(0,168,198,0.5)]'
+                                  className="transition-all duration-150"
+                                  style={{
+                                    width: isFocused ? '14px' : isHovered ? '12px' : '10px',
+                                    height: isFocused ? '14px' : isHovered ? '12px' : '10px',
+                                    background: comment.isResolved ? G : C,
+                                    clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+                                    boxShadow: isFocused
+                                      ? `0 0 8px ${C}, 0 0 4px ${Y}`
                                       : isHovered
-                                        ? 'h-3.5 w-3.5 border-[#00a8c6] bg-[#00a8c6]/40 shadow-[0_0_8px_rgba(0,168,198,0.5)]'
+                                        ? `0 0 6px ${C}`
                                         : comment.isResolved
-                                          ? 'h-2.5 w-2.5 border-[#4a8d6f] bg-[#4a8d6f]'
-                                          : 'h-2.5 w-2.5 border-[#00a8c6] bg-[#00a8c6]'
-                                  }`}
-                                  style={{ borderColor: 'inherit' }}
+                                          ? `0 0 3px ${G}`
+                                          : `0 0 4px ${hexToRgba(C, 0.6)}`,
+                                    border: `1px solid ${Y}`,
+                                  }}
                                 >
-                                  <div className="m-auto h-1 w-1 rounded-full bg-white" />
+                                  <div style={{
+                                    width: '3px', height: '3px',
+                                    background: Y,
+                                    margin: 'auto',
+                                    marginTop: isFocused ? '5px' : isHovered ? '4px' : '3px',
+                                  }} />
                                 </div>
 
                                 {/* Vertical line down from pin */}
                                 <div
-                                  className={`absolute left-1/2 top-full h-4 w-px -translate-x-1/2 transition-colors ${
-                                    isFocused ? 'bg-[#00a8c6]/60' : isHovered ? 'bg-[#00a8c6]/40' : 'bg-[#00a8c6]/20'
-                                  }`}
+                                  className="absolute left-1/2 top-full w-px -translate-x-1/2 transition-colors"
+                                  style={{
+                                    height: '20px',
+                                    background: isFocused
+                                      ? `linear-gradient(180deg, ${C}, transparent)`
+                                      : isHovered
+                                        ? `linear-gradient(180deg, ${hexToRgba(C, 0.6)}, transparent)`
+                                        : `linear-gradient(180deg, ${hexToRgba(C, 0.3)}, transparent)`,
+                                  }}
                                 />
                               </>
                             )}
@@ -2949,6 +2776,204 @@ export function TrackDetailView() {
                   document.body
                 );
               })()}
+          {/* Audio Player — HUD panel with chamfered corners, corner brackets, inset bevel */}
+              <div
+                className="relative shrink-0 p-4 lg:p-6"
+                style={{
+                  background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+                  border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                  clipPath: CHAMFER_8,
+                  boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
+                }}
+              >
+                <CornerBrackets size={12} />
+                {/* Seek bar — continuous smooth bar, no segments */}
+                <div className="mb-3">
+                  <div
+                    className="group relative h-2.5 w-full cursor-pointer"
+                    style={{
+                      background: BG_MAIN,
+                      clipPath: CHAMFER_3,
+                      boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                    }}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      const p = x / rect.width;
+                      seekTo(p * duration);
+                    }}
+                  >
+                    {/* Continuous fill — yellow→cyan gradient with glow */}
+                    <div
+                      className="absolute inset-y-0 left-0 transition-all duration-100"
+                      style={{
+                        width: `${progress * 100}%`,
+                        background: `linear-gradient(to right, ${P}, ${Y})`,
+                        boxShadow: `0 0 6px ${hexToRgba(Y, 0.6)}, 0 0 3px ${hexToRgba(P, 0.4)}`,
+                        clipPath: CHAMFER_3,
+                      }}
+                    />
+                    {/* Thumb */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3.5 w-3.5 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
+                      style={{
+                        left: `${progress * 100}%`,
+                        background: '#ffffff',
+                        boxShadow: `0 0 6px ${Y}, 0 0 2px ${Y}`,
+                      }}
+                    />
+                  </div>
+                  {/* Time display row — large yellow current / smaller grey total */}
+                  <div className="mt-2 flex items-baseline justify-between gap-2">
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        color: Y,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        textShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {formatDuration(currentTime)}
+                    </span>
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        color: TEXT_SECONDARY,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        fontSize: '11px',
+                      }}
+                    >
+                      {formatDuration(displayDuration)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Controls row — transport buttons + volume + hint */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
+                          style={{
+                            clipPath: CHAMFER_4,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                            background: BG_MAIN,
+                            color: Y,
+                          }}
+                          onClick={() => skip(-5)}
+                        >
+                          <SkipBack className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Назад 5с</TooltipContent>
+                    </Tooltip>
+
+                    <Button
+                      size="icon"
+                      className="h-12 w-12 rounded-none border-0"
+                      style={{
+                        clipPath: CHAMFER_4,
+                        // Purple→yellow gradient bg per cyberpunk 2077 spec
+                        background: `linear-gradient(135deg, ${P} 0%, ${Y} 100%)`,
+                        boxShadow: `0 0 16px ${hexToRgba(Y, 0.55)}, 0 0 8px ${hexToRgba(P, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+                        border: `1.5px solid ${hexToRgba(Y, 0.5)}`,
+                      }}
+                      onClick={togglePlay}
+                    >
+                      {isPlaying ? (
+                        <Pause className="h-5 w-5" style={{ color: '#fff', filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.6))' }} />
+                      ) : (
+                        <Play className="h-5 w-5 ml-0.5" style={{ color: Y, filter: `drop-shadow(0 0 3px ${Y})` }} />
+                      )}
+                    </Button>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-none border-0 hover:bg-[#c7a008]/10 hover:text-[#c7a008]"
+                          style={{
+                            clipPath: CHAMFER_4,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                            background: BG_MAIN,
+                            color: Y,
+                          }}
+                          onClick={() => skip(5)}
+                        >
+                          <SkipForward className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Вперёд 5с</TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  {/* Volume — chamfered slider with yellow fill */}
+                  <div className="flex items-center gap-2 ml-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-none border-0 hover:bg-[#c7a008]/10"
+                          style={{
+                            clipPath: CHAMFER_4,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                            background: BG_MAIN,
+                            color: Y,
+                          }}
+                          onClick={() => setIsMuted(!isMuted)}
+                        >
+                          {isMuted || volume === 0 ? (
+                            <VolumeX className="h-4 w-4" />
+                          ) : (
+                            <Volume2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>
+                        {isMuted ? 'Включить звук' : 'Выключить звук'}
+                      </TooltipContent>
+                    </Tooltip>
+                    <div
+                      className="group relative h-2 w-24 cursor-pointer"
+                      style={{
+                        background: BG_MAIN,
+                        clipPath: CHAMFER_3,
+                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                        border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+                      }}
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        setVolume(Math.max(0, Math.min(1, x / rect.width)));
+                        if (isMuted) setIsMuted(false);
+                      }}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 transition-all"
+                        style={{
+                          width: `${(isMuted ? 0 : volume) * 100}%`,
+                          background: `linear-gradient(to right, ${Y2}, ${Y})`,
+                          clipPath: CHAMFER_3,
+                          boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Keyboard shortcut hint */}
+                  <p className="ml-auto hidden text-[11px] lg:block" style={{ color: `${Y}cc`, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                    Пробел: Играть/Пауза · ←→: Перемотка 5с
+                  </p>
+                </div>
+              </div>
 
               {/* Comments Section */}
               <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 lg:px-6">
