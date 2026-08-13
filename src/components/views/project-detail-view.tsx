@@ -855,7 +855,7 @@ export function ProjectDetailView() {
   );
 }
 
-/* ─── Track Card — purple HUD slab with chamfered corners and yellow accents ─── */
+/* ─── Track Card — cyan-yellow HUD slab with purple accents, interactive ─── */
 function TrackCard({
   index,
   title,
@@ -882,38 +882,71 @@ function TrackCard({
   const [h, setH] = useState(false);
 
   return (
-    <Card
+    <motion.div
       onClick={onClick}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
-      className="group relative cursor-pointer overflow-hidden border-0 rounded-none p-0 gap-0 transition-all"
+      className="group relative cursor-pointer overflow-hidden"
+      whileHover={{ scale: 1.01, y: -2 }}
+      whileTap={{ scale: 0.99 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       style={{
         clipPath: CHAMFER_8,
-        background: BG_CARD_PURPLE,
-        borderTop: `2px solid ${h ? Y : P}`,
+        background: h
+          ? `linear-gradient(135deg, ${hexToRgba(C, 0.15)} 0%, ${BG_CARD_TEAL} 100%)`
+          : `linear-gradient(135deg, ${BG_CARD_TEAL} 0%, ${BG_PANEL} 100%)`,
+        borderTop: `2px solid ${h ? Y : C}`,
         boxShadow: h
-          ? `inset 0 1px 12px ${hexToRgba(Y, 0.15)}, inset 0 0 0 1px ${hexToRgba(Y, 0.5)}, 0 4px 12px rgba(0,0,0,0.4)`
-          : `inset 0 1px 12px ${hexToRgba(P, 0.15)}, inset 0 0 0 1px ${hexToRgba(P, 0.3)}`,
-        transform: h ? 'translateY(-2px)' : 'translateY(0)',
+          ? `inset 0 1px 12px ${hexToRgba(Y, 0.15)}, inset 0 0 0 1px ${hexToRgba(Y, 0.4)}, 0 0 8px ${hexToRgba(Y, 0.15)}, 0 4px 16px rgba(0,0,0,0.5)`
+          : `inset 0 1px 12px ${hexToRgba(C, 0.1)}, inset 0 0 0 1px ${hexToRgba(C, 0.25)}`,
       }}
     >
-      {/* Inner beveled frame (recessed screen effect — mirrors ProjectCard in home-view) */}
+      {/* Cyan scan line on hover */}
+      {h && (
+        <div
+          className="absolute inset-x-0 h-1 pointer-events-none"
+          style={{
+            top: 0,
+            background: `linear-gradient(90deg, transparent, ${Y}, transparent)`,
+            boxShadow: `0 0 8px ${Y}`,
+            animation: 'kb2-scan-sweep 1.2s ease-out',
+          }}
+        />
+      )}
+
+      {/* Corner brackets */}
+      <div className="absolute top-0 left-0 w-2.5 h-2.5 pointer-events-none" style={{
+        borderTop: '1.5px solid rgba(0,168,198,0.6)',
+        borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+      }} />
+      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 pointer-events-none" style={{
+        borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+        borderRight: '1.5px solid rgba(199,160,8,0.6)',
+      }} />
+
+      {/* Left purple accent bar */}
       <div
-        className="absolute inset-[3px] pointer-events-none transition-opacity duration-300"
+        className="absolute left-0 top-3 bottom-3 w-[2px]"
         style={{
-          clipPath: CHAMFER_8,
-          boxShadow: h
-            ? `inset 0 0 0 1px ${hexToRgba(P, 0.35)}, inset 0 0 14px ${hexToRgba(P, 0.15)}`
-            : `inset 0 0 0 1px ${hexToRgba(P, 0.15)}`,
+          background: `linear-gradient(180deg, transparent, ${P} 30%, ${P} 70%, transparent)`,
+          boxShadow: `0 0 4px ${hexToRgba(P, 0.5)}`,
           opacity: h ? 1 : 0.5,
+          transition: 'opacity 280ms ease',
         }}
       />
 
-      <CardContent className="relative p-0" style={{ zIndex: 2 }}>
-        <div className="flex items-center gap-4 p-4">
-          {/* Track number — yellow monospace */}
+      <div className="relative flex items-center gap-4 p-4 pl-5" style={{ zIndex: 2 }}>
+        {/* Track number — purple monospace in yellow frame */}
+        <div
+          className="flex h-9 w-9 items-center justify-center shrink-0"
+          style={{
+            clipPath: CHAMFER_4,
+            background: hexToRgba(P, 0.15),
+            border: `1px solid ${hexToRgba(P, 0.5)}`,
+            boxShadow: h ? `0 0 8px ${hexToRgba(P, 0.4)}` : 'none',
+          }}
+        >
           <span
-            className="w-8 text-center"
             style={{
               color: Y,
               fontFamily: 'var(--font-jetbrains-mono), monospace',
@@ -924,99 +957,127 @@ function TrackCard({
           >
             {String(index + 1).padStart(2, '0')}
           </span>
+        </div>
 
-          {/* Title + Info */}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
-              {title}
-            </p>
+        {/* Title + Info */}
+        <div className="min-w-0 flex-1">
+          <p
+            className="truncate text-sm font-bold transition-colors"
+            style={{
+              color: h ? '#ffffff' : TEXT_PRIMARY,
+              fontFamily: 'var(--font-rajdhani), sans-serif',
+              fontWeight: 700,
+              textShadow: h ? `0 0 6px ${hexToRgba(Y, 0.3)}` : 'none',
+            }}
+          >
+            {title}
+          </p>
+          <div className="flex items-center gap-2 mt-0.5">
             <p
               className="text-xs"
               style={{
-                color: TEXT_SECONDARY,
+                color: h ? hexToRgba(Y, 0.7) : TEXT_SECONDARY,
                 fontFamily: 'var(--font-jetbrains-mono), monospace',
               }}
             >
               {createdBy}
             </p>
+            {durationMs != null && (
+              <span className="text-[10px]" style={{ color: TEXT_SECONDARY, fontFamily: 'monospace' }}>·</span>
+            )}
+            {durationMs != null && (
+              <span
+                className="text-[10px]"
+                style={{
+                  color: C,
+                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+                  opacity: h ? 1 : 0.6,
+                }}
+              >
+                {formatDuration(durationMs)}
+              </span>
+            )}
           </div>
+        </div>
 
-          {/* Status badge — yellow tint chamfered with colored status dot */}
-          <Badge
-            variant="outline"
-            className="hidden border-0 rounded-none sm:inline-flex uppercase"
-            style={{
-              ...YELLOW_CHIP_STYLE,
-              padding: '3px 8px',
-            }}
-          >
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{
-                background: statusColor,
-                boxShadow: `0 0 6px ${hexToRgba(statusColor, 0.6)}`,
-              }}
-            />
-            {statusLabels[status] || status}
-          </Badge>
-
-          {/* Duration — monospace muted */}
+        {/* Status badge — yellow tint chamfered with colored status dot */}
+        <div
+          className="hidden sm:flex items-center gap-1.5"
+          style={{
+            ...YELLOW_CHIP_STYLE,
+            padding: '3px 8px',
+          }}
+        >
           <span
-            className="hidden w-12 text-right md:block"
+            className="w-1.5 h-1.5 rounded-full"
             style={{
-              color: TEXT_SECONDARY,
+              background: statusColor,
+              boxShadow: `0 0 6px ${hexToRgba(statusColor, 0.6)}`,
+            }}
+          />
+          <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {statusLabels[status] || status}
+          </span>
+        </div>
+
+        {/* Version — purple mono */}
+        {version != null && (
+          <span
+            className="hidden lg:block"
+            style={{
+              color: P,
               fontFamily: 'var(--font-jetbrains-mono), monospace',
               fontSize: '11px',
+              opacity: h ? 1 : 0.6,
+              textShadow: h ? `0 0 4px ${hexToRgba(P, 0.4)}` : 'none',
             }}
           >
-            {formatDuration(durationMs)}
+            v{version}
           </span>
+        )}
 
-          {/* Version — yellow mono */}
-          {version != null && (
-            <span
-              className="hidden lg:block"
-              style={{
-                color: Y,
-                fontFamily: 'var(--font-jetbrains-mono), monospace',
-                fontSize: '11px',
-                opacity: 0.7,
-              }}
-            >
-              v{version}
-            </span>
-          )}
+        {/* Focus on Kanban button — cyan chip */}
+        {kanbanTaskId && onFocusKanban && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onFocusKanban();
+            }}
+            className="hidden sm:flex items-center gap-1 transition-all hover:scale-105"
+            style={{
+              padding: '4px 8px',
+              clipPath: CHAMFER_3,
+              background: hexToRgba(C, 0.1),
+              border: `1px solid ${hexToRgba(C, 0.4)}`,
+              color: C,
+              fontSize: '10px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              fontFamily: 'var(--font-jetbrains-mono), monospace',
+            }}
+            title="Открыть в Kanban"
+          >
+            <LayoutDashboard className="h-3 w-3" />
+            Канбан
+          </button>
+        )}
 
-          {/* Focus on Kanban button — yellow chip */}
-          {kanbanTaskId && onFocusKanban && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onFocusKanban();
-              }}
-              className="hidden sm:flex items-center gap-1 transition-all hover:scale-105"
-              style={{
-                ...YELLOW_CHIP_STYLE,
-                padding: '4px 8px',
-              }}
-              title="Открыть в Kanban"
-            >
-              <LayoutDashboard className="h-3 w-3" />
-              Kanban
-            </button>
-          )}
-
-          {/* Chevron indicator — yellow */}
+        {/* Chevron indicator — yellow, slides on hover */}
+        <motion.div
+          animate={{ x: h ? 3 : 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        >
           <ChevronRight
             className="h-4 w-4 shrink-0"
             style={{
               color: Y,
-              opacity: h ? 1 : 0.6,
+              opacity: h ? 1 : 0.5,
+              filter: h ? `drop-shadow(0 0 3px ${Y})` : 'none',
               transition: 'opacity 280ms ease',
             }}
           />
-        </div>
-      </CardContent>
-    </Card>
+        </motion.div>
+      </div>
+    </motion.div>
   );
 }
