@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, X, Bell, Menu, ChevronRight, ChevronDown,
   MessageCircle, LogOut, Settings, User, Check, Copy,
   Home, Lightbulb, FolderOpen, LayoutGrid, Music,
-  FolderKanban, Music2, Users, Zap, LayoutDashboard,
+  FolderKanban, Music2, Users, Zap, LayoutDashboard, Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -34,6 +34,7 @@ import { useHeaderActionsStore } from '@/store/header-actions-store';
 import { useChatContextStore } from '@/store/chat-context-store';
 import { useChatUIStore } from '@/store/chat-ui-store';
 import { useChatUnread } from '@/components/chat/project-chat';
+import { useKanbanStore, type Task } from '@/store/kanban-store';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { hexToRgba } from '@/lib/utils';
@@ -86,6 +87,22 @@ export function AppHeader() {
   const ideas = useDataStore((s) => s.ideas);
   const currentGroupId = useAuthStore((s) => s.currentGroupId);
   const [memberCount, setMemberCount] = useState(0);
+  // Quick-access project IDs — same source as the home page's "Быстрый доступ"
+  // section. Read from localStorage so the header panel always shows the same
+  // projects the user pinned on the home page.
+  // We read localStorage directly during render, keyed on `quickPanelOpen`
+  // so the value is re-read every time the panel opens. This is cheap
+  // (synchronous localStorage read) and avoids the react-hooks/set-state-in-effect
+  // lint rule that fires when you call setState inside a useEffect.
+  const quickAccessIds: string[] = useMemo(() => {
+    // Depend on quickPanelOpen so the memo recomputes every time the panel
+    // opens — picks up any changes the user made on the home page.
+    void quickPanelOpen;
+    try {
+      const raw = localStorage.getItem('soundflow-quick-access');
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch { return []; }
+  }, [quickPanelOpen]);
 
   // Fetch member count whenever the group changes (used by the quick panel).
   useEffect(() => {
@@ -95,6 +112,57 @@ export function AppHeader() {
       .then((m) => setMemberCount(Array.isArray(m) ? m.length : 0))
       .catch(() => {});
   }, [currentGroupId]);
+
+  // Fetch kanban projects (top-level tasks) — same fetch the home page uses.
+  // Needed because quick-access IDs can point to either auto projects or
+  // kanban-only projects.
+  const [kanbanProjects, setKanbanProjects] = useState<Task[]>([]);
+  useEffect(() => {
+    fetch('/api/tasks?parentId=null')
+      .then((r) => r.json())
+      .then((data) => {
+        const tasks: Task[] = Array.isArray(data) ? data : data.tasks || [];
+        setKanbanProjects(tasks);
+        useKanbanStore.getState().setProjects(tasks);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Build the unified quick-access list — same logic as the home page.
+  // Maps the localStorage `quickAccess` IDs to auto projects + kanban projects.
+  const autoProjects = useMemo(() => projects.filter((p) => p.kanbanTaskId), [projects]);
+  const quickAccessCards = useMemo(() => {
+    type Card =
+      | { kind: 'auto'; id: string; title: string; type: string; status: string; trackCount: number }
+      | { kind: 'kanban'; id: string; title: string; type: string; status: string; boardCount: number };
+    const out: Card[] = [];
+    quickAccessIds.forEach((id) => {
+      const autoP = autoProjects.find((p) => p.id === id);
+      if (autoP) {
+        out.push({
+          kind: 'auto',
+          id: autoP.id,
+          title: autoP.title,
+          type: autoP.type,
+          status: autoP.status,
+          trackCount: tracks.filter((t) => t.projectId === autoP.id).length,
+        });
+        return;
+      }
+      const kanbanT = kanbanProjects.find((t) => t.id === id);
+      if (kanbanT) {
+        out.push({
+          kind: 'kanban',
+          id: kanbanT.id,
+          title: kanbanT.title,
+          type: kanbanT.projectType || 'general',
+          status: kanbanT.status,
+          boardCount: kanbanT.children?.length ?? 0,
+        });
+      }
+    });
+    return out;
+  }, [quickAccessIds, autoProjects, kanbanProjects, tracks]);
 
   // Close the quick-access panel when the user clicks outside it or presses Escape.
   const quickPanelRef = useRef<HTMLDivElement>(null);
@@ -929,36 +997,50 @@ export function AppHeader() {
                 ))}
               </div>
 
-              {/* Quick-access cards — first 6 projects, styled like the
+              {/* Quick-access cards — same projects the user pinned on the home
+                  page's "Быстрый доступ" section. Reads the shared
+                  `soundflow-quick-access` localStorage key. Styled like the
                   home page's QuickAccessCard (cyan card + yellow inner content,
-                  beveled edge glow, status dot + track count + waveform bar). */}
-              {projects.length > 0 ? (
+                  beveled edge glow, status dot + track/board count + waveform bar). */}
+              {quickAccessCards.length > 0 ? (
                 <div>
                   <div className="flex items-center gap-1.5 mb-2">
                     <LayoutDashboard className="h-3 w-3" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 3px rgba(0,168,198,0.5))' }} />
                     <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                      Проекты
+                      Быстрый доступ
                     </span>
                     <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.4), transparent)' }} />
                   </div>
                   <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(157,78,221,0.4) transparent' }}>
-                    {projects.slice(0, 6).map((p) => {
+                    {quickAccessCards.map((card) => {
                       const C_HEX = '#00a8c6';
                       const Y_HEX = '#c7a008';
                       // Status labels matching home-view
                       const stLabel: Record<string, string> = {
-                        draft: 'Черновик', in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз',
+                        draft: 'Черновик', in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз', todo: 'TODO',
                       };
-                      const sl = stLabel[p.status] || p.status;
+                      const sl = stLabel[card.status] || card.status;
                       const typeLabels: Record<string, string> = {
                         album: 'Альбом', ep: 'EP', single: 'Сингл', general: 'Канбан',
                       };
-                      const tl = typeLabels[p.type] || 'Проект';
-                      const trackCount = tracks.filter((t) => t.projectId === p.id).length;
+                      const tl = typeLabels[card.type] || 'Проект';
+                      const count = card.kind === 'auto' ? card.trackCount : card.boardCount;
+                      const progress = card.kind === 'auto'
+                        ? (count > 0 ? 50 : 10)
+                        : (count > 0 ? 40 : 10);
                       return (
                         <div
-                          key={p.id}
-                          onClick={() => { navigate('project-detail', p.id); setQuickPanelOpen(false); }}
+                          key={card.id}
+                          onClick={() => {
+                            if (card.kind === 'auto') {
+                              navigate('project-detail', card.id);
+                            } else {
+                              // Select the kanban project FIRST so KanbanPage doesn't redirect.
+                              useKanbanStore.getState().selectProject(card.id);
+                              navigate('kanban');
+                            }
+                            setQuickPanelOpen(false);
+                          }}
                           className="group relative w-52 shrink-0 cursor-pointer overflow-hidden"
                           style={{
                             clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
@@ -976,7 +1058,7 @@ export function AppHeader() {
                             e.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(0,168,198,0.3), inset 0 0 0 2.5px rgba(199,160,8,0.55), 0 0 4px rgba(199,160,8,0.1), 0 2px 10px rgba(0,0,0,0.4)';
                             e.currentTarget.style.transform = 'translateY(0)';
                           }}
-                          title={`Открыть: ${p.title}`}
+                          title={`Открыть: ${card.title}`}
                         >
                           {/* Beveled edge glow — top accent strip (cyan) */}
                           <div
@@ -998,7 +1080,11 @@ export function AppHeader() {
                                   border: `1px solid ${hexToRgba(Y_HEX, 0.5)}`,
                                 }}
                               >
-                                <FolderOpen className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                {card.kind === 'auto' ? (
+                                  <FolderOpen className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                ) : (
+                                  <LayoutDashboard className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                )}
                               </div>
                               <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: Y_HEX, textShadow: `0 0 4px ${hexToRgba(Y_HEX, 0.4)}` }}>
                                 {tl}
@@ -1010,9 +1096,9 @@ export function AppHeader() {
                               letterSpacing: '0.02em',
                               fontFamily: 'monospace',
                             }}>
-                              {p.title}
+                              {card.title}
                             </p>
-                            {/* Meta — status dot + track count */}
+                            {/* Meta — status dot + count */}
                             <div className="mt-1 flex items-center gap-2 text-[9px]" style={{ color: '#64748b', fontFamily: 'monospace' }}>
                               <span className="flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: Y_HEX, boxShadow: `0 0 4px ${hexToRgba(Y_HEX, 0.5)}` }} />
@@ -1020,13 +1106,17 @@ export function AppHeader() {
                               </span>
                               <span>·</span>
                               <span className="flex items-center gap-1">
-                                <Music2 className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
-                                {trackCount}
+                                {card.kind === 'auto' ? (
+                                  <Music2 className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                ) : (
+                                  <Layers className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                )}
+                                {count}
                               </span>
                             </div>
                             {/* Waveform progress bar */}
                             <div className="mt-2">
-                              <WaveformProgressBar progress={trackCount > 0 ? 50 : 10} accentColor={Y_HEX} height={20} bars={20} />
+                              <WaveformProgressBar progress={progress} accentColor={Y_HEX} height={20} bars={20} />
                             </div>
                           </div>
                         </div>
@@ -1037,7 +1127,7 @@ export function AppHeader() {
               ) : (
                 <div className="text-center py-6">
                   <p className="text-xs" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                    Нет проектов. Создайте первый на главной странице.
+                    Нет проектов в быстром доступе. Добавьте их на главной странице.
                   </p>
                 </div>
               )}

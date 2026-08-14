@@ -3339,3 +3339,48 @@ Stage Summary:
 - Project cards in the header's quick-access panel now use the same visual language as the home page's QuickAccessCard: chamfered cyan card frame with yellow inner border, top accent strip glow, yellow type icon chip, monospace title, status dot + track count meta row, and a WaveformProgressBar at the bottom.
 - When the panel opens, a dark semi-transparent backdrop (rgba(6,8,13,0.7) + blur(3px)) covers the rest of the screen below the header. Clicking the backdrop closes the panel.
 - Files modified: `src/components/layout/app-header.tsx` only (added hexToRgba + WaveformProgressBar imports, replaced project card JSX with QuickAccessCard-styled version, added backdrop motion.div inside the AnimatePresence fragment).
+
+---
+Task ID: HEADER-PANEL-QUICK-ACCESS-SYNC
+Agent: main
+Task: The projects in the header's quick-access panel don't match the projects in the home page's "Быстрый доступ" section.
+
+Work Log:
+- Root cause: the header panel was using `projects.slice(0, 6)` — just the first 6 projects from the projects array, ignoring the user's pinned quick-access list stored in `localStorage['soundflow-quick-access']`. The home page reads this localStorage key and builds `quickAccessItems` from it, mapping IDs to both auto projects and kanban projects.
+
+**Changes made to `src/components/layout/app-header.tsx`:**
+
+1. **Added imports**: `useMemo` (from react), `useKanbanStore` + `Task` type (from kanban-store), `Layers` (lucide icon), `hexToRgba` + `WaveformProgressBar` (already added in previous task).
+
+2. **Added quick-access IDs state** — read from `localStorage['soundflow-quick-access']` (same key the home page uses). Implemented as a `useMemo` keyed on `quickPanelOpen` so the value is re-read every time the panel opens — picks up any changes the user made on the home page since the last open. This approach avoids the `react-hooks/set-state-in-effect` lint rule (which fires when you call setState inside a useEffect).
+
+3. **Added kanban projects fetch** — `fetch('/api/tasks?parentId=null')` on mount, same as the home page does. Needed because quick-access IDs can point to either auto projects or kanban-only projects.
+
+4. **Built unified `quickAccessCards` useMemo** — maps the localStorage IDs to a unified card list:
+   - For each ID, first checks if it matches an auto project (from `projects.filter(p => p.kanbanTaskId)`).
+   - If not, checks if it matches a kanban project (from the fetched `kanbanProjects`).
+   - Each card has `{ kind: 'auto'|'kanban', id, title, type, status, trackCount|boardCount }`.
+
+5. **Replaced the project cards JSX** — now iterates over `quickAccessCards` instead of `projects.slice(0, 6)`:
+   - Section title changed from "Проекты" → "Быстрый доступ" (matching the home page section name).
+   - Each card uses the same QuickAccessCard visual style (cyan frame + yellow inner border + beveled edge glow + status dot + count + WaveformProgressBar).
+   - Auto cards show FolderOpen icon + track count; kanban cards show LayoutDashboard icon + board count.
+   - Clicking an auto card navigates to `project-detail`; clicking a kanban card selects the project first then navigates to `kanban`.
+   - Empty state: "Нет проектов в быстром доступе. Добавьте их на главной странице."
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (app-header:244, search useEffect). No new errors.
+- dev.log: clean compile.
+- Agent Browser DOM verification:
+  - Set `localStorage['soundflow-quick-access']` to `['cmsojpcv2002oq7m8rqfykxnl', 'cmsnc2h080001q49r0v402x0e', 'cmsmzkp0h0001p3wlz7eqrqh2']` (аквыа, Test Album, dfsdfsdf — all auto projects in the current group).
+  - **Home page quick access**: 3 cards, titles = ["аквыа", "Test Album", "dfsdfsdf"]. ✅
+  - **Header panel quick access**: 3 cards, titles = ["аквыа", "Test Album", "dfsdfsdf"]. ✅ — EXACT MATCH with the home page.
+  - **Click on Test Album card**: navigated to project-detail view (heading "Test Album" + "ТРЕКИ"). ✅
+- VLM confirms: "аквыа, Test Album, dfsdfsdf" in the header panel's quick access section.
+
+Stage Summary:
+- The header's quick-access panel now shows the EXACT SAME projects as the home page's "Быстрый доступ" section — both read from the shared `localStorage['soundflow-quick-access']` key.
+- The panel refreshes the list every time it opens (via `useMemo` keyed on `quickPanelOpen`), so any changes the user makes on the home page (adding/removing quick-access projects) are reflected immediately.
+- Both auto projects and kanban-only projects are supported (IDs are matched against both lists).
+- Card styling matches the home page's QuickAccessCard: cyan frame + yellow inner border + beveled edge glow + status dot + count + WaveformProgressBar.
+- Files modified: `src/components/layout/app-header.tsx` only.
