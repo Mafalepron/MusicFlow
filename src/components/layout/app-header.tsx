@@ -36,6 +36,8 @@ import { useChatUIStore } from '@/store/chat-ui-store';
 import { useChatUnread } from '@/components/chat/project-chat';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { hexToRgba } from '@/lib/utils';
+import { WaveformProgressBar } from '@/components/waveform-progress-bar';
 
 const viewLabels: Record<string, string> = {
   home: 'Home',
@@ -761,10 +763,30 @@ export function AppHeader() {
           offset + opacity), like a drawer dropping out of the header. */}
       <AnimatePresence>
         {quickPanelOpen && (
-          <motion.div
-            ref={quickPanelRef}
-            initial={{ opacity: 0, y: -120, x: '-50%' }}
-            animate={{ opacity: 1, y: 0, x: '-50%' }}
+          <>
+            {/* Backdrop overlay — dims the rest of the screen so the panel
+                stands out. Clicking the backdrop closes the panel. */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setQuickPanelOpen(false)}
+              style={{
+                position: 'fixed',
+                top: '56px',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(6, 8, 13, 0.7)',
+                backdropFilter: 'blur(3px)',
+                zIndex: 35,
+              }}
+            />
+            <motion.div
+              ref={quickPanelRef}
+              initial={{ opacity: 0, y: -120, x: '-50%' }}
+              animate={{ opacity: 1, y: 0, x: '-50%' }}
             exit={{ opacity: 0, y: -120, x: '-50%' }}
             transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
             style={{
@@ -907,7 +929,9 @@ export function AppHeader() {
                 ))}
               </div>
 
-              {/* Quick-access cards — first 6 projects */}
+              {/* Quick-access cards — first 6 projects, styled like the
+                  home page's QuickAccessCard (cyan card + yellow inner content,
+                  beveled edge glow, status dot + track count + waveform bar). */}
               {projects.length > 0 ? (
                 <div>
                   <div className="flex items-center gap-1.5 mb-2">
@@ -918,37 +942,96 @@ export function AppHeader() {
                     <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.4), transparent)' }} />
                   </div>
                   <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(157,78,221,0.4) transparent' }}>
-                    {projects.slice(0, 6).map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => { navigate('project-detail', p.id); setQuickPanelOpen(false); }}
-                        className="group relative shrink-0 w-48 text-left p-2.5 transition-all hover:scale-[1.04] hover:-translate-y-0.5"
-                        style={{
-                          background: 'linear-gradient(135deg, rgba(0,168,198,0.08), rgba(10,14,22,0.9))',
-                          border: '1px solid rgba(0,168,198,0.35)',
-                          clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
-                          cursor: 'pointer',
-                          boxShadow: 'inset 0 1px 0 rgba(0,168,198,0.1)',
-                        }}
-                        title={`Открыть: ${p.title}`}
-                      >
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <FolderOpen className="h-3 w-3 shrink-0" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 2px rgba(0,168,198,0.5))' }} />
-                          <span className="text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                            {p.type || 'project'}
-                          </span>
+                    {projects.slice(0, 6).map((p) => {
+                      const C_HEX = '#00a8c6';
+                      const Y_HEX = '#c7a008';
+                      // Status labels matching home-view
+                      const stLabel: Record<string, string> = {
+                        draft: 'Черновик', in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз',
+                      };
+                      const sl = stLabel[p.status] || p.status;
+                      const typeLabels: Record<string, string> = {
+                        album: 'Альбом', ep: 'EP', single: 'Сингл', general: 'Канбан',
+                      };
+                      const tl = typeLabels[p.type] || 'Проект';
+                      const trackCount = tracks.filter((t) => t.projectId === p.id).length;
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => { navigate('project-detail', p.id); setQuickPanelOpen(false); }}
+                          className="group relative w-52 shrink-0 cursor-pointer overflow-hidden"
+                          style={{
+                            clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+                            background: 'linear-gradient(135deg, rgba(0,168,198,0.10), rgba(10,14,22,0.88))',
+                            boxShadow: 'inset 0 0 0 1px rgba(0,168,198,0.3), inset 0 0 0 2.5px rgba(199,160,8,0.55), 0 0 4px rgba(199,160,8,0.1), 0 2px 10px rgba(0,0,0,0.4)',
+                            transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(0,168,198,0.22), rgba(10,14,22,0.96))';
+                            e.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(0,168,198,0.5), inset 0 0 0 3px rgba(199,160,8,0.8), 0 0 8px rgba(199,160,8,0.25), 0 4px 16px rgba(0,0,0,0.5)';
+                            e.currentTarget.style.transform = 'translateY(-3px)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(0,168,198,0.10), rgba(10,14,22,0.88))';
+                            e.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(0,168,198,0.3), inset 0 0 0 2.5px rgba(199,160,8,0.55), 0 0 4px rgba(199,160,8,0.1), 0 2px 10px rgba(0,0,0,0.4)';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                          }}
+                          title={`Открыть: ${p.title}`}
+                        >
+                          {/* Beveled edge glow — top accent strip (cyan) */}
+                          <div
+                            className="h-[2px] w-full"
+                            style={{
+                              background: `linear-gradient(90deg, transparent, ${C_HEX} 30%, ${C_HEX} 70%, transparent)`,
+                              boxShadow: `0 0 8px ${hexToRgba(C_HEX, 0.7)}`,
+                            }}
+                          />
+                          {/* Body */}
+                          <div className="p-2.5 pt-3 relative">
+                            {/* Type icon + label */}
+                            <div className="mb-1.5 flex items-center gap-1.5">
+                              <div
+                                className="flex h-5 w-5 items-center justify-center"
+                                style={{
+                                  clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                                  background: hexToRgba(Y_HEX, 0.18),
+                                  border: `1px solid ${hexToRgba(Y_HEX, 0.5)}`,
+                                }}
+                              >
+                                <FolderOpen className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                              </div>
+                              <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: Y_HEX, textShadow: `0 0 4px ${hexToRgba(Y_HEX, 0.4)}` }}>
+                                {tl}
+                              </span>
+                            </div>
+                            {/* Title */}
+                            <p className="text-xs font-bold line-clamp-1" style={{
+                              color: '#cbd5e1',
+                              letterSpacing: '0.02em',
+                              fontFamily: 'monospace',
+                            }}>
+                              {p.title}
+                            </p>
+                            {/* Meta — status dot + track count */}
+                            <div className="mt-1 flex items-center gap-2 text-[9px]" style={{ color: '#64748b', fontFamily: 'monospace' }}>
+                              <span className="flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: Y_HEX, boxShadow: `0 0 4px ${hexToRgba(Y_HEX, 0.5)}` }} />
+                                {sl}
+                              </span>
+                              <span>·</span>
+                              <span className="flex items-center gap-1">
+                                <Music2 className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                {trackCount}
+                              </span>
+                            </div>
+                            {/* Waveform progress bar */}
+                            <div className="mt-2">
+                              <WaveformProgressBar progress={trackCount > 0 ? 50 : 10} accentColor={Y_HEX} height={20} bars={20} />
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-xs font-semibold truncate" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
-                          {p.title}
-                        </p>
-                        <div className="flex items-center justify-between mt-1.5">
-                          <span className="text-[9px] uppercase" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: '0.5px' }}>
-                            {p.status || 'draft'}
-                          </span>
-                          <LayoutDashboard className="h-3 w-3 opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.5))' }} />
-                        </div>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
@@ -960,6 +1043,7 @@ export function AppHeader() {
               )}
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
       </div>

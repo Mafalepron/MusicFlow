@@ -3297,3 +3297,45 @@ Stage Summary:
 - The home page's "Создать" card in the Канбан проекты section now navigates to Projects (where the user can create a new project via the "Новый проект" button).
 - The `kanban` route is preserved in page.tsx (still needed to show kanban boards for a selected project), but it's never accessible without a selected project — the redirect catches any orphaned navigation.
 - Files modified: `src/components/kanban/kanban-view.tsx` (KanbanPage redirect + back button + KanbanWorkspace fallback), `src/components/views/projects-view.tsx` (handleOpenKanban timing), `src/components/views/project-detail-view.tsx` (2 call site timing fixes), `src/components/views/track-detail-view.tsx` (timing fix), `src/components/views/home-view.tsx` (goToKanban timing + CreateCard route), `src/components/shared/create-project-dialog.tsx` (timing fix).
+
+---
+Task ID: HEADER-PANEL-CARDS-BACKDROP
+Agent: main
+Task: (1) Style the "Проекты" section in the header's quick-access panel the same as the home page's "Быстрый доступ" cards. (2) Dim the rest of the screen when the panel is open.
+
+Work Log:
+
+**1. Project cards restyled to match home page's QuickAccessCard:**
+- Replaced the old simple project cards (cyan border, FolderOpen icon, status text, LayoutDashboard icon) with the full QuickAccessCard visual language from home-view:
+  - **Card container**: chamfered clip-path (8px corners), dual-layer border (cyan outer inset 1px + yellow inner inset 2.5px), gradient background `rgba(0,168,198,0.10) → rgba(10,14,22,0.88)`, drop shadow.
+  - **Top accent strip**: 2px cyan bar with horizontal gradient glow (matching the beveled edge glow from home-view).
+  - **Type icon chip**: small chamfered yellow chip with FolderOpen icon.
+  - **Type label**: yellow uppercase text with text-shadow glow (Альбом/EP/Сингл/Канбан).
+  - **Title**: monospace font, bold, line-clamp-1.
+  - **Meta row**: status dot (yellow with glow) + status label (Черновик/В работе/etc.) + track count with Music2 icon.
+  - **WaveformProgressBar**: 20px tall, 20 bars, yellow accent (same as home-view).
+  - **Hover**: background brightens, border gets thicker (3px inner), transform translateY(-3px), stronger glow.
+- Each card is w-52 (was w-48) for slightly more breathing room.
+
+**2. Backdrop overlay:**
+- Added a `<motion.div>` backdrop BEFORE the panel motion.div, inside the same `<>` fragment.
+- Position: fixed, top: 56px (below header), left/right/bottom: 0 — covers the full screen below the header.
+- Background: `rgba(6, 8, 13, 0.7)` — dark semi-transparent overlay.
+- `backdropFilter: blur(3px)` — blurs the content behind it for a frosted glass effect.
+- z-index: 35 (below the panel's z-index: 40 so the panel sits on top).
+- Animation: opacity 0→1, 200ms duration (fades in/out with AnimatePresence).
+- onClick: `setQuickPanelOpen(false)` — clicking the backdrop closes the panel.
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (app-header:176). No new errors.
+- dev.log: clean compile.
+- Agent Browser DOM + VLM verification:
+  - **Backdrop**: confirmed via DOM — `position: fixed`, `bg: rgba(6, 8, 13, 0.7)`, `z: 35`, covers full screen from y=56 down (2560×1384px). ✅
+  - **Backdrop click closes panel**: clicked at (100, 800) — panel closed. ✅
+  - **VLM confirms**: "Да, область экрана за пределами панели затемнена." ✅
+  - **Card styling**: VLM confirms "голубая рамка с жёлтой внутренней обводкой, верхняя голубая полоска-акцент, волновая полоска прогресса. Тот же стиль, что и карточки быстрого доступа." ✅
+
+Stage Summary:
+- Project cards in the header's quick-access panel now use the same visual language as the home page's QuickAccessCard: chamfered cyan card frame with yellow inner border, top accent strip glow, yellow type icon chip, monospace title, status dot + track count meta row, and a WaveformProgressBar at the bottom.
+- When the panel opens, a dark semi-transparent backdrop (rgba(6,8,13,0.7) + blur(3px)) covers the rest of the screen below the header. Clicking the backdrop closes the panel.
+- Files modified: `src/components/layout/app-header.tsx` only (added hexToRgba + WaveformProgressBar imports, replaced project card JSX with QuickAccessCard-styled version, added backdrop motion.div inside the AnimatePresence fragment).
