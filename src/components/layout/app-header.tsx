@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, X, Bell, Menu, ChevronRight, ChevronDown,
+  Search, X, Bell, Menu, ChevronRight, ChevronDown, ChevronLeft,
   MessageCircle, LogOut, Settings, User, Check, Copy,
   Home, Lightbulb, FolderOpen, LayoutGrid, Music,
   FolderKanban, Music2, Users, Zap, LayoutDashboard, Layers,
@@ -167,6 +167,7 @@ export function AppHeader() {
   // Close the quick-access panel when the user clicks outside it or presses Escape.
   const quickPanelRef = useRef<HTMLDivElement>(null);
   const quickStripeRef = useRef<HTMLButtonElement>(null);
+  const quickCardsScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!quickPanelOpen) return;
     const handleClick = (e: MouseEvent) => {
@@ -928,7 +929,7 @@ export function AppHeader() {
                     letterSpacing: '2px',
                     textShadow: '0 0 8px rgba(199,160,8,0.7)',
                   }}>
-                    Избранное
+                    Quick Access
                   </span>
                   <span className="text-[9px] uppercase" style={{
                     color: 'rgba(157,78,221,0.6)',
@@ -968,11 +969,11 @@ export function AppHeader() {
               </div>
 
               {/* Stats row — projects / tracks / ideas / participants.
-                  Each stat is a FULLY COLORED cyberpunk tile with a
-                  purple→yellow gradient fill — purple base fades into a
-                  yellow accent, giving each tile a dual-tone cyberpunk look.
-                  Chamfered frame, inner glow, white icon + count + label.
-                  Hover lifts the tile and intensifies the glow. */}
+                  Styled like the home page's "Альбом" card: dark purple base
+                  (#161224) with a yellow top border + yellow inner glow.
+                  Yellow icon, white count, yellow label. Hover intensifies
+                  the yellow glow. No heavy gradient fill — just a dark slab
+                  with yellow accents, cyberpunk HUD style. */}
               <div className="grid grid-cols-4 gap-2.5 mb-3">
                 {[
                   { icon: FolderKanban, value: projects.length, label: 'Проекты', view: 'projects' as ViewName },
@@ -983,26 +984,33 @@ export function AppHeader() {
                   <button
                     key={s.label}
                     onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
-                    className="group relative flex flex-col items-center justify-center gap-1 py-3 transition-all duration-200 hover:scale-[1.06] hover:-translate-y-1"
+                    className="group relative flex flex-col items-center justify-center gap-1 py-3 transition-all duration-200"
                     style={{
                       clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
-                      background: 'linear-gradient(135deg, #7b2cbf 0%, #5a1d8f 40%, #9d4edd 70%, #c7a008 100%)',
-                      border: '1.5px solid #c7a008',
+                      background: '#161224',
+                      borderTop: '2px solid #c7a008',
                       cursor: 'pointer',
                       padding: '10px 6px',
-                      boxShadow: '0 0 12px rgba(157,78,221,0.5), 0 0 4px rgba(199,160,8,0.6), inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.3)',
-                      textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                      boxShadow: 'inset 0 1px 12px rgba(199,160,8,0.12), inset 0 0 0 1px rgba(199,160,8,0.3), 0 2px 8px rgba(0,0,0,0.4)',
                     }}
                     title={`Перейти к: ${s.label}`}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-3px) scale(1.06)';
-                      e.currentTarget.style.boxShadow = '0 0 20px rgba(199,160,8,0.8), 0 0 8px rgba(157,78,221,1), 0 0 4px rgba(199,160,8,1), inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.3)';
+                      e.currentTarget.style.transform = 'translateY(-3px)';
+                      e.currentTarget.style.background = '#161224';
+                      e.currentTarget.style.boxShadow = 'inset 0 1px 12px rgba(199,160,8,0.2), inset 0 0 0 1px rgba(199,160,8,0.6), 0 0 12px rgba(199,160,8,0.3), 0 4px 16px rgba(0,0,0,0.5)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                      e.currentTarget.style.boxShadow = '0 0 12px rgba(157,78,221,0.5), 0 0 4px rgba(199,160,8,0.6), inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.3)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.background = '#161224';
+                      e.currentTarget.style.boxShadow = 'inset 0 1px 12px rgba(199,160,8,0.12), inset 0 0 0 1px rgba(199,160,8,0.3), 0 2px 8px rgba(0,0,0,0.4)';
                     }}
                   >
+                    {/* Inner beveled frame (recessed screen effect) */}
+                    <div className="pointer-events-none absolute inset-[3px]" style={{
+                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                      boxShadow: 'inset 0 0 0 1px rgba(199,160,8,0.2), inset 0 0 10px rgba(199,160,8,0.08)',
+                    }} />
+
                     {/* Corner brackets (cyberpunk HUD frame) — yellow */}
                     <div className="pointer-events-none absolute top-0 left-0 w-2 h-2" style={{
                       borderTop: '1.5px solid #c7a008',
@@ -1015,20 +1023,20 @@ export function AppHeader() {
                       opacity: 0.9,
                     }} />
 
-                    {/* Icon — yellow with glow for cyberpunk accent */}
-                    <s.icon className="h-4 w-4 transition-transform group-hover:scale-110" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 4px rgba(199,160,8,0.8)) drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
+                    {/* Icon — yellow with glow */}
+                    <s.icon className="h-4 w-4 transition-transform group-hover:scale-110 relative" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 4px rgba(199,160,8,0.8)) drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
 
                     {/* Count — bold, large, white */}
-                    <span className="text-2xl font-extrabold tabular-nums leading-none" style={{
+                    <span className="text-2xl font-extrabold tabular-nums leading-none relative" style={{
                       color: '#ffffff',
                       fontFamily: 'var(--font-rajdhani), sans-serif',
-                      textShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                      textShadow: '0 2px 4px rgba(0,0,0,0.5)',
                     }}>
                       {s.value}
                     </span>
 
                     {/* Label — uppercase monospace, yellow accent */}
-                    <span className="text-[9px] uppercase font-bold tracking-[0.1em]" style={{
+                    <span className="text-[9px] uppercase font-bold tracking-[0.1em] relative" style={{
                       color: '#c7a008',
                       fontFamily: 'var(--font-jetbrains-mono), monospace',
                       textShadow: '0 0 4px rgba(199,160,8,0.6), 0 1px 2px rgba(0,0,0,0.4)',
@@ -1040,10 +1048,11 @@ export function AppHeader() {
               </div>
 
               {/* Quick-access cards — same projects the user pinned on the home
-                  page's "Быстрый доступ" section. Reads the shared
+                  page's "Избранное" section. Reads the shared
                   `soundflow-quick-access` localStorage key. Styled like the
                   home page's QuickAccessCard (cyan card + yellow inner content,
-                  beveled edge glow, status dot + track/board count + waveform bar). */}
+                  beveled edge glow, status dot + track/board count + waveform bar).
+                  Left/right scroll buttons flank the carousel for easy navigation. */}
               {quickAccessCards.length > 0 ? (
                 <div>
                   <div className="flex items-center gap-1.5 mb-2">
@@ -1053,7 +1062,42 @@ export function AppHeader() {
                     </span>
                     <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.4), transparent)' }} />
                   </div>
-                  <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(157,78,221,0.4) transparent' }}>
+                  {/* Carousel wrapper — scroll buttons on both sides */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Left scroll button */}
+                    <button
+                      onClick={() => {
+                        const el = quickCardsScrollRef.current;
+                        if (el) el.scrollBy({ left: -220, behavior: 'smooth' });
+                      }}
+                      className="group flex h-10 w-7 shrink-0 items-center justify-center transition-all hover:scale-110"
+                      style={{
+                        clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                        background: 'rgba(199,160,8,0.1)',
+                        border: '1px solid rgba(199,160,8,0.4)',
+                        boxShadow: '0 0 6px rgba(199,160,8,0.2)',
+                        cursor: 'pointer',
+                      }}
+                      title="Прокрутить влево"
+                      aria-label="Прокрутить влево"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(199,160,8,0.25)';
+                        e.currentTarget.style.boxShadow = '0 0 10px rgba(199,160,8,0.5)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(199,160,8,0.1)';
+                        e.currentTarget.style.boxShadow = '0 0 6px rgba(199,160,8,0.2)';
+                      }}
+                    >
+                      <ChevronLeft className="h-4 w-4" style={{ color: '#c7a008' }} />
+                    </button>
+
+                    {/* Scrollable cards container */}
+                    <div
+                      ref={quickCardsScrollRef}
+                      className="flex gap-2 overflow-x-auto pb-1 flex-1"
+                      style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(199,160,8,0.4) transparent', scrollBehavior: 'smooth' }}
+                    >
                     {quickAccessCards.map((card) => {
                       const C_HEX = '#00a8c6';
                       const Y_HEX = '#c7a008';
@@ -1164,12 +1208,41 @@ export function AppHeader() {
                         </div>
                       );
                     })}
+                    </div>
+
+                    {/* Right scroll button */}
+                    <button
+                      onClick={() => {
+                        const el = quickCardsScrollRef.current;
+                        if (el) el.scrollBy({ left: 220, behavior: 'smooth' });
+                      }}
+                      className="group flex h-10 w-7 shrink-0 items-center justify-center transition-all hover:scale-110"
+                      style={{
+                        clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                        background: 'rgba(199,160,8,0.1)',
+                        border: '1px solid rgba(199,160,8,0.4)',
+                        boxShadow: '0 0 6px rgba(199,160,8,0.2)',
+                        cursor: 'pointer',
+                      }}
+                      title="Прокрутить вправо"
+                      aria-label="Прокрутить вправо"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(199,160,8,0.25)';
+                        e.currentTarget.style.boxShadow = '0 0 10px rgba(199,160,8,0.5)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(199,160,8,0.1)';
+                        e.currentTarget.style.boxShadow = '0 0 6px rgba(199,160,8,0.2)';
+                      }}
+                    >
+                      <ChevronRight className="h-4 w-4" style={{ color: '#c7a008' }} />
+                    </button>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-6">
                   <p className="text-xs" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                    Нет проектов в быстром доступе. Добавьте их на главной странице.
+                    Нет проектов в избранном. Добавьте их на главной странице.
                   </p>
                 </div>
               )}

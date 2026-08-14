@@ -3469,3 +3469,53 @@ Stage Summary:
 - Panel header renamed from "Quick Access" (English) → "Избранное" (Russian). All elements themed yellow: Zap icon chip (purple bg + yellow border/glow), title (yellow text + glow), close button (yellow frame + yellow icon + yellow glow).
 - Home page section renamed from "Быстрый доступ" → "Избранное". Star toggle tooltips + manage button tooltip updated to use "избранное" terminology.
 - Files modified: `src/components/layout/app-header.tsx` (stats + header + close + titles), `src/components/views/home-view.tsx` (section heading + star toggle tooltips + manage button tooltip).
+
+---
+Task ID: QUICK-ACCESS-RENAME-DARK-STATS-SCROLL
+Agent: main
+Task: (1) Rename the top panel back to "Quick Access" (English). (2) Stats buttons are too glamorous — too much yellow gradient. Make them dark purple with yellow elements, like the "Альбом" card on the home page. (3) Add side scroll buttons for the projects carousel in the quick-access panel.
+
+Work Log:
+
+**1. Panel title — "Избранное" → "Quick Access":**
+- Changed the panel header span text from "Избранное" back to "Quick Access" (English).
+- Kept the yellow color + glow styling on the title.
+- The home page section heading stays "Избранное" (Russian) — only the header panel title reverted to English.
+
+**2. Stats buttons — dark purple base + yellow accents (like "Альбом" card):**
+- Removed the heavy purple→yellow gradient fill (`linear-gradient(135deg, #7b2cbf, #5a1d8f, #9d4edd, #c7a008)`).
+- New background: `#161224` (dark purple, same as the home page's "Альбом" card).
+- Top border: `2px solid #c7a008` (yellow) — matches the "Альбом" card's `borderTop`.
+- Box shadow (rest): `inset 0 1px 12px rgba(199,160,8,0.12)` (subtle yellow inner glow) + `inset 0 0 0 1px rgba(199,160,8,0.3)` (yellow frame) + `0 2px 8px rgba(0,0,0,0.4)` (drop shadow).
+- Added inner beveled frame (recessed screen effect): `inset 0 0 0 1px rgba(199,160,8,0.2), inset 0 0 10px rgba(199,160,8,0.08)` — same technique as the "Альбом" card.
+- Hover: yellow inner glow intensifies (`0.2` alpha → `0.2`), yellow frame thickens (`0.3` → `0.6`), outer yellow glow appears (`0 0 12px rgba(199,160,8,0.3)`).
+- Removed `hover:scale-[1.06]` — now just `translateY(-3px)` lift (less flashy, more like the "Альбом" card).
+- Kept yellow corner brackets, yellow icon + glow, white count, yellow label + glow.
+
+**3. Scroll buttons for the projects carousel:**
+- Added `ChevronLeft` to the lucide-react imports.
+- Added `quickCardsScrollRef: useRef<HTMLDivElement>(null)` for the scroll container.
+- Wrapped the scrollable cards container in a flex row with two scroll buttons:
+  - **Left button**: 28×40px (w-7 h-10), chamfered clip-path, yellow-themed (`rgba(199,160,8,0.1)` bg, `rgba(199,160,8,0.4)` border, yellow glow). ChevronLeft icon in yellow. `onClick` → `el.scrollBy({ left: -220, behavior: 'smooth' })`. Hover: bg brightens + glow intensifies.
+  - **Right button**: same styling, ChevronRight icon. `onClick` → `el.scrollBy({ left: 220, behavior: 'smooth' })`.
+- Scroll container: added `flex-1` so it takes the remaining space between the two buttons. Added `scrollBehavior: 'smooth'` to the style for smooth scrolling.
+- Changed scrollbar color from purple to yellow to match the new theme.
+- Empty state text: "Нет проектов в быстром доступе" → "Нет проектов в избранном".
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (app-header:245). No new errors.
+- dev.log: clean compile.
+- Agent Browser DOM + VLM verification:
+  - Panel title: "QUICK ACCESS" (English) ✅
+  - Stats buttons: "Тёмный фон с жёлтыми акцентами" (dark purple + yellow, like Альбом card) ✅
+  - Scroll buttons: both left + right present ✅
+  - Set 5 quick-access IDs → scrollWidth=1072, clientWidth=658, canScroll=true ✅
+  - Clicked right scroll → scrollLeft changed from 0 → 219 ✅
+  - Clicked left scroll → scrollLeft returned to 0 ✅
+- VLM confirms: "Английский QUICK ACCESS. Тёмный фон с жёлтыми акцентами. Есть стрелочки влево/вправо по бокам карточек."
+
+Stage Summary:
+- Panel title reverted to "Quick Access" (English) — the home page section stays "Избранное" (Russian).
+- Stats buttons now use the same dark purple base (#161224) + yellow top border + yellow inner glow as the home page's "Альбом" card — no more heavy gradient fill. Yellow accents on icon, corner brackets, label. Hover intensifies the yellow glow + lifts the tile.
+- Left + right scroll buttons (yellow-themed, chamfered) flank the projects carousel. Each click scrolls 220px (one card width) smoothly. Buttons only functionally needed when cards overflow (5+ cards), but always visible.
+- Files modified: `src/components/layout/app-header.tsx` only.
