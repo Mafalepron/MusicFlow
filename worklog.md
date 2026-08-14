@@ -2642,3 +2642,46 @@ Stage Summary:
 - Focus duration extended 3s → 5s.
 - Auto-expand visible comments when focusing a hidden one, so the bright highlight is always mounted and visible.
 - Files modified: `src/app/cyberpunk.css` (3 new keyframes), `src/components/views/track-detail-view.tsx` (focus overlay JSX for top-level + reply, marker halo for point + range, range bar highlight, scroll useEffect raf wrap, auto-expand useEffect, 5s timeout).
+
+---
+Task ID: FOCUS-FLASH-FRAME
+Agent: main
+Task: Add a bright glowing frame that flashes once and fades over a few seconds when a comment receives focus (in addition to the existing pulsing glow highlight)
+
+Work Log:
+- Read prior worklog (FOCUS-HIGHLIGHT task) to load context — confirmed the existing `kb6-focus-glow` (pulsing), `kb6-focus-sweep`, `kb6-focus-badge` keyframes already drive a continuous pulsing glow on the focused comment bubble.
+- Added two new CSS keyframes to `/home/z/my-project/src/app/cyberpunk.css` (right after `kb6-focus-badge`):
+  - `kb6-focus-flash` — a one-shot (4.5s, `ease-out forwards`) animation that:
+    - 0%   → no shadow
+    - 8%   → bright peak: `0 0 0 3px` solid colour ring + `0 0 22px 4px` + `0 0 40px 8px` outer glow (opacity 1)
+    - 25%  → settles to `0 0 0 2px` + `0 0 14px 2px` + `0 0 26px 5px` (opacity 1)
+    - 60%  → fades to `0 0 0 1.5px` + `0 0 10px 1px` + `0 0 18px 3px` (opacity 0.85)
+    - 100% → fully faded: `0 0 0 1px` + faint glow (opacity 0)
+    Reads colour from the same `--kb6-focus-color` / `--kb6-focus-glow` CSS vars as the existing glow (but uses a stronger 0.9-alpha glow for the peak phase).
+  - `kb6-focus-ring-expand` — a one-shot (1.8s, `ease-out forwards`) expanding border ring: scales 0.96→1.08 while opacity goes 0→0.9→0 and border-width goes 3px→1px. Pure "target acquired" visual cue.
+- Top-level comment bubble (`focusedCommentId === comment.id` block): added two new layers right after the existing pulsing glow div:
+  1. `kb6-focus-flash` div — `absolute inset-0 pointer-events-none z-10`, clipPath CHAMFER_5, `animation: kb6-focus-flash 4.5s ease-out forwards`. Uses `key={`flash-${comment.id}`}` so React remounts it on every focus event (animation always restarts from 0%).
+  2. `kb6-focus-ring-expand` div — `absolute inset-0 z-0`, `border: 3px solid ${focusColor}`, clipPath CHAMFER_5, `animation: kb6-focus-ring-expand 1.8s ease-out forwards`. Same `key={`ring-${comment.id}`}` remount trick.
+- Reply bubble: added the same two layers but with `P` (purple) as the focus colour, CHAMFER_4 clip, and reply-specific keys.
+- All other existing highlight pieces (pulsing glow, "В ФОКУСЕ" badge, diagonal sweep sheen, brighter left stripe, scale lift) are preserved — the new flash frame sits ABOVE the pulsing glow (z-10) and the expanding ring sits BELOW it (z-0) so the layers compose cleanly.
+- `handleMarkerClick` 5-second timeout is unchanged — it leaves a 0.5s buffer after the 4.5s flash animation finishes, so the flash fully fades before focus is cleared.
+- No new deps, no other files touched. All UI text still Russian. Existing palette/chamfer constants reused.
+
+Verification:
+- `bun run lint 2>&1 | grep -E "track-detail-view|error TS"` → no output (no new lint errors; the 9 pre-existing `react-hooks/preserve-manual-memoization` errors all live in `home-view.tsx`, untouched).
+- dev.log: clean compile after edit.
+- Agent Browser end-to-end verification on track "пвапвыапвыап":
+  - Clicked point marker (btn[1], comment at 80435ms): DOM check confirms 6 active kb6 animations — `kb6-focus-badge`, `kb6-focus-glow`, `kb6-focus-flash`, `kb6-focus-ring-expand`, `kb6-focus-badge`, `kb6-focus-sweep`. VLM analysis of full-page screenshot captured during the bright phase (8% keyframe): "Яркая насыщенная голубая рамка, толщина 2-3 пикселя. Присутствует сильное внешнее свечение (glow) того же голубого оттенка. Вокруг рамки виден лёгкий размытый ореол. Бейдж «В фокусе» светится. На волновой дорожке — голубой маркер с ярким свечением и расходящимися круговыми импульсами."
+  - Clicked range marker (btn[5], comment at 143360–184117ms): DOM check confirms kb6-focus-flash + kb6-focus-ring-expand both active with yellow colour. VLM analysis: "Ярко-жёлтая рамка. Присутствует сильное жёлтое свечение по периметру. Есть расходящееся пульсирующее кольцо (ripple effect) вокруг блока. На волновой дорожке — жёлтая рамка с ромбовидными маркерами и полупрозрачная жёлтая заливка диапазона."
+
+Stage Summary:
+- Clicking a marker on the audio waveform now triggers a layered highlight on the focused comment bubble:
+  1. Continuous pulsing neon glow (kb6-focus-glow, infinite) — the previous baseline.
+  2. NEW: Bright one-shot flash frame (kb6-focus-flash, 4.5s forwards) — peaks at 8% with a 3px solid ring + 22px + 40px outer glow, then fades to nothing over ~4.5 seconds.
+  3. NEW: Expanding ring (kb6-focus-ring-expand, 1.8s forwards) — a 3px border that scales outward 0.96→1.08 while fading, like a sonar ping / "target acquired" cue.
+  4. "В фокусе" corner badge with LocateFixed icon, pulsing (kb6-focus-badge, infinite).
+  5. Diagonal sweep sheen (kb6-focus-sweep, infinite).
+  6. Brighter + wider left stripe with extra outer glow.
+  7. Slight 1.015x spring scale lift on the focused bubble row.
+- Colours: cyan for point comments, yellow for range comments, purple for replies — same as the existing scheme.
+- Files modified: `src/app/cyberpunk.css` (2 new keyframes: kb6-focus-flash, kb6-focus-ring-expand), `src/components/views/track-detail-view.tsx` (2 new overlay divs in the top-level bubble focus block + 2 new overlay divs in the reply bubble focus block, each with React `key` props to force remount on every focus event so the one-shot animations always restart).

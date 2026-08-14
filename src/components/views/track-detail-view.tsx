@@ -4453,6 +4453,28 @@ export function TrackDetailView() {
                                         ['--kb6-focus-glow' as string]: focusGlow,
                                       }}
                                     />
+                                    {/* Bright flash frame — plays once on focus, fades over ~4.5s.
+                                        Stronger + more obvious than the pulsing glow above. */}
+                                    <div
+                                      key={`flash-${comment.id}`}
+                                      className="absolute inset-0 pointer-events-none z-10"
+                                      style={{
+                                        clipPath: CHAMFER_5,
+                                        animation: 'kb6-focus-flash 4.5s ease-out forwards',
+                                        ['--kb6-focus-color' as string]: focusColor,
+                                        ['--kb6-focus-glow' as string]: hexToRgba(focusColor, 0.9),
+                                      }}
+                                    />
+                                    {/* Expanding ring — radiates outward once on focus ("target acquired") */}
+                                    <div
+                                      key={`ring-${comment.id}`}
+                                      className="pointer-events-none absolute inset-0 z-0"
+                                      style={{
+                                        border: `3px solid ${focusColor}`,
+                                        clipPath: CHAMFER_5,
+                                        animation: 'kb6-focus-ring-expand 1.8s ease-out forwards',
+                                      }}
+                                    />
                                     {/* Top "В ФОКУСЕ" badge */}
                                     <div
                                       className="pointer-events-none absolute -top-3 right-4 z-30 flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
@@ -4835,6 +4857,27 @@ export function TrackDetailView() {
                                               animation: 'kb6-focus-glow 1.6s ease-in-out infinite',
                                               ['--kb6-focus-color' as string]: P,
                                               ['--kb6-focus-glow' as string]: hexToRgba(P, 0.55),
+                                            }}
+                                          />
+                                          {/* Bright flash frame — plays once on focus, fades over ~4.5s */}
+                                          <div
+                                            key={`flash-${reply.id}`}
+                                            className="absolute inset-0 pointer-events-none z-10"
+                                            style={{
+                                              clipPath: CHAMFER_4,
+                                              animation: 'kb6-focus-flash 4.5s ease-out forwards',
+                                              ['--kb6-focus-color' as string]: P,
+                                              ['--kb6-focus-glow' as string]: hexToRgba(P, 0.9),
+                                            }}
+                                          />
+                                          {/* Expanding ring — radiates outward once on focus */}
+                                          <div
+                                            key={`ring-${reply.id}`}
+                                            className="pointer-events-none absolute inset-0 z-0"
+                                            style={{
+                                              border: `3px solid ${P}`,
+                                              clipPath: CHAMFER_4,
+                                              animation: 'kb6-focus-ring-expand 1.8s ease-out forwards',
                                             }}
                                           />
                                           {/* Top "В ФОКУСЕ" badge */}

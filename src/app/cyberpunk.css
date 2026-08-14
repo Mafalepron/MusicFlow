@@ -1735,3 +1735,63 @@ font-size: 18px;
   0%, 100% { transform: translateY(0) scale(1); opacity: 1; }
   50%      { transform: translateY(-1px) scale(1.04); opacity: 0.85; }
 }
+
+/* ============================================================
+   Focused comment — bright flash frame + expanding ring
+   Plays once when the comment receives focus, then fades out.
+   ============================================================ */
+@keyframes kb6-focus-flash {
+  0% {
+    opacity: 0;
+    box-shadow:
+      0 0 0 0px var(--kb6-focus-color, #c7a008),
+      0 0 0px 0 var(--kb6-focus-glow, rgba(199,160,8,0.9));
+  }
+  8% {
+    opacity: 1;
+    box-shadow:
+      0 0 0 3px var(--kb6-focus-color, #c7a008),
+      0 0 22px 4px var(--kb6-focus-glow, rgba(199,160,8,0.95)),
+      0 0 40px 8px var(--kb6-focus-glow, rgba(199,160,8,0.7));
+  }
+  25% {
+    opacity: 1;
+    box-shadow:
+      0 0 0 2px var(--kb6-focus-color, #c7a008),
+      0 0 14px 2px var(--kb6-focus-glow, rgba(199,160,8,0.8)),
+      0 0 26px 5px var(--kb6-focus-glow, rgba(199,160,8,0.5));
+  }
+  60% {
+    opacity: 0.85;
+    box-shadow:
+      0 0 0 1.5px var(--kb6-focus-color, #c7a008),
+      0 0 10px 1px var(--kb6-focus-glow, rgba(199,160,8,0.55)),
+      0 0 18px 3px var(--kb6-focus-glow, rgba(199,160,8,0.3));
+  }
+  100% {
+    opacity: 0;
+    box-shadow:
+      0 0 0 1px var(--kb6-focus-color, #c7a008),
+      0 0 6px 0 var(--kb6-focus-glow, rgba(199,160,8,0.25)),
+      0 0 12px 2px var(--kb6-focus-glow, rgba(199,160,8,0.12));
+  }
+}
+/* Expanding ring — radiates outward from the bubble once on focus.
+   Pure visual "target acquired" cue. */
+@keyframes kb6-focus-ring-expand {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+    border-width: 3px;
+  }
+  15% {
+    opacity: 0.9;
+    transform: scale(1);
+    border-width: 3px;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+    border-width: 1px;
+  }
+}
