@@ -2732,3 +2732,56 @@ Stage Summary:
 - Single-comment markers (no replies, no duplicate timestamps) still highlight just the one bubble — no change for that case.
 - Scroll + auto-expand logic updated to handle the array of focused IDs: scrolls to the topmost focused top-level comment and expands the visible window if any focused comment sits beyond the cutoff.
 - Files modified: `src/components/views/track-detail-view.tsx` only (state, handleMarkerClick, scroll/auto-expand useEffect, delete handler, socket handler, 10 JSX conditionals, 2 halo size reductions, 3 diamond size/boxShadow reductions, 2 motion.button scale reductions).
+
+---
+Task ID: UI-COMPACT-PRIORITY-PROGRESS-TOOLTIP-RANGE
+Agent: main
+Task: Four UI fixes — (1) make priority button a compact icon-only control and move it under the title next to v1; (2) move track progress + project progress into the track profile frame (right column), compact and neat; (3) marker hover tooltip is not anchored to its marker — when the page scrolls the tooltip floats away instead of following the marker; (4) in range marker mode, the comment input opens after the first click, but it should open only after the second click; also add an on-waveform hint telling the user to select the second point.
+
+Work Log:
+
+**Fix 1 — Compact icon-only Priority Select under the title (next to v1):**
+- Removed the entire Priority Select block that sat inline in the Profile Header row after the "Канбан" button (was a 140px-wide Select with full text labels "ВЫСОКИЙ/СРЕДНИЙ/НИЗКИЙ" + a colored dot).
+- Added a new compact icon-only Priority Select into the "v1 subline" — the row directly under the track title that shows the version chip (purple `v1`) + project name. The new Select sits right after the v1 chip, before the project name span.
+- SelectTrigger is now `h-5 w-7` (was `h-8 w-[140px]`) — just a 20×28px colored chip with a single 2×2px glowing dot inside, no text. Background uses `hexToRgba(priorityColor, 0.12)` + `0.5px` border in the priority color, CHAMFER_3 clip. Title attribute carries the full label for hover tooltip ("Приоритет: Средний").
+- Saving indicator moved from a right-side 1.5px dot to a tiny 1px dot in the top-right corner of the chip.
+- SelectContent unchanged (still shows high/medium/low with colored dots + Russian labels), just slightly smaller font (10px, was 11px) to match the new compact trigger.
+- Saves immediately on change via the existing `handlePriorityChange` callback.
+
+**Fix 2 — Move Track Progress + Project Progress into the Track Profile right column:**
+- Removed the entire `Track Progress + Project Progress` block that sat between the audio player and the comments section (was a full-width `shrink-0 px-4 pt-3 lg:px-6` div containing a 32px-tall WaveformProgressBar + StatDot row + a 2px-tall cyan project bar).
+- Added a new compact progress block at the TOP of the right Profile column (the "Текст трека" panel), before the textarea. The block contains:
+  - **Track progress**: slim yellow WaveformProgressBar (`height={18}` was 32, `bars={36}` was 48) wrapped in a 3px-padded CHAMFER_4 container with a yellow border. Title row has a Zap icon + "Прогресс трека" (9px text, was 10px) on the left, StatDot row (ВСЕГО / ГОТОВО / ОЖИДАНИЕ) on the right (9px font, was 10px).
+  - **Project progress** (only when `projectProgress` is non-null): slim 1.5px-tall cyan bar (was 2px), CHAMFER_3 clip, cyan border + gradient fill. Title row has a LayoutDashboard icon + "Прогресс проекта" (9px, cyan) on the left, percentage + done/total count on the right.
+  - A 1px yellow-tinted separator div between the progress block and the track text editor below.
+- All palette constants (Y, C, P2, G, A, BG_MAIN, CHAMFER_3/4/5, INSET_BEVEL_SHADOW, SECTION_TITLE_STYLE) reused unchanged.
+
+**Fix 3 — Marker tooltip follows its marker on scroll:**
+- Root cause: `markerTooltipPos` state stored `rect.top - 8` (viewport-relative coordinate) once at hover/click time. The tooltip is rendered via `createPortal` with `position: fixed`, so when the page scrolled the tooltip stayed at its original viewport coordinates while the marker moved with the page.
+- Added a new `markerTooltipAnchorRef: useRef<HTMLElement | null>(null)` that stores the marker DOM element the tooltip is currently anchored to. Set inside `showMarkerTooltipFor`.
+- Added a new `useEffect` that registers `scroll` (capture phase, so it catches scroll events on any scrollable ancestor) + `resize` listeners. On either event, the listener re-reads the marker's `getBoundingClientRect()` and recomputes `markerTooltipPos` so the tooltip re-renders at the new correct viewport position.
+- Added a centralised `hideMarkerTooltip()` helper that clears both `markerTooltipPos` AND `markerTooltipAnchorRef.current`, so the scroll/resize listener stops firing once the tooltip is dismissed.
+- Replaced every `setHoveredMarkerId(null); setMarkerTooltipPos(null);` pair (6 occurrences across marker onMouseLeave, tooltip onMouseLeave, X button onClick, Edit button onClick, Delete button onClick, and the global pinned-tooltip-dismiss click handler) with `hideMarkerTooltip()` so the anchor ref is properly cleared everywhere.
+- Added `hideMarkerTooltip` to the pinned-tooltip-dismiss useEffect's dependency array.
+
+**Fix 4 — Range mode: defer comment input to second click + add hint:**
+- Root cause: in `handleWaveformClick`, the range-mode first-click branch called `setShowCommentInput(true)`, immediately opening the comment field before the user had selected the range end.
+- First-click branch now calls `setShowCommentInput(false)` (was `true`). It still sets `rangeStartMs`, `rangeEndMsState`, `isSelectingRange = true`, and `commentTimestamp`, so the range preview bar + start marker render on the waveform.
+- Second-click branch unchanged — it calls `setShowCommentInput(true)` so the comment input opens only after the full range is selected.
+- Added a new floating hint badge inside the range-selection preview overlay: when `isSelectingRange && rangeStartMs > 0`, a small chamfered yellow badge renders just above the waveform (top: -22px) at the start marker's horizontal position. Contains a MapPin icon + "Выберите конец диапазона" text in JetBrains Mono. Disappears automatically when the second click lands (because `isSelectingRange` flips to false).
+
+Verification:
+- `bun run lint 2>&1 | grep -E "track-detail-view|error TS"` → no output (no new lint errors).
+- dev.log: clean compile after all edits.
+- Agent Browser end-to-end verification on track "пвапвыапвыап":
+  - **Priority chip**: VLM confirms "Рядом с версией v1 расположен компактный жёлтый круглый значок-индикатор. Он находится сразу справа от фиолетовой плашки с надписью v1." Clickable, opens dropdown with high/medium/low options.
+  - **Progress moved**: VLM confirms "В правой колонке, в самом верху (над блоком Текст трека), находится блок Прогресс трека. Прогресс трека представлен в виде жёлтой волновой полоски. Прогресс проекта расположен сразу под волновой полоской — тонкая голубая горизонтальная линия." Also confirms "Отдельного блока прогресса между плеером и комментариями нет."
+  - **Range mode hint**: Switched to Range mode, clicked the waveform once → DOM check confirms `hintVisible: true` (the "Выберите конец диапазона" badge is on the waveform) and `commentInputVisible: false` (the comment input is NOT shown). Clicked a second point → `commentInputVisible: true` (input appears) and `hintVisible: false` (hint disappears). Correct behaviour.
+  - **Tooltip follows marker on scroll**: Clicked a marker to pin its tooltip, then scrolled the page. DOM measurements before scroll: marker y=-383, tooltip y=-524 (tooltip correctly positioned 8px + tooltip height above the marker). After scrolling up 300px: marker y=-83, tooltip y=-225 (tooltip followed the marker — recomputed position via the new scroll listener). After scrolling up another 500px: marker y=417, tooltip y=275 (tooltip is 13px above the marker, in viewport, correctly anchored). VLM confirms "окно-карточка (поп-ап) расположено выше волновой формы" — tooltip is visible and positioned above the waveform next to its marker.
+
+Stage Summary:
+- Priority is now a 20×28px icon-only colored dot chip sitting inline in the v1 subline, right after the version chip. Compact, no text, opens a dropdown with the 3 priority levels.
+- Track progress (slim yellow waveform bar, 18px tall, 36 bars) + project progress (slim 1.5px cyan bar) now live compactly at the top of the right Profile column, above the track text editor. The old full-width progress block between the audio player and comments is gone.
+- Marker hover/click tooltip now stays anchored to its marker when the page scrolls — a scroll/resize listener recomputes the tooltip position from the marker's current bounding rect.
+- Range marker mode no longer opens the comment input on the first click. Instead, a floating yellow "Выберите конец диапазона" hint badge appears above the waveform at the start marker. The comment input opens only after the second click (range end) is selected.
+- Files modified: `src/components/views/track-detail-view.tsx` only (priority Select moved + restyled, progress block moved + compacted, markerTooltipAnchorRef + scroll/resize useEffect + hideMarkerTooltip helper added, 6 setMarkerTooltipPos(null) call sites refactored, handleWaveformClick range-mode first-click branch changed to setShowCommentInput(false), new floating hint badge JSX added to the range selection preview overlay).

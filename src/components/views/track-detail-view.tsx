@@ -738,6 +738,11 @@ export function TrackDetailView() {
   // interact with the Edit/Resolve/Delete buttons without fighting the 200ms
   // hover hide timer.
   const [pinnedMarkerId, setPinnedMarkerId] = useState<string | null>(null);
+  // Ref to the marker DOM element the tooltip is currently anchored to.
+  // Used by the scroll/resize listener below to recompute the tooltip
+  // position so it stays glued to its marker instead of floating away
+  // when the page scrolls.
+  const markerTooltipAnchorRef = useRef<HTMLElement | null>(null);
   // Helper: compute + apply the tooltip position for a given marker element.
   // The tooltip is centered horizontally on the marker (left = marker center x)
   // and anchored just above it. The `right` flag tells the tooltip to also clamp
@@ -747,11 +752,41 @@ export function TrackDetailView() {
       clearTimeout(markerHideTimerRef.current);
       markerHideTimerRef.current = null;
     }
+    markerTooltipAnchorRef.current = el;
     const rect = el.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const isRight = centerX > window.innerWidth - 160; // within 160px of right edge
     setHoveredMarkerId(commentId);
     setMarkerTooltipPos({ top: rect.top - 8, left: centerX, right: isRight });
+  }, []);
+
+  // Recompute the tooltip position on scroll / resize so it stays anchored
+  // to its marker. Without this the tooltip (rendered via portal with
+  // `position: fixed`) would float away from the marker when the page scrolls.
+  useEffect(() => {
+    if (!markerTooltipPos) return;
+    const recompute = () => {
+      const el = markerTooltipAnchorRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const isRight = centerX > window.innerWidth - 160;
+      setMarkerTooltipPos({ top: rect.top - 8, left: centerX, right: isRight });
+    };
+    window.addEventListener('scroll', recompute, true);
+    window.addEventListener('resize', recompute);
+    return () => {
+      window.removeEventListener('scroll', recompute, true);
+      window.removeEventListener('resize', recompute);
+    };
+  }, [markerTooltipPos]);
+
+  // Centralised "hide tooltip" helper — clears the position AND drops the
+  // anchor ref so the scroll/resize listener stops firing.
+  const hideMarkerTooltip = useCallback(() => {
+    markerTooltipAnchorRef.current = null;
+    setHoveredMarkerId(null);
+    setMarkerTooltipPos(null);
   }, []);
 
 
@@ -1417,20 +1452,25 @@ export function TrackDetailView() {
 
       if (markerMode === 'range') {
         if (!isSelectingRange) {
-          // First click — set range start
+          // First click — set range start. Do NOT open the comment input
+          // yet — the user must click a second time to set the range end.
+          // A floating hint ("Выберите конец диапазона") is rendered on the
+          // waveform while isSelectingRange is true.
           setRangeStartMs(clickedMs);
           setRangeEndMsState(clickedMs);
           setIsSelectingRange(true);
           setCommentTimestamp(clickedMs);
-          setShowCommentInput(true);
+          setShowCommentInput(false);
         } else {
-          // Second click — set range end
+          // Second click — set range end. NOW we open the comment input
+          // so the user can type their annotation.
           const start = Math.min(rangeStartMs, clickedMs);
           const end = Math.max(rangeStartMs, clickedMs);
           setRangeStartMs(start);
           setRangeEndMsState(end);
           setCommentTimestamp(start);
           setIsSelectingRange(false);
+          setShowCommentInput(true);
         }
       } else {
         // Point mode — single timestamp
@@ -1502,8 +1542,7 @@ export function TrackDetailView() {
       // Dismiss the pinned tooltip on any outside click.
       setPinnedMarkerId(null);
       // Also clear hoveredMarkerId + position so the tooltip fully closes.
-      setHoveredMarkerId(null);
-      setMarkerTooltipPos(null);
+      hideMarkerTooltip();
     };
     // Defer registration by a tick so the click that *opened* the tooltip
     // doesn't immediately close it.
@@ -1514,7 +1553,7 @@ export function TrackDetailView() {
       clearTimeout(t);
       document.removeEventListener('click', handler);
     };
-  }, [pinnedMarkerId]);
+  }, [pinnedMarkerId, hideMarkerTooltip]);
 
   // --- Comments ---
 
@@ -2378,6 +2417,85 @@ export function TrackDetailView() {
                     >
                       v{track.version}
                     </span>
+                    {/* Priority — compact icon-only Select, sits inline in the
+                        v1 subline. Clicking opens a dropdown with the 3 priority
+                        levels (high/medium/low), each shown as a colored dot +
+                        label. Saves immediately on change. */}
+                    {primaryKanbanTask ? (
+                      <Select
+                        value={localKanbanPriority ?? 'medium'}
+                        onValueChange={handlePriorityChange}
+                      >
+                        <SelectTrigger
+                          size="sm"
+                          className="relative h-5 w-7 shrink-0 border-0 rounded-none p-0 hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
+                          style={{
+                            background: hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.12),
+                            border: `0.5px solid ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.5)}`,
+                            clipPath: CHAMFER_3,
+                            boxShadow: 'none',
+                          }}
+                          title={`Приоритет: ${priorityLabel(localKanbanPriority ?? 'medium')}`}
+                        >
+                          <span
+                            className="flex items-center justify-center"
+                            style={{ color: priorityColor(localKanbanPriority ?? 'medium') }}
+                          >
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{
+                                backgroundColor: priorityColor(localKanbanPriority ?? 'medium'),
+                                boxShadow: `0 0 5px ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.7)}`,
+                              }}
+                            />
+                          </span>
+                          {savingField === 'priority' && (
+                            <span
+                              className="absolute -right-0.5 -top-0.5 inline-block h-1 w-1 animate-pulse rounded-full"
+                              style={{ background: Y, boxShadow: `0 0 3px ${hexToRgba(Y, 0.9)}` }}
+                            />
+                          )}
+                        </SelectTrigger>
+                        <SelectContent
+                          className="border-0 rounded-none p-1 min-w-[140px]"
+                          style={{
+                            background: BG_PANEL,
+                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+                            clipPath: CHAMFER_4,
+                            boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
+                          }}
+                        >
+                          {(['high', 'medium', 'low'] as const).map((p) => (
+                            <SelectItem
+                              key={p}
+                              value={p}
+                              className="focus:!bg-[#0a0c10] data-[highlighted]:!bg-[#0a0c10] hover:!bg-[#0a0c10] border-0 rounded-none"
+                              style={{
+                                color: priorityColor(p),
+                                fontFamily: 'var(--font-jetbrains-mono), monospace',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                letterSpacing: '0.5px',
+                                textTransform: 'uppercase',
+                                clipPath: CHAMFER_3,
+                                padding: '3px 6px',
+                              }}
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <span
+                                  className="h-1.5 w-1.5 rounded-full"
+                                  style={{
+                                    backgroundColor: priorityColor(p),
+                                    boxShadow: `0 0 4px ${hexToRgba(priorityColor(p), 0.6)}`,
+                                  }}
+                                />
+                                {priorityLabel(p)}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : null}
                     <span className="opacity-70">
                       {projectOfTrack?.title || 'Без проекта'}
                     </span>
@@ -2489,79 +2607,6 @@ export function TrackDetailView() {
                         Канбан
                       </button>
                     )}
-
-                    {/* Priority Select — moved here from the Track Info Grid.
-                        Renders inline next to Status + Канбан; uses a compact
-                        HUD-styled Select colored by the current priority. */}
-                    {primaryKanbanTask ? (
-                      <Select
-                        value={localKanbanPriority ?? 'medium'}
-                        onValueChange={handlePriorityChange}
-                      >
-                        <SelectTrigger
-                          size="sm"
-                          className="relative w-[140px] shrink-0 h-8 border-0 rounded-none hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
-                          style={{
-                            background: BG_PANEL,
-                            border: `1px solid ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.5)}`,
-                            clipPath: CHAMFER_4,
-                            color: priorityColor(localKanbanPriority ?? 'medium'),
-                            fontFamily: 'var(--font-jetbrains-mono), monospace',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            letterSpacing: '1px',
-                            textTransform: 'uppercase',
-                            boxShadow: INSET_BEVEL_SHADOW,
-                          }}
-                        >
-                          <SelectValue />
-                          {savingField === 'priority' && (
-                            <span
-                              className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-block h-1.5 w-1.5 animate-pulse rounded-full"
-                              style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.8)}` }}
-                            />
-                          )}
-                        </SelectTrigger>
-                        <SelectContent
-                          className="border-0 rounded-none p-1 min-w-[160px]"
-                          style={{
-                            background: BG_PANEL,
-                            border: `1px solid ${hexToRgba(Y, 0.5)}`,
-                            clipPath: CHAMFER_4,
-                            boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
-                          }}
-                        >
-                          {(['high', 'medium', 'low'] as const).map((p) => (
-                            <SelectItem
-                              key={p}
-                              value={p}
-                              className="focus:!bg-[#0a0c10] data-[highlighted]:!bg-[#0a0c10] hover:!bg-[#0a0c10] border-0 rounded-none"
-                              style={{
-                                color: priorityColor(p),
-                                fontFamily: 'var(--font-jetbrains-mono), monospace',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                letterSpacing: '0.5px',
-                                textTransform: 'uppercase',
-                                clipPath: CHAMFER_3,
-                                padding: '4px 8px',
-                              }}
-                            >
-                              <span className="flex items-center gap-1.5">
-                                <span
-                                  className="h-1.5 w-1.5 rounded-full"
-                                  style={{
-                                    backgroundColor: priorityColor(p),
-                                    boxShadow: `0 0 4px ${hexToRgba(priorityColor(p), 0.6)}`,
-                                  }}
-                                />
-                                {priorityLabel(p)}
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
                   </div>
                 </div>
               </div>
@@ -2923,6 +2968,130 @@ export function TrackDetailView() {
                 boxShadow: INSET_BEVEL_SHADOW,
               }}
             >
+              {/* ── Compact progress block ──
+                  Moved here from under the audio player (Step 8 of the old
+                  layout) — track + project progress now sit inside the right
+                  Profile column, stacked compactly above the track text editor.
+                  Two slim rows: yellow track progress bar + cyan project progress
+                  bar. Stats (total/done/todo) shown inline next to each title. */}
+              <div className="flex flex-col gap-2">
+                {/* Track progress — slim yellow waveform bar */}
+                <div>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1">
+                      <Zap
+                        className="h-2.5 w-2.5"
+                        style={{ color: Y, filter: `drop-shadow(0 0 3px ${hexToRgba(Y, 0.6)})` }}
+                      />
+                      <span
+                        className="text-[9px]"
+                        style={{
+                          ...SECTION_TITLE_STYLE,
+                          fontSize: '9px',
+                          letterSpacing: '1px',
+                        }}
+                      >
+                        Прогресс трека
+                      </span>
+                    </div>
+                    <div
+                      className="flex items-center gap-2 text-[9px]"
+                      style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                    >
+                      <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
+                      <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
+                      <StatDot label="ОЖИДАНИЕ" count={trackProgress.todo} color={A} />
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      border: `1px solid ${hexToRgba(Y, 0.35)}`,
+                      clipPath: CHAMFER_4,
+                      padding: '3px',
+                      background: hexToRgba(Y, 0.04),
+                    }}
+                  >
+                    <WaveformProgressBar
+                      progress={trackProgress.pct}
+                      accentColor={Y}
+                      height={18}
+                      bars={36}
+                    />
+                  </div>
+                </div>
+
+                {/* Project progress — slim cyan bar */}
+                {projectProgress ? (
+                  <div>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1">
+                        <LayoutDashboard
+                          className="h-2.5 w-2.5"
+                          style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.5)})` }}
+                        />
+                        <span
+                          className="text-[9px]"
+                          style={{
+                            ...SECTION_TITLE_STYLE,
+                            fontSize: '9px',
+                            letterSpacing: '1px',
+                            color: C,
+                          }}
+                        >
+                          Прогресс проекта
+                        </span>
+                      </div>
+                      <div
+                        className="flex items-center gap-1.5 text-[9px]"
+                        style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                      >
+                        <span
+                          className="tabular-nums"
+                          style={{
+                            color: C,
+                            fontWeight: 800,
+                            textShadow: `0 0 5px ${hexToRgba(C, 0.4)}`,
+                          }}
+                        >
+                          {projectProgress.pct}%
+                        </span>
+                        <span
+                          className="tabular-nums"
+                          style={{ color: TEXT_SECONDARY }}
+                        >
+                          {projectProgress.done}/{projectProgress.total}
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      className="relative h-1.5 w-full"
+                      style={{
+                        background: BG_MAIN,
+                        border: `1px solid ${hexToRgba(C, 0.45)}`,
+                        clipPath: CHAMFER_3,
+                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+                      }}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0"
+                        style={{
+                          width: `${projectProgress.pct}%`,
+                          background: `linear-gradient(to right, ${P2}, ${C})`,
+                          boxShadow: `0 0 5px ${hexToRgba(C, 0.6)}`,
+                          transition: 'width 320ms ease',
+                        }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Separator between the progress block and the track text editor */}
+              <div
+                className="h-px w-full"
+                style={{ background: hexToRgba(Y, 0.2) }}
+              />
+
               <div className="flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1.5">
                   <MessageSquareQuote
@@ -3370,6 +3539,26 @@ export function TrackDetailView() {
                             style={{ left: `${(rangeEndMsState / 1000 / duration) * 100}%` }}
                           />
                         )}
+                        {/* Floating hint badge — tells the user a second click
+                            is needed to finish the range. Sits just above the
+                            waveform, follows the start marker. */}
+                        <div
+                          className="pointer-events-none absolute z-[8] flex items-center gap-1 whitespace-nowrap px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                          style={{
+                            left: `${(rangeStartMs / 1000 / duration) * 100}%`,
+                            top: '-22px',
+                            transform: 'translateX(-50%)',
+                            background: '#0a0c10',
+                            color: Y,
+                            border: `1px solid ${Y}`,
+                            clipPath: CHAMFER_3,
+                            fontFamily: 'var(--font-jetbrains-mono), monospace',
+                            boxShadow: `0 0 8px ${hexToRgba(Y, 0.6)}`,
+                          }}
+                        >
+                          <MapPin className="h-2.5 w-2.5" />
+                          Выберите конец диапазона
+                        </div>
                       </div>
                     )}
                     {/* HTML overlay markers for interactive hover/click — only for active version */}
@@ -3393,8 +3582,7 @@ export function TrackDetailView() {
                               if (pinnedMarkerId === comment.id) return; // pinned: keep visible
                               markerHideTimerRef.current = setTimeout(() => {
                                 if (!markerTooltipHoverRef.current) {
-                                  setHoveredMarkerId(null);
-                                  setMarkerTooltipPos(null);
+                                  hideMarkerTooltip();
                                 }
                               }, 200);
                             }}
@@ -3528,8 +3716,7 @@ export function TrackDetailView() {
                                 if (pinnedMarkerId === comment.id) return; // pinned: keep visible
                                 markerHideTimerRef.current = setTimeout(() => {
                                   if (!markerTooltipHoverRef.current) {
-                                    setHoveredMarkerId(null);
-                                    setMarkerTooltipPos(null);
+                                    hideMarkerTooltip();
                                   }
                                 }, 200);
                               }}
@@ -3618,8 +3805,7 @@ export function TrackDetailView() {
                         // mouse leaves — user must click the X button or click
                         // elsewhere to dismiss a pinned tooltip.
                         if (pinnedMarkerId === comment.id) return;
-                        setHoveredMarkerId(null);
-                        setMarkerTooltipPos(null);
+                        hideMarkerTooltip();
                       }}
                     >
                       <CornerBrackets size={8} />
@@ -3630,8 +3816,7 @@ export function TrackDetailView() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setPinnedMarkerId(null);
-                          setHoveredMarkerId(null);
-                          setMarkerTooltipPos(null);
+                          hideMarkerTooltip();
                         }}
                         aria-label="Close marker tooltip"
                       >
@@ -3688,8 +3873,7 @@ export function TrackDetailView() {
                             startEditingComment(comment);
                             handleMarkerClick(comment);
                             setPinnedMarkerId(null);
-                            setHoveredMarkerId(null);
-                            setMarkerTooltipPos(null);
+                            hideMarkerTooltip();
                           }}
                         >
                           <Pencil className="h-2.5 w-2.5" />
@@ -3737,8 +3921,7 @@ export function TrackDetailView() {
                             e.stopPropagation();
                             handleDeleteComment(comment.id);
                             setPinnedMarkerId(null);
-                            setHoveredMarkerId(null);
-                            setMarkerTooltipPos(null);
+                            hideMarkerTooltip();
                           }}
                         >
                           <Trash2 className="h-2.5 w-2.5" />
@@ -3955,132 +4138,6 @@ export function TrackDetailView() {
                     Пробел: Играть/Пауза · ←→: Перемотка 5с
                   </p>
                 </div>
-              </div>
-
-              {/* ─── Track Progress + Project Progress ───
-                  Moved out of the Track Profile Panel per the new layout: the
-                  WaveformProgressBar + StatDot row (track progress) and a new
-                  horizontal cyan Project Progress bar sit directly under the
-                  audio player, above the comments section. Full width. */}
-
-              {/* Track progress — yellow waveform with chamfered yellow frame.
-                  Step 4: bars=48 (denser than the previous 24), wrapped in a
-                  6px-padded CHAMFER_5 container with a yellow border + faint
-                  yellow tint so the bar reads as a framed HUD element. */}
-              <div className="shrink-0 px-4 pt-3 lg:px-6">
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Zap
-                      className="h-3.5 w-3.5"
-                      style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }}
-                    />
-                    <span
-                      className="text-[10px]"
-                      style={{
-                        ...SECTION_TITLE_STYLE,
-                        fontSize: '10px',
-                        letterSpacing: '1.5px',
-                      }}
-                    >
-                      Прогресс трека
-                    </span>
-                  </div>
-                  {/* Compact stats row — colored status dots.
-                      Step 5: removed В РАБОТЕ + ПРОВЕРКА, renamed TODO → ОЖИДАНИЕ. */}
-                  <div
-                    className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]"
-                    style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
-                  >
-                    <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
-                    <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
-                    <StatDot label="ОЖИДАНИЕ" count={trackProgress.todo} color={A} />
-                  </div>
-                </div>
-                <div
-                  style={{
-                    border: `1px solid ${hexToRgba(Y, 0.4)}`,
-                    clipPath: CHAMFER_5,
-                    padding: '6px',
-                    background: hexToRgba(Y, 0.04),
-                  }}
-                >
-                  <WaveformProgressBar
-                    progress={trackProgress.pct}
-                    accentColor={Y}
-                    height={32}
-                    bars={48}
-                  />
-                </div>
-
-                {/* Project progress — horizontal cyan bar, visually distinct
-                    from the yellow track progress above.
-                    Step 8: thinner than the track progress, cyan border + cyan
-                    fill gradient. Shows "Прогресс проекта" title, percentage,
-                    and done/total count. */}
-                {projectProgress ? (
-                  <div className="mt-3">
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <LayoutDashboard
-                          className="h-3 w-3"
-                          style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.5)})` }}
-                        />
-                        <span
-                          className="text-[10px]"
-                          style={{
-                            ...SECTION_TITLE_STYLE,
-                            fontSize: '10px',
-                            letterSpacing: '1.5px',
-                            color: C,
-                          }}
-                        >
-                          Прогресс проекта
-                        </span>
-                      </div>
-                      <div
-                        className="flex items-center gap-2 text-[10px]"
-                        style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
-                      >
-                        <span
-                          className="tabular-nums"
-                          style={{
-                            color: C,
-                            fontWeight: 800,
-                            textShadow: `0 0 6px ${hexToRgba(C, 0.4)}`,
-                          }}
-                        >
-                          {projectProgress.pct}%
-                        </span>
-                        <span
-                          className="tabular-nums"
-                          style={{ color: TEXT_SECONDARY }}
-                        >
-                          {projectProgress.done}/{projectProgress.total}
-                        </span>
-                      </div>
-                    </div>
-                    {/* Horizontal cyan bar — thinner than the WaveformProgressBar */}
-                    <div
-                      className="relative h-2 w-full"
-                      style={{
-                        background: BG_MAIN,
-                        border: `1px solid ${hexToRgba(C, 0.5)}`,
-                        clipPath: CHAMFER_3,
-                        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                      }}
-                    >
-                      <div
-                        className="absolute inset-y-0 left-0"
-                        style={{
-                          width: `${projectProgress.pct}%`,
-                          background: `linear-gradient(to right, ${P2}, ${C})`,
-                          boxShadow: `0 0 6px ${hexToRgba(C, 0.6)}`,
-                          transition: 'width 320ms ease',
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : null}
               </div>
 
               {/* Comments Section */}
