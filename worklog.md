@@ -2685,3 +2685,50 @@ Stage Summary:
   7. Slight 1.015x spring scale lift on the focused bubble row.
 - Colours: cyan for point comments, yellow for range comments, purple for replies — same as the existing scheme.
 - Files modified: `src/app/cyberpunk.css` (2 new keyframes: kb6-focus-flash, kb6-focus-ring-expand), `src/components/views/track-detail-view.tsx` (2 new overlay divs in the top-level bubble focus block + 2 new overlay divs in the reply bubble focus block, each with React `key` props to force remount on every focus event so the one-shot animations always restart).
+
+---
+Task ID: FOCUS-THREAD-SIZE
+Agent: main
+Task: Two fixes: (1) marker highlight on the waveform is too large — reduce it; (2) when clicking a marker, highlight the whole comment thread (parent + all replies), not just the last comment.
+
+Work Log:
+- Read prior worklog (FOCUS-FLASH-FRAME) to load context — confirmed the existing `focusedCommentId: string | null` single-id state, the 32px halo around focused markers, and the layered flash-frame + pulsing-glow + expanding-ring highlight on comment bubbles.
+
+**Fix 1 — Reduce marker highlight size:**
+- Point marker halo: 32px → 14px, border 1.5px → 1px, boxShadow `0 0 10px solid + inset 0 0 8px` → `0 0 4px rgba(...,0.6)` (no inset). Much more compact ring hugging the marker.
+- Range marker halo: same reduction (32px → 14px, same box-shadow trim).
+- Point diamond size when focused: 14px → 12px (was `14px`, now matches hovered size). BoxShadow `0 0 10px + 0 0 5px + 0 0 18px` (three layers, very bright) → `0 0 5px` (single subtle glow).
+- Range diamond boxShadow when focused: `0 0 12px + 0 0 22px` (two layers) → `0 0 6px` (single).
+- motion.button `animate` scale: `isHovered ? 1.6 : isFocused ? 1.4 : 1` → `isHovered ? 1.4 : isFocused ? 1.2 : 1` for BOTH the main marker button and the range END marker button. Less aggressive zoom on focus.
+
+**Fix 2 — Highlight the whole comment thread:**
+- Replaced `const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null)` with `const [focusedCommentIds, setFocusedCommentIds] = useState<string[]>([])` (array — supports multiple simultaneously-focused comments).
+- Rewrote `handleMarkerClick` to compute the full thread of comment IDs to highlight:
+  1. Start with the clicked comment's ID.
+  2. Find all comments on the same version with the same `timestampMs` (covers duplicate-timestamp markers stacked at one waveform position).
+  3. For each of those, walk the parent ↔ replies chain: if it's a parent, pull in every reply; if it's a reply, pull in the parent + every sibling reply.
+  4. Store the resulting Set as `focusedCommentIds` array. Clear after 5 seconds (unchanged timeout — flash animation is 4.5s, leaves 0.5s buffer).
+- Updated the scroll + auto-expand useEffect (which previously referenced `focusedCommentId` before `sortedTree` was defined, causing a TDZ issue — moved the whole useEffect to sit right after `sortedTree` useMemo). New logic:
+  - Find the highest top-level index among all focused comments → expand `visibleCommentCount` if needed so every focused bubble mounts.
+  - Find the first (topmost in sort order) focused top-level comment → `scrollIntoView({ block: 'center' })` so the entire thread is in view.
+- Updated the delete-comment handler: `if (focusedCommentIds.includes(commentId)) setFocusedCommentIds([])`.
+- Updated the socket.io `comment:deleted` handler: `setFocusedCommentIds((prev) => (prev.includes(data.commentId) ? [] : prev))`.
+- Replaced every JSX check `focusedCommentId === comment.id` → `focusedCommentIds.includes(comment.id)` (7 occurrences: 3 waveform marker `isFocused`, 1 motion.div `scale`, 2 left-stripe conditionals, 1 focus-highlight block).
+- Replaced every `focusedCommentId === reply.id` → `focusedCommentIds.includes(reply.id)` (3 occurrences: 1 left-stripe conditional, 1 width ternary, 1 focus-highlight block).
+- Verified no stale `focusedCommentId` / `setFocusedCommentId` references remain (grep returns empty).
+
+Verification:
+- `bun run lint 2>&1 | grep -E "track-detail-view|error TS"` → no output (no new lint errors).
+- dev.log: clean compile after edits.
+- Agent Browser end-to-end verification on track "пвапвыапвыап":
+  - **Parent+reply marker** (btn[3] at 40.17%, timestamp 108757ms): DOM check confirms 3 `kb6-focus-flash` animations active simultaneously on `comment-cmsq2e9ow` (parent), `comment-cmsq8cyoz` (reply), and `comment-cmssoy8le` (third comment sharing the same timestamp). All 3 bubbles visible in viewport (y=240, 359, 435). 3 halo elements (14px) on the waveform markers. VLM confirms: "Подсвечено 2 комментария: #4 с ярко-жёлтой рамкой, #3 с приглушённой жёлтой рамкой" (VLM saw the 2 most prominent; the 3rd is a sibling reply in the same thread).
+  - **Single point comment** (btn[0] at 0%, timestamp 0ms, no replies): DOM check confirms exactly 1 `kb6-focus-flash` animation on `comment-cmsrimuzu`. Correct — single comment, single highlight.
+  - **Range comment** (btn[6] at 52.9%, timestamp 143360–184117ms): DOM check confirms 1 flash + 1 halo. Correct.
+  - Marker halo size: measured 17×17px (14px element + 1px border × 2 + rendering). Down from the previous ~34px. Compact ring hugging the 12px diamond.
+
+Stage Summary:
+- Marker highlight on the waveform is now much more compact: 14px ring (was 32px), 12px focused diamond (was 14px), scale 1.2 (was 1.4), single-layer subtle boxShadow (was 2-3 layer bright glow).
+- Clicking a marker now highlights the ENTIRE comment thread: the clicked comment + every comment sharing its timestampMs + the full parent ↔ replies chain. All bubbles get the bright flash frame + pulsing glow + expanding ring + "В фокусе" badge simultaneously.
+- Single-comment markers (no replies, no duplicate timestamps) still highlight just the one bubble — no change for that case.
+- Scroll + auto-expand logic updated to handle the array of focused IDs: scrolls to the topmost focused top-level comment and expands the visible window if any focused comment sits beyond the cutoff.
+- Files modified: `src/components/views/track-detail-view.tsx` only (state, handleMarkerClick, scroll/auto-expand useEffect, delete handler, socket handler, 10 JSX conditionals, 2 halo size reductions, 3 diamond size/boxShadow reductions, 2 motion.button scale reductions).

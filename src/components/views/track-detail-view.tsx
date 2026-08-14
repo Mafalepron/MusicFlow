@@ -761,7 +761,10 @@ export function TrackDetailView() {
   const [showCommentInput, setShowCommentInput] = useState(false);
   const [visibleCommentCount, setVisibleCommentCount] = useState(4);
   const [commentTimestamp, setCommentTimestamp] = useState(0);
-  const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
+  // Multiple comments can be focused at once — when a marker is clicked we
+  // highlight the whole thread (parent + all replies + any other comments
+  // sharing the same timestampMs on the same version).
+  const [focusedCommentIds, setFocusedCommentIds] = useState<string[]>([]);
   const commentsEndRef = useRef<HTMLDivElement | null>(null);
 
   // Comment sort mode — drives the order of root comments in the comments panel
@@ -1443,14 +1446,48 @@ export function TrackDetailView() {
   const handleMarkerClick = useCallback(
     (comment: Comment) => {
       seekTo(comment.timestampMs / 1000);
-      setFocusedCommentId(comment.id);
+
+      // Highlight the WHOLE thread, not just the clicked comment:
+      // 1. All comments sharing the same timestampMs on the same version
+      //    (covers duplicate-timestamp markers stacked at one position).
+      // 2. For each of those, the full parent ↔ replies chain — if the
+      //    clicked comment is a reply, include the parent + all sibling
+      //    replies; if it's a parent, include all of its replies.
+      const ids = new Set<string>([comment.id]);
+      comments
+        .filter(
+          (c) =>
+            c.versionId === comment.versionId &&
+            c.timestampMs === comment.timestampMs
+        )
+        .forEach((c) => {
+          ids.add(c.id);
+          if (!c.parentId) {
+            // Parent — pull in every reply.
+            comments.forEach((r) => {
+              if (r.parentId === c.id && r.versionId === comment.versionId) {
+                ids.add(r.id);
+              }
+            });
+          } else {
+            // Reply — pull in the parent + every sibling reply.
+            ids.add(c.parentId);
+            comments.forEach((r) => {
+              if (r.parentId === c.parentId && r.versionId === comment.versionId) {
+                ids.add(r.id);
+              }
+            });
+          }
+        });
+
+      setFocusedCommentIds(Array.from(ids));
       // Keep highlight for 5 seconds — long enough to read the comment +
       // clock the bright glow/badge we now paint on the focused bubble.
       setTimeout(() => {
-        setFocusedCommentId(null);
+        setFocusedCommentIds([]);
       }, 5000);
     },
-    [seekTo]
+    [seekTo, comments]
   );
 
   // Global click listener — when a pinned marker tooltip is open, dismiss it
@@ -1491,17 +1528,9 @@ export function TrackDetailView() {
       .catch(() => {});
   }, [selectedTrackId, activeVersionId]);
 
-  // Scroll to focused comment — slight delay lets the bubble mount + the
-  // focus glow/scale animation settle before we centre the row.
-  useEffect(() => {
-    if (!focusedCommentId) return;
-    const id = focusedCommentId;
-    const raf = requestAnimationFrame(() => {
-      const el = document.getElementById(`comment-${id}`);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [focusedCommentId]);
+  // Scroll-to-focused + auto-expand visible comments are handled in a single
+  // useEffect further down — after `sortedTree` is computed — so they can
+  // reference it without hitting the temporal dead zone.
 
   const handleAddComment = useCallback(async () => {
     if (!newCommentText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
@@ -1567,14 +1596,14 @@ export function TrackDetailView() {
       if (!res.ok) return;
       removeCommentStore(commentId);
       setComments((prev) => prev.filter((c) => c.id !== commentId));
-      if (focusedCommentId === commentId) setFocusedCommentId(null);
+      if (focusedCommentIds.includes(commentId)) setFocusedCommentIds([]);
       // Emit socket event
       socketRef.current?.emit('comment:delete', { trackId: selectedTrackId, commentId });
       toast({ description: 'Комментарий удалён' });
     } catch {
       toast({ description: 'Не удалось удалить комментарий', variant: 'destructive' });
     }
-  }, [selectedTrackId, removeCommentStore, focusedCommentId, toast]);
+  }, [selectedTrackId, removeCommentStore, focusedCommentIds, toast]);
 
   const handleToggleResolved = useCallback(async (commentId: string, isResolved: boolean) => {
     if (!selectedTrackId) return;
@@ -1660,7 +1689,7 @@ export function TrackDetailView() {
     socket.on('comment:deleted', (data: { commentId: string }) => {
       removeCommentStore(data.commentId);
       setComments((prev) => prev.filter((c) => c.id !== data.commentId));
-      setFocusedCommentId((prev) => (prev === data.commentId ? null : prev));
+      setFocusedCommentIds((prev) => (prev.includes(data.commentId) ? [] : prev));
     });
 
     return () => {
@@ -2081,17 +2110,34 @@ export function TrackDetailView() {
     });
   }, [comments, activeVersion, sortBy]);
 
-  // Auto-expand the visible-comment window when a marker click focuses a
-  // comment that's currently hidden past the visibleCommentCount cutoff.
-  // Without this, the bright focus glow/badge would never actually mount
-  // for comments beyond the initial 4-row window.
+  // When a marker is clicked, a whole thread of comments becomes focused
+  // (parent + all replies + any same-timestamp siblings). This useEffect:
+  //   1. Auto-expands the visible-comment window if any focused comment
+  //      sits beyond the visibleCommentCount cutoff — otherwise the focus
+  //      glow/badge would never mount for those rows.
+  //   2. Smoothly scrolls the first (topmost in sort order) focused
+  //      top-level comment into view, so the entire thread is visible.
   useEffect(() => {
-    if (!focusedCommentId) return;
-    const topLevelIndex = sortedTree.findIndex((c) => c.id === focusedCommentId);
-    if (topLevelIndex >= 0 && topLevelIndex >= visibleCommentCount) {
-      setVisibleCommentCount(topLevelIndex + 1);
+    if (focusedCommentIds.length === 0) return;
+    // Find the highest top-level index among focused comments.
+    let maxIndex = -1;
+    let firstTopLevel: string | null = null;
+    sortedTree.forEach((c, i) => {
+      if (focusedCommentIds.includes(c.id)) {
+        if (firstTopLevel === null) firstTopLevel = c.id;
+        if (i > maxIndex) maxIndex = i;
+      }
+    });
+    if (maxIndex >= 0 && maxIndex >= visibleCommentCount) {
+      setVisibleCommentCount(maxIndex + 1);
     }
-  }, [focusedCommentId, sortedTree, visibleCommentCount]);
+    const targetId = firstTopLevel ?? focusedCommentIds[0];
+    const raf = requestAnimationFrame(() => {
+      const el = document.getElementById(`comment-${targetId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusedCommentIds, sortedTree, visibleCommentCount]);
 
   // --- Render ---
 
@@ -3281,7 +3327,7 @@ export function TrackDetailView() {
                         .map((comment) => {
                         const startPct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
                         const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
-                        const isFocused = focusedCommentId === comment.id;
+                        const isFocused = focusedCommentIds.includes(comment.id);
                         const isHovered = hoveredMarkerId === comment.id;
                         return (
                           <div
@@ -3334,7 +3380,7 @@ export function TrackDetailView() {
                         const pct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
                         if (pct < 0 || pct > 1) return null;
                         const isHovered = hoveredMarkerId === comment.id;
-                        const isFocused = focusedCommentId === comment.id;
+                        const isFocused = focusedCommentIds.includes(comment.id);
                         const isRange = !!(comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs);
                         return (
                           <motion.button
@@ -3360,7 +3406,7 @@ export function TrackDetailView() {
                               showMarkerTooltipFor(e.currentTarget, comment.id);
                             }}
                             initial={false}
-                            animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
+                            animate={{ scale: isHovered ? 1.4 : isFocused ? 1.2 : 1, y: isHovered ? -2 : 0 }}
                             transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                             className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
                             style={{ left: `${pct * 100}%` }}
@@ -3375,11 +3421,11 @@ export function TrackDetailView() {
                                   <div
                                     className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2"
                                     style={{
-                                      width: '32px',
-                                      height: '32px',
+                                      width: '14px',
+                                      height: '14px',
                                       borderRadius: '9999px',
-                                      border: `1.5px solid ${Y}`,
-                                      boxShadow: `0 0 10px ${Y}, inset 0 0 8px ${hexToRgba(Y, 0.4)}`,
+                                      border: `1px solid ${Y}`,
+                                      boxShadow: `0 0 4px ${hexToRgba(Y, 0.6)}`,
                                       animation: 'kb6-focus-badge 1.6s ease-in-out infinite',
                                     }}
                                   />
@@ -3387,7 +3433,7 @@ export function TrackDetailView() {
                                 <div
                                   className={`rotate-45 transition-all duration-150 ${
                                     isFocused
-                                      ? 'h-4 w-4 bg-[#c7a008] shadow-[0_0_12px_rgba(199,160,8,0.8),0_0_22px_rgba(199,160,8,0.5)]'
+                                      ? 'h-4 w-4 bg-[#c7a008] shadow-[0_0_6px_rgba(199,160,8,0.6)]'
                                       : isHovered
                                         ? 'h-3.5 w-3.5 bg-[#c7a008]/80 shadow-[0_0_8px_rgba(199,160,8,0.5)]'
                                         : comment.isResolved
@@ -3405,16 +3451,16 @@ export function TrackDetailView() {
                             ) : (
                               <>
                                 {/* Point marker: cyberpunk HUD diamond pin */}
-                                {/* Pulsing focus halo — radiates ring to draw eye */}
+                                {/* Pulsing focus halo — small ring hugging the marker */}
                                 {isFocused && (
                                   <div
                                     className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2"
                                     style={{
-                                      width: '32px',
-                                      height: '32px',
+                                      width: '14px',
+                                      height: '14px',
                                       borderRadius: '9999px',
-                                      border: `1.5px solid ${C}`,
-                                      boxShadow: `0 0 10px ${C}, inset 0 0 8px ${hexToRgba(C, 0.4)}`,
+                                      border: `1px solid ${C}`,
+                                      boxShadow: `0 0 4px ${hexToRgba(C, 0.6)}`,
                                       animation: 'kb6-focus-badge 1.6s ease-in-out infinite',
                                     }}
                                   />
@@ -3422,12 +3468,12 @@ export function TrackDetailView() {
                                 <div
                                   className="transition-all duration-150"
                                   style={{
-                                    width: isFocused ? '14px' : isHovered ? '12px' : '10px',
-                                    height: isFocused ? '14px' : isHovered ? '12px' : '10px',
+                                    width: isFocused ? '12px' : isHovered ? '12px' : '10px',
+                                    height: isFocused ? '12px' : isHovered ? '12px' : '10px',
                                     background: comment.isResolved ? G : C,
                                     clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
                                     boxShadow: isFocused
-                                      ? `0 0 10px ${C}, 0 0 5px ${Y}, 0 0 18px ${hexToRgba(C, 0.5)}`
+                                      ? `0 0 5px ${C}`
                                       : isHovered
                                         ? `0 0 6px ${C}`
                                         : comment.isResolved
@@ -3469,7 +3515,7 @@ export function TrackDetailView() {
                         .map((comment) => {
                           const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
                           if (endPct < 0 || endPct > 1) return null;
-                          const isFocused = focusedCommentId === comment.id;
+                          const isFocused = focusedCommentIds.includes(comment.id);
                           const isHovered = hoveredMarkerId === comment.id;
                           return (
                             <motion.button
@@ -3495,7 +3541,7 @@ export function TrackDetailView() {
                                 showMarkerTooltipFor(e.currentTarget, comment.id);
                               }}
                               initial={false}
-                              animate={{ scale: isHovered ? 1.6 : isFocused ? 1.4 : 1, y: isHovered ? -2 : 0 }}
+                              animate={{ scale: isHovered ? 1.4 : isFocused ? 1.2 : 1, y: isHovered ? -2 : 0 }}
                               transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                               className="absolute top-0 z-10 flex items-center justify-center -translate-x-1/2 cursor-pointer"
                               style={{ left: `${endPct * 100}%` }}
@@ -4392,7 +4438,7 @@ export function TrackDetailView() {
                             animate={{
                               opacity: 1,
                               x: 0,
-                              scale: focusedCommentId === comment.id ? 1.015 : 1,
+                              scale: focusedCommentIds.includes(comment.id) ? 1.015 : 1,
                             }}
                             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                             className="group flex items-start gap-2.5 transition-transform"
@@ -4428,16 +4474,16 @@ export function TrackDetailView() {
                                 style={{
                                   background: comment.isResolved ? hexToRgba(G, 0.6) : Y,
                                   boxShadow:
-                                    focusedCommentId === comment.id
+                                    focusedCommentIds.includes(comment.id)
                                       ? `0 0 12px ${Y}, 0 0 22px ${hexToRgba(Y, 0.6)}`
                                       : comment.isResolved
                                         ? 'none'
                                         : `0 0 6px ${hexToRgba(Y, 0.5)}`,
-                                  width: focusedCommentId === comment.id ? '4px' : '3px',
+                                  width: focusedCommentIds.includes(comment.id) ? '4px' : '3px',
                                 }}
                               />
                               {/* Focused-comment highlight — bright pulsing glow + corner badge + sweep */}
-                              {focusedCommentId === comment.id && (() => {
+                              {focusedCommentIds.includes(comment.id) && (() => {
                                 const isRangeComment = !!(comment.rangeEndMs && comment.rangeEndMs > comment.timestampMs);
                                 const focusColor = isRangeComment ? Y : C;
                                 const focusGlow = hexToRgba(focusColor, 0.55);
@@ -4841,13 +4887,13 @@ export function TrackDetailView() {
                                         style={{
                                           background: comment.isResolved ? hexToRgba(G, 0.5) : hexToRgba(Y, 0.7),
                                           boxShadow:
-                                            focusedCommentId === reply.id
+                                            focusedCommentIds.includes(reply.id)
                                               ? `0 0 10px ${P}, 0 0 18px ${hexToRgba(P, 0.6)}`
                                               : 'none',
-                                          width: focusedCommentId === reply.id ? '3px' : '2px',
+                                          width: focusedCommentIds.includes(reply.id) ? '3px' : '2px',
                                         }}
                                       />
-                                      {focusedCommentId === reply.id && (
+                                      {focusedCommentIds.includes(reply.id) && (
                                         <>
                                           {/* Pulsing outer glow outline */}
                                           <div
