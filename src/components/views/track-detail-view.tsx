@@ -2430,12 +2430,12 @@ export function TrackDetailView() {
                     >
                       v{track.version}
                     </span>
-                    {/* Priority — frameless icon button rendered as a 3-bar
-                        signal-strength scale. The current priority level
-                        (1=low/red, 2=medium/yellow, 3=high/green) lights up
-                        that many bars in the priority color; bars above the
-                        current level stay dim. Clicking opens the dropdown.
-                        Hover scales the whole thing up so it reads as a button. */}
+                    {/* Priority — visible 3-bar signal-strength scale button.
+                        The current priority level (1=low/red, 2=medium/yellow,
+                        3=high/green) lights up that many bars in the priority
+                        color; bars above stay dim. Clicking opens the dropdown.
+                        Has a subtle dark background + colored glow so it reads
+                        as a clickable button even at rest. */}
                     {primaryKanbanTask ? (
                       <Select
                         value={localKanbanPriority ?? 'medium'}
@@ -2443,33 +2443,35 @@ export function TrackDetailView() {
                       >
                         <SelectTrigger
                           size="sm"
-                          className="relative h-5 w-5 shrink-0 border-0 rounded-none p-0 hover:scale-110 data-[state=open]:scale-110 transition-transform flex items-end justify-center gap-[1.5px]"
+                          className="relative h-7 w-8 shrink-0 border-0 rounded-none p-0 hover:scale-110 data-[state=open]:scale-110 transition-all flex items-end justify-center gap-[2px]"
                           style={{
-                            background: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none',
+                            background: hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.08),
+                            border: `1px solid ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.4)}`,
+                            clipPath: CHAMFER_3,
+                            boxShadow: `0 0 6px ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.3)}`,
                           }}
-                          title={`Приоритет: ${priorityLabel(localKanbanPriority ?? 'medium')}`}
+                          title={`Приоритет: ${priorityLabel(localKanbanPriority ?? 'medium')} — нажмите для изменения`}
                         >
                           {/* 3-bar vertical scale — bars grow from short (bottom)
-                              to tall (top), like a signal-strength indicator. */}
+                              to tall (top), like a signal-strength indicator.
+                              Larger than before so it's clearly visible. */}
                           {[3, 2, 1].map((barLevel) => {
                             const lvl = priorityLevel(localKanbanPriority ?? 'medium');
                             const active = barLevel <= lvl;
                             const color = priorityColor(localKanbanPriority ?? 'medium');
-                            // Bar heights: top=8px, mid=6px, bottom=4px.
-                            const barH = barLevel === 3 ? 8 : barLevel === 2 ? 6 : 4;
+                            // Bar heights: top=16px, mid=12px, bottom=8px.
+                            const barH = barLevel === 3 ? 16 : barLevel === 2 ? 12 : 8;
                             return (
                               <span
                                 key={barLevel}
                                 style={{
                                   display: 'block',
-                                  width: '2.5px',
+                                  width: '3.5px',
                                   height: `${barH}px`,
                                   borderRadius: '1px',
-                                  backgroundColor: active ? color : 'rgba(255,255,255,0.12)',
+                                  backgroundColor: active ? color : 'rgba(255,255,255,0.15)',
                                   boxShadow: active
-                                    ? `0 0 4px ${hexToRgba(color, 0.8)}`
+                                    ? `0 0 6px ${hexToRgba(color, 0.9)}, 0 0 2px ${color}`
                                     : 'none',
                                   transition: 'background-color 150ms ease, box-shadow 150ms ease',
                                 }}
@@ -2478,8 +2480,8 @@ export function TrackDetailView() {
                           })}
                           {savingField === 'priority' && (
                             <span
-                              className="absolute -right-1 -top-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full"
-                              style={{ background: Y, boxShadow: `0 0 3px ${hexToRgba(Y, 0.9)}` }}
+                              className="absolute -right-1 -top-1 inline-block h-2 w-2 animate-pulse rounded-full"
+                              style={{ background: Y, boxShadow: `0 0 4px ${hexToRgba(Y, 0.9)}` }}
                             />
                           )}
                         </SelectTrigger>
@@ -2909,16 +2911,17 @@ export function TrackDetailView() {
                   </div>
                   <div
                     style={{
-                      border: `1px solid ${hexToRgba(Y, 0.35)}`,
+                      border: `1px solid ${hexToRgba(C, 0.5)}`,
                       clipPath: CHAMFER_4,
-                      padding: '3px',
-                      background: hexToRgba(Y, 0.04),
+                      padding: '4px',
+                      background: hexToRgba(C, 0.05),
+                      boxShadow: `0 0 8px ${hexToRgba(C, 0.15)}`,
                     }}
                   >
                     <WaveformProgressBar
                       progress={trackProgress.pct}
                       accentColor={Y}
-                      height={18}
+                      height={36}
                       bars={36}
                     />
                   </div>

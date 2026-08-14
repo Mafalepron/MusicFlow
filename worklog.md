@@ -2950,3 +2950,44 @@ Stage Summary:
 - Markers on the audio waveform now only render for top-level (root) comments. Replies (comments with a `parentId`) no longer create their own markers, eliminating the stacked duplicate markers that appeared behind the main comment's marker.
 - Clicking a root marker still highlights the entire thread (root + all replies) because the `handleMarkerClick` thread-highlight logic uses `timestampMs` matching + `parentId` traversal, which is independent of the marker-rendering filter.
 - Files modified: `src/components/views/track-detail-view.tsx` only (3 filter expressions updated with `&& !c.parentId`).
+
+---
+Task ID: PROGRESS-HEIGHT-PRIORITY-VISIBILITY
+Agent: main
+Task: Two fixes — (1) make track progress bar 2x taller and change its frame border to cyan (keep the yellow waveform color); (2) priority indicator is not visible, make it more understandable and interactive.
+
+Work Log:
+
+**Fix 1 — Track progress bar 2x taller + cyan frame:**
+- WaveformProgressBar `height` prop: 18 → 36px (doubled).
+- Frame border color: `hexToRgba(Y, 0.35)` (yellow) → `hexToRgba(C, 0.5)` (cyan).
+- Frame background tint: `hexToRgba(Y, 0.04)` (yellow) → `hexToRgba(C, 0.05)` (cyan).
+- Frame padding: 3px → 4px.
+- Added `boxShadow: 0 0 8px hexToRgba(C, 0.15)` — subtle cyan glow around the frame so it stands out.
+- WaveformProgressBar `accentColor={Y}` unchanged — the bars inside are still yellow (audio track color preserved).
+
+**Fix 2 — Priority indicator more visible + interactive:**
+- SelectTrigger container: 20×20px (h-5 w-5) → 32×32px (h-7 w-8) — 60% bigger.
+- Added background tint: `hexToRgba(priorityColor, 0.08)` — subtle colored background.
+- Added border: `1px solid hexToRgba(priorityColor, 0.4)` — colored border in the priority color.
+- Added boxShadow: `0 0 6px hexToRgba(priorityColor, 0.3)` — outer glow.
+- Clip-path: CHAMFER_3 for a clean cyberpunk shape.
+- Bar width: 2.5px → 3.5px (40% wider).
+- Bar heights: 8/6/4px → 16/12/8px (doubled).
+- Bar glow: `0 0 4px alpha 0.8` → `0 0 6px alpha 0.9, 0 0 2px solid` — stronger double-layer glow.
+- Dim bars opacity: 0.12 → 0.15 (slightly more visible).
+- Saving indicator dot: 1.5px → 2px.
+- Title text updated: "Приоритет: X" → "Приоритет: X — нажмите для изменения" to explicitly tell the user it's clickable.
+
+Verification:
+- `bun run lint` → no errors in track-detail-view.tsx.
+- dev.log: clean compile, no errors.
+- Agent Browser DOM verification:
+  - **Track progress bar**: wrapper height=46px (4px padding × 2 + 36px inner + 2px border), border=`rgba(0, 168, 198, 0.5)` (cyan ✅), inner WaveformProgressBar height=36px (was 18px, 2x ✅), accentColor still yellow ✅.
+  - **Priority indicator**: trigger=32×32px (was 20×20px), background=`rgba(74, 141, 111, 0.08)` (green tint), border=`rgba(74, 141, 111, 0.4)` (green), boxShadow=`rgba(74, 141, 111, 0.3) 0px 0px 6px` (green glow). 3 bars: heights 16/12/8px (was 8/6/4px), width 3.5px (was 2.5px), all lit green with glow (high priority selected).
+  - VLM confirms: "Прогресс трека — рамка голубая. Индикатор приоритета — виден чётко, зелёный, с рамкой/подсветкой."
+
+Stage Summary:
+- Track progress bar is now 36px tall (was 18px — doubled), wrapped in a cyan-bordered frame (was yellow). The waveform bars inside remain yellow (accentColor={Y}).
+- Priority indicator is now 32×32px (was 20×20px) with a colored background, colored border, and outer glow in the priority color. Bars are 2x taller (16/12/8px vs 8/6/4px) and 40% wider (3.5px vs 2.5px). The frame + glow make it clearly visible against the dark background and clearly interactive.
+- Files modified: `src/components/views/track-detail-view.tsx` only.
