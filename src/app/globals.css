@@ -141,3 +141,7 @@
 .status-bg-mixing { background: rgba(138, 43, 226, 0.15); }
 .status-bg-final { background: rgba(16, 185, 129, 0.15); }
 .status-bg-released { background: rgba(16, 185, 129, 0.15); }
+
+/* Hide scrollbar but keep scroll functionality (used by the header quick-access carousel) */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

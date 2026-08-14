@@ -3519,3 +3519,32 @@ Stage Summary:
 - Stats buttons now use the same dark purple base (#161224) + yellow top border + yellow inner glow as the home page's "Альбом" card — no more heavy gradient fill. Yellow accents on icon, corner brackets, label. Hover intensifies the yellow glow + lifts the tile.
 - Left + right scroll buttons (yellow-themed, chamfered) flank the projects carousel. Each click scrolls 220px (one card width) smoothly. Buttons only functionally needed when cards overflow (5+ cards), but always visible.
 - Files modified: `src/components/layout/app-header.tsx` only.
+
+---
+Task ID: HORIZONTAL-CARDS-HIDDEN-SCROLLBAR
+Agent: main
+Task: The "Проекты" cards in the top quick-access panel should be horizontal and scrollable left/right via buttons, but the bottom scrollbar should not be visible.
+
+Work Log:
+- Changed the card container from `grid grid-cols-2 sm:grid-cols-3` (wrapping grid) back to `flex gap-2 overflow-x-auto pb-1 flex-1` (horizontal scroll).
+- Changed card className from `w-full` back to `w-52 shrink-0` so cards maintain fixed width and don't shrink — they stay in a single horizontal row that scrolls.
+- Added `hide-scrollbar` CSS class to the scroll container + `scrollbarWidth: 'none'` + `msOverflowStyle: 'none'` inline styles to hide the native scrollbar in Firefox + IE.
+- Added `.hide-scrollbar` CSS rule to `src/app/globals.css`:
+  - `.hide-scrollbar::-webkit-scrollbar { display: none; }` — hides the scrollbar in Chrome/Safari/Edge (webkit).
+  - `.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }` — hides it in Firefox + IE.
+- Brought back the left and right scroll buttons (ChevronLeft / ChevronRight) that flank the carousel. Each click scrolls 220px (one card width) smoothly.
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (app-header:245). No new errors.
+- dev.log: clean compile.
+- Agent Browser DOM verification:
+  - 2 scroll buttons present inside the panel (left + right). ✅
+  - Scroll container: `scrollWidth=1072`, `clientWidth=658`, `canScroll=true`. ✅
+  - Clicked right scroll → scrollLeft changed from 0 to 220 after smooth scroll. ✅
+  - `hide-scrollbar` class applied to the scroll container. ✅
+- VLM confirms: "Карточки расположены горизонтально в один ряд. Есть стрелочки прокрутки влево/вправо. Нижний скроллбар не виден." ✅
+
+Stage Summary:
+- Project cards are back in a horizontal single-row layout with left/right scroll buttons.
+- The native scrollbar is hidden via the `hide-scrollbar` CSS class (covers webkit, Firefox, and IE).
+- Files modified: `src/components/layout/app-header.tsx` (cards container back to flex + scroll buttons), `src/app/globals.css` (added `.hide-scrollbar` CSS rule).

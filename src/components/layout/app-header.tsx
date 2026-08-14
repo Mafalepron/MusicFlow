@@ -1061,8 +1061,43 @@ export function AppHeader() {
                     </span>
                     <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.4), transparent)' }} />
                   </div>
-                  {/* Cards grid — wraps instead of scrolling horizontally */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {/* Cards carousel — horizontal layout with left/right scroll
+                      buttons. The native scrollbar is hidden via CSS. */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Left scroll button */}
+                    <button
+                      onClick={() => {
+                        const el = quickCardsScrollRef.current;
+                        if (el) el.scrollBy({ left: -220, behavior: 'smooth' });
+                      }}
+                      className="group flex h-10 w-7 shrink-0 items-center justify-center transition-all hover:scale-110"
+                      style={{
+                        clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                        background: 'rgba(199,160,8,0.1)',
+                        border: '1px solid rgba(199,160,8,0.4)',
+                        boxShadow: '0 0 6px rgba(199,160,8,0.2)',
+                        cursor: 'pointer',
+                      }}
+                      title="Прокрутить влево"
+                      aria-label="Прокрутить влево"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(199,160,8,0.25)';
+                        e.currentTarget.style.boxShadow = '0 0 10px rgba(199,160,8,0.5)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(199,160,8,0.1)';
+                        e.currentTarget.style.boxShadow = '0 0 6px rgba(199,160,8,0.2)';
+                      }}
+                    >
+                      <ChevronLeft className="h-4 w-4" style={{ color: '#c7a008' }} />
+                    </button>
+
+                    {/* Scrollable cards container — scrollbar hidden */}
+                    <div
+                      ref={quickCardsScrollRef}
+                      className="flex gap-2 overflow-x-auto pb-1 flex-1 hide-scrollbar"
+                      style={{ scrollBehavior: 'smooth', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
                     {quickAccessCards.map((card) => {
                       const C_HEX = '#00a8c6';
                       const Y_HEX = '#c7a008';
@@ -1092,7 +1127,7 @@ export function AppHeader() {
                             }
                             setQuickPanelOpen(false);
                           }}
-                          className="group relative w-full cursor-pointer overflow-hidden"
+                          className="group relative w-52 shrink-0 cursor-pointer overflow-hidden"
                           style={{
                             clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
                             background: 'linear-gradient(135deg, rgba(0,168,198,0.10), rgba(10,14,22,0.88))',
@@ -1173,6 +1208,35 @@ export function AppHeader() {
                         </div>
                       );
                     })}
+                    </div>
+
+                    {/* Right scroll button */}
+                    <button
+                      onClick={() => {
+                        const el = quickCardsScrollRef.current;
+                        if (el) el.scrollBy({ left: 220, behavior: 'smooth' });
+                      }}
+                      className="group flex h-10 w-7 shrink-0 items-center justify-center transition-all hover:scale-110"
+                      style={{
+                        clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                        background: 'rgba(199,160,8,0.1)',
+                        border: '1px solid rgba(199,160,8,0.4)',
+                        boxShadow: '0 0 6px rgba(199,160,8,0.2)',
+                        cursor: 'pointer',
+                      }}
+                      title="Прокрутить вправо"
+                      aria-label="Прокрутить вправо"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(199,160,8,0.25)';
+                        e.currentTarget.style.boxShadow = '0 0 10px rgba(199,160,8,0.5)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(199,160,8,0.1)';
+                        e.currentTarget.style.boxShadow = '0 0 6px rgba(199,160,8,0.2)';
+                      }}
+                    >
+                      <ChevronRight className="h-4 w-4" style={{ color: '#c7a008' }} />
+                    </button>
                   </div>
                 </div>
               ) : (
