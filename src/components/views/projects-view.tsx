@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
-import { Plus, FolderOpen, LayoutDashboard, Music2, Disc3, AudioLines, Clock } from 'lucide-react';
+import {
+  Plus, FolderOpen, LayoutDashboard, Music2, Disc3, AudioLines, Clock,
+  Search, X, Layers,
+} from 'lucide-react';
 import { useNavigationStore, useDataStore, type Project } from '@/lib/store';
-import { useKanbanStore } from '@/store/kanban-store';
+import { useKanbanStore, type Task } from '@/store/kanban-store';
 import { CreateProjectDialog } from '@/components/shared/create-project-dialog';
 import { hexToRgba } from '@/lib/utils';
 
@@ -42,18 +45,36 @@ const cardVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' as const } },
 } as const;
 
-function ProjectCard({ project, trackCount, onClick, onOpenKanban }: {
-  project: Project;
-  trackCount: number;
+// ── Unified card for both auto projects and kanban projects ──
+// `kind` distinguishes the source so we render the right badge + open the right view.
+type UnifiedCard =
+  | { kind: 'auto'; project: Project; trackCount: number }
+  | { kind: 'kanban'; task: Task; boardCount: number };
+
+function ProjectCardUnified({
+  data,
+  onClick,
+  onOpenKanban,
+}: {
+  data: UnifiedCard;
   onClick: () => void;
   onOpenKanban: () => void;
 }) {
   const [h, setH] = useState(false);
-  const type = typeConfig[project.type] || typeConfig.general;
+
+  const title = data.kind === 'auto' ? data.project.title : data.task.title;
+  const projectType = data.kind === 'auto' ? data.project.type : (data.task.projectType || 'general');
+  const type = typeConfig[projectType] || typeConfig.general;
   const TypeIcon = type.icon;
-  const sc = statusHex[project.status] || '#64748b';
-  const sl = statusLabels[project.status] || project.status;
-  const hasKanban = !!project.kanbanTaskId;
+  const status = data.kind === 'auto' ? data.project.status : data.task.status;
+  const sc = statusHex[status] || '#64748b';
+  const sl = statusLabels[status] || status;
+  const updatedAt = data.kind === 'auto' ? data.project.updatedAt : data.task.updatedAt;
+  const metaCount = data.kind === 'auto' ? data.trackCount : data.boardCount;
+  const metaLabel = data.kind === 'auto'
+    ? (metaCount === 1 ? 'трек' : metaCount > 4 ? 'треков' : 'трека')
+    : (metaCount === 1 ? 'board' : 'boards');
+  const hasKanban = data.kind === 'auto' ? !!data.project.kanbanTaskId : true;
 
   return (
     <motion.div variants={cardVariants}>
@@ -91,6 +112,17 @@ function ProjectCard({ project, trackCount, onClick, onOpenKanban }: {
               <TypeIcon className="w-4 h-4" style={{ color: type.color }} />
             </div>
             <span className="text-[11px] font-semibold" style={{ color: type.color }}>{type.label}</span>
+            {/* Source badge — AUTO vs KANBAN */}
+            <span
+              className="ml-1 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider"
+              style={{
+                background: data.kind === 'auto' ? hexToRgba('#00d9ff', 0.1) : hexToRgba('#10b981', 0.1),
+                color: data.kind === 'auto' ? '#00d9ff' : '#10b981',
+                border: `1px solid ${data.kind === 'auto' ? hexToRgba('#00d9ff', 0.3) : hexToRgba('#10b981', 0.3)}`,
+              }}
+            >
+              {data.kind === 'auto' ? 'AUTO' : 'KANBAN'}
+            </span>
           </div>
           <span
             className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
@@ -106,17 +138,26 @@ function ProjectCard({ project, trackCount, onClick, onOpenKanban }: {
             className="mb-2 text-[15px] font-semibold leading-snug transition-colors"
             style={{ color: h ? type.color : '#e2e8f0' }}
           >
-            {project.title}
+            {title}
           </h3>
 
           <div className="flex items-center justify-between text-[11px] text-slate-500">
             <span className="flex items-center gap-1.5">
-              <Music2 className="w-3 h-3" />
-              {trackCount} {trackCount === 1 ? 'трек' : trackCount > 4 ? 'треков' : 'трека'}
+              {data.kind === 'auto' ? (
+                <>
+                  <Music2 className="w-3 h-3" />
+                  {metaCount} {metaLabel}
+                </>
+              ) : (
+                <>
+                  <Layers className="w-3 h-3" />
+                  {metaCount} {metaLabel}
+                </>
+              )}
             </span>
             <span className="flex items-center gap-1.5">
               <Clock className="w-3 h-3" />
-              {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
+              {formatDistanceToNow(new Date(updatedAt), { addSuffix: true })}
             </span>
           </div>
 
@@ -138,14 +179,62 @@ function ProjectCard({ project, trackCount, onClick, onOpenKanban }: {
   );
 }
 
+type SectionFilter = 'all' | 'auto' | 'kanban';
+
 export function ProjectsView() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sectionFilter, setSectionFilter] = useState<SectionFilter>('all');
+  const [kanbanProjects, setKanbanProjects] = useState<Task[]>([]);
+
   const navigate = useNavigationStore((s) => s.navigate);
   const projects = useDataStore((s) => s.projects);
   const tracks = useDataStore((s) => s.tracks);
 
   const getTrackCount = (projectId: string) =>
     tracks.filter((t) => t.projectId === projectId).length;
+
+  // Fetch kanban projects (top-level tasks with no parentId). These are the
+  // "kanban projects" that used to live on the separate Kanban tab.
+  useEffect(() => {
+    fetch('/api/tasks?parentId=null')
+      .then((r) => r.json())
+      .then((data) => {
+        const tasks: Task[] = Array.isArray(data) ? data : data.tasks || [];
+        setKanbanProjects(tasks);
+        useKanbanStore.getState().setProjects(tasks);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto projects = projects with a linked kanbanTaskId (i.e. created via the
+  // "auto" flow — album/EP/single with auto-generated kanban boards).
+  const autoProjects = useMemo(() => projects.filter((p) => p.kanbanTaskId), [projects]);
+
+  // Build a unified list of cards, applying the section filter + title search.
+  const cards = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const out: UnifiedCard[] = [];
+
+    if (sectionFilter === 'all' || sectionFilter === 'auto') {
+      autoProjects.forEach((p) => {
+        if (q && !p.title.toLowerCase().includes(q)) return;
+        out.push({ kind: 'auto', project: p, trackCount: getTrackCount(p.id) });
+      });
+    }
+
+    if (sectionFilter === 'all' || sectionFilter === 'kanban') {
+      // Deduplicate: skip kanban tasks that are already linked to an auto project.
+      const linkedKanbanIds = new Set(autoProjects.map((p) => p.kanbanTaskId));
+      kanbanProjects.forEach((t) => {
+        if (linkedKanbanIds.has(t.id)) return;
+        if (q && !t.title.toLowerCase().includes(q)) return;
+        out.push({ kind: 'kanban', task: t, boardCount: t.children?.length ?? 0 });
+      });
+    }
+
+    return out;
+  }, [autoProjects, kanbanProjects, sectionFilter, searchQuery, tracks, getTrackCount]);
 
   const handleOpenKanban = (kanbanTaskId: string) => {
     navigate('kanban');
@@ -154,6 +243,12 @@ export function ProjectsView() {
     }, 300);
   };
 
+  const sectionFilters: { value: SectionFilter; label: string; count: number }[] = [
+    { value: 'all', label: 'Все', count: autoProjects.length + kanbanProjects.filter((t) => !autoProjects.some((p) => p.kanbanTaskId === t.id)).length },
+    { value: 'auto', label: 'Автопроекты', count: autoProjects.length },
+    { value: 'kanban', label: 'Канбан', count: kanbanProjects.filter((t) => !autoProjects.some((p) => p.kanbanTaskId === t.id)).length },
+  ];
+
   return (
     <div className="min-h-full bg-[#06080d]">
       <div className="mx-auto max-w-6xl space-y-6 p-6 lg:p-8">
@@ -161,7 +256,9 @@ export function ProjectsView() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-100">Проекты</h2>
-            <p className="mt-0.5 text-sm text-slate-500">Управление альбомами, EP и синглами</p>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Автопроекты и Канбан-проекты · {cards.length} {cards.length === 1 ? 'проект' : cards.length > 4 ? 'проектов' : 'проекта'}
+            </p>
           </div>
           <button
             onClick={() => setDialogOpen(true)}
@@ -202,21 +299,104 @@ export function ProjectsView() {
           </button>
         </div>
 
+        {/* ── Toolbar: section filter + search ── */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Section filter chips */}
+          <div className="flex items-center gap-1.5">
+            {sectionFilters.map((f) => {
+              const active = sectionFilter === f.value;
+              return (
+                <button
+                  key={f.value}
+                  onClick={() => setSectionFilter(f.value)}
+                  className="flex items-center gap-1.5 transition-all duration-200"
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    padding: '6px 12px',
+                    color: active ? '#000' : '#94a3b8',
+                    background: active
+                      ? 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)'
+                      : 'rgba(30, 35, 50, 0.6)',
+                    border: active
+                      ? '1px solid rgba(252, 238, 10, 0.9)'
+                      : '1px solid rgba(100, 116, 139, 0.2)',
+                    clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                    boxShadow: active
+                      ? '0 0 10px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)'
+                      : 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {f.label}
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[8px] tabular-nums"
+                    style={{
+                      background: active ? 'rgba(0,0,0,0.2)' : 'rgba(100,116,139,0.15)',
+                      color: active ? '#000' : '#64748b',
+                    }}
+                  >
+                    {f.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search input */}
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск по названию…"
+              className="w-full pl-9 pr-8 py-2 text-xs text-slate-200 bg-[#0d1117] border border-slate-700/60 rounded-md outline-none transition-colors focus:border-[#FCEE0A]/50 focus:bg-[#0d1117]"
+              style={{ fontFamily: 'inherit' }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center text-slate-500 hover:text-slate-300 transition-colors"
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                aria-label="Очистить поиск"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Grid */}
-        {projects.length > 0 ? (
+        {cards.length > 0 ? (
           <motion.div
+            key={`${sectionFilter}-${searchQuery}`}
             variants={containerVariants}
             initial="hidden"
             animate="show"
             className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
           >
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                trackCount={getTrackCount(project.id)}
-                onClick={() => navigate('project-detail', project.id)}
-                onOpenKanban={() => project.kanbanTaskId && handleOpenKanban(project.kanbanTaskId)}
+            {cards.map((card) => (
+              <ProjectCardUnified
+                key={card.kind === 'auto' ? `auto-${card.project.id}` : `kanban-${card.task.id}`}
+                data={card}
+                onClick={() => {
+                  if (card.kind === 'auto') {
+                    navigate('project-detail', card.project.id);
+                  } else {
+                    // Kanban-only project — open the kanban view directly.
+                    handleOpenKanban(card.task.id);
+                  }
+                }}
+                onOpenKanban={() => {
+                  if (card.kind === 'auto' && card.project.kanbanTaskId) {
+                    handleOpenKanban(card.project.kanbanTaskId);
+                  } else if (card.kind === 'kanban') {
+                    handleOpenKanban(card.task.id);
+                  }
+                }}
               />
             ))}
           </motion.div>
@@ -231,41 +411,53 @@ export function ProjectsView() {
               className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg"
               style={{ background: 'rgba(252,238,10,0.06)', border: '1px solid rgba(252,238,10,0.15)' }}
             >
-              <FolderOpen className="h-6 w-6 text-slate-600" />
+              {searchQuery ? (
+                <Search className="h-6 w-6 text-slate-600" />
+              ) : (
+                <FolderOpen className="h-6 w-6 text-slate-600" />
+              )}
             </div>
-            <h3 className="mb-1 text-sm font-medium text-slate-400">Пока нет проектов</h3>
-            <p className="mb-4 text-xs text-slate-600">Создайте первый проект, чтобы начать работу</p>
-            <button
-              onClick={() => setDialogOpen(true)}
-              className="flex items-center gap-1.5 transition-all duration-200"
-              style={{
-                fontSize: '10px',
-                fontWeight: 800,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                padding: '8px 18px',
-                color: '#000',
-                background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
-                border: '1.5px solid rgba(252, 238, 10, 0.9)',
-                clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
-                boxShadow: '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
-                cursor: 'pointer',
-                textShadow: '0 1px 0 rgba(255,255,255,0.3)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#FCEE0A';
-                e.currentTarget.style.boxShadow = '0 0 20px rgba(252,238,10,0.6), inset 0 1px 0 rgba(255,255,255,0.4)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#000';
-                e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              <Plus className="w-3 h-3" />
-              <span>Создать проект</span>
-            </button>
+            <h3 className="mb-1 text-sm font-medium text-slate-400">
+              {searchQuery ? 'Ничего не найдено' : 'Пока нет проектов'}
+            </h3>
+            <p className="mb-4 text-xs text-slate-600">
+              {searchQuery
+                ? `По запросу «${searchQuery}» ничего не найдено. Попробуйте изменить запрос.`
+                : 'Создайте первый проект, чтобы начать работу'}
+            </p>
+            {!searchQuery && (
+              <button
+                onClick={() => setDialogOpen(true)}
+                className="flex items-center gap-1.5 transition-all duration-200"
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  padding: '8px 18px',
+                  color: '#000',
+                  background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+                  border: '1.5px solid rgba(252, 238, 10, 0.9)',
+                  clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+                  boxShadow: '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+                  cursor: 'pointer',
+                  textShadow: '0 1px 0 rgba(255,255,255,0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#FCEE0A';
+                  e.currentTarget.style.boxShadow = '0 0 20px rgba(252,238,10,0.6), inset 0 1px 0 rgba(255,255,255,0.4)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#000';
+                  e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <Plus className="w-3 h-3" />
+                <span>Создать проект</span>
+              </button>
+            )}
           </motion.div>
         )}
       </div>

@@ -3191,3 +3191,57 @@ Stage Summary:
 - Close button is 32×32px (33% bigger) with a cyberpunk chamfered frame, purple glow, and red hover — much easier to click.
 - Panel restyled with full cyberpunk aesthetic: 4 neon corner brackets, CRT scanline overlay, 3-stop gradient background, 5-layer box-shadow, purple chamfered header bar with "QUICK ACCESS" title + Zap icon chip, stronger stat buttons + project cards with hover lift + glow.
 - Files modified: `src/components/layout/app-header.tsx` only.
+
+---
+Task ID: MERGE-PROJECTS-KANBAN
+Agent: main
+Task: Merge the "Проекты" (Projects) and "Канбан проекты" (Kanban projects) tabs. All routing now lives in "Проекты". Add section sorting (Канбан / Автопроекты) and title search.
+
+Work Log:
+
+**1. Removed the "Kanban" nav item from the sidebar:**
+- `src/components/layout/app-sidebar.tsx`: removed `{ icon: LayoutGrid, label: 'Kanban', view: 'kanban' }` from the `navItems` array. The sidebar now shows only Home / Ideas / Projects / Settings.
+- `src/components/layout/app-header.tsx`: removed the same Kanban nav item from the mobile nav `navItems` array.
+- The `kanban` view itself is preserved in the `ViewName` type + `navigate()` function — it's still reachable via project card clicks ("Открыть Kanban" button + kanban-only project card clicks). Only the dedicated nav tab is gone.
+
+**2. Rewrote `src/components/views/projects-view.tsx` to merge both project sources:**
+- Added state: `searchQuery` (string), `sectionFilter` ('all' | 'auto' | 'kanban'), `kanbanProjects` (Task[] fetched from `/api/tasks?parentId=null`).
+- Added a `useEffect` that fetches kanban projects on mount (same fetch as home-view uses) and populates `useKanbanStore` so the kanban view works when navigated to.
+- `autoProjects` = `projects.filter(p => p.kanbanTaskId)` — same logic as home-view (auto projects are those with a linked kanban task).
+- Built a unified `UnifiedCard` type that holds either `{ kind: 'auto'; project; trackCount }` or `{ kind: 'kanban'; task; boardCount }`.
+- `cards` useMemo builds the unified list, applying:
+  - Section filter: only auto, only kanban, or both (deduped — kanban tasks linked to an auto project are skipped from the kanban list).
+  - Title search: case-insensitive substring match on `title`.
+- Single `ProjectCardUnified` component renders both kinds. Differences:
+  - Auto cards show track count + "трек/трека/треков" with a Music2 icon.
+  - Kanban cards show board count + "board/boards" with a Layers icon.
+  - A small "AUTO" (cyan) or "KANBAN" (green) badge on the cover strip distinguishes the source.
+- Clicking an auto card → `navigate('project-detail', project.id)`.
+- Clicking a kanban card → `handleOpenKanban(task.id)` (navigates to the kanban view, selects that project).
+- "Открыть Kanban" button preserved on both kinds (auto cards with a linked kanbanTaskId, kanban cards).
+
+**3. Added the toolbar (section filter chips + search input):**
+- Three filter chips: "Все" / "Автопроекты" / "Канбан" — each with a live count badge. Active chip is yellow gradient (matches the existing "Новый проект" button style), inactive chips are dark with a subtle border.
+- Search input: dark `#0d1117` background, Search icon on the left, clear (X) button on the right when there's a query. Placeholder "Поиск по названию…". Filters the unified card list in real time.
+- Empty state: when no cards match (either no projects at all, or search returned nothing), shows a FolderOpen/Search icon + contextual message. The "Создать проект" button only shows when there's no search query.
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (app-header:174, search useEffect). No new errors.
+- dev.log: clean compile.
+- Agent Browser end-to-end verification:
+  - **Nav**: sidebar shows only HOME / IDEAS / PROJECTS / SETTINGS. No KANBAN tab. ✅
+  - **Filter chips**: "ВСЕ 14", "АВТОПРОЕКТЫ 6", "КАНБАН 8" — correct counts. ✅
+  - **Filter "Автопроекты"**: 6 cards, all with AUTO badge, 0 with KANBAN. ✅
+  - **Filter "Канбан"**: 8 cards, all with KANBAN badge, 0 with AUTO. ✅
+  - **Search**: typed "акыа" → 1 result (the "акыа" project). Clear button restores all 14 cards. ✅
+  - **Auto card click**: clicked the "акыа" card → navigated to project-detail view (heading "акыа" + "ТРЕКИ"). ✅
+  - **Kanban card click**: clicked the "ж.бююбюб" kanban card → navigated to kanban view (heading "Доска «Дизайн»" + project "ж.бююбюб" selected). ✅
+- VLM confirms: "Фильтры: ВСЕ 14, АВТОПРОЕКТЫ 6, КАНБАН 8. Поле поиска с плейсхолдером Поиск по названию. Бейджи AUTO (синие) и KANBAN (зелёные). В сайдбаре только HOME/IDEAS/PROJECTS/SETTINGS."
+
+Stage Summary:
+- The "Kanban" nav tab is removed from both the sidebar and the mobile header nav. All project routing now goes through the "Projects" tab.
+- The Projects view now shows a unified grid of both auto projects (from the projects store) and kanban projects (fetched from /api/tasks?parentId=null), with deduplication (kanban tasks linked to auto projects are not double-counted).
+- A 3-chip section filter (Все / Автопроекты / Канбан) with live counts lets the user filter by source.
+- A title search input filters the unified list in real time, with a clear (X) button.
+- Auto project cards navigate to project-detail; kanban project cards navigate to the kanban view (selecting that project). The "Открыть Kanban" button on auto cards still works.
+- Files modified: `src/components/views/projects-view.tsx` (full rewrite — merged both sources + filter + search), `src/components/layout/app-sidebar.tsx` (removed Kanban nav item), `src/components/layout/app-header.tsx` (removed Kanban nav item from mobile nav).

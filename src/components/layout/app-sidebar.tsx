@@ -40,7 +40,7 @@ const navItems: { icon: typeof Home; label: string; view: ViewName }[] = [
   { icon: Home, label: 'Home', view: 'home' },
   { icon: Lightbulb, label: 'Ideas', view: 'ideas' },
   { icon: FolderOpen, label: 'Projects', view: 'projects' },
-  { icon: LayoutGrid, label: 'Kanban', view: 'kanban' },
+  // Kanban tab merged into Projects — entry point is now via project cards.
 ];
 
 function NavItem({
