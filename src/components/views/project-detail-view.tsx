@@ -183,10 +183,9 @@ export function ProjectDetailView() {
         label: 'Kanban',
         icon: <LayoutDashboard className="h-3.5 w-3.5" />,
         onClick: () => {
+          // Select the project FIRST so KanbanPage doesn't redirect.
+          useKanbanStore.getState().selectProject(project.kanbanTaskId!);
           navigate('kanban');
-          setTimeout(() => {
-            useKanbanStore.getState().selectProject(project.kanbanTaskId!);
-          }, 300);
         },
         variant: 'outline',
         className: 'border-[#00a8c6]/30 text-[#00a8c6] hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]',
@@ -238,10 +237,10 @@ export function ProjectDetailView() {
       }
     } catch { /* ignore — will still work without preloaded projects */ }
 
-    // Navigate to kanban and select the project.
+    // Select the project FIRST so KanbanPage doesn't redirect to Projects.
     // KanbanWorkspace.loadBoards will fetch boards asynchronously.
-    navigate('kanban');
     useKanbanStore.getState().selectProject(projectKanbanTaskId);
+    navigate('kanban');
 
     // After boards load (~600ms), dismiss any onboarding and select the tracks board.
     setTimeout(() => {

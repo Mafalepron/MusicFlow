@@ -3245,3 +3245,55 @@ Stage Summary:
 - A title search input filters the unified list in real time, with a clear (X) button.
 - Auto project cards navigate to project-detail; kanban project cards navigate to the kanban view (selecting that project). The "Открыть Kanban" button on auto cards still works.
 - Files modified: `src/components/views/projects-view.tsx` (full rewrite — merged both sources + filter + search), `src/components/layout/app-sidebar.tsx` (removed Kanban nav item), `src/components/layout/app-header.tsx` (removed Kanban nav item from mobile nav).
+
+---
+Task ID: REMOVE-KANBAN-PROJECTS-PAGE
+Agent: main
+Task: The Kanban Projects page (the list of all kanban projects) hasn't disappeared. Clicking "back" in Kanban opens this page. Remove it and redirect all routes to "Projects" instead.
+
+Work Log:
+- Identified the "Kanban Projects page" as the `ProjectList` component rendered inside `KanbanWorkspace` when `!selectedProjectId` (kanban-view.tsx line ~617). This was a duplicate of what the merged Projects view now shows.
+- Found all routes leading to the kanban view:
+  1. `projects-view.tsx` — `handleOpenKanban` → navigate('kanban') + selectProject(id) with 300ms delay
+  2. `project-detail-view.tsx:186` — navigate('kanban') + selectProject(kanbanTaskId) with 300ms delay
+  3. `project-detail-view.tsx:243` — navigate('kanban') + selectProject(kanbanTaskId) immediately
+  4. `track-detail-view.tsx:2612` — navigate('kanban') + selectProject(kanbanTaskId) with 300ms delay
+  5. `home-view.tsx:1264` (goToKanban) — navigate('kanban') + selectProject(id) with 220ms delay
+  6. `home-view.tsx:1550` — navigate('kanban') WITHOUT selectProject (opens ProjectList) ❌
+  7. `create-project-dialog.tsx:94` — navigate('kanban') + selectProject(kanbanTaskId) with 300ms delay
+
+**Changes made:**
+
+1. **`kanban-view.tsx` (KanbanPage):**
+   - Added `useNavigationStore` import.
+   - Added a redirect useEffect: when `!selectedProjectId`, calls `navigate('projects')` — so if someone navigates to the kanban route without selecting a project, they're redirected to the unified Projects view instead of seeing the old ProjectList.
+   - Changed the "К проектам" back button from `selectProject('')` (which showed ProjectList) to `selectProject('') + navigate('projects')` (goes to the unified Projects view).
+
+2. **`kanban-view.tsx` (KanbanWorkspace):**
+   - When `!selectedProjectId`, instead of rendering `<ProjectList />`, renders a simple "Перенаправление в раздел «Проекты»…" message. The actual redirect happens via the KanbanPage useEffect above.
+
+3. **Fixed timing issue in ALL navigate('kanban') call sites:**
+   - Root cause: the old pattern was `navigate('kanban')` first, then `selectProject(id)` after a 220-300ms delay. But KanbanPage now redirects to Projects when `selectedProjectId` is empty — so the redirect fired before `selectProject` had a chance to set the ID.
+   - Fix: reversed the order — `selectProject(id)` FIRST, then `navigate('kanban')`. This way KanbanPage sees a non-empty `selectedProjectId` on mount and doesn't redirect.
+   - Applied to: `projects-view.tsx` (handleOpenKanban), `project-detail-view.tsx` (both call sites), `track-detail-view.tsx`, `home-view.tsx` (goToKanban), `create-project-dialog.tsx`.
+
+4. **`home-view.tsx:1550` (CreateCard in Канбан проекты section):**
+   - Changed `navigate('kanban')` → `navigate('projects')`. The "Создать" card now goes to the unified Projects view where the user can click "Новый проект".
+
+Verification:
+- `bun run lint` → 9 errors, ALL pre-existing (home-view.tsx + project-chat.tsx + app-header.tsx). No new errors.
+- dev.log: clean compile.
+- Agent Browser end-to-end verification:
+  - **Sidebar**: only HOME / IDEAS / PROJECTS / SETTINGS. No KANBAN tab. ✅
+  - **Click kanban card in Projects**: clicked "ж.бююбюб" → kanban workspace opened correctly (heading "Доска «Дизайн»" + "К проектам" back button). ✅ (was redirecting back to Projects before the timing fix)
+  - **Back button**: clicked "К проектам" → navigated to Projects view (heading "Проекты" + list of project cards). ✅ No more ProjectList page.
+  - **CreateCard in home**: clicked the "Создать" card in the Канбан проекты section → navigated to Projects view. ✅
+  - **Old ProjectList never renders**: confirmed via DOM check — no element with "Канбан проекты" + "boards" text ever appears. ✅
+
+Stage Summary:
+- The old "Kanban Projects" list page (ProjectList component inside KanbanWorkspace) is removed from rendering. When no project is selected, KanbanPage redirects to the unified Projects view.
+- The "К проектам" back button in the kanban workspace now navigates to the Projects view (not the old ProjectList).
+- All `navigate('kanban')` call sites now call `selectProject(id)` BEFORE `navigate('kanban')` so KanbanPage sees a selected project on mount and doesn't redirect.
+- The home page's "Создать" card in the Канбан проекты section now navigates to Projects (where the user can create a new project via the "Новый проект" button).
+- The `kanban` route is preserved in page.tsx (still needed to show kanban boards for a selected project), but it's never accessible without a selected project — the redirect catches any orphaned navigation.
+- Files modified: `src/components/kanban/kanban-view.tsx` (KanbanPage redirect + back button + KanbanWorkspace fallback), `src/components/views/projects-view.tsx` (handleOpenKanban timing), `src/components/views/project-detail-view.tsx` (2 call site timing fixes), `src/components/views/track-detail-view.tsx` (timing fix), `src/components/views/home-view.tsx` (goToKanban timing + CreateCard route), `src/components/shared/create-project-dialog.tsx` (timing fix).

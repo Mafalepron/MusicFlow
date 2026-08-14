@@ -4,6 +4,7 @@ import { useEffect, useCallback, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useKanbanStore, type Task } from '@/store/kanban-store';
 import { useHeaderActionsStore } from '@/store/header-actions-store';
+import { useNavigationStore } from '@/lib/store';
 import RadialBoard from '@/components/board/radial-board';
 import TaskStrip from '@/components/board/task-strip';
 import OnboardingHintPanel from '@/components/board/onboarding-hint-panel';
@@ -615,7 +616,14 @@ function KanbanWorkspace() {
   };
 
   if (!selectedProjectId) {
-    return <div className="flex-1 flex flex-col bg-slate-950"><ProjectList /></div>;
+    // No project selected — the unified Projects view is now the single entry
+    // point for listing projects. Redirect there instead of rendering the old
+    // kanban-only ProjectList (which duplicated what Projects view already shows).
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-slate-950 text-slate-400 py-20">
+        <p className="text-sm">Перенаправление в раздел «Проекты»…</p>
+      </div>
+    );
   }
 
   return (
@@ -724,16 +732,30 @@ export function KanbanPage() {
   const { selectedProjectId, selectProject } = useKanbanStore();
   const setHeaderActions = useHeaderActionsStore((s) => s.setActions);
   const setHeaderTitle = useHeaderActionsStore((s) => s.setTitle);
+  const navigate = useNavigationStore((s) => s.navigate);
+
+  // If no project is selected, redirect to the unified Projects view.
+  // The old kanban-only ProjectList has been removed — Projects view now
+  // lists both auto and kanban projects.
+  useEffect(() => {
+    if (!selectedProjectId) {
+      navigate('projects');
+    }
+  }, [selectedProjectId, navigate]);
 
   useEffect(() => {
     if (selectedProjectId) {
-      // Inside a kanban project — register back action
+      // Inside a kanban project — register back action.
+      // Goes to the unified Projects view (not the old ProjectList).
       setHeaderActions([
         {
           id: 'back-to-projects',
           label: 'К проектам',
           icon: <ArrowLeft className="h-3.5 w-3.5" />,
-          onClick: () => selectProject(''),
+          onClick: () => {
+            selectProject('');
+            navigate('projects');
+          },
           variant: 'ghost',
         },
       ]);
@@ -743,7 +765,7 @@ export function KanbanPage() {
     }
     setHeaderTitle(null);
     return () => { /* keep actions on unmount so transitions don't flicker */ };
-  }, [selectedProjectId, selectProject, setHeaderActions, setHeaderTitle]);
+  }, [selectedProjectId, selectProject, setHeaderActions, setHeaderTitle, navigate]);
 
   return (
     <div className="bg-slate-950 text-slate-100 flex flex-col h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-7rem)]">

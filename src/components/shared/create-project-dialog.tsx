@@ -90,12 +90,9 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
       // Auto-open the kanban workspace for this project
       if (autoOpenKanban && project.kanbanTaskId) {
-        // Switch to kanban view and select the project's kanban task
+        // Select the project FIRST so KanbanPage doesn't redirect.
+        useKanbanStore.getState().selectProject(project.kanbanTaskId!);
         navigate('kanban');
-        // Use a small delay to let the kanban view mount before selecting
-        setTimeout(() => {
-          useKanbanStore.getState().selectProject(project.kanbanTaskId!);
-        }, 300);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

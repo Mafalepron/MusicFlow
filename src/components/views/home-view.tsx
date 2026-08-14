@@ -1261,7 +1261,13 @@ export function HomeView() {
     } catch { /* ignore */ }
   }, []);
 
-  const goToKanban = (id: string) => { if (id) { navigate('kanban'); setTimeout(() => useKanbanStore.getState().selectProject(id), 220); } };
+  const goToKanban = (id: string) => {
+    // Select the project FIRST so KanbanPage doesn't redirect to Projects.
+    if (id) {
+      useKanbanStore.getState().selectProject(id);
+      navigate('kanban');
+    }
+  };
 
   const toggleQuickAccess = (id: string, title?: string) => {
     setQuickAccess(prev => {
@@ -1547,7 +1553,7 @@ export function HomeView() {
             }
           />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <CreateCard onClick={() => navigate('kanban')} label="Создать" />
+            <CreateCard onClick={() => navigate('projects')} label="Создать" />
             {kanbanProjects.slice(0, 3).map(task => (
               <KanbanCard key={task.id} task={task} onClick={() => goToKanban(task.id)} />
             ))}

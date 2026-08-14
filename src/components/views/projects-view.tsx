@@ -237,10 +237,10 @@ export function ProjectsView() {
   }, [autoProjects, kanbanProjects, sectionFilter, searchQuery, tracks, getTrackCount]);
 
   const handleOpenKanban = (kanbanTaskId: string) => {
+    // Select the project FIRST so KanbanPage doesn't redirect to Projects
+    // (KanbanPage redirects when selectedProjectId is empty).
+    useKanbanStore.getState().selectProject(kanbanTaskId);
     navigate('kanban');
-    setTimeout(() => {
-      useKanbanStore.getState().selectProject(kanbanTaskId);
-    }, 300);
   };
 
   const sectionFilters: { value: SectionFilter; label: string; count: number }[] = [

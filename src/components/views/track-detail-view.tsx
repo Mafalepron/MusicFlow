@@ -2609,11 +2609,9 @@ export function TrackDetailView() {
                         onClick={() => {
                           const project = useDataStore.getState().projects.find((p) => p.id === selectedProjectId);
                           if (!project?.kanbanTaskId) return;
+                          // Select the project FIRST so KanbanPage doesn't redirect.
+                          useKanbanStore.getState().selectProject(project.kanbanTaskId);
                           useNavigationStore.getState().navigate('kanban');
-                          const taskId = project.kanbanTaskId;
-                          setTimeout(() => {
-                            useKanbanStore.getState().selectProject(taskId);
-                          }, 300);
                         }}
                         className="flex items-center gap-1.5 shrink-0 h-8 px-3 transition-all hover:scale-105"
                         style={{
