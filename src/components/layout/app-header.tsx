@@ -752,47 +752,127 @@ export function AppHeader() {
         </Popover>
       </header>
 
-      {/* Quick-access slide-down panel — rendered OUTSIDE the header (so the
+      {/* Quick-access slide-down panel — renders OUTSIDE the header (so the
           header's clipPath doesn't clip it) but INSIDE a relative wrapper
           that spans the header's width. position: absolute anchors the panel
           to the wrapper's center (which matches the header center, accounting
-          for the sidebar) rather than the viewport center. */}
+          for the sidebar) rather than the viewport center.
+          Animation: slides DOWN from the top edge of the header (large Y
+          offset + opacity), like a drawer dropping out of the header. */}
       <AnimatePresence>
         {quickPanelOpen && (
           <motion.div
             ref={quickPanelRef}
-            initial={{ opacity: 0, y: -8, scaleY: 0.96 }}
-            animate={{ opacity: 1, y: 0, scaleY: 1, x: '-50%' }}
-            exit={{ opacity: 0, y: -8, scaleY: 0.96 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: -120, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -120, x: '-50%' }}
+            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
             style={{
               position: 'absolute',
-              top: '56px',
+              top: '54px',
               left: '50%',
-              width: 'min(720px, calc(100vw - 32px))',
+              width: 'min(760px, calc(100vw - 32px))',
               zIndex: 40,
               transformOrigin: 'top center',
             }}
           >
             <div
               style={{
-                background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
-                border: '1px solid rgba(157,78,221,0.4)',
-                clipPath: 'polygon(0 6px, 6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px))',
-                boxShadow: '0 0 18px rgba(157,78,221,0.25), 0 8px 24px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.05)',
-                padding: '16px 18px',
                 position: 'relative',
+                background: 'linear-gradient(135deg, #0d0f17 0%, #0a0c12 50%, #0d0a16 100%)',
+                border: '1px solid rgba(157,78,221,0.55)',
+                clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px))',
+                boxShadow: '0 0 24px rgba(157,78,221,0.35), 0 0 8px rgba(157,78,221,0.6), 0 12px 32px rgba(0,0,0,0.7), inset 0 1px 1px rgba(157,78,221,0.15), inset 0 -1px 1px rgba(0,0,0,0.8)',
+                padding: '14px 16px 16px',
               }}
             >
-              {/* Close button */}
-              <button
-                onClick={() => setQuickPanelOpen(false)}
-                className="absolute top-2 right-3 flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-[#c7a008] transition-colors"
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-                aria-label="Закрыть"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              {/* ── Cyberpunk corner brackets (HUD frame) ── */}
+              <div className="pointer-events-none absolute top-0 left-0 w-4 h-4" style={{
+                borderTop: '2px solid #9d4edd',
+                borderLeft: '2px solid #9d4edd',
+                boxShadow: '0 0 6px rgba(157,78,221,0.7)',
+              }} />
+              <div className="pointer-events-none absolute top-0 right-0 w-4 h-4" style={{
+                borderTop: '2px solid #9d4edd',
+                borderRight: '2px solid #9d4edd',
+                boxShadow: '0 0 6px rgba(157,78,221,0.7)',
+              }} />
+              <div className="pointer-events-none absolute bottom-0 left-0 w-4 h-4" style={{
+                borderBottom: '2px solid #9d4edd',
+                borderLeft: '2px solid #9d4edd',
+                boxShadow: '0 0 6px rgba(157,78,221,0.7)',
+              }} />
+              <div className="pointer-events-none absolute bottom-0 right-0 w-4 h-4" style={{
+                borderBottom: '2px solid #9d4edd',
+                borderRight: '2px solid #9d4edd',
+                boxShadow: '0 0 6px rgba(157,78,221,0.7)',
+              }} />
+
+              {/* ── Scanline overlay (subtle CRT effect) ── */}
+              <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{
+                clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px))',
+                background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(157,78,221,0.025) 2px, rgba(157,78,221,0.025) 3px)',
+                opacity: 0.6,
+              }} />
+
+              {/* ── Header bar — title + close button ── */}
+              <div className="flex items-center justify-between mb-3 pb-2.5" style={{
+                borderBottom: '1px solid rgba(157,78,221,0.3)',
+                boxShadow: '0 1px 0 0 rgba(157,78,221,0.1)',
+              }}>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center" style={{
+                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                    background: 'rgba(157,78,221,0.18)',
+                    border: '1px solid rgba(157,78,221,0.6)',
+                    boxShadow: '0 0 8px rgba(157,78,221,0.4)',
+                  }}>
+                    <Zap className="h-3.5 w-3.5" style={{ color: '#c77dff', filter: 'drop-shadow(0 0 3px rgba(157,78,221,0.8))' }} />
+                  </div>
+                  <span className="text-[11px] font-bold uppercase" style={{
+                    color: '#c77dff',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    letterSpacing: '2px',
+                    textShadow: '0 0 8px rgba(157,78,221,0.6)',
+                  }}>
+                    Quick Access
+                  </span>
+                  <span className="text-[9px] uppercase" style={{
+                    color: 'rgba(157,78,221,0.5)',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    letterSpacing: '1px',
+                  }}>
+                    · обзор группы
+                  </span>
+                </div>
+
+                {/* Close button — large, cyberpunk chamfered with glow + hover */}
+                <button
+                  onClick={() => setQuickPanelOpen(false)}
+                  className="group flex h-8 w-8 items-center justify-center transition-all hover:scale-110"
+                  style={{
+                    clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                    background: 'rgba(157,78,221,0.1)',
+                    border: '1px solid rgba(157,78,221,0.5)',
+                    boxShadow: '0 0 6px rgba(157,78,221,0.3)',
+                    cursor: 'pointer',
+                  }}
+                  title="Закрыть (Esc)"
+                  aria-label="Закрыть"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,90,90,0.2)';
+                    e.currentTarget.style.borderColor = 'rgba(255,90,90,0.8)';
+                    e.currentTarget.style.boxShadow = '0 0 10px rgba(255,90,90,0.6)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(157,78,221,0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(157,78,221,0.5)';
+                    e.currentTarget.style.boxShadow = '0 0 6px rgba(157,78,221,0.3)';
+                  }}
+                >
+                  <X className="h-4 w-4 transition-colors" style={{ color: '#c77dff' }} />
+                </button>
+              </div>
 
               {/* Stats row — projects / tracks / ideas / participants */}
               <div className="grid grid-cols-4 gap-2 mb-3">
@@ -805,18 +885,19 @@ export function AppHeader() {
                   <button
                     key={s.label}
                     onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
-                    className="group flex flex-col items-center justify-center gap-1 py-2 transition-all hover:scale-105"
+                    className="group relative flex flex-col items-center justify-center gap-1 py-2.5 transition-all hover:scale-105 hover:-translate-y-0.5"
                     style={{
-                      background: 'rgba(255,255,255,0.02)',
-                      border: `1px solid ${s.color}33`,
-                      clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                      background: 'rgba(157,78,221,0.04)',
+                      border: `1px solid ${s.color}40`,
+                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
                       cursor: 'pointer',
-                      padding: '6px 4px',
+                      padding: '8px 4px',
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
                     }}
                     title={`Перейти к: ${s.label}`}
                   >
-                    <s.icon className="h-4 w-4" style={{ color: s.color, filter: `drop-shadow(0 0 3px ${s.color}66)` }} />
-                    <span className="text-lg font-bold tabular-nums" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+                    <s.icon className="h-4 w-4" style={{ color: s.color, filter: `drop-shadow(0 0 4px ${s.color}88)` }} />
+                    <span className="text-xl font-bold tabular-nums" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif', textShadow: `0 0 6px ${s.color}40` }}>
                       {s.value}
                     </span>
                     <span className="text-[9px] uppercase font-bold tracking-wider" style={{ color: s.color, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
@@ -830,27 +911,29 @@ export function AppHeader() {
               {projects.length > 0 ? (
                 <div>
                   <div className="flex items-center gap-1.5 mb-2">
-                    <Zap className="h-3 w-3" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.6))' }} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#c7a008', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                      Быстрый доступ · Проекты
+                    <LayoutDashboard className="h-3 w-3" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 3px rgba(0,168,198,0.5))' }} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                      Проекты
                     </span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.4), transparent)' }} />
                   </div>
-                  <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(199,160,8,0.4) transparent' }}>
+                  <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(157,78,221,0.4) transparent' }}>
                     {projects.slice(0, 6).map((p) => (
                       <button
                         key={p.id}
                         onClick={() => { navigate('project-detail', p.id); setQuickPanelOpen(false); }}
-                        className="group relative shrink-0 w-44 text-left p-2 transition-all hover:scale-[1.03]"
+                        className="group relative shrink-0 w-48 text-left p-2.5 transition-all hover:scale-[1.04] hover:-translate-y-0.5"
                         style={{
-                          background: 'rgba(0,168,198,0.06)',
-                          border: '1px solid rgba(0,168,198,0.3)',
-                          clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                          background: 'linear-gradient(135deg, rgba(0,168,198,0.08), rgba(10,14,22,0.9))',
+                          border: '1px solid rgba(0,168,198,0.35)',
+                          clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))',
                           cursor: 'pointer',
+                          boxShadow: 'inset 0 1px 0 rgba(0,168,198,0.1)',
                         }}
                         title={`Открыть: ${p.title}`}
                       >
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <FolderOpen className="h-3 w-3 shrink-0" style={{ color: '#00a8c6' }} />
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <FolderOpen className="h-3 w-3 shrink-0" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 2px rgba(0,168,198,0.5))' }} />
                           <span className="text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                             {p.type || 'project'}
                           </span>
@@ -858,18 +941,18 @@ export function AppHeader() {
                         <p className="text-xs font-semibold truncate" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
                           {p.title}
                         </p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-[9px]" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="text-[9px] uppercase" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace', letterSpacing: '0.5px' }}>
                             {p.status || 'draft'}
                           </span>
-                          <LayoutDashboard className="h-2.5 w-2.5 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: '#c7a008' }} />
+                          <LayoutDashboard className="h-3 w-3 opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.5))' }} />
                         </div>
                       </button>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-4">
+                <div className="text-center py-6">
                   <p className="text-xs" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                     Нет проектов. Создайте первый на главной странице.
                   </p>

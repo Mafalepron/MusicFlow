@@ -3138,3 +3138,56 @@ Stage Summary:
 - The quick-access panel is now horizontally centered on the purple stripe (which sits at the header's center), not on the viewport center. Works correctly even when a sidebar offsets the header from the viewport center.
 - The panel stays anchored to the header when the page scrolls (sticky wrapper + absolute panel inside it).
 - Files modified: `src/components/layout/app-header.tsx` only (wrapped header+panel in a sticky relative div, moved x:'-50%' into Framer Motion animate prop, removed overridden inline transform).
+
+---
+Task ID: PANEL-SLIDE-TOP-CYBERPUNK-CLOSE
+Agent: main
+Task: Panel comes out from the side — should come out from the top. Close button too small and hard to click. Style the panel more cyberpunk.
+
+Work Log:
+
+**1. Slide-from-top animation:**
+- Was: `initial={{ opacity: 0, y: -8, scaleY: 0.96 }}` — small 8px upward offset + scale, looked like a side pop.
+- Now: `initial={{ opacity: 0, y: -120, x: '-50%' }}` → `animate={{ opacity: 1, y: 0, x: '-50%' }}` — large 120px upward offset so the panel clearly slides DOWN from the top edge of the header, like a drawer dropping out.
+- Removed `scaleY` from the animation (was causing a "grow from top" effect that read as side-out).
+- Duration: 0.22s → 0.32s with a custom cubic-bezier ease `[0.16, 1, 0.3, 1]` (ease-out-expo) for a smoother, more deliberate drop.
+- `x: '-50%'` moved into the `initial`/`animate`/`exit` props so Framer Motion owns the full transform (including the horizontal centering) and doesn't normalize it away.
+
+**2. Bigger close button:**
+- Was: `h-6 w-6` (24×24px) with `X h-3.5 w-3.5` (14px icon), transparent background, no border — too small and hard to click.
+- Now: `h-8 w-8` (32×32px — 33% bigger) with `X h-4 w-4` (16px icon).
+- Added cyberpunk chamfered frame: `clipPath: polygon(...)` (5px chamfer), `background: rgba(157,78,221,0.1)`, `border: 1px solid rgba(157,78,221,0.5)`, `boxShadow: 0 0 6px rgba(157,78,221,0.3)`.
+- Hover: scales 1.1×, background turns red (`rgba(255,90,90,0.2)`), border red, glow red — clear "close" affordance.
+- `title="Закрыть (Esc)"` so the native tooltip tells the user Escape works too.
+- Moved from absolute top-right corner of the panel into a proper header bar (so it sits in a logical place next to the title).
+
+**3. Cyberpunk styling:**
+- **Background**: 3-stop linear gradient `#0d0f17 → #0a0c12 → #0d0a16` (was flat 2-stop) for more depth.
+- **Border**: `rgba(157,78,221,0.55)` (was 0.4) — stronger purple frame.
+- **BoxShadow**: 5 layers — `0 0 24px rgba(157,78,221,0.35)` (outer glow) + `0 0 8px rgba(157,78,221,0.6)` (tight glow) + `0 12px 32px rgba(0,0,0,0.7)` (drop shadow) + `inset 0 1px 1px rgba(157,78,221,0.15)` (top inner highlight) + `inset 0 -1px 1px rgba(0,0,0,0.8)` (bottom inner shadow).
+- **Chamfer**: 8px (was 6px) for chunkier cyberpunk corners.
+- **Corner brackets**: 4 neon-purple L-shaped brackets (16×16px, 2px border, `0 0 6px rgba(157,78,221,0.7)` glow) at each corner — HUD frame aesthetic.
+- **Scanline overlay**: `repeating-linear-gradient(0deg, transparent 0-2px, rgba(157,78,221,0.025) 2-3px)` at 0.6 opacity — subtle CRT effect across the whole panel.
+- **Header bar**: new top section with a purple chamfered Zap icon chip + "QUICK ACCESS" title (JetBrains Mono, 2px letter-spacing, purple glow text-shadow) + "· обзор группы" subtitle. Separated from the body by a purple bottom border.
+- **Stats buttons**: bigger (py-2.5, 8px padding), purple-tinted background, hover lift (`-translate-y-0.5`), stronger icon glow, text-shadow on the count.
+- **Project cards**: wider (w-48, was w-44), gradient background, stronger cyan border, hover lift, LayoutDashboard icon with glow.
+- **Section title row** (Проекты): added a horizontal gradient divider line after the title.
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (line 174). No new errors.
+- dev.log: clean compile.
+- Agent Browser DOM verification:
+  - Close button size: 32×32px (was 24×24px) ✅
+  - Panel animation: `transform: none, opacity: 1` at rest (fully open, centered) ✅
+  - Navigation still works: clicked "Участники" → navigated to Group Settings (heading "Group Settings" + "Members" section) ✅
+- VLM confirms:
+  - "Сверху. Панель выезжает из-под шапки вниз." ✅
+  - "У неё есть тонкая рамка и фиолетовое неоновое свечение." ✅
+  - "Угловые скобки, неоновое свечение, scanlines, моноширинный шрифт." ✅
+  - "Заголовок QUICK ACCESS виден рядом с иконкой молнии." ✅
+
+Stage Summary:
+- Panel now slides DOWN from the top edge of the header (120px upward offset → 0, 320ms ease-out-expo) instead of popping in from the side.
+- Close button is 32×32px (33% bigger) with a cyberpunk chamfered frame, purple glow, and red hover — much easier to click.
+- Panel restyled with full cyberpunk aesthetic: 4 neon corner brackets, CRT scanline overlay, 3-stop gradient background, 5-layer box-shadow, purple chamfered header bar with "QUICK ACCESS" title + Zap icon chip, stronger stat buttons + project cards with hover lift + glow.
+- Files modified: `src/components/layout/app-header.tsx` only.
