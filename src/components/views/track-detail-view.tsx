@@ -3427,10 +3427,12 @@ export function TrackDetailView() {
                       }`}
                       onClick={handleWaveformClick}
                     />
-                    {/* Range highlight bars for range comments */}
+                    {/* Range highlight bars for range comments — top-level only,
+                        replies inherit the root's timestampMs but don't get
+                        their own marker/range bar. */}
                     {waveformReady && displayDuration > 0 &&
                       comments
-                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && !c.parentId && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
                         .map((comment) => {
                         const startPct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
                         const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
@@ -3479,10 +3481,12 @@ export function TrackDetailView() {
                         )}
                       </div>
                     )}
-                    {/* HTML overlay markers for interactive hover/click — only for active version */}
+                    {/* HTML overlay markers for interactive hover/click — only for
+                        active version, top-level comments only. Replies inherit
+                        the root's timestampMs but don't render their own marker. */}
                     {waveformReady && displayDuration > 0 &&
                       comments
-                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id)
+                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && !c.parentId)
                         .map((comment) => {
                         const pct = duration > 0 ? (comment.timestampMs / 1000) / duration : 0;
                         if (pct < 0 || pct > 1) return null;
@@ -3647,10 +3651,12 @@ export function TrackDetailView() {
                           </motion.button>
                         );
                       })}
-                    {/* Range END markers — smaller diamonds at the end position of range comments */}
+                    {/* Range END markers — smaller diamonds at the end position
+                        of range comments. Top-level only — replies don't get
+                        their own END marker. */}
                     {waveformReady && displayDuration > 0 &&
                       comments
-                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
+                        .filter((c) => activeVersion?.id && c.versionId === activeVersion.id && !c.parentId && c.rangeEndMs && c.rangeEndMs > c.timestampMs)
                         .map((comment) => {
                           const endPct = duration > 0 ? (comment.rangeEndMs! / 1000) / duration : 0;
                           if (endPct < 0 || endPct > 1) return null;

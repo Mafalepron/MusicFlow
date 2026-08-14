@@ -2923,3 +2923,30 @@ Stage Summary:
 - Priority colors swapped: high=green (#4a8d6f), medium=yellow (#c7a008), low=red (#ff5a5a). Red is now the lowest priority, green is the highest.
 - Priority button is now a 3-bar signal-strength scale: the current priority level lights up that many bars in the priority color; bars above stay dim. Low=1 red bar, medium=2 yellow bars, high=3 green bars.
 - Files modified: `src/components/views/track-detail-view.tsx` only.
+
+---
+Task ID: NO-MARKER-FOR-REPLIES
+Agent: main
+Task: When replying to a comment (creating a subcomment), a marker is created on the audio track behind the main one. Don't create markers for replies — markers should refer to top-level (root) comments only.
+
+Work Log:
+- Root cause: `handleReply` creates a new comment with `timestampMs: rootComment.timestampMs` and `parentId: rootComment.id`. All 3 marker rendering filters on the waveform used `.filter((c) => c.versionId === activeVersion.id)` without excluding replies. Since replies inherit the root's `timestampMs`, each reply rendered its own marker stacked at the same position as the root marker.
+- Fix: added `&& !c.parentId` to all 3 marker filter expressions:
+  1. **Range highlight bars** (line ~3435): `.filter((c) => ... && !c.parentId && c.rangeEndMs && ...)` — only top-level range comments get a range bar on the waveform.
+  2. **HTML overlay markers** (line ~3489): `.filter((c) => ... && !c.parentId)` — only top-level comments get an interactive point/diamond marker.
+  3. **Range END markers** (line ~3659): `.filter((c) => ... && !c.parentId && c.rangeEndMs && ...)` — only top-level range comments get an END marker.
+- The `handleMarkerClick` thread-highlight logic is unchanged. Since replies still share the root's `timestampMs`, clicking a root marker still finds all replies via `parentId === c.id` and highlights the whole thread (root + all replies). Verified: clicking the marker at 40.2% (root cmsq2e9ow) produces 4 `kb6-focus-flash` animations on cmsq2e9ow + cmsq8cyoz + cmssoy8le + cmssuzmxs (1 root + 3 replies).
+
+Verification:
+- `bun run lint` → no errors in track-detail-view.tsx.
+- dev.log: clean compile.
+- Agent Browser DOM verification on track "пвапвыапвыап":
+  - **Marker count before fix**: 8 markers (6 top-level comments' markers + 2 reply markers stacked at 40.2% from replies cmsq8cyoz and cmssoy8le; the third reply cmssuzmxs was added during testing).
+  - **Marker count after fix**: 6 markers — exactly one per top-level comment (1 point at 0%, 2 points at 29.7%, 1 point at 40.2%, 1 range start at 52.9%, 1 range END at 68%). All 3 replies (cmsq8cyoz, cmssoy8le, cmssuzmxs) are correctly filtered out.
+  - **New reply test**: counted 6 markers, clicked "Ответить", typed a reply, submitted it, counted markers again — still 6. No extra marker created for the reply. ✅
+  - **Thread highlight still works**: clicked the root marker at 40.2% → 4 flash animations active simultaneously (root + 3 replies). The whole thread is highlighted even though only the root has a marker. ✅
+
+Stage Summary:
+- Markers on the audio waveform now only render for top-level (root) comments. Replies (comments with a `parentId`) no longer create their own markers, eliminating the stacked duplicate markers that appeared behind the main comment's marker.
+- Clicking a root marker still highlights the entire thread (root + all replies) because the `handleMarkerClick` thread-highlight logic uses `timestampMs` matching + `parentId` traversal, which is independent of the marker-rendering filter.
+- Files modified: `src/components/views/track-detail-view.tsx` only (3 filter expressions updated with `&& !c.parentId`).
