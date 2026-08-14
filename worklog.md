@@ -3107,3 +3107,34 @@ Stage Summary:
 - Panel is positioned `fixed` at `top: 56px` (immediately below the 56px-tall sticky header), centered horizontally, max-width 720px.
 - Click-outside + Escape handlers still work (the panel is still a DOM sibling, just not inside the clipped header).
 - Files modified: `src/components/layout/app-header.tsx` only (moved the AnimatePresence block from inside <header> to after </header>, changed position absolute→fixed + top 100%→56px, added position:relative to the inner panel div).
+
+---
+Task ID: FIX-PANEL-CENTER-ALIGNMENT
+Agent: main
+Task: The quick-access panel opens to the right of center — move it closer to the center.
+
+Work Log:
+- Root cause: the panel was using `position: fixed; left: 50%; transform: translateX(-50%)`. Two problems:
+  1. `position: fixed` anchors to the viewport center, but the header is offset to the right by the 240px sidebar. So `left: 50%` = viewport center (1280px) ≠ header center (1400px). The panel was 120px off.
+  2. Framer Motion's `animate={{ y: 0, scaleY: 1 }}` normalizes the final transform to `transform: none`, which OVERRIDES the inline `transform: translateX(-50%)`. So even if `left: 50%` was correct, the panel was NOT being shifted left by half its width — it started at the 50% point instead of being centered on it. This pushed it 360px (half of 720px width) to the right.
+- Fix:
+  1. Wrapped the `<header>` + panel `<AnimatePresence>` in a `<div className="sticky top-0 z-30 relative" style={{ width: '100%' }}>` wrapper. The panel now uses `position: absolute` (relative to this wrapper) instead of `position: fixed` (relative to viewport). The wrapper spans the header's actual width (which starts after the sidebar), so `left: 50%` now resolves to the header's horizontal center (1400px), not the viewport center (1280px).
+  2. Moved `x: '-50%'` from the inline style into the Framer Motion `animate` prop: `animate={{ opacity: 1, y: 0, scaleY: 1, x: '-50%' }}`. This way Framer Motion owns the full transform (including the -50% X offset) and won't normalize it away to `none` at the end of the animation.
+  3. Removed the inline `transform: 'translateX(-50%)'` from the style prop (it was being overridden by Framer Motion anyway).
+  4. Moved `sticky top-0 z-30` from the `<header>` className to the wrapper div, so the whole wrapper (header + panel) stays pinned at the top of the viewport when the page scrolls.
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (line 174). No new errors.
+- dev.log: clean compile.
+- Agent Browser DOM verification (viewport 2560px, sidebar 240px):
+  - Header center: 1400px
+  - Stripe center: 1400px
+  - Panel center: 1400px ✅ (was 1760px before — 360px off)
+  - Panel `diff` (panelCenter - stripeCenter): 0px ✅ (was 360px)
+  - Panel computed `transform`: `translateX(-50%)` preserved through the animation ✅
+- VLM confirms: "Да, открыта. Да, отцентрирована."
+
+Stage Summary:
+- The quick-access panel is now horizontally centered on the purple stripe (which sits at the header's center), not on the viewport center. Works correctly even when a sidebar offsets the header from the viewport center.
+- The panel stays anchored to the header when the page scrolls (sticky wrapper + absolute panel inside it).
+- Files modified: `src/components/layout/app-header.tsx` only (wrapped header+panel in a sticky relative div, moved x:'-50%' into Framer Motion animate prop, removed overridden inline transform).

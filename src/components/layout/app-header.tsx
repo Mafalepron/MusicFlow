@@ -247,9 +247,16 @@ export function AppHeader() {
 
   return (
     <>
+      {/* Wrapper — sticky so it stays pinned at the top of the viewport
+          alongside the header inside it. position: relative so the panel
+          (position: absolute, top: 56px) anchors to THIS wrapper's center
+          instead of the viewport center — keeps the panel aligned with the
+          header's horizontal center even when a sidebar offsets the header
+          from the viewport center. */}
+      <div className="sticky top-0 z-30 relative" style={{ width: '100%' }}>
       {/* Unified Header — custom dark cybernetic bar with chamfered bottom */}
       <header
-        className="sticky top-0 z-30 flex h-14 items-center gap-2 px-3 lg:px-6 relative"
+        className="flex h-14 items-center gap-2 px-3 lg:px-6"
         style={{
           background: '#0f121a',
           clipPath: 'polygon(0 0, 100% 0, 98% 100%, 2% 100%)',
@@ -745,22 +752,23 @@ export function AppHeader() {
         </Popover>
       </header>
 
-      {/* Quick-access slide-down panel — rendered OUTSIDE the header so the
-          header's clipPath doesn't clip it. Fixed-positioned just below the
-          header (h-14 = 56px). Animates in/out via AnimatePresence. */}
+      {/* Quick-access slide-down panel — rendered OUTSIDE the header (so the
+          header's clipPath doesn't clip it) but INSIDE a relative wrapper
+          that spans the header's width. position: absolute anchors the panel
+          to the wrapper's center (which matches the header center, accounting
+          for the sidebar) rather than the viewport center. */}
       <AnimatePresence>
         {quickPanelOpen && (
           <motion.div
             ref={quickPanelRef}
             initial={{ opacity: 0, y: -8, scaleY: 0.96 }}
-            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1, x: '-50%' }}
             exit={{ opacity: 0, y: -8, scaleY: 0.96 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
             style={{
-              position: 'fixed',
+              position: 'absolute',
               top: '56px',
               left: '50%',
-              transform: 'translateX(-50%)',
               width: 'min(720px, calc(100vw - 32px))',
               zIndex: 40,
               transformOrigin: 'top center',
@@ -871,6 +879,7 @@ export function AppHeader() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </>
   );
 }
