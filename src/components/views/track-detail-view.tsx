@@ -2417,10 +2417,10 @@ export function TrackDetailView() {
                     >
                       v{track.version}
                     </span>
-                    {/* Priority — compact icon-only Select, sits inline in the
-                        v1 subline. Clicking opens a dropdown with the 3 priority
-                        levels (high/medium/low), each shown as a colored dot +
-                        label. Saves immediately on change. */}
+                    {/* Priority — frameless icon-only button. A colored dot with
+                        a soft glow; clicking opens the priority dropdown. The
+                        hover lift + glow make it clearly interactive without
+                        needing a border/frame around it. */}
                     {primaryKanbanTask ? (
                       <Select
                         value={localKanbanPriority ?? 'medium'}
@@ -2428,11 +2428,10 @@ export function TrackDetailView() {
                       >
                         <SelectTrigger
                           size="sm"
-                          className="relative h-5 w-7 shrink-0 border-0 rounded-none p-0 hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
+                          className="relative h-5 w-5 shrink-0 border-0 rounded-full p-0 hover:scale-110 data-[state=open]:scale-110 transition-transform"
                           style={{
-                            background: hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.12),
-                            border: `0.5px solid ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.5)}`,
-                            clipPath: CHAMFER_3,
+                            background: 'transparent',
+                            border: 'none',
                             boxShadow: 'none',
                           }}
                           title={`Приоритет: ${priorityLabel(localKanbanPriority ?? 'medium')}`}
@@ -2442,16 +2441,16 @@ export function TrackDetailView() {
                             style={{ color: priorityColor(localKanbanPriority ?? 'medium') }}
                           >
                             <span
-                              className="h-2 w-2 rounded-full"
+                              className="h-3 w-3 rounded-full"
                               style={{
                                 backgroundColor: priorityColor(localKanbanPriority ?? 'medium'),
-                                boxShadow: `0 0 5px ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.7)}`,
+                                boxShadow: `0 0 6px ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.8)}, 0 0 2px ${priorityColor(localKanbanPriority ?? 'medium')}`,
                               }}
                             />
                           </span>
                           {savingField === 'priority' && (
                             <span
-                              className="absolute -right-0.5 -top-0.5 inline-block h-1 w-1 animate-pulse rounded-full"
+                              className="absolute -right-0.5 -top-0.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full"
                               style={{ background: Y, boxShadow: `0 0 3px ${hexToRgba(Y, 0.9)}` }}
                             />
                           )}
@@ -2847,134 +2846,11 @@ export function TrackDetailView() {
                 />
               </div>
 
-              {/* ── D. Task tree breakdown — one row per trackTask with mini progress bar ──
-                  The WaveformProgressBar + StatDot row used to live here too;
-                  they have been moved under the audio player (above the
-                  comments section) per the new layout. Only the task tree
-                  breakdown remains in the Profile Panel. */}
-              {trackTasks.length > 0 && (
-                <div className="mt-3">
-                  <div className="mb-1.5 flex items-center gap-1.5">
-                    <Zap
-                      className="h-3.5 w-3.5"
-                      style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }}
-                    />
-                    <span
-                      className="text-[10px]"
-                      style={{
-                        ...SECTION_TITLE_STYLE,
-                        fontSize: '10px',
-                        letterSpacing: '1.5px',
-                      }}
-                    >
-                      Задачи трека
-                    </span>
-                  </div>
-                  <div
-                    className="max-h-44 overflow-y-auto pr-1"
-                    style={{
-                      scrollbarWidth: 'thin',
-                      scrollbarColor: `${hexToRgba(Y, 0.4)} transparent`,
-                    }}
-                  >
-                    <div className="flex flex-col gap-1.5">
-                      {trackTasks.map((tt) => {
-                        const subtasks = countAllDescendants([tt]);
-                        const subTotal = subtasks.length;
-                        const subDone = subtasks.filter((c) => c.status === 'done').length;
-                        const subPct = subTotal > 0 ? Math.round((subDone / subTotal) * 100) : 0;
-                        return (
-                          <div
-                            key={tt.id}
-                            className="flex items-center gap-2 px-2 py-1"
-                            style={{
-                              background: BG_MAIN,
-                              border: `1px solid ${hexToRgba(C, 0.2)}`,
-                              clipPath: CHAMFER_3,
-                            }}
-                          >
-                            {/* Tree connector */}
-                            <span
-                              className="select-none"
-                              style={{ color: hexToRgba(Y, 0.5), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}
-                            >
-                              ├─
-                            </span>
-                            {/* Title */}
-                            <span
-                              className="min-w-0 flex-1 truncate"
-                              style={{
-                                color: TEXT_PRIMARY,
-                                fontFamily: 'var(--font-rajdhani), sans-serif',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                              }}
-                              title={tt.title}
-                            >
-                              {tt.title}
-                            </span>
-                            {/* Mini progress bar */}
-                            <div
-                              className="relative h-1.5 w-20 shrink-0"
-                              style={{
-                                background: BG_MAIN,
-                                border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
-                                clipPath: CHAMFER_3,
-                                boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
-                              }}
-                            >
-                              <div
-                                className="absolute inset-y-0 left-0"
-                                style={{
-                                  width: `${subPct}%`,
-                                  background: `linear-gradient(to right, ${P}, ${Y})`,
-                                  boxShadow: `0 0 4px ${hexToRgba(Y, 0.5)}`,
-                                  transition: 'width 220ms ease',
-                                }}
-                              />
-                            </div>
-                            {/* Done/total count */}
-                            <span
-                              className="shrink-0 tabular-nums"
-                              style={{
-                                color: subDone === subTotal && subTotal > 0 ? G : Y,
-                                fontFamily: 'var(--font-jetbrains-mono), monospace',
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                minWidth: '34px',
-                                textAlign: 'right',
-                              }}
-                            >
-                              {subDone}/{subTotal}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* RIGHT (lg:col-span-1): Track text editor (lyrics/notes).
-                Stored in the kanban task's `trackConfig` JSON under `trackText`.
-                Saves on blur or Ctrl/Cmd+Enter via PUT /api/tasks {id, trackConfig}. */}
-            <div
-              className="relative flex flex-col gap-2 p-2.5 lg:p-3"
-              style={{
-                background: BG_MAIN,
-                border: `1px solid ${hexToRgba(Y, 0.35)}`,
-                clipPath: CHAMFER_5,
-                boxShadow: INSET_BEVEL_SHADOW,
-              }}
-            >
-              {/* ── Compact progress block ──
-                  Moved here from under the audio player (Step 8 of the old
-                  layout) — track + project progress now sit inside the right
-                  Profile column, stacked compactly above the track text editor.
-                  Two slim rows: yellow track progress bar + cyan project progress
-                  bar. Stats (total/done/todo) shown inline next to each title. */}
-              <div className="flex flex-col gap-2">
+              {/* ── D. Progress (track + project) — moved here from the right column.
+                  Replaces the old "Задачи трека" task tree. Two compact rows:
+                  yellow waveform bar (track) + cyan bar (project), each with
+                  inline stats. */}
+              <div className="mt-3 flex flex-col gap-2">
                 {/* Track progress — slim yellow waveform bar */}
                 <div>
                   <div className="mb-1 flex items-center justify-between gap-2">
@@ -3085,13 +2961,20 @@ export function TrackDetailView() {
                   </div>
                 ) : null}
               </div>
+            </div>
 
-              {/* Separator between the progress block and the track text editor */}
-              <div
-                className="h-px w-full"
-                style={{ background: hexToRgba(Y, 0.2) }}
-              />
-
+            {/* RIGHT (lg:col-span-1): Track text editor (lyrics/notes).
+                Stored in the kanban task's `trackConfig` JSON under `trackText`.
+                Saves on blur or Ctrl/Cmd+Enter via PUT /api/tasks {id, trackConfig}. */}
+            <div
+              className="relative flex flex-col gap-2 p-2.5 lg:p-3"
+              style={{
+                background: BG_MAIN,
+                border: `1px solid ${hexToRgba(Y, 0.35)}`,
+                clipPath: CHAMFER_5,
+                boxShadow: INSET_BEVEL_SHADOW,
+              }}
+            >
               <div className="flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1.5">
                   <MessageSquareQuote
@@ -3412,10 +3295,12 @@ export function TrackDetailView() {
                   }}
                   onMouseLeave={() => setWaveformHoverTime(null)}
                 >
-                {/* Hover time tooltip — in the OUTER wrapper, above all clip-paths */}
+                {/* Hover time tooltip — in the OUTER wrapper, above all clip-paths.
+                    z-[60] so it sits above the inner waveform frame and its
+                    chamfered border (which has no explicit z-index). */}
                 {waveformHoverTime && !hoveredMarkerId && !pinnedMarkerId && (
                   <div
-                    className="pointer-events-none absolute z-50 -translate-x-1/2"
+                    className="pointer-events-none absolute z-[60] -translate-x-1/2"
                     style={{ left: waveformHoverTime.x, top: '0px' }}
                   >
                     <span
@@ -3432,6 +3317,31 @@ export function TrackDetailView() {
                     >
                       {formatTimestamp(waveformHoverTime.ms)}
                     </span>
+                  </div>
+                )}
+
+                {/* Range-selection hint badge — rendered in the OUTER wrapper
+                    (not inside the clipPath'd inner div) so it's never clipped
+                    by the waveform frame. Sits just above the waveform, follows
+                    the start marker horizontally. The 13px offset accounts for
+                    the inner div's p-3 padding + border. */}
+                {waveformReady && displayDuration > 0 && isSelectingRange && rangeStartMs > 0 && (
+                  <div
+                    className="pointer-events-none absolute z-[60] flex items-center gap-1 whitespace-nowrap px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                    style={{
+                      left: `calc(13px + ${(rangeStartMs / 1000 / duration) * 100}% - ${(rangeStartMs / 1000 / duration) * 26}px)`,
+                      top: '-26px',
+                      transform: 'translateX(-50%)',
+                      background: '#0a0c10',
+                      color: Y,
+                      border: `1px solid ${Y}`,
+                      clipPath: CHAMFER_3,
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                      boxShadow: `0 0 8px ${hexToRgba(Y, 0.6)}`,
+                    }}
+                  >
+                    <MapPin className="h-2.5 w-2.5" />
+                    Выберите конец диапазона
                   </div>
                 )}
 
@@ -3539,26 +3449,6 @@ export function TrackDetailView() {
                             style={{ left: `${(rangeEndMsState / 1000 / duration) * 100}%` }}
                           />
                         )}
-                        {/* Floating hint badge — tells the user a second click
-                            is needed to finish the range. Sits just above the
-                            waveform, follows the start marker. */}
-                        <div
-                          className="pointer-events-none absolute z-[8] flex items-center gap-1 whitespace-nowrap px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                          style={{
-                            left: `${(rangeStartMs / 1000 / duration) * 100}%`,
-                            top: '-22px',
-                            transform: 'translateX(-50%)',
-                            background: '#0a0c10',
-                            color: Y,
-                            border: `1px solid ${Y}`,
-                            clipPath: CHAMFER_3,
-                            fontFamily: 'var(--font-jetbrains-mono), monospace',
-                            boxShadow: `0 0 8px ${hexToRgba(Y, 0.6)}`,
-                          }}
-                        >
-                          <MapPin className="h-2.5 w-2.5" />
-                          Выберите конец диапазона
-                        </div>
                       </div>
                     )}
                     {/* HTML overlay markers for interactive hover/click — only for active version */}
@@ -3857,15 +3747,16 @@ export function TrackDetailView() {
                         </p>
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1 border-t pt-1.5" style={{ borderColor: hexToRgba(Y, 0.25) }}>
-                        {/* Edit button — yellow styled */}
+                        {/* Edit button — icon only, yellow styled */}
                         <button
-                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors"
+                          className="flex items-center justify-center h-6 w-6 transition-colors"
                           style={{
                             color: Y,
                             background: hexToRgba(Y, 0.08),
                             border: `0.5px solid ${hexToRgba(Y, 0.4)}`,
                             clipPath: CHAMFER_3,
                           }}
+                          title="Изменить"
                           onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.2); }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.08); }}
                           onClick={(e) => {
@@ -3876,18 +3767,18 @@ export function TrackDetailView() {
                             hideMarkerTooltip();
                           }}
                         >
-                          <Pencil className="h-2.5 w-2.5" />
-                          Изменить
+                          <Pencil className="h-3 w-3" />
                         </button>
-                        {/* Resolve button — cyan styled */}
+                        {/* Resolve button — icon only, cyan styled */}
                         <button
-                          className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors"
+                          className="flex items-center justify-center h-6 w-6 transition-colors"
                           style={{
                             color: C,
                             background: hexToRgba(C, 0.08),
                             border: `0.5px solid ${hexToRgba(C, 0.4)}`,
                             clipPath: CHAMFER_3,
                           }}
+                          title={comment.isResolved ? 'Отменить' : 'Решено'}
                           onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(C, 0.2); }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = hexToRgba(C, 0.08); }}
                           onClick={(e) => {
@@ -3895,18 +3786,18 @@ export function TrackDetailView() {
                             handleToggleResolved(comment.id, comment.isResolved);
                           }}
                         >
-                          {comment.isResolved ? <DoubleCheckIcon className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
-                          {comment.isResolved ? 'Отменить' : 'Решено'}
+                          {comment.isResolved ? <DoubleCheckIcon className="h-3 w-3" /> : <Check className="h-3 w-3" />}
                         </button>
-                        {/* Delete button — yellow styled with red hover hint */}
+                        {/* Delete button — icon only, yellow styled with red hover */}
                         <button
-                          className="ml-auto flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors"
+                          className="ml-auto flex items-center justify-center h-6 w-6 transition-colors"
                           style={{
                             color: Y,
                             background: hexToRgba(Y, 0.08),
                             border: `0.5px solid ${hexToRgba(Y, 0.4)}`,
                             clipPath: CHAMFER_3,
                           }}
+                          title="Удалить"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = '#ff5a5a';
                             e.currentTarget.style.background = 'rgba(255,90,90,0.15)';
@@ -3924,8 +3815,7 @@ export function TrackDetailView() {
                             hideMarkerTooltip();
                           }}
                         >
-                          <Trash2 className="h-2.5 w-2.5" />
-                          Удалить
+                          <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
                       {isPinned && (
@@ -4578,22 +4468,6 @@ export function TrackDetailView() {
                                         animation: 'kb6-focus-ring-expand 1.8s ease-out forwards',
                                       }}
                                     />
-                                    {/* Top "В ФОКУСЕ" badge */}
-                                    <div
-                                      className="pointer-events-none absolute -top-3 right-4 z-30 flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                                      style={{
-                                        background: '#0a0c10',
-                                        color: focusColor,
-                                        border: `1.5px solid ${focusColor}`,
-                                        clipPath: CHAMFER_3,
-                                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                                        boxShadow: `0 0 10px ${hexToRgba(focusColor, 0.7)}, 0 0 4px ${hexToRgba(focusColor, 0.9)}`,
-                                        animation: 'kb6-focus-badge 1.6s ease-in-out infinite',
-                                      }}
-                                    >
-                                      <LocateFixed className="h-3 w-3" />
-                                      В фокусе
-                                    </div>
                                     {/* Diagonal sweep sheen */}
                                     <div
                                       className="pointer-events-none absolute inset-0 overflow-hidden"
@@ -4634,17 +4508,13 @@ export function TrackDetailView() {
                                   </span>
                                   {/* Resolved checkmark — green */}
                                   {comment.isResolved && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          className="shrink-0 rounded p-0.5 text-[#4a8d6f] transition-colors hover:bg-[#4a8d6f]/15"
-                                          onClick={() => handleToggleResolved(comment.id, comment.isResolved)}
-                                        >
-                                          <DoubleCheckIcon className="h-3.5 w-3.5" />
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>{comment.isResolved ? 'Отменить' : 'Решено'}</TooltipContent>
-                                    </Tooltip>
+                                    <button
+                                      className="shrink-0 rounded p-0.5 text-[#4a8d6f] transition-colors hover:bg-[#4a8d6f]/15"
+                                      title={comment.isResolved ? 'Отменить' : 'Решено'}
+                                      onClick={() => handleToggleResolved(comment.id, comment.isResolved)}
+                                    >
+                                      <DoubleCheckIcon className="h-3.5 w-3.5" />
+                                    </button>
                                   )}
                                   {/* Timestamp — yellow monospace, top-right of bubble */}
                                   <Badge
@@ -4664,30 +4534,22 @@ export function TrackDetailView() {
                                       ? `${formatTimestamp(comment.timestampMs)} → ${formatTimestamp(comment.rangeEndMs)}`
                                       : formatTimestamp(comment.timestampMs)}
                                   </Badge>
-                                  {/* Edit / Delete — small icon-only buttons that appear on hover */}
-                                  <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
-                                          onClick={() => startEditingComment(comment)}
-                                        >
-                                          <Pencil className="h-3 w-3" />
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Изменить комментарий</TooltipContent>
-                                    </Tooltip>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          className="rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
-                                          onClick={() => handleDeleteComment(comment.id)}
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Удалить комментарий</TooltipContent>
-                                    </Tooltip>
+                                  {/* Edit / Delete — icon-only buttons, always visible */}
+                                  <div className="flex items-center gap-0.5">
+                                    <button
+                                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
+                                      title="Изменить"
+                                      onClick={() => startEditingComment(comment)}
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+                                      title="Удалить"
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
                                   </div>
                                 </div>
                                 {/* Comment text / edit mode */}
@@ -4779,47 +4641,45 @@ export function TrackDetailView() {
                                     {format(new Date(comment.createdAt), 'MMM d, h:mm a')}
                                   </span>
                                   <div className="ml-auto flex items-center gap-1">
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 gap-1 px-2 text-[10px] text-[#00a8c6] hover:text-[#00a8c6] hover:bg-[#00a8c6]/10"
-                                          onClick={() => seekTo(comment.timestampMs / 1000)}
-                                        >
-                                          <LocateFixed className="h-3 w-3" />
-                                          Перейти к
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Перейти к этому таймстемпу</TooltipContent>
-                                    </Tooltip>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 gap-1 px-2 text-[10px] text-[#00a8c6] hover:text-[#00a8c6] hover:bg-[#00a8c6]/10"
+                                      title="Перейти к этому таймстемпу"
+                                      onClick={() => {
+                                        seekTo(comment.timestampMs / 1000);
+                                        // Scroll the waveform/audio player into view so
+                                        // the user sees the playhead move.
+                                        const wf = canvasRef.current?.closest('.relative');
+                                        if (wf) wf.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                      }}
+                                    >
+                                      <LocateFixed className="h-3 w-3" />
+                                      Перейти к
+                                    </Button>
                                     {/* Reply button — small yellow ghost button at bottom of bubble */}
                                     {!comment.isResolved && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 gap-1 px-2 text-[10px] transition-colors"
-                                            style={{
-                                              color: Y,
-                                              border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
-                                              clipPath: CHAMFER_3,
-                                            }}
-                                            onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.1); }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                                            onClick={() => {
-                                              setReplyingTo(replyingTo === comment.id ? null : comment.id);
-                                              setReplyText('');
-                                              if (editingCommentId === comment.id) cancelEditingComment();
-                                            }}
-                                          >
-                                            <Reply className="h-3 w-3" />
-                                            Ответить
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Ответить на комментарий</TooltipContent>
-                                      </Tooltip>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 gap-1 px-2 text-[10px] transition-colors"
+                                        title="Ответить на комментарий"
+                                        style={{
+                                          color: Y,
+                                          border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+                                          clipPath: CHAMFER_3,
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = hexToRgba(Y, 0.1); }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                        onClick={() => {
+                                          setReplyingTo(replyingTo === comment.id ? null : comment.id);
+                                          setReplyText('');
+                                          if (editingCommentId === comment.id) cancelEditingComment();
+                                        }}
+                                      >
+                                        <Reply className="h-3 w-3" />
+                                        Ответить
+                                      </Button>
                                     )}
                                     {comment.isResolved && (
                                       <span className="text-[9px] text-[#4a8d6f]/60 italic">Тема закрыта</span>
@@ -4983,22 +4843,6 @@ export function TrackDetailView() {
                                               animation: 'kb6-focus-ring-expand 1.8s ease-out forwards',
                                             }}
                                           />
-                                          {/* Top "В ФОКУСЕ" badge */}
-                                          <div
-                                            className="pointer-events-none absolute -top-2.5 right-3 z-30 flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                                            style={{
-                                              background: '#0a0c10',
-                                              color: P,
-                                              border: `1.5px solid ${P}`,
-                                              clipPath: CHAMFER_3,
-                                              fontFamily: 'var(--font-jetbrains-mono), monospace',
-                                              boxShadow: `0 0 8px ${hexToRgba(P, 0.7)}, 0 0 4px ${hexToRgba(P, 0.9)}`,
-                                              animation: 'kb6-focus-badge 1.6s ease-in-out infinite',
-                                            }}
-                                          >
-                                            <LocateFixed className="h-2.5 w-2.5" />
-                                            В фокусе
-                                          </div>
                                           {/* Diagonal sweep sheen */}
                                           <div
                                             className="pointer-events-none absolute inset-0 overflow-hidden"
@@ -5029,30 +4873,22 @@ export function TrackDetailView() {
                                           >
                                             {format(new Date(reply.createdAt), 'MMM d, h:mm a')}
                                           </span>
-                                          {/* Reply actions — icon-only, hover-revealed */}
-                                          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/reply:opacity-100 focus-within:opacity-100">
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <button
-                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
-                                                  onClick={() => startEditingComment(reply)}
-                                                >
-                                                  <Pencil className="h-2.5 w-2.5" />
-                                                </button>
-                                              </TooltipTrigger>
-                                              <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Изменить</TooltipContent>
-                                            </Tooltip>
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <button
-                                                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
-                                                  onClick={() => handleDeleteComment(reply.id)}
-                                                >
-                                                  <Trash2 className="h-2.5 w-2.5" />
-                                                </button>
-                                              </TooltipTrigger>
-                                              <TooltipContent className="!bg-[#11141d] !text-[#c7a008] !border !border-[#c7a008]/40 !rounded-none" style={{ clipPath: "polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))", boxShadow: "0 0 8px rgba(199,160,8,0.25)" }}>Удалить</TooltipContent>
-                                            </Tooltip>
+                                          {/* Reply actions — icon-only, always visible */}
+                                          <div className="flex items-center gap-0.5">
+                                            <button
+                                              className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#c7a008]/15 hover:text-[#c7a008]"
+                                              title="Изменить"
+                                              onClick={() => startEditingComment(reply)}
+                                            >
+                                              <Pencil className="h-2.5 w-2.5" />
+                                            </button>
+                                            <button
+                                              className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/15 hover:text-red-400"
+                                              title="Удалить"
+                                              onClick={() => handleDeleteComment(reply.id)}
+                                            >
+                                              <Trash2 className="h-2.5 w-2.5" />
+                                            </button>
                                           </div>
                                         </div>
                                         {/* Reply text / edit mode */}

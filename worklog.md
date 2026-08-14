@@ -2785,3 +2785,79 @@ Stage Summary:
 - Marker hover/click tooltip now stays anchored to its marker when the page scrolls — a scroll/resize listener recomputes the tooltip position from the marker's current bounding rect.
 - Range marker mode no longer opens the comment input on the first click. Instead, a floating yellow "Выберите конец диапазона" hint badge appears above the waveform at the start marker. The comment input opens only after the second click (range end) is selected.
 - Files modified: `src/components/views/track-detail-view.tsx` only (priority Select moved + restyled, progress block moved + compacted, markerTooltipAnchorRef + scroll/resize useEffect + hideMarkerTooltip helper added, 6 setMarkerTooltipPos(null) call sites refactored, handleWaveformClick range-mode first-click branch changed to setShowCommentInput(false), new floating hint badge JSX added to the range selection preview overlay).
+
+---
+Task ID: UI-8-FIXES
+Agent: main
+Task: Eight UI fixes — (1) priority icon looks awkward, remove frame but keep it clearly a button; (2) move track/project progress to replace "Track Tasks" section, delete task tree; (3) marker popup Edit/Resolve/Delete buttons — remove text, icon-only; (4) tooltips/text inside audio track are overlapped by area frame, make visible; (5) comment edit/delete buttons should always be visible (not hover-only); (6) remove "В фокусе" text badge from highlighted comment; (7) "Go" button on comment should scroll to audio track; (8) remove tooltips from comment buttons (Reply/Edit/Delete).
+
+Work Log:
+
+**Fix 1 — Priority icon frameless:**
+- Removed the background, border, and clipPath from the SelectTrigger. It's now a transparent 20×20px button containing only a 3×3px glowing colored dot.
+- Added `hover:scale-110 data-[state=open]:scale-110 transition-transform` so the dot visibly scales up on hover/click — makes it clearly interactive without needing a frame.
+- Increased dot size from 2×2px to 3×3px and strengthened the glow (`0 0 6px ... 0.5-alpha, 0 0 2px ... 1.0-alpha`).
+- Saving indicator dot bumped from 1px to 1.5px.
+
+**Fix 2 — Progress replaces Track Tasks:**
+- Deleted the entire "Задачи трека" task tree section (was lines 2849-2956) — the per-trackTask row with tree connector, title, mini progress bar, and done/total count.
+- Added the compact progress block (track progress yellow waveform bar + project progress cyan bar) into the LEFT Profile column, right after the InfoStatCell grid (where task tree used to sit).
+- Removed the duplicate progress block that was in the RIGHT column (above the track text editor) — right column now only has the track text editor.
+- All inline stats (ВСЕГО/ГОТОВО/ОЖИДАНИЕ + percentage + done/total) preserved at 9px font size.
+
+**Fix 3 — Marker popup icon-only buttons:**
+- Edit button: removed "Изменить" text, changed from `px-1.5 py-0.5 text-[10px]` pill to `h-6 w-6` square icon button. Icon size increased from h-2.5 to h-3. Added `title="Изменить"` for native tooltip.
+- Resolve button: removed "Отменить/Решено" text, same square treatment. Added `title` with dynamic resolved/unresolve label.
+- Delete button: removed "Удалить" text, same square treatment with `ml-auto` to push it to the right. Added `title="Удалить"`.
+
+**Fix 4 — Tooltips/text overlapped by waveform area frame:**
+- Root cause: the range hint badge ("Выберите конец диапазона") was rendered INSIDE the inner waveform div which has `clipPath: CHAMFER_8`, causing it to be clipped when positioned at `top: -22px` (above the frame's top edge).
+- Moved the range hint badge from inside the clipPath'd inner div to the OUTER waveform wrapper (which has no clip-path). Now sits at `top: -26px` relative to the outer wrapper, fully visible above the frame.
+- Horizontal position adjusted with `calc(13px + P% - P*26px)` to account for the inner div's p-3 padding + 1px border, so the hint aligns with the start marker on the canvas.
+- Hover time tooltip z-index raised from z-50 to z-[60] so it sits above the inner waveform frame border.
+- Both the hover time tooltip and range hint now use `z-[60]` in the outer wrapper, ensuring they're never overlapped by the frame.
+
+**Fix 5 — Comment edit/delete always visible:**
+- Top-level comment: changed `<div className="... opacity-0 transition-opacity group-hover:opacity-100 ...">` to `<div className="flex items-center gap-0.5">` — buttons are now always at full opacity.
+- Reply comment: same change — removed `opacity-0 transition-opacity group-hover/reply:opacity-100 focus-within:opacity-100` classes.
+
+**Fix 6 — Remove "В фокусе" badge:**
+- Top-level comment: removed the entire "В ФОКУСЕ" badge div (was `absolute -top-3 right-4 z-30` with LocateFixed icon + text, colored border, pulsing animation).
+- Reply comment: removed the same badge (was `absolute -top-2.5 right-3 z-30` with smaller LocateFixed + text).
+- The rest of the focus highlight (pulsing glow, flash frame, expanding ring, diagonal sweep, brighter left stripe, scale lift) is preserved — only the text badge is gone.
+
+**Fix 7 — "Go" button scrolls to audio track:**
+- The "Перейти к" button's onClick handler previously only called `seekTo(comment.timestampMs / 1000)` — seeking the audio but not scrolling the page.
+- Added: after seekTo, finds the canvas element via `canvasRef.current?.closest('.relative')` and calls `scrollIntoView({ behavior: 'smooth', block: 'center' })` so the waveform/audio player scrolls into view.
+
+**Fix 8 — Remove tooltips from comment buttons:**
+- Top-level comment Edit button: removed `<Tooltip><TooltipTrigger asChild>...</TooltipTrigger><TooltipContent>Изменить комментарий</TooltipContent></Tooltip>` wrapper. Button now has `title="Изменить"` for native hover hint instead.
+- Top-level comment Delete button: same — removed Tooltip wrapper, added `title="Удалить"`.
+- Top-level comment Resolved checkmark: same — removed Tooltip wrapper, added `title` with dynamic label.
+- Top-level comment "Перейти к" button: removed Tooltip wrapper, added `title="Перейти к этому таймстемпу"`.
+- Top-level comment "Ответить" button: removed Tooltip wrapper, added `title="Ответить на комментарий"`.
+- Reply comment Edit/Delete buttons: removed Tooltip wrappers, added `title` attributes.
+
+Verification:
+- `bun run lint 2>&1 | grep -E "track-detail-view|error TS"` → no output (no new lint errors).
+- dev.log: clean compile after all edits.
+- Agent Browser end-to-end verification on track "пвапвыапвыап":
+  - **Priority icon**: VLM confirms "рядом с версией v1 есть компактный красный кружок-индикатор приоритета без рамки." Frameless, clearly a button (scales on hover).
+  - **Progress in left column**: VLM confirms "в левой колонке ниже основных полей присутствуют блоки Прогресс трека (жёлтая полоса) и Прогресс проекта (голубая надпись/полоса)." Task tree is gone.
+  - **Marker popup buttons**: VLM confirms "Внизу всплывающего окна находятся только иконки без текста (карандаш, галочка, корзина)."
+  - **Comment buttons always visible**: VLM confirms "кнопки редактирования (карандаш) и удаления (мусорка) в комментариях видны постоянно, без наведения мыши."
+  - **No "В фокусе" badge**: VLM confirms "бейджа В фокусе в правом верхнем углу комментариев не видно."
+  - **Range hint visible**: VLM confirms "видна над волновой дорожкой жёлтая плашка с текстом ВЫБЕРИТЕ КОНЕЦ ДИАПАЗОНА."
+  - **Hover time tooltip visible**: VLM confirms "в правом верхнем углу над волновой формой (значение 01:28.1)."
+  - **Go button scrolls to audio**: DOM check confirms canvas is at y=240, in viewport (canvasVisible: true, scrollY: 447) after clicking "Перейти к".
+
+Stage Summary:
+- Priority is now a frameless 3px glowing dot that scales on hover — clearly interactive without a border.
+- Track progress (yellow waveform) + project progress (cyan bar) now sit in the LEFT Profile column where "Задачи трека" used to be. Task tree is deleted. Right column has only the track text editor.
+- Marker popup Edit/Resolve/Delete buttons are now 24×24px icon-only squares (was text+icon pills).
+- Range hint badge moved outside the clipPath'd waveform frame — now fully visible above the waveform. Hover time tooltip z-index raised to z-[60].
+- Comment edit/delete buttons are always visible (removed hover-only opacity).
+- "В фокусе" text badge removed from both top-level and reply focused comments. All other focus highlight effects (glow, flash, ring, sweep, scale) preserved.
+- "Перейти к" button now scrolls the waveform into view via `scrollIntoView({ block: 'center' })` in addition to seeking the audio.
+- All Tooltip wrappers removed from comment buttons (Edit, Delete, Resolved, Go, Reply) — replaced with native `title` attributes.
+- Files modified: `src/components/views/track-detail-view.tsx` only.
