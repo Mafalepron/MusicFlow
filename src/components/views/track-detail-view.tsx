@@ -3167,7 +3167,41 @@ export function TrackDetailView() {
                 </div>
 
                 {/* Waveform wrapper — no clip-path so tooltip can escape */}
-                <div className="relative">
+                <div
+                  className="relative"
+                  onMouseMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    if (duration > 0 && waveformReady) {
+                      const pct = x / rect.width;
+                      const ms = Math.round(pct * duration * 1000);
+                      setWaveformHoverTime({ x, ms });
+                    }
+                  }}
+                  onMouseLeave={() => setWaveformHoverTime(null)}
+                >
+                {/* Hover time tooltip — in the OUTER wrapper, above all clip-paths */}
+                {waveformHoverTime && !hoveredMarkerId && !pinnedMarkerId && (
+                  <div
+                    className="pointer-events-none absolute z-50 -translate-x-1/2"
+                    style={{ left: waveformHoverTime.x, top: '0px' }}
+                  >
+                    <span
+                      className="px-2 py-1 text-[10px] font-bold whitespace-nowrap"
+                      style={{
+                        background: Y,
+                        color: '#0a0b10',
+                        clipPath: CHAMFER_3,
+                        fontFamily: 'var(--font-jetbrains-mono), monospace',
+                        boxShadow: `0 0 10px ${hexToRgba(Y, 0.6)}, 0 2px 8px rgba(0,0,0,0.8)`,
+                        position: 'relative',
+                        top: '-24px',
+                      }}
+                    >
+                      {formatTimestamp(waveformHoverTime.ms)}
+                    </span>
+                  </div>
+                )}
 
                 <div
                   className={`relative border p-3 transition-colors ${
@@ -3213,18 +3247,7 @@ export function TrackDetailView() {
                       </span>
                     </div>
                   )}
-                  <div className="relative"
-                    onMouseMove={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const x = e.clientX - rect.left;
-                      const pct = x / rect.width;
-                      if (duration > 0 && waveformReady) {
-                        const ms = Math.round(pct * duration * 1000);
-                        setWaveformHoverTime({ x, ms });
-                      }
-                    }}
-                    onMouseLeave={() => setWaveformHoverTime(null)}
-                  >
+                  <div className="relative">
                     <canvas
                       ref={canvasRef}
                       className={`h-24 w-full ${!waveformReady ? 'hidden' : ''} ${
@@ -3234,26 +3257,6 @@ export function TrackDetailView() {
                       }`}
                       onClick={handleWaveformClick}
                     />
-                    {/* Hover time tooltip — rendered ABOVE the waveform, outside clip-path */}
-                    {waveformHoverTime && !hoveredMarkerId && !pinnedMarkerId && (
-                      <div
-                        className="pointer-events-none absolute z-50 -translate-x-1/2"
-                        style={{ left: waveformHoverTime.x, top: '-28px' }}
-                      >
-                        <span
-                          className="px-1.5 py-0.5 text-[10px] font-bold shadow-lg whitespace-nowrap"
-                          style={{
-                            background: hexToRgba(Y, 0.95),
-                            color: '#0a0b10',
-                            clipPath: CHAMFER_3,
-                            fontFamily: 'var(--font-jetbrains-mono), monospace',
-                            boxShadow: `0 0 8px ${hexToRgba(Y, 0.5)}, 0 2px 8px rgba(0,0,0,0.6)`,
-                          }}
-                        >
-                          {formatTimestamp(waveformHoverTime.ms)}
-                        </span>
-                      </div>
-                    )}
                     {/* Range highlight bars for range comments */}
                     {waveformReady && displayDuration > 0 &&
                       comments
