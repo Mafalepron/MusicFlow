@@ -342,7 +342,7 @@ export function AppHeader() {
           onClick={() => setQuickPanelOpen((o) => !o)}
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group flex items-center justify-center"
           style={{ width: '180px', height: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
-          title="Быстрый доступ — проекты, треки, идеи, участники"
+          title="Избранное — проекты, треки, идеи, участники"
           aria-label="Открыть панель быстрого доступа"
         >
           <div
@@ -905,30 +905,33 @@ export function AppHeader() {
                 opacity: 0.6,
               }} />
 
-              {/* ── Header bar — title + close button ── */}
+              {/* ── Header bar — title + close button ──
+                  Purple→yellow themed: icon chip has purple bg + yellow
+                  border/glow, title is yellow with glow, subtitle is muted
+                  purple. Close button is yellow-themed. */}
               <div className="flex items-center justify-between mb-3 pb-2.5" style={{
-                borderBottom: '1px solid rgba(157,78,221,0.3)',
-                boxShadow: '0 1px 0 0 rgba(157,78,221,0.1)',
+                borderBottom: '1px solid rgba(199,160,8,0.4)',
+                boxShadow: '0 1px 0 0 rgba(199,160,8,0.15)',
               }}>
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center" style={{
                     clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                    background: 'rgba(157,78,221,0.18)',
-                    border: '1px solid rgba(157,78,221,0.6)',
-                    boxShadow: '0 0 8px rgba(157,78,221,0.4)',
+                    background: 'rgba(157,78,221,0.25)',
+                    border: '1px solid #c7a008',
+                    boxShadow: '0 0 8px rgba(199,160,8,0.5), 0 0 4px rgba(157,78,221,0.4)',
                   }}>
-                    <Zap className="h-3.5 w-3.5" style={{ color: '#c77dff', filter: 'drop-shadow(0 0 3px rgba(157,78,221,0.8))' }} />
+                    <Zap className="h-3.5 w-3.5" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 4px rgba(199,160,8,0.9))' }} />
                   </div>
                   <span className="text-[11px] font-bold uppercase" style={{
-                    color: '#c77dff',
+                    color: '#c7a008',
                     fontFamily: 'var(--font-jetbrains-mono), monospace',
                     letterSpacing: '2px',
-                    textShadow: '0 0 8px rgba(157,78,221,0.6)',
+                    textShadow: '0 0 8px rgba(199,160,8,0.7)',
                   }}>
-                    Quick Access
+                    Избранное
                   </span>
                   <span className="text-[9px] uppercase" style={{
-                    color: 'rgba(157,78,221,0.5)',
+                    color: 'rgba(157,78,221,0.6)',
                     fontFamily: 'var(--font-jetbrains-mono), monospace',
                     letterSpacing: '1px',
                   }}>
@@ -936,15 +939,15 @@ export function AppHeader() {
                   </span>
                 </div>
 
-                {/* Close button — large, cyberpunk chamfered with glow + hover */}
+                {/* Close button — yellow-themed cyberpunk chamfered with glow + hover */}
                 <button
                   onClick={() => setQuickPanelOpen(false)}
                   className="group flex h-8 w-8 items-center justify-center transition-all hover:scale-110"
                   style={{
                     clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                    background: 'rgba(157,78,221,0.1)',
-                    border: '1px solid rgba(157,78,221,0.5)',
-                    boxShadow: '0 0 6px rgba(157,78,221,0.3)',
+                    background: 'rgba(199,160,8,0.12)',
+                    border: '1px solid #c7a008',
+                    boxShadow: '0 0 8px rgba(199,160,8,0.4)',
                     cursor: 'pointer',
                   }}
                   title="Закрыть (Esc)"
@@ -952,30 +955,30 @@ export function AppHeader() {
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'rgba(255,90,90,0.2)';
                     e.currentTarget.style.borderColor = 'rgba(255,90,90,0.8)';
-                    e.currentTarget.style.boxShadow = '0 0 10px rgba(255,90,90,0.6)';
+                    e.currentTarget.style.boxShadow = '0 0 12px rgba(255,90,90,0.7)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(157,78,221,0.1)';
-                    e.currentTarget.style.borderColor = 'rgba(157,78,221,0.5)';
-                    e.currentTarget.style.boxShadow = '0 0 6px rgba(157,78,221,0.3)';
+                    e.currentTarget.style.background = 'rgba(199,160,8,0.12)';
+                    e.currentTarget.style.borderColor = '#c7a008';
+                    e.currentTarget.style.boxShadow = '0 0 8px rgba(199,160,8,0.4)';
                   }}
                 >
-                  <X className="h-4 w-4 transition-colors" style={{ color: '#c77dff' }} />
+                  <X className="h-4 w-4 transition-colors" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 3px rgba(199,160,8,0.6))' }} />
                 </button>
               </div>
 
               {/* Stats row — projects / tracks / ideas / participants.
-                  Each stat is a FULLY COLORED cyberpunk tile — the stat's
-                  accent color fills the whole button background as a
-                  gradient, with a chamfered frame, inner glow, and bright
-                  icon + count + label. Hover lifts the tile and intensifies
-                  the glow so the buttons are impossible to miss. */}
+                  Each stat is a FULLY COLORED cyberpunk tile with a
+                  purple→yellow gradient fill — purple base fades into a
+                  yellow accent, giving each tile a dual-tone cyberpunk look.
+                  Chamfered frame, inner glow, white icon + count + label.
+                  Hover lifts the tile and intensifies the glow. */}
               <div className="grid grid-cols-4 gap-2.5 mb-3">
                 {[
-                  { icon: FolderKanban, value: projects.length, label: 'Проекты', color: '#c7a008', glow: 'rgba(199,160,8,', view: 'projects' as ViewName },
-                  { icon: Music2, value: tracks.length, label: 'Треки', color: '#00a8c6', glow: 'rgba(0,168,198,', view: 'projects' as ViewName },
-                  { icon: Lightbulb, value: ideas.length, label: 'Идеи', color: '#7b2cbf', glow: 'rgba(123,44,191,', view: 'ideas' as ViewName },
-                  { icon: Users, value: memberCount, label: 'Участники', color: '#4a8d6f', glow: 'rgba(74,141,111,', view: 'group-settings' as ViewName },
+                  { icon: FolderKanban, value: projects.length, label: 'Проекты', view: 'projects' as ViewName },
+                  { icon: Music2, value: tracks.length, label: 'Треки', view: 'projects' as ViewName },
+                  { icon: Lightbulb, value: ideas.length, label: 'Идеи', view: 'ideas' as ViewName },
+                  { icon: Users, value: memberCount, label: 'Участники', view: 'group-settings' as ViewName },
                 ].map((s) => (
                   <button
                     key={s.label}
@@ -983,37 +986,37 @@ export function AppHeader() {
                     className="group relative flex flex-col items-center justify-center gap-1 py-3 transition-all duration-200 hover:scale-[1.06] hover:-translate-y-1"
                     style={{
                       clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
-                      background: `linear-gradient(135deg, ${s.color} 0%, ${hexToRgba(s.color, 0.7)} 50%, ${hexToRgba(s.color, 0.5)} 100%)`,
-                      border: `1.5px solid ${s.color}`,
+                      background: 'linear-gradient(135deg, #7b2cbf 0%, #5a1d8f 40%, #9d4edd 70%, #c7a008 100%)',
+                      border: '1.5px solid #c7a008',
                       cursor: 'pointer',
                       padding: '10px 6px',
-                      boxShadow: `0 0 12px ${s.glow}0.5), 0 0 4px ${s.glow}0.8), inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.3)`,
-                      textShadow: `0 1px 2px rgba(0,0,0,0.4)`,
+                      boxShadow: '0 0 12px rgba(157,78,221,0.5), 0 0 4px rgba(199,160,8,0.6), inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.3)',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.4)',
                     }}
                     title={`Перейти к: ${s.label}`}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = 'translateY(-3px) scale(1.06)';
-                      e.currentTarget.style.boxShadow = `0 0 20px ${s.glow}0.8), 0 0 8px ${s.glow}1), inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.3)`;
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(199,160,8,0.8), 0 0 8px rgba(157,78,221,1), 0 0 4px rgba(199,160,8,1), inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.3)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                      e.currentTarget.style.boxShadow = `0 0 12px ${s.glow}0.5), 0 0 4px ${s.glow}0.8), inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.3)`;
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(157,78,221,0.5), 0 0 4px rgba(199,160,8,0.6), inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.3)';
                     }}
                   >
-                    {/* Corner brackets (cyberpunk HUD frame) */}
+                    {/* Corner brackets (cyberpunk HUD frame) — yellow */}
                     <div className="pointer-events-none absolute top-0 left-0 w-2 h-2" style={{
-                      borderTop: `1.5px solid #ffffff`,
-                      borderLeft: `1.5px solid #ffffff`,
-                      opacity: 0.6,
+                      borderTop: '1.5px solid #c7a008',
+                      borderLeft: '1.5px solid #c7a008',
+                      opacity: 0.9,
                     }} />
                     <div className="pointer-events-none absolute bottom-0 right-0 w-2 h-2" style={{
-                      borderBottom: `1.5px solid #ffffff`,
-                      borderRight: `1.5px solid #ffffff`,
-                      opacity: 0.6,
+                      borderBottom: '1.5px solid #c7a008',
+                      borderRight: '1.5px solid #c7a008',
+                      opacity: 0.9,
                     }} />
 
-                    {/* Icon — white for max contrast against the colored fill */}
-                    <s.icon className="h-4 w-4 transition-transform group-hover:scale-110" style={{ color: '#ffffff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
+                    {/* Icon — yellow with glow for cyberpunk accent */}
+                    <s.icon className="h-4 w-4 transition-transform group-hover:scale-110" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 4px rgba(199,160,8,0.8)) drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
 
                     {/* Count — bold, large, white */}
                     <span className="text-2xl font-extrabold tabular-nums leading-none" style={{
@@ -1024,12 +1027,11 @@ export function AppHeader() {
                       {s.value}
                     </span>
 
-                    {/* Label — uppercase monospace, white */}
+                    {/* Label — uppercase monospace, yellow accent */}
                     <span className="text-[9px] uppercase font-bold tracking-[0.1em]" style={{
-                      color: '#ffffff',
+                      color: '#c7a008',
                       fontFamily: 'var(--font-jetbrains-mono), monospace',
-                      opacity: 0.95,
-                      textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                      textShadow: '0 0 4px rgba(199,160,8,0.6), 0 1px 2px rgba(0,0,0,0.4)',
                     }}>
                       {s.label}
                     </span>
@@ -1047,7 +1049,7 @@ export function AppHeader() {
                   <div className="flex items-center gap-1.5 mb-2">
                     <LayoutDashboard className="h-3 w-3" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 3px rgba(0,168,198,0.5))' }} />
                     <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                      Быстрый доступ
+                      Проекты
                     </span>
                     <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.4), transparent)' }} />
                   </div>

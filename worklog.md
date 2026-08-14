@@ -3419,3 +3419,53 @@ Stage Summary:
 - Hover lifts the tile and intensifies the glow.
 - Colors: yellow (Проекты), cyan (Треки), purple (Идеи, was grey), green (Участники).
 - Files modified: `src/components/layout/app-header.tsx` only.
+
+---
+Task ID: PURPLE-YELLOW-STATS-RENAME
+Agent: main
+Task: (1) Style the stats buttons in the header panel purple-yellow. (2) Rename the panel from English to Russian, add yellow elements to the title, icon, and close button. (3) Rename "Быстрый доступ" to "Избранное" on the home page.
+
+Work Log:
+
+**1. Stats buttons — purple→yellow gradient:**
+- Removed the per-stat `color` and `glow` properties (each stat used to have its own color: yellow/cyan/purple/green).
+- All 4 stats now share the SAME purple→yellow gradient fill: `linear-gradient(135deg, #7b2cbf 0%, #5a1d8f 40%, #9d4edd 70%, #c7a008 100%)` — purple base fading into a yellow accent at the bottom-right.
+- Border: `1.5px solid #c7a008` (yellow).
+- Corner brackets: changed from white (60% opacity) → yellow (90% opacity).
+- Icon: changed from white → yellow (`#c7a008`) with yellow glow `drop-shadow(0 0 4px rgba(199,160,8,0.8))`.
+- Count: still white (for max contrast against the dark purple top of the gradient).
+- Label: changed from white → yellow (`#c7a008`) with glow text-shadow.
+- Box shadow: dual-color glow — `rgba(157,78,221,0.5)` (purple outer) + `rgba(199,160,8,0.6)` (yellow tight).
+- Hover: intensified dual-color glow — `rgba(199,160,8,0.8)` + `rgba(157,78,221,1)` + `rgba(199,160,8,1)`.
+
+**2. Panel header — renamed to Russian + yellow elements:**
+- Title: "Quick Access" → "Избранное" (Russian).
+- Icon chip (Zap): background changed from `rgba(157,78,221,0.18)` → `rgba(157,78,221,0.25)` (slightly more purple), border changed from purple → yellow (`1px solid #c7a008`), boxShadow changed from purple-only → dual-color `rgba(199,160,8,0.5), rgba(157,78,221,0.4)`. Icon color changed from `#c77dff` (light purple) → `#c7a008` (yellow) with stronger yellow glow.
+- Title text: color changed from `#c77dff` (light purple) → `#c7a008` (yellow) with yellow glow text-shadow.
+- Subtitle "· обзор группы": color changed from `rgba(157,78,221,0.5)` → `rgba(157,78,221,0.6)` (slightly brighter purple) — provides the purple accent.
+- Bottom border: changed from `rgba(157,78,221,0.3)` (purple) → `rgba(199,160,8,0.4)` (yellow).
+- Close button: background `rgba(157,78,221,0.1)` → `rgba(199,160,8,0.12)`, border `rgba(157,78,221,0.5)` → `#c7a008`, boxShadow `rgba(157,78,221,0.3)` → `rgba(199,160,8,0.4)`. Icon color `#c77dff` → `#c7a008` with yellow drop-shadow.
+- Hover (close): still turns red, but rest state is now yellow-themed.
+
+**3. Home page "Быстрый доступ" → "Избранное":**
+- Section heading: "Быстрый доступ" → "Избранное".
+- Star toggle button title: "Убрать из быстрого доступа" / "В быстрый доступ" → "Убрать из избранного" / "В избранное".
+- Manage button title: "Управлять быстрым доступом" → "Управлять избранным".
+- Also renamed the header panel's card section title from "Быстрый доступ" → "Проекты" (since the panel header now says "Избранное", the card section doesn't need to repeat it).
+- Stripe button title: "Быстрый доступ — проекты, треки, идеи, участники" → "Избранное — проекты, треки, идеи, участники".
+
+Verification:
+- `bun run lint` → only pre-existing errors (app-header:244, home-view:1260/1318/1324). No new errors.
+- dev.log: clean compile.
+- Agent Browser DOM + VLM verification:
+  - Panel title: "ИЗБРАННОЕ" (Russian) ✅
+  - Stats buttons: "фиолетово-жёлтый градиент" ✅
+  - Close button: "жёлтая рамка и иконка" ✅
+  - Zap icon: "жёлтая" ✅
+  - Home page heading: "Избранное" (was "Быстрый доступ") ✅
+
+Stage Summary:
+- Stats buttons now use a unified purple→yellow gradient (purple top-left → yellow bottom-right), with yellow border, yellow corner brackets, yellow icons + labels, white count. Dual-color glow (purple + yellow).
+- Panel header renamed from "Quick Access" (English) → "Избранное" (Russian). All elements themed yellow: Zap icon chip (purple bg + yellow border/glow), title (yellow text + glow), close button (yellow frame + yellow icon + yellow glow).
+- Home page section renamed from "Быстрый доступ" → "Избранное". Star toggle tooltips + manage button tooltip updated to use "избранное" terminology.
+- Files modified: `src/components/layout/app-header.tsx` (stats + header + close + titles), `src/components/views/home-view.tsx` (section heading + star toggle tooltips + manage button tooltip).

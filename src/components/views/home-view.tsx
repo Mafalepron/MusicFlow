@@ -1039,7 +1039,7 @@ function AllProjectsModal({
                     onClick={(e) => { e.stopPropagation(); toggleQuickAccess(item.id, item.title); }}
                     className="shrink-0 p-1.5 rounded-md transition-all hover:bg-white/[0.06]"
                     style={{ color: starred ? Y : '#475569' }}
-                    title={starred ? 'Убрать из быстрого доступа' : 'В быстрый доступ'}
+                    title={starred ? 'Убрать из избранного' : 'В избранное'}
                   >
                     <Star className="w-4 h-4" style={{ color: starred ? Y : '#475569', fill: starred ? Y : 'none' }} />
                   </button>
@@ -1424,7 +1424,7 @@ export function HomeView() {
                   fontWeight: 700,
                   letterSpacing: '2px',
                 }}>
-                  Быстрый доступ
+                  Избранное
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -1448,7 +1448,7 @@ export function HomeView() {
                     background: 'rgba(199,160,8,0.08)',
                     border: '1px solid rgba(199,160,8,0.3)',
                   }}
-                  title="Управлять быстрым доступом"
+                  title="Управлять избранным"
                 >
                   <Pencil className="w-2.5 h-2.5" /> Изменить
                 </button>
