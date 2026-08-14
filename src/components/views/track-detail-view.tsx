@@ -372,11 +372,13 @@ function countAllDescendants(tasks: { children?: unknown[] }[]): any[] {
 }
 
 // --- Priority helpers (used by the Track Profile info grid) ---
+// Priority scale: red (low) → yellow (medium) → green (high).
+// Red is the LOWEST priority, green is the HIGHEST.
 
 const PRIORITY_COLORS: Record<string, string> = {
-  high: '#ff5a5a',
-  medium: Y,
-  low: G,
+  high: G,        // green = highest
+  medium: Y,      // yellow = middle
+  low: '#ff5a5a', // red = lowest
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -385,12 +387,23 @@ const PRIORITY_LABELS: Record<string, string> = {
   low: 'Низкий',
 };
 
+// Priority level (1-3) — used to drive the 3-bar scale visual.
+const PRIORITY_LEVEL: Record<string, number> = {
+  low: 1,
+  medium: 2,
+  high: 3,
+};
+
 function priorityColor(p: string): string {
   return PRIORITY_COLORS[p] ?? Y;
 }
 
 function priorityLabel(p: string): string {
   return PRIORITY_LABELS[p] ?? p;
+}
+
+function priorityLevel(p: string): number {
+  return PRIORITY_LEVEL[p] ?? 2;
 }
 
 // Small HUD stat cell — yellow uppercase label on top, white value below.
@@ -2417,10 +2430,12 @@ export function TrackDetailView() {
                     >
                       v{track.version}
                     </span>
-                    {/* Priority — frameless icon-only button. A colored dot with
-                        a soft glow; clicking opens the priority dropdown. The
-                        hover lift + glow make it clearly interactive without
-                        needing a border/frame around it. */}
+                    {/* Priority — frameless icon button rendered as a 3-bar
+                        signal-strength scale. The current priority level
+                        (1=low/red, 2=medium/yellow, 3=high/green) lights up
+                        that many bars in the priority color; bars above the
+                        current level stay dim. Clicking opens the dropdown.
+                        Hover scales the whole thing up so it reads as a button. */}
                     {primaryKanbanTask ? (
                       <Select
                         value={localKanbanPriority ?? 'medium'}
@@ -2428,7 +2443,7 @@ export function TrackDetailView() {
                       >
                         <SelectTrigger
                           size="sm"
-                          className="relative h-5 w-5 shrink-0 border-0 rounded-full p-0 hover:scale-110 data-[state=open]:scale-110 transition-transform"
+                          className="relative h-5 w-5 shrink-0 border-0 rounded-none p-0 hover:scale-110 data-[state=open]:scale-110 transition-transform flex items-end justify-center gap-[1.5px]"
                           style={{
                             background: 'transparent',
                             border: 'none',
@@ -2436,21 +2451,34 @@ export function TrackDetailView() {
                           }}
                           title={`Приоритет: ${priorityLabel(localKanbanPriority ?? 'medium')}`}
                         >
-                          <span
-                            className="flex items-center justify-center"
-                            style={{ color: priorityColor(localKanbanPriority ?? 'medium') }}
-                          >
-                            <span
-                              className="h-3 w-3 rounded-full"
-                              style={{
-                                backgroundColor: priorityColor(localKanbanPriority ?? 'medium'),
-                                boxShadow: `0 0 6px ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.8)}, 0 0 2px ${priorityColor(localKanbanPriority ?? 'medium')}`,
-                              }}
-                            />
-                          </span>
+                          {/* 3-bar vertical scale — bars grow from short (bottom)
+                              to tall (top), like a signal-strength indicator. */}
+                          {[3, 2, 1].map((barLevel) => {
+                            const lvl = priorityLevel(localKanbanPriority ?? 'medium');
+                            const active = barLevel <= lvl;
+                            const color = priorityColor(localKanbanPriority ?? 'medium');
+                            // Bar heights: top=8px, mid=6px, bottom=4px.
+                            const barH = barLevel === 3 ? 8 : barLevel === 2 ? 6 : 4;
+                            return (
+                              <span
+                                key={barLevel}
+                                style={{
+                                  display: 'block',
+                                  width: '2.5px',
+                                  height: `${barH}px`,
+                                  borderRadius: '1px',
+                                  backgroundColor: active ? color : 'rgba(255,255,255,0.12)',
+                                  boxShadow: active
+                                    ? `0 0 4px ${hexToRgba(color, 0.8)}`
+                                    : 'none',
+                                  transition: 'background-color 150ms ease, box-shadow 150ms ease',
+                                }}
+                              />
+                            );
+                          })}
                           {savingField === 'priority' && (
                             <span
-                              className="absolute -right-0.5 -top-0.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full"
+                              className="absolute -right-1 -top-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full"
                               style={{ background: Y, boxShadow: `0 0 3px ${hexToRgba(Y, 0.9)}` }}
                             />
                           )}
@@ -3509,16 +3537,31 @@ export function TrackDetailView() {
                                   />
                                 )}
                                 <div
-                                  className={`rotate-45 transition-all duration-150 ${
+                                  className={`transition-all duration-150 ${
+                                    comment.isResolved
+                                      ? 'flex items-center justify-center'
+                                      : 'rotate-45'
+                                  } ${
                                     isFocused
                                       ? 'h-4 w-4 bg-[#c7a008] shadow-[0_0_6px_rgba(199,160,8,0.6)]'
                                       : isHovered
                                         ? 'h-3.5 w-3.5 bg-[#c7a008]/80 shadow-[0_0_8px_rgba(199,160,8,0.5)]'
                                         : comment.isResolved
-                                          ? 'h-2.5 w-2.5 bg-[#4a8d6f]'
+                                          ? 'h-4 w-4'
                                           : 'h-2.5 w-2.5 bg-[#c7a008]'
                                   }`}
-                                />
+                                >
+                                  {comment.isResolved && (
+                                    <Check
+                                      className="h-3.5 w-3.5"
+                                      strokeWidth={3}
+                                      style={{
+                                        color: G,
+                                        filter: `drop-shadow(0 0 5px ${hexToRgba(G, 0.9)})`,
+                                      }}
+                                    />
+                                  )}
+                                </div>
                                 {/* Vertical line */}
                                 <div
                                   className={`absolute left-1/2 top-full h-4 w-0.5 -translate-x-1/2 -rotate-0 transition-colors ${
@@ -3543,30 +3586,48 @@ export function TrackDetailView() {
                                     }}
                                   />
                                 )}
-                                <div
-                                  className="transition-all duration-150"
-                                  style={{
-                                    width: isFocused ? '12px' : isHovered ? '12px' : '10px',
-                                    height: isFocused ? '12px' : isHovered ? '12px' : '10px',
-                                    background: comment.isResolved ? G : C,
-                                    clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
-                                    boxShadow: isFocused
-                                      ? `0 0 5px ${C}`
-                                      : isHovered
-                                        ? `0 0 6px ${C}`
-                                        : comment.isResolved
-                                          ? `0 0 3px ${G}`
+                                {comment.isResolved ? (
+                                  /* Resolved point marker — green checkmark instead of a diamond */
+                                  <div
+                                    className="flex items-center justify-center transition-all duration-150"
+                                    style={{
+                                      width: isFocused ? '16px' : isHovered ? '14px' : '14px',
+                                      height: isFocused ? '16px' : isHovered ? '14px' : '14px',
+                                    }}
+                                  >
+                                    <Check
+                                      className={isFocused ? 'h-4 w-4' : 'h-3.5 w-3.5'}
+                                      strokeWidth={3}
+                                      style={{
+                                        color: G,
+                                        filter: `drop-shadow(0 0 5px ${hexToRgba(G, 0.9)})`,
+                                      }}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="transition-all duration-150"
+                                    style={{
+                                      width: isFocused ? '12px' : isHovered ? '12px' : '10px',
+                                      height: isFocused ? '12px' : isHovered ? '12px' : '10px',
+                                      background: C,
+                                      clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+                                      boxShadow: isFocused
+                                        ? `0 0 5px ${C}`
+                                        : isHovered
+                                          ? `0 0 6px ${C}`
                                           : `0 0 4px ${hexToRgba(C, 0.6)}`,
-                                    border: `1px solid ${Y}`,
-                                  }}
-                                >
-                                  <div style={{
-                                    width: '3px', height: '3px',
-                                    background: Y,
-                                    margin: 'auto',
-                                    marginTop: isFocused ? '5px' : isHovered ? '4px' : '3px',
-                                  }} />
-                                </div>
+                                      border: `1px solid ${Y}`,
+                                    }}
+                                  >
+                                    <div style={{
+                                      width: '3px', height: '3px',
+                                      background: Y,
+                                      margin: 'auto',
+                                      marginTop: isFocused ? '5px' : isHovered ? '4px' : '3px',
+                                    }} />
+                                  </div>
+                                )}
 
                                 {/* Vertical line down from pin */}
                                 <div
@@ -3625,16 +3686,31 @@ export function TrackDetailView() {
                               title={''}
                             >
                               <div
-                                className={`rotate-45 transition-all duration-150 ${
-                                  isFocused
-                                    ? 'h-3.5 w-3.5 bg-[#c7a008] shadow-[0_0_8px_rgba(199,160,8,0.5)]'
-                                    : isHovered
-                                      ? 'h-3 w-3 bg-[#c7a008]/80 shadow-[0_0_6px_rgba(199,160,8,0.4)]'
-                                      : comment.isResolved
-                                        ? 'h-2 w-2 bg-[#4a8d6f]'
-                                        : 'h-2 w-2 bg-[#c7a008]'
-                                }`}
-                              />
+                                  className={`transition-all duration-150 ${
+                                    comment.isResolved
+                                      ? 'flex items-center justify-center'
+                                      : 'rotate-45'
+                                  } ${
+                                    isFocused
+                                      ? 'h-3.5 w-3.5 bg-[#c7a008] shadow-[0_0_8px_rgba(199,160,8,0.5)]'
+                                      : isHovered
+                                        ? 'h-3 w-3 bg-[#c7a008]/80 shadow-[0_0_6px_rgba(199,160,8,0.4)]'
+                                        : comment.isResolved
+                                          ? 'h-4 w-4'
+                                          : 'h-2 w-2 bg-[#c7a008]'
+                                  }`}
+                                >
+                                  {comment.isResolved && (
+                                    <Check
+                                      className="h-3 w-3"
+                                      strokeWidth={3}
+                                      style={{
+                                        color: G,
+                                        filter: `drop-shadow(0 0 5px ${hexToRgba(G, 0.9)})`,
+                                      }}
+                                    />
+                                  )}
+                                </div>
                               <div
                                 className={`absolute left-1/2 top-full h-3 w-0.5 -translate-x-1/2 transition-colors ${
                                   isFocused ? 'bg-[#c7a008]/50' : isHovered ? 'bg-[#c7a008]/35' : 'bg-[#c7a008]/15'
@@ -4647,9 +4723,12 @@ export function TrackDetailView() {
                                       className="h-6 gap-1 px-2 text-[10px] text-[#00a8c6] hover:text-[#00a8c6] hover:bg-[#00a8c6]/10"
                                       title="Перейти к этому таймстемпу"
                                       onClick={() => {
-                                        seekTo(comment.timestampMs / 1000);
-                                        // Scroll the waveform/audio player into view so
-                                        // the user sees the playhead move.
+                                        // handleMarkerClick seeks the audio,
+                                        // highlights the comment thread, AND
+                                        // lights up the marker on the waveform.
+                                        handleMarkerClick(comment);
+                                        // Scroll the waveform/audio player into
+                                        // view so the user sees the marker glow.
                                         const wf = canvasRef.current?.closest('.relative');
                                         if (wf) wf.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                       }}

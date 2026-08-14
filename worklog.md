@@ -2861,3 +2861,65 @@ Stage Summary:
 - "Перейти к" button now scrolls the waveform into view via `scrollIntoView({ block: 'center' })` in addition to seeking the audio.
 - All Tooltip wrappers removed from comment buttons (Edit, Delete, Resolved, Go, Reply) — replaced with native `title` attributes.
 - Files modified: `src/components/views/track-detail-view.tsx` only.
+
+---
+Task ID: UI-3-MARKER-PRIORITY-GO
+Agent: main
+Task: Three fixes — (1) resolved marker should show a green checkmark instead of a green diamond on the audio track; (2) "Go" button on comments scrolls to the audio track but the marker is not highlighted — fix; (3) change priority colors (red=lowest, green=highest) and make the priority button a scale.
+
+Work Log:
+
+**Fix 1 — Resolved markers show green checkmark:**
+- Point marker (non-range comments): when `comment.isResolved` is true, the marker now renders a `<Check>` icon (lucide-check) instead of the diamond clip-path. Container is 14×14px (was 10px), Check icon is h-3.5 w-3.5 with `strokeWidth={3}` (thicker stroke for visibility), color=G (#4a8d6f, green), filter=`drop-shadow(0 0 5px rgba(74,141,111,0.9))` (green glow).
+- Range START marker: when resolved, the `rotate-45` diamond div switches to `flex items-center justify-center` and renders a `<Check>` icon (h-3.5 w-3.5, strokeWidth=3, green) instead.
+- Range END marker: same treatment — Check icon (h-3 w-3, strokeWidth=3, green) when resolved.
+- Non-resolved markers unchanged (still diamonds).
+- The existing range highlight bar on the waveform already used green for resolved state — unchanged.
+
+**Fix 2 — "Go" button highlights marker:**
+- The "Перейти к" button previously only called `seekTo(comment.timestampMs / 1000)` + `scrollIntoView`. The marker was not highlighted because `focusedCommentIds` was never set.
+- Replaced `seekTo(...)` with `handleMarkerClick(comment)` — this function already seeks the audio, computes the full comment thread IDs, and sets `focusedCommentIds` (which lights up both the marker halo AND the comment bubble flash glow). The 5-second auto-clear timer is inherited from `handleMarkerClick`.
+- The `scrollIntoView` for the canvas/waveform is preserved so the user sees the marker glow.
+- Verified via DOM: after clicking "Перейти к", 1 halo (kb6-focus-badge on marker) + 1 flash (kb6-focus-flash on comment bubble) are active.
+
+**Fix 3 — Priority colors swapped + scale visual:**
+- `PRIORITY_COLORS` map updated:
+  - `high: G` (#4a8d6f, green) — was `#ff5a5a` (red). Green = highest.
+  - `medium: Y` (#c7a008, yellow) — unchanged. Yellow = middle.
+  - `low: '#ff5a5a'` (red) — was `G` (green). Red = lowest.
+- Added `PRIORITY_LEVEL` map: `{ low: 1, medium: 2, high: 3 }` and `priorityLevel(p)` helper.
+- Priority SelectTrigger: replaced the single 3×3px glowing dot with a **3-bar signal-strength scale**:
+  - 3 vertical bars, heights 8px (top) / 6px (mid) / 4px (bottom), each 2.5px wide, gap 1.5px.
+  - Bars at or below the current priority level are lit in the priority color (red/yellow/green) with a glow.
+  - Bars above the current level are dim (rgba(255,255,255,0.12), no glow).
+  - So: low=1 bar lit (bottom, red), medium=2 bars lit (mid+bottom, yellow), high=3 bars lit (all, green).
+  - Hover scales the entire scale up by 1.1× so it reads as a button.
+- SelectContent dropdown items unchanged (still show colored dot + Russian label), but the dot colors now reflect the new mapping (high=green, medium=yellow, low=red).
+
+Verification:
+- `bun run lint 2>&1 | grep -E "track-detail-view|error TS"` → no output (no new lint errors).
+- dev.log: clean compile.
+- Agent Browser DOM verification on track "пвапвыапвыап":
+  - **Priority scale colors**: verified via `getComputedStyle` on the 3 bar spans inside the SelectTrigger:
+    - "Высокий" (high): all 3 bars = `rgb(74, 141, 111)` (green) ✅
+    - "Средний" (medium): bar 1 dim, bars 2+3 = `rgb(199, 160, 8)` (yellow) ✅
+    - "Низкий" (low): bars 1+2 dim, bar 3 = `rgb(255, 90, 90)` (red) ✅
+  - **Priority dropdown options**: verified dot colors via `style.backgroundColor`:
+    - "Высокий" dot = `rgb(74, 141, 111)` (green) ✅
+    - "Средний" dot = `rgb(199, 160, 8)` (yellow) ✅
+    - "Низкий" dot = `rgb(255, 90, 90)` (red) ✅
+  - **"Go" button highlights marker**: after clicking "Перейти к", DOM check confirms 1 halo element (kb6-focus-badge animation on the waveform marker) + 1 flash element (kb6-focus-flash on the comment bubble). The marker IS highlighted. ✅
+  - **Resolved marker check icon**: DOM check on marker i=5 (resolved comment cmssoy8le at 108757ms) confirms:
+    - SVG element: `lucide lucide-check h-3.5 w-3.5`
+    - Color: `rgb(74, 141, 111)` (green G)
+    - strokeWidth: `3` (thick)
+    - filter: `drop-shadow(rgba(74, 141, 111, 0.9) 0px 0px 5px)` (green glow)
+    - Container: 14×14px ✅
+  - Note: VLM could not visually distinguish the check icon in screenshots because the resolved marker (x=1177, 14px) is stacked next to 2 diamond markers (x=1179, 10px each) at the same timestamp (108757ms). The markers overlap visually in the 2D screenshot. The DOM inspection confirms the check icon IS rendered correctly.
+
+Stage Summary:
+- Resolved comments' markers on the waveform now render as green checkmark icons (Check SVG, strokeWidth=3, green color, green glow) instead of green diamonds. Applies to point markers, range start markers, and range end markers.
+- "Перейти к" button now calls `handleMarkerClick(comment)` which sets `focusedCommentIds`, lighting up the marker halo + comment bubble flash glow in addition to seeking the audio and scrolling the waveform into view.
+- Priority colors swapped: high=green (#4a8d6f), medium=yellow (#c7a008), low=red (#ff5a5a). Red is now the lowest priority, green is the highest.
+- Priority button is now a 3-bar signal-strength scale: the current priority level lights up that many bars in the priority color; bars above stay dim. Low=1 red bar, medium=2 yellow bars, high=3 green bars.
+- Files modified: `src/components/views/track-detail-view.tsx` only.
