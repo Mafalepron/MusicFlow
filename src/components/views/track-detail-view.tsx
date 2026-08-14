@@ -3166,6 +3166,9 @@ export function TrackDetailView() {
                   </div>
                 </div>
 
+                {/* Waveform wrapper — no clip-path so tooltip can escape */}
+                <div className="relative">
+
                 <div
                   className={`relative border p-3 transition-colors ${
                     markerMode === 'range'
@@ -3231,11 +3234,11 @@ export function TrackDetailView() {
                       }`}
                       onClick={handleWaveformClick}
                     />
-                    {/* Hover time tooltip — above cursor, outside waveform area */}
+                    {/* Hover time tooltip — rendered ABOVE the waveform, outside clip-path */}
                     {waveformHoverTime && !hoveredMarkerId && !pinnedMarkerId && (
                       <div
-                        className="pointer-events-none absolute z-30 -translate-x-1/2"
-                        style={{ left: waveformHoverTime.x, bottom: '100%', marginBottom: '4px' }}
+                        className="pointer-events-none absolute z-50 -translate-x-1/2"
+                        style={{ left: waveformHoverTime.x, top: '-28px' }}
                       >
                         <span
                           className="px-1.5 py-0.5 text-[10px] font-bold shadow-lg whitespace-nowrap"
@@ -3244,6 +3247,7 @@ export function TrackDetailView() {
                             color: '#0a0b10',
                             clipPath: CHAMFER_3,
                             fontFamily: 'var(--font-jetbrains-mono), monospace',
+                            boxShadow: `0 0 8px ${hexToRgba(Y, 0.5)}, 0 2px 8px rgba(0,0,0,0.6)`,
                           }}
                         >
                           {formatTimestamp(waveformHoverTime.ms)}
@@ -3653,6 +3657,9 @@ export function TrackDetailView() {
                   document.body
                 );
               })()}
+
+                </div>{/* End waveform wrapper */}
+
           {/* Audio Player — HUD panel with chamfered corners, corner brackets, inset bevel */}
               <div
                 className="relative shrink-0 p-4 lg:p-6"
