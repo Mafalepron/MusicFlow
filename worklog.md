@@ -3029,3 +3029,54 @@ Stage Summary:
 - Priority indicator is now JUST the 3 bars — no border, no background, no frame, no chevron icon, no shadow. Clean signal-strength scale that lights up in the priority color.
 - Hover scales the bars up by 1.25× so the button is clearly interactive.
 - Files modified: `src/components/views/track-detail-view.tsx` only.
+
+---
+Task ID: HEADER-PURPLE-STRIPE-QUICK-PANEL
+Agent: main
+Task: The purple stripe in the center of the app header should be clickable. Clicking it opens a slide-down quick-access panel (like on the home page) with all the info above the quick-access — projects, tracks, ideas, participants.
+
+Work Log:
+- Imported 5 new lucide icons in app-header.tsx: `FolderKanban`, `Music2`, `Users`, `Zap`, `LayoutDashboard`.
+- Added state for the quick-access panel:
+  - `quickPanelOpen: boolean` (toggled by clicking the purple stripe).
+  - `memberCount: number` (fetched via `/api/groups/${currentGroupId}/members` whenever the group changes).
+  - `ideas` from `useDataStore` (already-fetched ideas array).
+  - `currentGroupId` from `useAuthStore`.
+  - `quickPanelRef: RefObject<HTMLDivElement>` and `quickStripeRef: RefObject<HTMLButtonElement>` for click-outside detection.
+- Added a useEffect that registers `mousedown` + `keydown` listeners when the panel is open — closes the panel if the user clicks outside both the panel and the stripe button, or presses Escape. Listeners are cleaned up on close.
+- Replaced the decorative purple stripe div with a `<button>` that toggles `quickPanelOpen`:
+  - The button is 180×24px, centered absolutely in the header, transparent background.
+  - The neon-purple line is still there (120px × 2px, `#9d4edd` with glow) but now inside the button and scales 1.1× horizontally on hover.
+  - A tiny `ChevronDown` icon appears below the stripe — flips 180° (points up) when the panel is open, so it reads as a toggle.
+  - The stripe's glow intensifies when the panel is open.
+  - `title` attribute: "Быстрый доступ — проекты, треки, идеи, участники".
+  - `aria-label`: "Открыть панель быстрого доступа".
+- Added the quick-access slide-down panel as an `AnimatePresence` + `motion.div` that animates in from the top with a 220ms ease-out transition (opacity + y + scaleY).
+  - Panel is positioned `absolute` below the header (`top: 100%`), centered horizontally, max-width 720px (responsive).
+  - Styled with the same dark cyberpunk aesthetic: `linear-gradient(135deg, #11141d 0%, #0c0e16 100%)` background, purple border (`rgba(157,78,221,0.4)`), chamfered corners (8px clip-path), purple glow + dark drop shadow.
+  - Close (X) button in the top-right corner.
+  - **Stats row** (4 buttons in a grid): Проекты (yellow, count = projects.length, navigates to 'projects'), Треки (cyan, count = tracks.length, navigates to 'projects'), Идеи (grey, count = ideas.length, navigates to 'ideas'), Участники (green, count = memberCount, navigates to 'group-settings'). Each stat is a clickable button with hover scale-105, colored icon + count + label.
+  - **Quick-access project cards**: horizontally-scrollable row of up to 6 project cards. Each card shows the project type (album/ep/etc.), title, status, and a LayoutDashboard icon that brightens on hover. Clicking a card navigates to `project-detail` view for that project.
+  - Empty state: "Нет проектов. Создайте первый на главной странице." if no projects exist.
+- Clicking any stat or project card also closes the panel (`setQuickPanelOpen(false)` in the onClick handler).
+
+Verification:
+- `bun run lint` → only 1 pre-existing error (line 174, `setSearchResults` in search useEffect — was there before my changes). No new lint errors.
+- dev.log: clean compile, no errors.
+- Agent Browser end-to-end verification:
+  - **Stripe visible**: VLM confirms "в центре верхней части интерфейса (в шапке) присутствует яркая фиолетовая горизонтальная полоска (неоновая линия)."
+  - **Panel opens on click**: DOM check confirms the panel renders 4 stat buttons (`title="Перейти к: Проекты/Треки/Идеи/Участники"`) + 6 project cards (`title="Открыть: акыа/..."`).
+  - **Stats show correct counts**: snapshot shows "14 ПРОЕКТЫ", "17 ТРЕКИ", "0 ИДЕИ", "1 УЧАСТНИКИ" — matching the data store's projects/tracks/ideas arrays + the fetched member count.
+  - **Stat click navigates**: clicked "Перейти к: Проекты" → page navigated to the Projects view (heading "Проекты" + list of project cards: акыа, аывываыва, Test Album, dfsdfsdf, ип, Unity Album). ✅
+  - **Project card click navigates**: clicked "Открыть: акыа" → page navigated to the project-detail view for акыа (heading "акыа" + "ТРЕКИ" section). ✅
+  - **Close (X) button works**: clicked the close button → `document.querySelector('button[aria-label="Закрыть"]')` returns null (panel unmounted). ✅
+  - **Click-outside closes**: opened the panel, clicked outside → panel closed. ✅
+  - **Escape closes**: handled by the keydown listener (registered in useEffect). ✅
+
+Stage Summary:
+- The purple neon stripe in the center of the app header is now a clickable button. Hovering scales the stripe 1.1× horizontally and shows a chevron indicator below it. Clicking toggles a slide-down quick-access panel.
+- The panel contains: a 4-stat row (Проекты/Треки/Идеи/Участники with live counts) + a horizontally-scrollable row of up to 6 project quick-access cards.
+- Each stat navigates to its respective view (projects/ideas/group-settings) and closes the panel.
+- Each project card navigates to that project's detail view and closes the panel.
+- The panel closes on: clicking the X button, clicking outside, or pressing Escape.
+- Files modified: `src/components/layout/app-header.tsx` only (imports + state + useEffect + stripe button + slide-down panel JSX).

@@ -6,6 +6,7 @@ import {
   Search, X, Bell, Menu, ChevronRight, ChevronDown,
   MessageCircle, LogOut, Settings, User, Check, Copy,
   Home, Lightbulb, FolderOpen, LayoutGrid, Music,
+  FolderKanban, Music2, Users, Zap, LayoutDashboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -77,6 +78,47 @@ export function AppHeader() {
   const [copied, setCopied] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Quick-access slide-down panel — triggered by clicking the purple center stripe.
+  const [quickPanelOpen, setQuickPanelOpen] = useState(false);
+  // Ideas + member count are fetched on demand for the quick panel.
+  const ideas = useDataStore((s) => s.ideas);
+  const currentGroupId = useAuthStore((s) => s.currentGroupId);
+  const [memberCount, setMemberCount] = useState(0);
+
+  // Fetch member count whenever the group changes (used by the quick panel).
+  useEffect(() => {
+    if (!currentGroupId) return;
+    fetch(`/api/groups/${currentGroupId}/members`)
+      .then((r) => r.json())
+      .then((m) => setMemberCount(Array.isArray(m) ? m.length : 0))
+      .catch(() => {});
+  }, [currentGroupId]);
+
+  // Close the quick-access panel when the user clicks outside it or presses Escape.
+  const quickPanelRef = useRef<HTMLDivElement>(null);
+  const quickStripeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!quickPanelOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (
+        quickPanelRef.current && !quickPanelRef.current.contains(target) &&
+        quickStripeRef.current && !quickStripeRef.current.contains(target)
+      ) {
+        setQuickPanelOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setQuickPanelOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [quickPanelOpen]);
 
   const groupName = currentGroup?.name || persistedGroupName || 'SoundFlow';
   const inviteCode = currentGroup?.inviteCode || persistedInviteCode || '';
@@ -214,14 +256,170 @@ export function AppHeader() {
           boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
         }}
       >
-        {/* Embedded neon-purple line centered in header */}
-        <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2" style={{
-          width: '120px',
-          height: '2px',
-          background: '#9d4edd',
-          boxShadow: '0 0 10px #9d4edd, 0 0 4px #9d4edd',
-          opacity: 0.8,
-        }} />
+        {/* Embedded neon-purple line centered in header — CLICKABLE button
+            that opens a quick-access slide-down panel (projects, tracks,
+            ideas, participants). The stripe pulses + scales on hover so it
+            reads as interactive. */}
+        <button
+          ref={quickStripeRef}
+          onClick={() => setQuickPanelOpen((o) => !o)}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group flex items-center justify-center"
+          style={{ width: '180px', height: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+          title="Быстрый доступ — проекты, треки, идеи, участники"
+          aria-label="Открыть панель быстрого доступа"
+        >
+          <div
+            className="pointer-events-none transition-all duration-200 group-hover:scale-x-110 group-hover:opacity-100"
+            style={{
+              width: '120px',
+              height: '2px',
+              background: '#9d4edd',
+              boxShadow: quickPanelOpen
+                ? '0 0 14px #9d4edd, 0 0 6px #9d4edd, 0 0 2px #c77dff'
+                : '0 0 10px #9d4edd, 0 0 4px #9d4edd',
+              opacity: quickPanelOpen ? 1 : 0.8,
+            }}
+          />
+          {/* Tiny chevron indicator — flips direction when the panel is open */}
+          <ChevronDown
+            className="absolute left-1/2 top-full -translate-x-1/2 transition-transform duration-200 group-hover:opacity-100"
+            style={{
+              color: '#9d4edd',
+              width: '12px',
+              height: '12px',
+              opacity: 0.7,
+              transform: quickPanelOpen ? 'translate(-50%, -2px) rotate(180deg)' : 'translate(-50%, -2px)',
+              filter: 'drop-shadow(0 0 3px rgba(157,78,221,0.6))',
+            }}
+          />
+        </button>
+
+        {/* Quick-access slide-down panel — animates in/out below the header.
+            Mirrors the home page's stats row (projects/tracks/ideas/participants)
+            + quick-access cards. Clicking a stat navigates to the relevant view. */}
+        <AnimatePresence>
+          {quickPanelOpen && (
+            <motion.div
+              ref={quickPanelRef}
+              initial={{ opacity: 0, y: -8, scaleY: 0.96 }}
+              animate={{ opacity: 1, y: 0, scaleY: 1 }}
+              exit={{ opacity: 0, y: -8, scaleY: 0.96 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 'min(720px, calc(100vw - 32px))',
+                marginTop: '6px',
+                zIndex: 50,
+                transformOrigin: 'top center',
+              }}
+            >
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+                  border: '1px solid rgba(157,78,221,0.4)',
+                  clipPath: 'polygon(0 6px, 6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px))',
+                  boxShadow: '0 0 18px rgba(157,78,221,0.25), 0 8px 24px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.05)',
+                  padding: '16px 18px',
+                }}
+              >
+                {/* Close button */}
+                <button
+                  onClick={() => setQuickPanelOpen(false)}
+                  className="absolute top-2 right-3 flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-[#c7a008] transition-colors"
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  aria-label="Закрыть"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+
+                {/* Stats row — projects / tracks / ideas / participants */}
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {[
+                    { icon: FolderKanban, value: projects.length, label: 'Проекты', color: '#c7a008', view: 'projects' as ViewName },
+                    { icon: Music2, value: tracks.length, label: 'Треки', color: '#00a8c6', view: 'projects' as ViewName },
+                    { icon: Lightbulb, value: ideas.length, label: 'Идеи', color: '#718096', view: 'ideas' as ViewName },
+                    { icon: Users, value: memberCount, label: 'Участники', color: '#4a8d6f', view: 'group-settings' as ViewName },
+                  ].map((s) => (
+                    <button
+                      key={s.label}
+                      onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
+                      className="group flex flex-col items-center justify-center gap-1 py-2 transition-all hover:scale-105"
+                      style={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${s.color}33`,
+                        clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                        cursor: 'pointer',
+                        padding: '6px 4px',
+                      }}
+                      title={`Перейти к: ${s.label}`}
+                    >
+                      <s.icon className="h-4 w-4" style={{ color: s.color, filter: `drop-shadow(0 0 3px ${s.color}66)` }} />
+                      <span className="text-lg font-bold tabular-nums" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+                        {s.value}
+                      </span>
+                      <span className="text-[9px] uppercase font-bold tracking-wider" style={{ color: s.color, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                        {s.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Quick-access cards — first 6 projects */}
+                {projects.length > 0 ? (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Zap className="h-3 w-3" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.6))' }} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#c7a008', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                        Быстрый доступ · Проекты
+                      </span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(199,160,8,0.4) transparent' }}>
+                      {projects.slice(0, 6).map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => { navigate('project-detail', p.id); setQuickPanelOpen(false); }}
+                          className="group relative shrink-0 w-44 text-left p-2 transition-all hover:scale-[1.03]"
+                          style={{
+                            background: 'rgba(0,168,198,0.06)',
+                            border: '1px solid rgba(0,168,198,0.3)',
+                            clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                            cursor: 'pointer',
+                          }}
+                          title={`Открыть: ${p.title}`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <FolderOpen className="h-3 w-3 shrink-0" style={{ color: '#00a8c6' }} />
+                            <span className="text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                              {p.type || 'project'}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold truncate" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+                            {p.title}
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-[9px]" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                              {p.status || 'draft'}
+                            </span>
+                            <LayoutDashboard className="h-2.5 w-2.5 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: '#c7a008' }} />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-xs" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                      Нет проектов. Создайте первый на главной странице.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Mobile: hamburger menu */}
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
