@@ -1705,3 +1705,33 @@ font-size: 18px;
   0%, 100% { filter: drop-shadow(0 0 2px currentColor); }
   50% { filter: drop-shadow(0 0 4px currentColor); }
 }
+
+/* ============================================================
+   Focused comment highlight — bright pulsing glow
+   ============================================================ */
+@keyframes kb6-focus-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px var(--kb6-focus-color, #c7a008),
+      0 0 10px 0 var(--kb6-focus-glow, rgba(199,160,8,0.55)),
+      0 0 22px 2px var(--kb6-focus-glow, rgba(199,160,8,0.35));
+    opacity: 0.95;
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--kb6-focus-color, #c7a008),
+      0 0 16px 2px var(--kb6-focus-glow, rgba(199,160,8,0.75)),
+      0 0 32px 6px var(--kb6-focus-glow, rgba(199,160,8,0.45));
+    opacity: 1;
+  }
+}
+@keyframes kb6-focus-sweep {
+  0%   { transform: translateX(-120%); opacity: 0; }
+  20%  { opacity: 0.55; }
+  80%  { opacity: 0.55; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+@keyframes kb6-focus-badge {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 1; }
+  50%      { transform: translateY(-1px) scale(1.04); opacity: 0.85; }
+}

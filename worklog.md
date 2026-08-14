@@ -2594,3 +2594,51 @@ Stage Summary:
 - Track Profile Panel LEFT column now reads: A. Profile Header (cover + title + status Select + Канбан + priority Select) → B. Description (inline editable, unchanged) → C. Track Info Grid (5 cells: Номер, Длительность, Референсы, Дедлайн, Автор) → D. Task tree breakdown only (no waveform, no stat dots).
 - Track Profile Panel RIGHT column is now a "Текст трека" textarea that persists to `trackConfig.trackText` on blur / Ctrl+Enter via PUT /api/tasks.
 - A new full-width section sits between the audio player and the comments: a yellow-bordered CHAMFER_5 frame containing the denser (bars=48) yellow WaveformProgressBar, the modified StatDot row (ВСЕГО, ГОТОВО, ОЖИДАНИЕ), and a horizontal cyan Project Progress bar (thinner, with percentage + done/total count).
+
+---
+Task ID: FOCUS-HIGHLIGHT
+Agent: main
+Task: Make the focused comment highlight much brighter and clearer when clicking a marker on the audio waveform (user feedback: "фокус на комментарии достаточно невзрачный")
+
+Work Log:
+- Read prior worklog (TD5/6/7-FIX5, OB1-RESTYLE, TP3-REFACTOR) to load the project context — confirmed palette (Y/C/P/G, BG_*, CHAMFER_*), chamfer helpers, and that `focusedCommentId` is set in `handleMarkerClick` and auto-cleared after a timeout.
+- Inspected the existing focused-comment highlight in track-detail-view.tsx (top-level comment bubble around line 4380 + reply bubble around line 4728) — it was just a thin `1px solid ${hexToRgba(Y, 0.6)}` border (top-level) / `1px solid ${hexToRgba(P, 0.5)}` border (reply). Very dull.
+- Added 3 new CSS keyframes to `/home/z/my-project/src/app/cyberpunk.css` (after the existing kb5-* block):
+  - `kb6-focus-glow` — pulsing multi-layer box-shadow (1px → 2px solid colour ring + 10–22px outer glow + 16–32px spread glow), opacity 0.95 → 1.0. Reads colour from CSS vars `--kb6-focus-color` and `--kb6-focus-glow`.
+  - `kb6-focus-sweep` — diagonal sheen sweep across the bubble (translateX -120% → 120%).
+  - `kb6-focus-badge` — gentle pulsing bounce (translateY 0 → -1px + scale 1 → 1.04) for the "В фокусе" corner badge.
+- Top-level comment bubble — replaced the old 1px border with a stack of three layered overlays driven by `focusedCommentId === comment.id`:
+  1. Pulsing outer glow (kb6-focus-glow) — colour = `Y` for range comments, `C` (cyan) for point comments.
+  2. "В фокусе" badge in the top-right corner (LocateFixed icon + text), bg #0a0c10, 1.5px coloured border, CHAMFER_3, JetBrains Mono, pulsing via kb6-focus-badge. Sized 10px text / px-2 py-0.5 / -top-3 right-4 / z-30.
+  3. Diagonal sweep sheen (kb6-focus-sweep) inside an overflow-hidden CHAMFER_5 clip.
+- Top-level bubble row `<motion.div>` got a new `scale: focusedCommentId === comment.id ? 1.015 : 1` spring animation (lifts the focused bubble slightly).
+- Left stripe (quote indicator) — now widens from 3px → 4px and gets an extra `0 0 12px ${Y}, 0 0 22px ${hexToRgba(Y, 0.6)}` glow when focused.
+- Reply bubble — same treatment but with `P` (purple) as the focus colour and slightly smaller badge (text-[9px], px-1.5, -top-2.5 right-3, LocateFixed h-2.5). Reply left stripe widens 2px → 3px + purple glow.
+- Waveform point marker — added a pulsing 32px circular halo (`border: 1.5px solid ${C}`, `0 0 10px ${C}, inset 0 0 8px ${hexToRgba(C, 0.4)}`, kb6-focus-badge animation) behind the diamond when focused. Also brightened the existing diamond's boxShadow (added `0 0 5px ${Y}` + `0 0 18px ${hexToRgba(C, 0.5)}`).
+- Waveform range marker — added the same yellow pulsing halo + brightened the diamond boxShadow (`0 0 12px rgba(199,160,8,0.8), 0 0 22px rgba(199,160,8,0.5)`).
+- Range highlight bar on the waveform — bumped from `bg-[#c7a008]/15 border-y-2 border-[#c7a008]/60` to `bg-[#c7a008]/22 border-y-2 border-[#c7a008]` + added `boxShadow: 0 0 16px rgba(199,160,8,0.5), inset 0 0 12px rgba(199,160,8,0.25)` + kb6-focus-badge pulsing animation when focused.
+- `handleMarkerClick` timeout — extended from 3000ms → 5000ms so users have more time to read the comment while the bright glow is active.
+- Scroll-to-focused useEffect — wrapped the `scrollIntoView` in `requestAnimationFrame` so the bubble mounts + the scale/glow animation can settle before the row is centred.
+- Auto-expand the visible-comment window when focusing a comment hidden past `visibleCommentCount` (was 4). New useEffect placed right after `sortedTree` useMemo: finds the focused comment's index in sortedTree and calls `setVisibleCommentCount(topLevelIndex + 1)` if it's beyond the current cutoff. Without this, clicking the range marker (whose comment sits at slot 5 of the chat list, beyond the 4-row window) would set `focusedCommentId` on a bubble that never mounts, so the bright glow would be invisible.
+- All UI text Russian ("В фокусе"). All chamfers/palette reuse existing constants. No new deps. No changes to audio player, transport, transport, comments CRUD, versions, socket.io, header-actions, or keyboard shortcuts.
+
+Verification:
+- `bun run lint 2>&1 | grep -E "track-detail-view"` → no output (no new lint errors; the 9 pre-existing `react-hooks/preserve-manual-memoization` errors all live in `home-view.tsx`, untouched).
+- dev.log shows `✓ Compiled in 1054ms` after the auto-expand useEffect addition; no errors.
+- Agent Browser end-to-end verification (logged in as mafalepron@gmail.com on track "пвапвыапвыап", which has 5 top-level comments + 1 reply across the active version):
+  - Point comment click (marker btn[1] at 29.7%, comment "ывапывапваыпвыапвыапвапвап" at 80435ms): DOM check confirms 4 elements with `kb6-focus-*` animations, glow colour = `rgb(0, 168, 198)` (cyan, C). VLM analysis of full-page screenshot confirms: "Комментарий #2 имеет яркую голубую/бирюзовую рамку со свечением по всему периметру карточки. В правом верхнем углу присутствует маленький бейдж с иконкой прицела и текстом «В ФОКУСЕ». На волновой дорожке — яркий голубой круг-ореол вокруг маркера."
+  - Range comment click (marker btn[5] at 52.9%, comment "пропропропро" at 143360–184117ms): DOM check confirms 5 elements with kb6 animations (the extra one is the range bar on the waveform), glow colour = `rgb(199, 160, 8)` (yellow, Y). VLM analysis confirms: "Жёлтый круг-ореол вокруг маркера. Жёлтая подсветка диапазона между двумя маркерами. Комментарий выделен жёлтой рамкой." Auto-expand useEffect successfully expanded `visibleCommentCount` from 4 → 5 so the range comment bubble mounted and the highlight became visible.
+  - Range END marker, point marker at 0ms, and duplicate-timestamp markers (btn[0..4]) all triggered focus correctly — all returned `count: 4` with `rgb(0, 168, 198)` cyan glow.
+
+Stage Summary:
+- Focused comment highlight is now MUCH brighter and clearer:
+  - Pulsing 1→2px solid neon border (cyan for point comments, yellow for range comments, purple for replies) with multi-layer outer glow (10px + 22px + 32px spread).
+  - "В фокусе" corner badge with LocateFixed crosshair icon, JetBrains Mono, pulsing animation, 1.5px coloured border + bright glow.
+  - Diagonal sweep sheen animation across the bubble.
+  - Slight 1.015x spring scale lift on the focused bubble.
+  - Brighter + wider left stripe (3px → 4px for top-level, 2px → 3px for replies) with extra outer glow.
+- Waveform marker also got a pulsing 32px circular halo (cyan for point markers, yellow for range markers) so the marker ↔ comment visual link is unmistakable.
+- Range bar on the waveform brightens (border /22 alpha → solid yellow) + pulses + glows when its comment is focused.
+- Focus duration extended 3s → 5s.
+- Auto-expand visible comments when focusing a hidden one, so the bright highlight is always mounted and visible.
+- Files modified: `src/app/cyberpunk.css` (3 new keyframes), `src/components/views/track-detail-view.tsx` (focus overlay JSX for top-level + reply, marker halo for point + range, range bar highlight, scroll useEffect raf wrap, auto-expand useEffect, 5s timeout).
