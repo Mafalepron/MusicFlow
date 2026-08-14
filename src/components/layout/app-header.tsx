@@ -294,132 +294,9 @@ export function AppHeader() {
           />
         </button>
 
-        {/* Quick-access slide-down panel — animates in/out below the header.
-            Mirrors the home page's stats row (projects/tracks/ideas/participants)
-            + quick-access cards. Clicking a stat navigates to the relevant view. */}
-        <AnimatePresence>
-          {quickPanelOpen && (
-            <motion.div
-              ref={quickPanelRef}
-              initial={{ opacity: 0, y: -8, scaleY: 0.96 }}
-              animate={{ opacity: 1, y: 0, scaleY: 1 }}
-              exit={{ opacity: 0, y: -8, scaleY: 0.96 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: 'min(720px, calc(100vw - 32px))',
-                marginTop: '6px',
-                zIndex: 50,
-                transformOrigin: 'top center',
-              }}
-            >
-              <div
-                style={{
-                  background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
-                  border: '1px solid rgba(157,78,221,0.4)',
-                  clipPath: 'polygon(0 6px, 6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px))',
-                  boxShadow: '0 0 18px rgba(157,78,221,0.25), 0 8px 24px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.05)',
-                  padding: '16px 18px',
-                }}
-              >
-                {/* Close button */}
-                <button
-                  onClick={() => setQuickPanelOpen(false)}
-                  className="absolute top-2 right-3 flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-[#c7a008] transition-colors"
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-                  aria-label="Закрыть"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-
-                {/* Stats row — projects / tracks / ideas / participants */}
-                <div className="grid grid-cols-4 gap-2 mb-3">
-                  {[
-                    { icon: FolderKanban, value: projects.length, label: 'Проекты', color: '#c7a008', view: 'projects' as ViewName },
-                    { icon: Music2, value: tracks.length, label: 'Треки', color: '#00a8c6', view: 'projects' as ViewName },
-                    { icon: Lightbulb, value: ideas.length, label: 'Идеи', color: '#718096', view: 'ideas' as ViewName },
-                    { icon: Users, value: memberCount, label: 'Участники', color: '#4a8d6f', view: 'group-settings' as ViewName },
-                  ].map((s) => (
-                    <button
-                      key={s.label}
-                      onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
-                      className="group flex flex-col items-center justify-center gap-1 py-2 transition-all hover:scale-105"
-                      style={{
-                        background: 'rgba(255,255,255,0.02)',
-                        border: `1px solid ${s.color}33`,
-                        clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                        cursor: 'pointer',
-                        padding: '6px 4px',
-                      }}
-                      title={`Перейти к: ${s.label}`}
-                    >
-                      <s.icon className="h-4 w-4" style={{ color: s.color, filter: `drop-shadow(0 0 3px ${s.color}66)` }} />
-                      <span className="text-lg font-bold tabular-nums" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
-                        {s.value}
-                      </span>
-                      <span className="text-[9px] uppercase font-bold tracking-wider" style={{ color: s.color, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                        {s.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Quick-access cards — first 6 projects */}
-                {projects.length > 0 ? (
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Zap className="h-3 w-3" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.6))' }} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#c7a008', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                        Быстрый доступ · Проекты
-                      </span>
-                    </div>
-                    <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(199,160,8,0.4) transparent' }}>
-                      {projects.slice(0, 6).map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => { navigate('project-detail', p.id); setQuickPanelOpen(false); }}
-                          className="group relative shrink-0 w-44 text-left p-2 transition-all hover:scale-[1.03]"
-                          style={{
-                            background: 'rgba(0,168,198,0.06)',
-                            border: '1px solid rgba(0,168,198,0.3)',
-                            clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                            cursor: 'pointer',
-                          }}
-                          title={`Открыть: ${p.title}`}
-                        >
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <FolderOpen className="h-3 w-3 shrink-0" style={{ color: '#00a8c6' }} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                              {p.type || 'project'}
-                            </span>
-                          </div>
-                          <p className="text-xs font-semibold truncate" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
-                            {p.title}
-                          </p>
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-[9px]" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                              {p.status || 'draft'}
-                            </span>
-                            <LayoutDashboard className="h-2.5 w-2.5 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: '#c7a008' }} />
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-xs" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                      Нет проектов. Создайте первый на главной странице.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Quick-access slide-down panel — rendered OUTSIDE the header (after
+            </header>) via a fixed-position overlay so the header's clipPath
+            doesn't clip it. See the AnimatePresence block below the header. */}
 
         {/* Mobile: hamburger menu */}
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
@@ -867,6 +744,133 @@ export function AppHeader() {
           </PopoverContent>
         </Popover>
       </header>
+
+      {/* Quick-access slide-down panel — rendered OUTSIDE the header so the
+          header's clipPath doesn't clip it. Fixed-positioned just below the
+          header (h-14 = 56px). Animates in/out via AnimatePresence. */}
+      <AnimatePresence>
+        {quickPanelOpen && (
+          <motion.div
+            ref={quickPanelRef}
+            initial={{ opacity: 0, y: -8, scaleY: 0.96 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            exit={{ opacity: 0, y: -8, scaleY: 0.96 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+            style={{
+              position: 'fixed',
+              top: '56px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 'min(720px, calc(100vw - 32px))',
+              zIndex: 40,
+              transformOrigin: 'top center',
+            }}
+          >
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #11141d 0%, #0c0e16 100%)',
+                border: '1px solid rgba(157,78,221,0.4)',
+                clipPath: 'polygon(0 6px, 6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px))',
+                boxShadow: '0 0 18px rgba(157,78,221,0.25), 0 8px 24px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.05)',
+                padding: '16px 18px',
+                position: 'relative',
+              }}
+            >
+              {/* Close button */}
+              <button
+                onClick={() => setQuickPanelOpen(false)}
+                className="absolute top-2 right-3 flex h-6 w-6 items-center justify-center text-muted-foreground hover:text-[#c7a008] transition-colors"
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                aria-label="Закрыть"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+
+              {/* Stats row — projects / tracks / ideas / participants */}
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                {[
+                  { icon: FolderKanban, value: projects.length, label: 'Проекты', color: '#c7a008', view: 'projects' as ViewName },
+                  { icon: Music2, value: tracks.length, label: 'Треки', color: '#00a8c6', view: 'projects' as ViewName },
+                  { icon: Lightbulb, value: ideas.length, label: 'Идеи', color: '#718096', view: 'ideas' as ViewName },
+                  { icon: Users, value: memberCount, label: 'Участники', color: '#4a8d6f', view: 'group-settings' as ViewName },
+                ].map((s) => (
+                  <button
+                    key={s.label}
+                    onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
+                    className="group flex flex-col items-center justify-center gap-1 py-2 transition-all hover:scale-105"
+                    style={{
+                      background: 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${s.color}33`,
+                      clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                      cursor: 'pointer',
+                      padding: '6px 4px',
+                    }}
+                    title={`Перейти к: ${s.label}`}
+                  >
+                    <s.icon className="h-4 w-4" style={{ color: s.color, filter: `drop-shadow(0 0 3px ${s.color}66)` }} />
+                    <span className="text-lg font-bold tabular-nums" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+                      {s.value}
+                    </span>
+                    <span className="text-[9px] uppercase font-bold tracking-wider" style={{ color: s.color, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                      {s.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick-access cards — first 6 projects */}
+              {projects.length > 0 ? (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Zap className="h-3 w-3" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 2px rgba(199,160,8,0.6))' }} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#c7a008', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                      Быстрый доступ · Проекты
+                    </span>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(199,160,8,0.4) transparent' }}>
+                    {projects.slice(0, 6).map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => { navigate('project-detail', p.id); setQuickPanelOpen(false); }}
+                        className="group relative shrink-0 w-44 text-left p-2 transition-all hover:scale-[1.03]"
+                        style={{
+                          background: 'rgba(0,168,198,0.06)',
+                          border: '1px solid rgba(0,168,198,0.3)',
+                          clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                          cursor: 'pointer',
+                        }}
+                        title={`Открыть: ${p.title}`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <FolderOpen className="h-3 w-3 shrink-0" style={{ color: '#00a8c6' }} />
+                          <span className="text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                            {p.type || 'project'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold truncate" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+                          {p.title}
+                        </p>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[9px]" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                            {p.status || 'draft'}
+                          </span>
+                          <LayoutDashboard className="h-2.5 w-2.5 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: '#c7a008' }} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-xs" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                    Нет проектов. Создайте первый на главной странице.
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

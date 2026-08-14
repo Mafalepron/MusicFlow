@@ -3080,3 +3080,30 @@ Stage Summary:
 - Each project card navigates to that project's detail view and closes the panel.
 - The panel closes on: clicking the X button, clicking outside, or pressing Escape.
 - Files modified: `src/components/layout/app-header.tsx` only (imports + state + useEffect + stripe button + slide-down panel JSX).
+
+---
+Task ID: FIX-QUICK-PANEL-CLIPPED
+Agent: main
+Task: The slide-down quick-access panel doesn't open (was clipped by the header's clipPath).
+
+Work Log:
+- Root cause: the `<header>` element has `clipPath: 'polygon(0 0, 100% 0, 98% 100%, 2% 100%)'` in its inline style. CSS clipPath clips the element AND all its descendants, including absolutely-positioned children that overflow the element's bounds. The panel was rendered as `position: absolute; top: 100%` INSIDE the `<header>`, so even though it was mounted in the DOM, it was visually clipped to the header's chamfered rectangle and invisible.
+- Fix: moved the entire `<AnimatePresence>` panel block OUT of the `<header>` element. It's now a sibling of `<header>`, rendered inside the `<>` fragment wrapper, AFTER `</header>`.
+- Changed the panel's `position` from `absolute` → `fixed` and `top: '100%'` → `top: '56px'` (the header is `h-14` = 56px tall). This anchors the panel to the viewport just below the sticky header, so it stays in the right place even when the page scrolls.
+- `left: '50%'` + `transform: 'translateX(-50%)'` preserved to center it horizontally.
+- Added `position: 'relative'` to the inner panel div so the absolute-positioned close button anchors correctly inside it.
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (line 174, search useEffect — was there before). No new errors.
+- dev.log: clean compile.
+- Agent Browser DOM verification:
+  - Clicked the purple stripe → panel renders with 4 stat buttons (`title="Перейти к: ..."`). ✅
+  - Panel position: `position: fixed`, `top: 56px` (just below header), `width: 720px`, `height: 221px`, `visible: true`. ✅
+  - Clicked the "Идеи" stat → navigated to the Ideas view (heading "Idea Bin" + "New Idea" button). ✅
+- VLM confirms: "панель видна. Справа от приветствия отображаются 4 кнопки статистики (Проекты: 14, Треки: 17, Идеи: 0, Участники: 1), а ниже расположены карточки проектов."
+
+Stage Summary:
+- The quick-access panel now renders OUTSIDE the `<header>` element as a fixed-position overlay, so the header's `clipPath: polygon(...)` no longer clips it.
+- Panel is positioned `fixed` at `top: 56px` (immediately below the 56px-tall sticky header), centered horizontally, max-width 720px.
+- Click-outside + Escape handlers still work (the panel is still a DOM sibling, just not inside the clipped header).
+- Files modified: `src/components/layout/app-header.tsx` only (moved the AnimatePresence block from inside <header> to after </header>, changed position absolute→fixed + top 100%→56px, added position:relative to the inner panel div).
