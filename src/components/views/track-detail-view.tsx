@@ -2430,12 +2430,12 @@ export function TrackDetailView() {
                     >
                       v{track.version}
                     </span>
-                    {/* Priority — visible 3-bar signal-strength scale button.
-                        The current priority level (1=low/red, 2=medium/yellow,
+                    {/* Priority — 3-bar signal-strength scale. Only the bars
+                        are visible (no frame, no background, no border). The
+                        current priority level (1=low/red, 2=medium/yellow,
                         3=high/green) lights up that many bars in the priority
                         color; bars above stay dim. Clicking opens the dropdown.
-                        Has a subtle dark background + colored glow so it reads
-                        as a clickable button even at rest. */}
+                        Hover scales the bars up so it reads as interactive. */}
                     {primaryKanbanTask ? (
                       <Select
                         value={localKanbanPriority ?? 'medium'}
@@ -2443,18 +2443,16 @@ export function TrackDetailView() {
                       >
                         <SelectTrigger
                           size="sm"
-                          className="relative h-7 w-8 shrink-0 border-0 rounded-none p-0 hover:scale-110 data-[state=open]:scale-110 transition-all flex items-end justify-center gap-[2px]"
+                          className="relative h-6 w-5 shrink-0 !border-0 !bg-transparent !ring-0 !outline-none !rounded-none !shadow-none !p-0 hover:scale-125 data-[state=open]:scale-125 transition-transform flex items-end justify-center gap-[2px] [&>svg:last-child]:hidden"
                           style={{
-                            background: hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.08),
-                            border: `1px solid ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.4)}`,
-                            clipPath: CHAMFER_3,
-                            boxShadow: `0 0 6px ${hexToRgba(priorityColor(localKanbanPriority ?? 'medium'), 0.3)}`,
+                            background: 'transparent',
+                            border: 'none',
+                            boxShadow: 'none',
                           }}
                           title={`Приоритет: ${priorityLabel(localKanbanPriority ?? 'medium')} — нажмите для изменения`}
                         >
                           {/* 3-bar vertical scale — bars grow from short (bottom)
-                              to tall (top), like a signal-strength indicator.
-                              Larger than before so it's clearly visible. */}
+                              to tall (top), like a signal-strength indicator. */}
                           {[3, 2, 1].map((barLevel) => {
                             const lvl = priorityLevel(localKanbanPriority ?? 'medium');
                             const active = barLevel <= lvl;
@@ -2466,12 +2464,12 @@ export function TrackDetailView() {
                                 key={barLevel}
                                 style={{
                                   display: 'block',
-                                  width: '3.5px',
+                                  width: '4px',
                                   height: `${barH}px`,
-                                  borderRadius: '1px',
-                                  backgroundColor: active ? color : 'rgba(255,255,255,0.15)',
+                                  borderRadius: '1.5px',
+                                  backgroundColor: active ? color : 'rgba(255,255,255,0.18)',
                                   boxShadow: active
-                                    ? `0 0 6px ${hexToRgba(color, 0.9)}, 0 0 2px ${color}`
+                                    ? `0 0 5px ${hexToRgba(color, 0.8)}`
                                     : 'none',
                                   transition: 'background-color 150ms ease, box-shadow 150ms ease',
                                 }}

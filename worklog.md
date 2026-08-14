@@ -2991,3 +2991,41 @@ Stage Summary:
 - Track progress bar is now 36px tall (was 18px — doubled), wrapped in a cyan-bordered frame (was yellow). The waveform bars inside remain yellow (accentColor={Y}).
 - Priority indicator is now 32×32px (was 20×20px) with a colored background, colored border, and outer glow in the priority color. Bars are 2x taller (16/12/8px vs 8/6/4px) and 40% wider (3.5px vs 2.5px). The frame + glow make it clearly visible against the dark background and clearly interactive.
 - Files modified: `src/components/views/track-detail-view.tsx` only.
+
+---
+Task ID: PRIORITY-CLEAN-BARS-ONLY
+Agent: main
+Task: Priority scale still looks untidy — remove the extra yellow border/frame. Keep only the bars.
+
+Work Log:
+- Root cause: the SelectTrigger component from shadcn/ui applies default styling via its base className (`border-input`, `rounded-md`, `shadow-xs`, `px-3 py-2`, and a `ChevronDownIcon` child). Even though I set `border: 'none'` in the inline style, the component's default `border-input` class + `shadow-xs` still rendered a visible border. The `ChevronDownIcon` was also rendered as an unwanted extra element.
+- Fix: cleaned the SelectTrigger className to forcefully override ALL default shadcn styling:
+  - `!border-0` — removes the `border-input` border
+  - `!bg-transparent` — removes any background tint
+  - `!ring-0 !outline-none` — removes focus ring
+  - `!rounded-none` — removes rounded corners
+  - `!shadow-none` — removes the `shadow-xs` default shadow
+  - `!p-0` — removes the `px-3 py-2` default padding
+  - `[&>svg:last-child]:hidden` — hides the `ChevronDownIcon` that shadcn renders automatically inside the trigger
+- Inline style also explicitly sets `background: 'transparent'`, `border: 'none'`, `boxShadow: 'none'` as a belt-and-suspenders override.
+- Container size trimmed from `h-7 w-8` (32×32px) to `h-6 w-5` (24×20px) — tighter fit around just the bars.
+- Hover scale increased from 1.1 → 1.25 so the bars visibly grow on hover — makes it clearly interactive without needing a frame.
+- Bar width increased from 3.5px → 4px for slightly chunkier, more visible bars.
+- Bar borderRadius increased from 1px → 1.5px for softer bar corners.
+- Bar glow simplified from double-layer (`0 0 6px alpha 0.9, 0 0 2px solid`) to single-layer (`0 0 5px alpha 0.8`) — cleaner, less "messy".
+
+Verification:
+- `bun run lint` → no errors.
+- dev.log: clean compile.
+- Agent Browser DOM verification:
+  - border: `0px solid rgb(113, 128, 150)` — 0px width, invisible ✅
+  - background: `rgba(0, 0, 0, 0)` — fully transparent ✅
+  - boxShadow: all layers `rgba(0, 0, 0, 0)` — no shadow ✅
+  - Chevron: `display: none` — hidden ✅
+  - 3 bars: green (rgb(74,141,111)), heights 16/12/8px, width 4px, borderRadius 1.5px ✅
+- VLM confirms: "Видны только полоски без какой-либо рамки, фона или обводки. Нет лишней иконки. Полоски зелёного цвета."
+
+Stage Summary:
+- Priority indicator is now JUST the 3 bars — no border, no background, no frame, no chevron icon, no shadow. Clean signal-strength scale that lights up in the priority color.
+- Hover scales the bars up by 1.25× so the button is clearly interactive.
+- Files modified: `src/components/views/track-detail-view.tsx` only.
