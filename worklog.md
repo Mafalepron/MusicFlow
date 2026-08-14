@@ -3384,3 +3384,38 @@ Stage Summary:
 - Both auto projects and kanban-only projects are supported (IDs are matched against both lists).
 - Card styling matches the home page's QuickAccessCard: cyan frame + yellow inner border + beveled edge glow + status dot + count + WaveformProgressBar.
 - Files modified: `src/components/layout/app-header.tsx` only.
+
+---
+Task ID: HEADER-PANEL-STATS-COLORED
+Agent: main
+Task: The stats buttons in the header's quick-access panel aren't styled and don't stand out from the panel background. Make them noticeable, bright, in cyberpunk style. Fully fill them with color.
+
+Work Log:
+- Replaced the old muted stat buttons (background: `rgba(157,78,221,0.04)`, border: `${s.color}40` = 25% alpha, small icon + count + label all in the stat's accent color) with FULLY COLORED cyberpunk tiles:
+  - **Background**: solid color gradient `linear-gradient(135deg, color 0%, color-0.7-alpha 50%, color-0.5-alpha 100%)` — the stat's accent color fills the whole button.
+  - **Border**: `1.5px solid color` — solid colored frame.
+  - **Chamfered corners**: 7px clip-path (was 5px).
+  - **Box shadow**: 4 layers — `0 0 12px glow-0.5` (outer glow) + `0 0 4px glow-0.8` (tight glow) + `inset 0 1px 1px rgba(255,255,255,0.3)` (top inner highlight) + `inset 0 -1px 1px rgba(0,0,0,0.3)` (bottom inner shadow).
+  - **Corner brackets**: 2 white L-shaped brackets (top-left + bottom-right, 1.5px border, 60% opacity) — cyberpunk HUD frame.
+  - **Icon**: white (#ffffff) with drop-shadow for max contrast against the colored fill.
+  - **Count**: text-2xl (was text-xl), extrabold, white, Rajdhani font, text-shadow for depth.
+  - **Label**: text-[9px] uppercase, white, JetBrains Mono, 95% opacity.
+  - **Hover**: scale 1.06× + translateY(-3px) + intensified glow (20px + 8px).
+- Changed the "Идеи" stat color from grey (#718096) to purple (#7b2cbf) — more vibrant, matches the cyberpunk palette.
+- Gap between tiles increased from 2 → 2.5 for more breathing room.
+- Padding increased from `8px 4px` → `10px 6px`.
+- All text is now WHITE (was the stat's accent color) — much higher contrast against the colored fill.
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (app-header:244). No new errors.
+- dev.log: clean compile.
+- Agent Browser DOM + VLM verification:
+  - 4 stat buttons present: "14 Проекты" (yellow), "17 Треки" (cyan), "0 Идеи" (purple), "1 Участники" (green). ✅
+  - VLM confirms: "Кнопки залиты яркими цветами полностью (жёлтый, голубой, фиолетовый, зелёный). Ярко выделяются на тёмном фоне. Cyberpunk-элементы: скошенные углы, светящиеся контуры. Иконка, число и подпись видны." ✅
+  - Navigation still works: clicked "Идеи" → navigated to Ideas view (heading "Idea Bin"). ✅
+
+Stage Summary:
+- The 4 stats buttons (Проекты/Треки/Идеи/Участники) are now fully colored cyberpunk tiles — each filled with its accent color as a gradient, with chamfered corners, white corner brackets, multi-layer glow, and all-white text (icon + count + label) for max contrast.
+- Hover lifts the tile and intensifies the glow.
+- Colors: yellow (Проекты), cyan (Треки), purple (Идеи, was grey), green (Участники).
+- Files modified: `src/components/layout/app-header.tsx` only.

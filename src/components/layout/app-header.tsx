@@ -964,33 +964,73 @@ export function AppHeader() {
                 </button>
               </div>
 
-              {/* Stats row — projects / tracks / ideas / participants */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
+              {/* Stats row — projects / tracks / ideas / participants.
+                  Each stat is a FULLY COLORED cyberpunk tile — the stat's
+                  accent color fills the whole button background as a
+                  gradient, with a chamfered frame, inner glow, and bright
+                  icon + count + label. Hover lifts the tile and intensifies
+                  the glow so the buttons are impossible to miss. */}
+              <div className="grid grid-cols-4 gap-2.5 mb-3">
                 {[
-                  { icon: FolderKanban, value: projects.length, label: 'Проекты', color: '#c7a008', view: 'projects' as ViewName },
-                  { icon: Music2, value: tracks.length, label: 'Треки', color: '#00a8c6', view: 'projects' as ViewName },
-                  { icon: Lightbulb, value: ideas.length, label: 'Идеи', color: '#718096', view: 'ideas' as ViewName },
-                  { icon: Users, value: memberCount, label: 'Участники', color: '#4a8d6f', view: 'group-settings' as ViewName },
+                  { icon: FolderKanban, value: projects.length, label: 'Проекты', color: '#c7a008', glow: 'rgba(199,160,8,', view: 'projects' as ViewName },
+                  { icon: Music2, value: tracks.length, label: 'Треки', color: '#00a8c6', glow: 'rgba(0,168,198,', view: 'projects' as ViewName },
+                  { icon: Lightbulb, value: ideas.length, label: 'Идеи', color: '#7b2cbf', glow: 'rgba(123,44,191,', view: 'ideas' as ViewName },
+                  { icon: Users, value: memberCount, label: 'Участники', color: '#4a8d6f', glow: 'rgba(74,141,111,', view: 'group-settings' as ViewName },
                 ].map((s) => (
                   <button
                     key={s.label}
                     onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
-                    className="group relative flex flex-col items-center justify-center gap-1 py-2.5 transition-all hover:scale-105 hover:-translate-y-0.5"
+                    className="group relative flex flex-col items-center justify-center gap-1 py-3 transition-all duration-200 hover:scale-[1.06] hover:-translate-y-1"
                     style={{
-                      background: 'rgba(157,78,221,0.04)',
-                      border: `1px solid ${s.color}40`,
-                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                      clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+                      background: `linear-gradient(135deg, ${s.color} 0%, ${hexToRgba(s.color, 0.7)} 50%, ${hexToRgba(s.color, 0.5)} 100%)`,
+                      border: `1.5px solid ${s.color}`,
                       cursor: 'pointer',
-                      padding: '8px 4px',
-                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                      padding: '10px 6px',
+                      boxShadow: `0 0 12px ${s.glow}0.5), 0 0 4px ${s.glow}0.8), inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.3)`,
+                      textShadow: `0 1px 2px rgba(0,0,0,0.4)`,
                     }}
                     title={`Перейти к: ${s.label}`}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-3px) scale(1.06)';
+                      e.currentTarget.style.boxShadow = `0 0 20px ${s.glow}0.8), 0 0 8px ${s.glow}1), inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 1px rgba(0,0,0,0.3)`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                      e.currentTarget.style.boxShadow = `0 0 12px ${s.glow}0.5), 0 0 4px ${s.glow}0.8), inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -1px 1px rgba(0,0,0,0.3)`;
+                    }}
                   >
-                    <s.icon className="h-4 w-4" style={{ color: s.color, filter: `drop-shadow(0 0 4px ${s.color}88)` }} />
-                    <span className="text-xl font-bold tabular-nums" style={{ color: '#e2e8f0', fontFamily: 'var(--font-rajdhani), sans-serif', textShadow: `0 0 6px ${s.color}40` }}>
+                    {/* Corner brackets (cyberpunk HUD frame) */}
+                    <div className="pointer-events-none absolute top-0 left-0 w-2 h-2" style={{
+                      borderTop: `1.5px solid #ffffff`,
+                      borderLeft: `1.5px solid #ffffff`,
+                      opacity: 0.6,
+                    }} />
+                    <div className="pointer-events-none absolute bottom-0 right-0 w-2 h-2" style={{
+                      borderBottom: `1.5px solid #ffffff`,
+                      borderRight: `1.5px solid #ffffff`,
+                      opacity: 0.6,
+                    }} />
+
+                    {/* Icon — white for max contrast against the colored fill */}
+                    <s.icon className="h-4 w-4 transition-transform group-hover:scale-110" style={{ color: '#ffffff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
+
+                    {/* Count — bold, large, white */}
+                    <span className="text-2xl font-extrabold tabular-nums leading-none" style={{
+                      color: '#ffffff',
+                      fontFamily: 'var(--font-rajdhani), sans-serif',
+                      textShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                    }}>
                       {s.value}
                     </span>
-                    <span className="text-[9px] uppercase font-bold tracking-wider" style={{ color: s.color, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+
+                    {/* Label — uppercase monospace, white */}
+                    <span className="text-[9px] uppercase font-bold tracking-[0.1em]" style={{
+                      color: '#ffffff',
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                      opacity: 0.95,
+                      textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                    }}>
                       {s.label}
                     </span>
                   </button>
