@@ -4,6 +4,7 @@ import { useEffect, useCallback } from 'react';
 import { useNavigationStore, useAuthStore, useDataStore, type Project } from '@/lib/store';
 import { useKanbanStore } from '@/store/kanban-store';
 import { useChatContextStore } from '@/store/chat-context-store';
+import { useSidebarStore } from '@/store/sidebar-store';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { OnboardingView } from '@/components/views/onboarding-view';
@@ -16,7 +17,6 @@ import { GroupSettingsView } from '@/components/views/group-settings-view';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { AppHeader } from '@/components/layout/app-header';
 import { KanbanPage } from '@/components/kanban/kanban-view';
-import ProjectChat from '@/components/chat/project-chat';
 
 const viewTransition = {
   initial: { opacity: 0, x: 10 },
@@ -70,6 +70,7 @@ function AppContent() {
   const navigate = useNavigationStore((s) => s.navigate);
   const user = useAuthStore((s) => s.user);
   const currentGroupId = useAuthStore((s) => s.currentGroupId);
+  const isSidebarCollapsed = useSidebarStore((s) => s.isCollapsed);
 
   // Redirect to home if logged in but on onboarding view (e.g. after page reload)
   useEffect(() => {
@@ -86,13 +87,16 @@ function AppContent() {
   // Don't render content until navigation is resolved
   const activeView = currentView === 'onboarding' ? 'home' : currentView;
 
-  // Main app layout with sidebar + unified header + content
+  // Main app layout with sidebar + unified header + content.
+  // The sidebar is `position: fixed` so the main content needs left padding
+  // on desktop — `lg:pl-60` when the sidebar is expanded, `lg:pl-0` when it
+  // is collapsed (retracted).
   return (
     <div className="min-h-screen bg-background">
       <AppSidebar />
 
       {/* Main content area — offset for sidebar on desktop */}
-      <div className="lg:pl-60 flex min-h-screen flex-col">
+      <div className={`${isSidebarCollapsed ? 'lg:pl-0' : 'lg:pl-60'} flex min-h-screen flex-col transition-[padding] duration-300 ease-out`}>
         <AppHeader />
 
         <main className="flex-1 p-4 lg:p-6">
@@ -109,8 +113,9 @@ function AppContent() {
           </AnimatePresence>
         </main>
 
-        {/* Sticky Footer */}
-        <footer className="border-t border-border bg-card/50 backdrop-blur-sm px-4 py-3 lg:px-6 lg:ml-60">
+        {/* Sticky Footer — margin matches sidebar width so the footer
+            aligns with the main content above it. */}
+        <footer className={`border-t border-border bg-card/50 backdrop-blur-sm px-4 py-3 lg:px-6 ${isSidebarCollapsed ? 'lg:ml-0' : 'lg:ml-60'} transition-[margin] duration-300 ease-out`}>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>SoundFlow v1.0 MVP</span>
             <span>Built for musicians, by musicians</span>
@@ -118,9 +123,10 @@ function AppContent() {
         </footer>
       </div>
 
-      {/* Global floating chat — accessible from any view */}
+      {/* Syncs the active chat project whenever the navigation context changes.
+          The ProjectChat floating panel itself is rendered inside <AppSidebar/>
+          so it's available on every view. */}
       <ChatContextSync />
-      <ProjectChat />
     </div>
   );
 }

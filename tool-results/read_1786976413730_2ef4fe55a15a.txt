@@ -1,0 +1,1297 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useRef, useMemo } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  Search, X, Bell, Menu, ChevronRight, ChevronDown, ChevronLeft,
+     7→  MessageCircle, LogOut, Settings, User, Check, Copy,
+     8→  Home, Lightbulb, FolderOpen, LayoutGrid, Music,
+     9→  FolderKanban, Music2, Users, Zap, LayoutDashboard, Layers,
+    10→} from 'lucide-react';
+    11→import { Button } from '@/components/ui/button';
+    12→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+    13→import {
+    14→  Tooltip,
+    15→  TooltipContent,
+    16→  TooltipProvider,
+    17→  TooltipTrigger,
+    18→} from '@/components/ui/tooltip';
+    19→import {
+    20→  Sheet,
+    21→  SheetContent,
+    22→  SheetTrigger,
+    23→  SheetTitle,
+    24→} from '@/components/ui/sheet';
+    25→import {
+    26→  Popover,
+    27→  PopoverContent,
+    28→  PopoverTrigger,
+    29→} from '@/components/ui/popover';
+    30→import { Separator } from '@/components/ui/separator';
+    31→import { ScrollArea } from '@/components/ui/scroll-area';
+    32→import { useNavigationStore, useAuthStore, useDataStore, type ViewName } from '@/lib/store';
+    33→import { useHeaderActionsStore } from '@/store/header-actions-store';
+    34→import { useChatContextStore } from '@/store/chat-context-store';
+    35→import { useChatUIStore } from '@/store/chat-ui-store';
+    36→import { useChatUnread } from '@/components/chat/project-chat';
+    37→import { useKanbanStore, type Task } from '@/store/kanban-store';
+    38→import { formatDistanceToNow } from 'date-fns';
+    39→import { cn } from '@/lib/utils';
+    40→import { hexToRgba } from '@/lib/utils';
+    41→import { WaveformProgressBar } from '@/components/waveform-progress-bar';
+    42→
+    43→const viewLabels: Record<string, string> = {
+    44→  home: 'Home',
+    45→  ideas: 'Ideas',
+    46→  projects: 'Projects',
+    47→  'project-detail': 'Project',
+    48→  'track-detail': 'Track',
+    49→  kanban: 'Kanban',
+    50→  'group-settings': 'Settings',
+    51→};
+    52→
+    53→const navItems: { icon: typeof Home; label: string; view: ViewName }[] = [
+    54→  { icon: Home, label: 'Home', view: 'home' },
+    55→  { icon: Lightbulb, label: 'Ideas', view: 'ideas' },
+    56→  { icon: FolderOpen, label: 'Projects', view: 'projects' },
+    57→  // Kanban tab merged into Projects — entry point is now via project cards.
+    58→];
+    59→
+    60→export function AppHeader() {
+    61→  const { currentView, selectedProjectId, navigate } = useNavigationStore();
+    62→  const { user, logout, currentGroupName: persistedGroupName, currentGroupInviteCode: persistedInviteCode } = useAuthStore();
+    63→  const currentGroup = useDataStore((s) => s.currentGroup);
+    64→  const projects = useDataStore((s) => s.projects);
+    65→  const tracks = useDataStore((s) => s.tracks);
+    66→  const notifications = useDataStore((s) => s.notifications);
+    67→  const notificationCount = useDataStore((s) => s.notificationCount);
+    68→  const setNotifications = useDataStore((s) => s.setNotifications);
+    69→  const setNotificationCount = useDataStore((s) => s.setNotificationCount);
+    70→  const headerActions = useHeaderActionsStore((s) => s.actions);
+    71→  const headerTitle = useHeaderActionsStore((s) => s.title);
+    72→  const { activeChatProjectId, activeChatProjectName } = useChatContextStore();
+    73→  const { isOpen: chatOpen, toggle: toggleChat } = useChatUIStore();
+    74→  const chatUnread = useChatUnread();
+    75→
+    76→  const [searchOpen, setSearchOpen] = useState(false);
+    77→  const [searchQuery, setSearchQuery] = useState('');
+    78→  const [searchResults, setSearchResults] = useState<{ type: 'project' | 'track'; id: string; title: string; subtitle?: string }[]>([]);
+    79→  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    80→  const [profileOpen, setProfileOpen] = useState(false);
+    81→  const [copied, setCopied] = useState(false);
+    82→  const notifRef = useRef<HTMLDivElement>(null);
+    83→  const [notifOpen, setNotifOpen] = useState(false);
+    84→  // Quick-access slide-down panel — triggered by clicking the purple center stripe.
+    85→  const [quickPanelOpen, setQuickPanelOpen] = useState(false);
+    86→  // Ideas + member count are fetched on demand for the quick panel.
+    87→  const ideas = useDataStore((s) => s.ideas);
+    88→  const currentGroupId = useAuthStore((s) => s.currentGroupId);
+    89→  const [memberCount, setMemberCount] = useState(0);
+    90→  // Quick-access project IDs — same source as the home page's "Быстрый доступ"
+    91→  // section. Read from localStorage so the header panel always shows the same
+    92→  // projects the user pinned on the home page.
+    93→  // We read localStorage directly during render, keyed on `quickPanelOpen`
+    94→  // so the value is re-read every time the panel opens. This is cheap
+    95→  // (synchronous localStorage read) and avoids the react-hooks/set-state-in-effect
+    96→  // lint rule that fires when you call setState inside a useEffect.
+    97→  const quickAccessIds: string[] = useMemo(() => {
+    98→    // Depend on quickPanelOpen so the memo recomputes every time the panel
+    99→    // opens — picks up any changes the user made on the home page.
+   100→    void quickPanelOpen;
+   101→    try {
+   102→      const raw = localStorage.getItem('soundflow-quick-access');
+   103→      return raw ? (JSON.parse(raw) as string[]) : [];
+   104→    } catch { return []; }
+   105→  }, [quickPanelOpen]);
+   106→
+   107→  // Fetch member count whenever the group changes (used by the quick panel).
+   108→  useEffect(() => {
+   109→    if (!currentGroupId) return;
+   110→    fetch(`/api/groups/${currentGroupId}/members`)
+   111→      .then((r) => r.json())
+   112→      .then((m) => setMemberCount(Array.isArray(m) ? m.length : 0))
+   113→      .catch(() => {});
+   114→  }, [currentGroupId]);
+   115→
+   116→  // Fetch kanban projects (top-level tasks) — same fetch the home page uses.
+   117→  // Needed because quick-access IDs can point to either auto projects or
+   118→  // kanban-only projects.
+   119→  const [kanbanProjects, setKanbanProjects] = useState<Task[]>([]);
+   120→  useEffect(() => {
+   121→    fetch('/api/tasks?parentId=null')
+   122→      .then((r) => r.json())
+   123→      .then((data) => {
+   124→        const tasks: Task[] = Array.isArray(data) ? data : data.tasks || [];
+   125→        setKanbanProjects(tasks);
+   126→        useKanbanStore.getState().setProjects(tasks);
+   127→      })
+   128→      .catch(() => {});
+   129→  }, []);
+   130→
+   131→  // Build the unified quick-access list — same logic as the home page.
+   132→  // Maps the localStorage `quickAccess` IDs to auto projects + kanban projects.
+   133→  const autoProjects = useMemo(() => projects.filter((p) => p.kanbanTaskId), [projects]);
+   134→  const quickAccessCards = useMemo(() => {
+   135→    type Card =
+   136→      | { kind: 'auto'; id: string; title: string; type: string; status: string; trackCount: number }
+   137→      | { kind: 'kanban'; id: string; title: string; type: string; status: string; boardCount: number };
+   138→    const out: Card[] = [];
+   139→    quickAccessIds.forEach((id) => {
+   140→      const autoP = autoProjects.find((p) => p.id === id);
+   141→      if (autoP) {
+   142→        out.push({
+   143→          kind: 'auto',
+   144→          id: autoP.id,
+   145→          title: autoP.title,
+   146→          type: autoP.type,
+   147→          status: autoP.status,
+   148→          trackCount: tracks.filter((t) => t.projectId === autoP.id).length,
+   149→        });
+   150→        return;
+   151→      }
+   152→      const kanbanT = kanbanProjects.find((t) => t.id === id);
+   153→      if (kanbanT) {
+   154→        out.push({
+   155→          kind: 'kanban',
+   156→          id: kanbanT.id,
+   157→          title: kanbanT.title,
+   158→          type: kanbanT.projectType || 'general',
+   159→          status: kanbanT.status,
+   160→          boardCount: kanbanT.children?.length ?? 0,
+   161→        });
+   162→      }
+   163→    });
+   164→    return out;
+   165→  }, [quickAccessIds, autoProjects, kanbanProjects, tracks]);
+   166→
+   167→  // Close the quick-access panel when the user clicks outside it or presses Escape.
+   168→  const quickPanelRef = useRef<HTMLDivElement>(null);
+   169→  const quickStripeRef = useRef<HTMLButtonElement>(null);
+   170→  const quickCardsScrollRef = useRef<HTMLDivElement>(null);
+   171→  useEffect(() => {
+   172→    if (!quickPanelOpen) return;
+   173→    const handleClick = (e: MouseEvent) => {
+   174→      const target = e.target as Node | null;
+   175→      if (!target) return;
+   176→      if (
+   177→        quickPanelRef.current && !quickPanelRef.current.contains(target) &&
+   178→        quickStripeRef.current && !quickStripeRef.current.contains(target)
+   179→      ) {
+   180→        setQuickPanelOpen(false);
+   181→      }
+   182→    };
+   183→    const handleKey = (e: KeyboardEvent) => {
+   184→      if (e.key === 'Escape') setQuickPanelOpen(false);
+   185→    };
+   186→    document.addEventListener('mousedown', handleClick);
+   187→    document.addEventListener('keydown', handleKey);
+   188→    return () => {
+   189→      document.removeEventListener('mousedown', handleClick);
+   190→      document.removeEventListener('keydown', handleKey);
+   191→    };
+   192→  }, [quickPanelOpen]);
+   193→
+   194→  const groupName = currentGroup?.name || persistedGroupName || 'SoundFlow';
+   195→  const inviteCode = currentGroup?.inviteCode || persistedInviteCode || '';
+   196→
+   197→  // Fetch notifications on mount
+   198→  useEffect(() => {
+   199→    const currentUser = useAuthStore.getState().user;
+   200→    if (!currentUser) return;
+   201→    fetch(`/api/notifications?userId=${currentUser.id}`)
+   202→      .then(r => r.json())
+   203→      .then(data => {
+   204→        if (Array.isArray(data)) {
+   205→          setNotifications(data);
+   206→          setNotificationCount(data.filter((n: { isRead: boolean }) => !n.isRead).length);
+   207→        }
+   208→      })
+   209→      .catch(() => {});
+   210→  }, [setNotifications, setNotificationCount]);
+   211→
+   212→  // Close notification dropdown on outside click
+   213→  useEffect(() => {
+   214→    if (!notifOpen) return;
+   215→    const handler = (e: MouseEvent) => {
+   216→      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+   217→        setNotifOpen(false);
+   218→      }
+   219→    };
+   220→    document.addEventListener('mousedown', handler);
+   221→    return () => document.removeEventListener('mousedown', handler);
+   222→  }, [notifOpen]);
+   223→
+   224→  // Build breadcrumbs
+   225→  const breadcrumbs: { label: string; view?: string; projectId?: string }[] = [
+   226→    { label: groupName },
+   227→  ];
+   228→
+   229→  if (currentView === 'project-detail' && selectedProjectId) {
+   230→    breadcrumbs.push({ label: 'Projects', view: 'projects' });
+   231→    const project = projects.find((p) => p.id === selectedProjectId);
+   232→    breadcrumbs.push({ label: project?.title || 'Project' });
+   233→  } else if (currentView === 'track-detail' && selectedProjectId) {
+   234→    breadcrumbs.push({ label: 'Projects', view: 'projects' });
+   235→    const project = projects.find((p) => p.id === selectedProjectId);
+   236→    breadcrumbs.push({ label: project?.title || 'Project', view: 'project-detail', projectId: selectedProjectId });
+   237→    breadcrumbs.push({ label: headerTitle || 'Track' });
+   238→  } else if (currentView !== 'home') {
+   239→    breadcrumbs.push({ label: headerTitle || viewLabels[currentView] || currentView });
+   240→  }
+   241→
+   242→  // Search logic
+   243→  useEffect(() => {
+   244→    if (!searchQuery.trim()) {
+   245→      setSearchResults([]);
+   246→      return;
+   247→    }
+   248→    const q = searchQuery.toLowerCase();
+   249→    const pResults = projects
+   250→      .filter(p => p.title.toLowerCase().includes(q))
+   251→      .slice(0, 5)
+   252→      .map(p => ({ type: 'project' as const, id: p.id, title: p.title, subtitle: p.type }));
+   253→    const tResults = tracks
+   254→      .filter(t => t.title.toLowerCase().includes(q))
+   255→      .slice(0, 5)
+   256→      .map(t => ({ type: 'track' as const, id: t.id, title: t.title, subtitle: projects.find(p => p.id === t.projectId)?.title }));
+   257→    setSearchResults([...pResults, ...tResults]);
+   258→  }, [searchQuery, projects, tracks]);
+   259→
+   260→  const handleSearchSelect = (result: { type: 'project' | 'track'; id: string; subtitle?: string }) => {
+   261→    if (result.type === 'project') {
+   262→      navigate('project-detail', result.id);
+   263→    } else {
+   264→      const track = tracks.find(t => t.id === result.id);
+   265→      if (track) navigate('track-detail', track.projectId, track.id);
+   266→    }
+   267→    setSearchOpen(false);
+   268→    setSearchQuery('');
+   269→  };
+   270→
+   271→  const markAsRead = async (id: string) => {
+   272→    fetch('/api/notifications', {
+   273→      method: 'PATCH',
+   274→      headers: { 'Content-Type': 'application/json' },
+   275→      body: JSON.stringify({ ids: [id] }),
+   276→    });
+   277→    setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+   278→    setNotificationCount(Math.max(0, notificationCount - 1));
+   279→  };
+   280→
+   281→  const markAllRead = async () => {
+   282→    const currentUser = useAuthStore.getState().user;
+   283→    if (!currentUser) return;
+   284→    fetch('/api/notifications', {
+   285→      method: 'PATCH',
+   286→      headers: { 'Content-Type': 'application/json' },
+   287→      body: JSON.stringify({ all: true, userId: currentUser.id }),
+   288→    });
+   289→    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+   290→    setNotificationCount(0);
+   291→  };
+   292→
+   293→  const handleNotificationClick = (notif: typeof notifications[number]) => {
+   294→    markAsRead(notif.id);
+   295→    setNotifOpen(false);
+   296→    if (notif.type === 'chat_message' || notif.type === 'track_version' || notif.type === 'comment') {
+   297→      navigate('project-detail', notif.projectId);
+   298→    }
+   299→  };
+   300→
+   301→  const handleCopyCode = () => {
+   302→    if (inviteCode) {
+   303→      navigator.clipboard.writeText(inviteCode);
+   304→      setCopied(true);
+   305→      setTimeout(() => setCopied(false), 2000);
+   306→    }
+   307→  };
+   308→
+   309→  const handleLogout = () => {
+   310→    logout();
+   311→    navigate('onboarding');
+   312→  };
+   313→
+   314→  const handleNavigate = (view: ViewName) => {
+   315→    navigate(view);
+   316→    setMobileNavOpen(false);
+   317→  };
+   318→
+   319→  return (
+   320→    <>
+   321→      {/* Wrapper — sticky so it stays pinned at the top of the viewport
+   322→          alongside the header inside it. position: relative so the panel
+   323→          (position: absolute, top: 56px) anchors to THIS wrapper's center
+   324→          instead of the viewport center — keeps the panel aligned with the
+   325→          header's horizontal center even when a sidebar offsets the header
+   326→          from the viewport center. */}
+   327→      <div className="sticky top-0 z-30 relative" style={{ width: '100%' }}>
+   328→      {/* Unified Header — custom dark cybernetic bar with chamfered bottom */}
+   329→      <header
+   330→        className="flex h-14 items-center gap-2 px-3 lg:px-6"
+   331→        style={{
+   332→          background: '#0f121a',
+   333→          clipPath: 'polygon(0 0, 100% 0, 98% 100%, 2% 100%)',
+   334→          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+   335→        }}
+   336→      >
+   337→        {/* Embedded neon-purple line centered in header — CLICKABLE button
+   338→            that opens a quick-access slide-down panel (projects, tracks,
+   339→            ideas, participants). The stripe pulses + scales on hover so it
+   340→            reads as interactive. */}
+   341→        <button
+   342→          ref={quickStripeRef}
+   343→          onClick={() => setQuickPanelOpen((o) => !o)}
+   344→          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group flex items-center justify-center"
+   345→          style={{ width: '180px', height: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+   346→          title="Избранное — проекты, треки, идеи, участники"
+   347→          aria-label="Открыть панель быстрого доступа"
+   348→        >
+   349→          <div
+   350→            className="pointer-events-none transition-all duration-200 group-hover:scale-x-110 group-hover:opacity-100"
+   351→            style={{
+   352→              width: '120px',
+   353→              height: '2px',
+   354→              background: '#9d4edd',
+   355→              boxShadow: quickPanelOpen
+   356→                ? '0 0 14px #9d4edd, 0 0 6px #9d4edd, 0 0 2px #c77dff'
+   357→                : '0 0 10px #9d4edd, 0 0 4px #9d4edd',
+   358→              opacity: quickPanelOpen ? 1 : 0.8,
+   359→            }}
+   360→          />
+   361→          {/* Tiny chevron indicator — flips direction when the panel is open */}
+   362→          <ChevronDown
+   363→            className="absolute left-1/2 top-full -translate-x-1/2 transition-transform duration-200 group-hover:opacity-100"
+   364→            style={{
+   365→              color: '#9d4edd',
+   366→              width: '12px',
+   367→              height: '12px',
+   368→              opacity: 0.7,
+   369→              transform: quickPanelOpen ? 'translate(-50%, -2px) rotate(180deg)' : 'translate(-50%, -2px)',
+   370→              filter: 'drop-shadow(0 0 3px rgba(157,78,221,0.6))',
+   371→            }}
+   372→          />
+   373→        </button>
+   374→
+   375→        {/* Quick-access slide-down panel — rendered OUTSIDE the header (after
+   376→            </header>) via a fixed-position overlay so the header's clipPath
+   377→            doesn't clip it. See the AnimatePresence block below the header. */}
+   378→
+   379→        {/* Mobile: hamburger menu */}
+   380→        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+   381→          <SheetTrigger asChild>
+   382→            <Button
+   383→              variant="ghost"
+   384→              size="icon"
+   385→              className="lg:hidden h-9 w-9 hover:bg-[#1E1E28] shrink-0"
+   386→              style={{ color: '#00a8c6' }}
+   387→            >
+   388→              <Menu className="h-5 w-5" style={{ filter: 'drop-shadow(0 0 4px rgba(0,168,198,0.25))' }} />
+   389→            </Button>
+   390→          </SheetTrigger>
+   391→          <SheetContent side="left" className="w-64 p-0 bg-sidebar border-sidebar-border">
+   392→            <SheetTitle className="sr-only">Navigation</SheetTitle>
+   393→            <MobileNavContent
+   394→              currentView={currentView}
+   395→              onNavigate={handleNavigate}
+   396→              groupName={groupName}
+   397→              inviteCode={inviteCode}
+   398→              user={user}
+   399→              onCopyCode={handleCopyCode}
+   400→              copied={copied}
+   401→              onLogout={handleLogout}
+   402→              notificationCount={notificationCount}
+   403→            />
+   404→          </SheetContent>
+   405→        </Sheet>
+   406→
+   407→        {/* Logo — mobile only (desktop has sidebar) */}
+   408→        <div className="flex items-center gap-2 lg:hidden">
+   409→          <div className="relative flex h-7 w-7 items-center justify-center">
+   410→            {/* Holographic double-ring icon */}
+   411→            <div className="absolute inset-0 rounded-full" style={{ border: '1.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
+   412→            <div className="absolute inset-[3px] rounded-full" style={{ border: '1px solid #7b2cbf', boxShadow: '0 0 6px rgba(123,44,191,0.25)' }} />
+   413→            <Music className="h-3 w-3 relative" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 2px rgba(0,168,198,0.25))' }} />
+   414→          </div>
+   415→          <span className="text-lg font-bold" style={{
+   416→            color: '#00a8c6',
+   417→            fontFamily: 'var(--font-rajdhani), sans-serif',
+   418→            letterSpacing: '0.06em',
+   419→            textShadow: '0 0 8px rgba(0,168,198,0.25)',
+   420→          }}>SoundFlow</span>
+   421→        </div>
+   422→
+   423→        {/* Breadcrumbs */}
+   424→        <nav className="hidden sm:flex items-center gap-1 text-sm min-w-0 flex-1" style={{ fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+   425→          <AnimatePresence mode="wait">
+   426→            <motion.div
+   427→              key={breadcrumbs.map(b => b.label).join('/')}
+   428→              initial={{ opacity: 0, x: -5 }}
+   429→              animate={{ opacity: 1, x: 0 }}
+   430→              transition={{ duration: 0.2 }}
+   431→              className="flex items-center gap-1 min-w-0"
+   432→            >
+   433→              {breadcrumbs.map((crumb, i) => (
+   434→                <span key={i} className="flex items-center gap-1 min-w-0">
+   435→                  {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />}
+   436→                  {crumb.view ? (
+   437→                    <button
+   438→                      onClick={() => navigate(crumb.view as ViewName, crumb.projectId)}
+   439→                      className="text-muted-foreground hover:text-foreground transition-colors truncate max-w-[120px]"
+   440→                    >
+   441→                      {crumb.label}
+   442→                    </button>
+   443→                  ) : (
+   444→                    <span className={cn(
+   445→                      'font-medium truncate',
+   446→                      i === breadcrumbs.length - 1 ? 'text-foreground' : 'text-muted-foreground'
+   447→                    )}>
+   448→                      {crumb.label}
+   449→                    </span>
+   450→                  )}
+   451→                </span>
+   452→              ))}
+   453→            </motion.div>
+   454→          </AnimatePresence>
+   455→        </nav>
+   456→
+   457→        {/* Spacer on mobile (breadcrumbs hidden) */}
+   458→        <div className="flex-1 sm:hidden" />
+   459→
+   460→        {/* Contextual actions from views */}
+   461→        <div className="flex items-center gap-1.5">
+   462→          <AnimatePresence mode="popLayout">
+   463→            {headerActions.map((action) => (
+   464→              <motion.div
+   465→                key={action.id}
+   466→                initial={{ opacity: 0, scale: 0.9 }}
+   467→                animate={{ opacity: 1, scale: 1 }}
+   468→                exit={{ opacity: 0, scale: 0.9 }}
+   469→                transition={{ duration: 0.15 }}
+   470→              >
+   471→                <Button
+   472→                  size="sm"
+   473→                  variant={action.variant || 'outline'}
+   474→                  onClick={action.onClick}
+   475→                  className={cn('h-8 text-xs gap-1.5', action.className)}
+   476→                >
+   477→                  {action.icon}
+   478→                  <span className="hidden md:inline">{action.label}</span>
+   479→                </Button>
+   480→              </motion.div>
+   481→            ))}
+   482→          </AnimatePresence>
+   483→        </div>
+   484→
+   485→        {/* Search — recessed square icon frame */}
+   486→        <TooltipProvider delayDuration={300}>
+   487→          <Tooltip>
+   488→            <TooltipTrigger asChild>
+   489→              <Button
+   490→                variant="ghost"
+   491→                size="icon"
+   492→                className="h-9 w-9 hover:text-[#00a8c6] shrink-0 transition-all"
+   493→                style={{
+   494→                  background: '#161a24',
+   495→                  border: '1px solid #232a3b',
+   496→                  borderRadius: '4px',
+   497→                }}
+   498→                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; }}
+   499→                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#1a202c'; e.currentTarget.style.boxShadow = 'none'; }}
+   500→                onClick={() => setSearchOpen(!searchOpen)}
+   501→              >
+   502→                <Search className="h-4 w-4" />
+   503→              </Button>
+   504→            </TooltipTrigger>
+   505→            <TooltipContent>Search</TooltipContent>
+   506→          </Tooltip>
+   507→        </TooltipProvider>
+   508→
+   509→        {/* Search overlay */}
+   510→        <AnimatePresence>
+   511→          {searchOpen && (
+   512→            <motion.div
+   513→              initial={{ opacity: 0, width: 0 }}
+   514→              animate={{ opacity: 1, width: 'auto' }}
+   515→              exit={{ opacity: 0, width: 0 }}
+   516→              transition={{ duration: 0.2 }}
+   517→              className="absolute left-3 right-3 top-full mt-1 z-40 sm:left-auto sm:right-16 sm:w-80"
+   518→            >
+   519→              <div className="rounded-xl border border-border bg-card shadow-2xl shadow-black/40 overflow-hidden">
+   520→                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
+   521→                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+   522→                  <input
+   523→                    autoFocus
+   524→                    value={searchQuery}
+   525→                    onChange={(e) => setSearchQuery(e.target.value)}
+   526→                    onKeyDown={(e) => {
+   527→                      if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); }
+   528→                      if (e.key === 'Enter' && searchResults.length > 0) handleSearchSelect(searchResults[0]);
+   529→                    }}
+   530→                    placeholder="Search projects, tracks..."
+   531→                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+   532→                  />
+   533→                  <Button
+   534→                    variant="ghost"
+   535→                    size="icon"
+   536→                    className="h-6 w-6 shrink-0"
+   537→                    onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+   538→                  >
+   539→                    <X className="h-3.5 w-3.5" />
+   540→                  </Button>
+   541→                </div>
+   542→                {searchResults.length > 0 && (
+   543→                  <ScrollArea className="max-h-64">
+   544→                    <div className="p-1">
+   545→                      {searchResults.map((result) => (
+   546→                        <button
+   547→                          key={result.type + result.id}
+   548→                          onClick={() => handleSearchSelect(result)}
+   549→                          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#1E1E28] transition-colors text-left"
+   550→                        >
+   551→                          <div className={cn(
+   552→                            'w-7 h-7 rounded-md flex items-center justify-center shrink-0',
+   553→                            result.type === 'project' ? 'bg-primary/15' : 'bg-[#00a8c6]/15'
+   554→                          )}>
+   555→                            {result.type === 'project'
+   556→                              ? <FolderOpen className="h-3.5 w-3.5 text-primary" />
+   557→                              : <Music className="h-3.5 w-3.5 text-[#00a8c6]" />
+   558→                            }
+   559→                          </div>
+   560→                          <div className="min-w-0 flex-1">
+   561→                            <p className="text-xs font-medium text-foreground truncate">{result.title}</p>
+   562→                            {result.subtitle && (
+   563→                              <p className="text-[10px] text-muted-foreground truncate capitalize">{result.subtitle}</p>
+   564→                            )}
+   565→                          </div>
+   566→                          <span className={cn(
+   567→                            'text-[9px] px-1.5 py-0.5 rounded shrink-0',
+   568→                            result.type === 'project' ? 'bg-primary/15 text-primary' : 'bg-[#00a8c6]/15 text-[#00a8c6]'
+   569→                          )}>
+   570→                            {result.type}
+   571→                          </span>
+   572→                        </button>
+   573→                      ))}
+   574→                    </div>
+   575→                  </ScrollArea>
+   576→                )}
+   577→                {searchQuery && searchResults.length === 0 && (
+   578→                  <div className="p-6 text-center">
+   579→                    <p className="text-xs text-muted-foreground">No results found</p>
+   580→                  </div>
+   581→                )}
+   582→              </div>
+   583→            </motion.div>
+   584→          )}
+   585→        </AnimatePresence>
+   586→
+   587→        {/* Notifications — recessed square icon frame with purple alert badge */}
+   588→        <div className="relative" ref={notifRef}>
+   589→          <TooltipProvider delayDuration={300}>
+   590→            <Tooltip>
+   591→              <TooltipTrigger asChild>
+   592→                <Button
+   593→                  variant="ghost"
+   594→                  size="icon"
+   595→                  className="h-9 w-9 hover:text-[#00a8c6] shrink-0 relative transition-all"
+   596→                  style={{
+   597→                    background: '#161a24',
+   598→                    border: '1px solid #232a3b',
+   599→                    borderRadius: '4px',
+   600→                  }}
+   601→                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; }}
+   602→                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#1a202c'; e.currentTarget.style.boxShadow = 'none'; }}
+   603→                  onClick={() => setNotifOpen(!notifOpen)}
+   604→                >
+   605→                  <Bell className="h-4 w-4" />
+   606→                  <AnimatePresence>
+   607→                    {notificationCount > 0 && (
+   608→                      <motion.span
+   609→                        initial={{ scale: 0 }}
+   610→                        animate={{ scale: 1 }}
+   611→                        exit={{ scale: 0 }}
+   612→                        className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold"
+   613→                        style={{
+   614→                          background: '#7b2cbf',
+   615→                          color: '#fff',
+   616→                          boxShadow: '0 0 6px rgba(123,44,191,0.25)',
+   617→                        }}
+   618→                      >
+   619→                        {notificationCount > 99 ? '99+' : notificationCount}
+   620→                      </motion.span>
+   621→                    )}
+   622→                  </AnimatePresence>
+   623→                </Button>
+   624→              </TooltipTrigger>
+   625→              <TooltipContent>Notifications</TooltipContent>
+   626→            </Tooltip>
+   627→          </TooltipProvider>
+   628→
+   629→          <AnimatePresence>
+   630→            {notifOpen && (
+   631→              <motion.div
+   632→                initial={{ opacity: 0, y: -8 }}
+   633→                animate={{ opacity: 1, y: 0 }}
+   634→                exit={{ opacity: 0, y: -8 }}
+   635→                transition={{ duration: 0.15 }}
+   636→                className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-card shadow-2xl shadow-black/60 z-50 overflow-hidden"
+   637→              >
+   638→                <div className="flex items-center justify-between border-b border-border p-3">
+   639→                  <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
+   640→                  {notificationCount > 0 && (
+   641→                    <button onClick={markAllRead} className="text-[10px] text-primary hover:underline">Mark all read</button>
+   642→                  )}
+   643→                </div>
+   644→                <div className="max-h-64 overflow-y-auto">
+   645→                  {notifications.length === 0 ? (
+   646→                    <div className="p-6 text-center">
+   647→                      <Bell className="mx-auto mb-2 h-6 w-6 text-muted-foreground/30" />
+   648→                      <p className="text-xs text-muted-foreground">No notifications</p>
+   649→                    </div>
+   650→                  ) : (
+   651→                    notifications.map((notif) => (
+   652→                      <button
+   653→                        key={notif.id}
+   654→                        onClick={() => handleNotificationClick(notif)}
+   655→                        className={cn(
+   656→                          'w-full text-left px-3 py-2.5 border-b border-border/50 last:border-0 transition-colors hover:bg-[#1E1E28]',
+   657→                          !notif.isRead && 'bg-primary/5'
+   658→                        )}
+   659→                      >
+   660→                        <div className="flex items-start gap-2">
+   661→                          <span className={cn('mt-0.5 text-xs', notif.isRead ? 'text-muted-foreground/40' : 'text-primary')}>
+   662→                            {notif.isRead ? '✓✓' : '✓'}
+   663→                          </span>
+   664→                          <div className="min-w-0 flex-1">
+   665→                            <p className="text-xs font-medium text-foreground truncate">{notif.title}</p>
+   666→                            {notif.body && <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{notif.body}</p>}
+   667→                            <p className="text-[10px] text-muted-foreground/40 mt-1">
+   668→                              {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
+   669→                            </p>
+   670→                          </div>
+   671→                        </div>
+   672→                      </button>
+   673→                    ))
+   674→                  )}
+   675→                </div>
+   676→              </motion.div>
+   677→            )}
+   678→          </AnimatePresence>
+   679→        </div>
+   680→
+   681→        {/* Chat toggle — recessed square icon frame */}
+   682→        <TooltipProvider delayDuration={300}>
+   683→          <Tooltip>
+   684→            <TooltipTrigger asChild>
+   685→              <button
+   686→                onClick={toggleChat}
+   687→                disabled={!activeChatProjectId}
+   688→                className={cn(
+   689→                  'relative h-9 w-9 flex items-center justify-center transition-all duration-200 shrink-0',
+   690→                  chatOpen
+   691→                    ? 'text-cyan-400'
+   692→                    : activeChatProjectId
+   693→                      ? 'text-muted-foreground hover:text-cyan-400'
+   694→                      : 'text-muted-foreground/40 cursor-not-allowed',
+   695→                )}
+   696→                style={{
+   697→                  background: '#161a24',
+   698→                  border: chatOpen ? '1px solid #00a8c6' : '1px solid #1a202c',
+   699→                  borderRadius: '4px',
+   700→                  boxShadow: chatOpen ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
+   701→                }}
+   702→                onMouseEnter={(e) => { if (activeChatProjectId && !chatOpen) { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; } }}
+   703→                onMouseLeave={(e) => { if (!chatOpen) { e.currentTarget.style.borderColor = '#1a202c'; e.currentTarget.style.boxShadow = 'none'; } }}
+   704→              >
+   705→                {/* Pulsing aura when there are unread messages */}
+   706→                {chatUnread > 0 && !chatOpen && activeChatProjectId && (
+   707→                  <span className="absolute inset-0 rounded-lg bg-cyan-500/20 animate-ping" style={{ animationDuration: '2s' }} />
+   708→                )}
+   709→                <MessageCircle className={cn('h-4 w-4 relative transition-transform', chatOpen && 'scale-90')} />
+   710→                {/* Unread badge */}
+   711→                {chatUnread > 0 && !chatOpen && (
+   712→                  <motion.span
+   713→                    initial={{ scale: 0 }}
+   714→                    animate={{ scale: 1 }}
+   715→                    className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 px-1 text-[9px] font-bold text-white shadow-lg shadow-cyan-500/30"
+   716→                  >
+   717→                    {chatUnread > 9 ? '9+' : chatUnread}
+   718→                  </motion.span>
+   719→                )}
+   720→                {/* Active project indicator dot */}
+   721→                {activeChatProjectId && !chatOpen && chatUnread === 0 && (
+   722→                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-background" />
+   723→                )}
+   724→              </button>
+   725→            </TooltipTrigger>
+   726→            <TooltipContent>
+   727→              {activeChatProjectId
+   728→                ? chatOpen ? 'Close chat' : `Chat: ${activeChatProjectName || 'project'}`
+   729→                : 'Select a project to chat'}
+   730→            </TooltipContent>
+   731→          </Tooltip>
+   732→        </TooltipProvider>
+   733→
+   734→        {/* Profile dropdown — hexagonal avatar with cyan border */}
+   735→        <Popover open={profileOpen} onOpenChange={setProfileOpen}>
+   736→          <TooltipProvider delayDuration={300}>
+   737→            <Tooltip>
+   738→              <TooltipTrigger asChild>
+   739→                <PopoverTrigger asChild>
+   740→                  <button className="flex items-center gap-2 pl-1 pr-2 py-1 hover:bg-white/[0.04] transition-colors shrink-0">
+   741→                    <div className="relative h-7 w-7" style={{
+   742→                      clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)',
+   743→                      padding: '1.5px',
+   744→                      background: '#00a8c6',
+   745→                    }}>
+   746→                      <Avatar className="h-full w-full" style={{
+   747→                        clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)',
+   748→                        borderRadius: 0,
+   749→                      }}>
+   750→                        <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
+   751→                        <AvatarFallback className="bg-[#161a24] text-[#00a8c6] text-xs">
+   752→                          {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+   753→                        </AvatarFallback>
+   754→                      </Avatar>
+   755→                    </div>
+   756→                    <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
+   757→                  </button>
+   758→                </PopoverTrigger>
+   759→              </TooltipTrigger>
+   760→              <TooltipContent>Profile & Settings</TooltipContent>
+   761→            </Tooltip>
+   762→          </TooltipProvider>
+   763→
+   764→          <PopoverContent align="end" className="w-64 p-0 bg-card border-border">
+   765→            <div className="p-3 border-b border-border">
+   766→              <div className="flex items-center gap-3">
+   767→                <Avatar className="h-10 w-10">
+   768→                  <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
+   769→                  <AvatarFallback className="bg-primary/20 text-primary">
+   770→                    {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+   771→                  </AvatarFallback>
+   772→                </Avatar>
+   773→                <div className="min-w-0 flex-1">
+   774→                  <p className="text-sm font-medium text-foreground truncate">
+   775→                    {user?.displayName || 'User'}
+   776→                  </p>
+   777→                  <p className="text-xs text-muted-foreground truncate">
+   778→                    {user?.email || ''}
+   779→                  </p>
+   780→                </div>
+   781→              </div>
+   782→            </div>
+   783→
+   784→            {/* Group info */}
+   785→            <div className="p-3 border-b border-border">
+   786→              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">Group</p>
+   787→              <p className="text-sm font-medium text-foreground truncate mb-1.5">{groupName}</p>
+   788→              {inviteCode && (
+   789→                <div className="flex items-center gap-1.5">
+   790→                  <code className="flex-1 rounded bg-background px-2 py-1 text-xs text-[#00a8c6] font-mono">
+   791→                    {inviteCode}
+   792→                  </code>
+   793→                  <Button
+   794→                    variant="ghost"
+   795→                    size="icon"
+   796→                    className="h-7 w-7 hover:bg-[#2A2A36] shrink-0"
+   797→                    onClick={handleCopyCode}
+   798→                  >
+   799→                    {copied ? <Check className="h-3 w-3 text-[#10B981]" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+   800→                  </Button>
+   801→                </div>
+   802→              )}
+   803→            </div>
+   804→
+   805→            {/* Menu items */}
+   806→            <div className="p-1.5">
+   807→              <button
+   808→                onClick={() => { setProfileOpen(false); navigate('group-settings'); }}
+   809→                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#1E1E28] transition-colors text-left"
+   810→              >
+   811→                <Settings className="h-4 w-4 text-muted-foreground" />
+   812→                <span className="text-sm text-foreground">Settings</span>
+   813→              </button>
+   814→              <button
+   815→                onClick={handleLogout}
+   816→                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#1E1E28] transition-colors text-left"
+   817→              >
+   818→                <LogOut className="h-4 w-4 text-muted-foreground" />
+   819→                <span className="text-sm text-foreground">Logout</span>
+   820→              </button>
+   821→            </div>
+   822→          </PopoverContent>
+   823→        </Popover>
+   824→      </header>
+   825→
+   826→      {/* Quick-access slide-down panel — renders OUTSIDE the header (so the
+   827→          header's clipPath doesn't clip it) but INSIDE a relative wrapper
+   828→          that spans the header's width. position: absolute anchors the panel
+   829→          to the wrapper's center (which matches the header center, accounting
+   830→          for the sidebar) rather than the viewport center.
+   831→          Animation: slides DOWN from the top edge of the header (large Y
+   832→          offset + opacity), like a drawer dropping out of the header. */}
+   833→      <AnimatePresence>
+   834→        {quickPanelOpen && (
+   835→          <>
+   836→            {/* Backdrop overlay — dims the rest of the screen so the panel
+   837→                stands out. Clicking the backdrop closes the panel. */}
+   838→            <motion.div
+   839→              initial={{ opacity: 0 }}
+   840→              animate={{ opacity: 1 }}
+   841→              exit={{ opacity: 0 }}
+   842→              transition={{ duration: 0.2 }}
+   843→              onClick={() => setQuickPanelOpen(false)}
+   844→              style={{
+   845→                position: 'fixed',
+   846→                top: '56px',
+   847→                left: 0,
+   848→                right: 0,
+   849→                bottom: 0,
+   850→                background: 'rgba(6, 8, 13, 0.7)',
+   851→                backdropFilter: 'blur(3px)',
+   852→                zIndex: 35,
+   853→              }}
+   854→            />
+   855→            <motion.div
+   856→              ref={quickPanelRef}
+   857→              initial={{ opacity: 0, y: -120, x: '-50%' }}
+   858→              animate={{ opacity: 1, y: 0, x: '-50%' }}
+   859→            exit={{ opacity: 0, y: -120, x: '-50%' }}
+   860→            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+   861→            style={{
+   862→              position: 'absolute',
+   863→              top: '54px',
+   864→              left: '50%',
+   865→              width: 'min(760px, calc(100vw - 32px))',
+   866→              zIndex: 40,
+   867→              transformOrigin: 'top center',
+   868→            }}
+   869→          >
+   870→            <div
+   871→              style={{
+   872→                position: 'relative',
+   873→                background: 'linear-gradient(145deg, #e8eaf0 0%, #d4d8e0 100%)',
+   874→                clipPath: 'polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px))',
+   875→                boxShadow: '8px 8px 24px rgba(0,0,0,0.5), -4px -4px 16px rgba(255,255,255,0.05), inset 1px 1px 2px rgba(255,255,255,0.6), inset -1px -1px 2px rgba(0,0,0,0.1)',
+   876→                padding: '16px 18px 18px',
+   877→              }}
+   878→            >
+   879→              {/* ── Header bar — title + close button (neumorphic) ── */}
+   880→              <div className="flex items-center justify-between mb-4 pb-3" style={{
+   881→                borderBottom: '1px solid rgba(0,168,198,0.2)',
+   882→              }}>
+   883→                <div className="flex items-center gap-2">
+   884→                  <div className="flex h-7 w-7 items-center justify-center" style={{
+   885→                    clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+   886→                    background: 'linear-gradient(145deg, #f0f2f8, #d8dce4)',
+   887→                    boxShadow: '2px 2px 5px rgba(0,0,0,0.15), -2px -2px 5px rgba(255,255,255,0.8)',
+   888→                  }}>
+   889→                    <Zap className="h-4 w-4" style={{ color: '#00a8c6' }} />
+   890→                  </div>
+   891→                  <span className="text-[12px] font-bold uppercase" style={{
+   892→                    color: '#1a1a2e',
+   893→                    fontFamily: 'var(--font-rajdhani), sans-serif',
+   894→                    letterSpacing: '1.5px',
+   895→                    fontWeight: 800,
+   896→                  }}>
+   897→                    Быстрый доступ
+   898→                  </span>
+   899→                  <span className="text-[9px] uppercase" style={{
+   900→                    color: '#7a8090',
+   901→                    fontFamily: 'var(--font-rajdhani), sans-serif',
+   902→                    letterSpacing: '1px',
+   903→                  }}>
+   904→                    · обзор группы
+   905→                  </span>
+   906→                </div>
+   907→
+   908→                {/* Close button — inset neumorphic */}
+   909→                <button
+   910→                  onClick={() => setQuickPanelOpen(false)}
+   911→                  className="group flex h-8 w-8 items-center justify-center transition-all active:scale-95"
+   912→                  style={{
+   913→                    clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+   914→                    background: 'linear-gradient(145deg, #d4d8e0, #f0f2f8)',
+   915→                    boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.15), inset -2px -2px 4px rgba(255,255,255,0.8)',
+   916→                    cursor: 'pointer',
+   917→                    border: 'none',
+   918→                  }}
+   919→                  title="Закрыть (Esc)"
+   920→                  aria-label="Закрыть"
+   921→                  onMouseEnter={(e) => {
+   922→                    e.currentTarget.style.boxShadow = 'inset 2px 2px 6px rgba(0,168,198,0.3), inset -2px -2px 6px rgba(255,255,255,0.8)';
+   923→                  }}
+   924→                  onMouseLeave={(e) => {
+   925→                    e.currentTarget.style.boxShadow = 'inset 2px 2px 4px rgba(0,0,0,0.15), inset -2px -2px 4px rgba(255,255,255,0.8)';
+   926→                  }}
+   927→                >
+   928→                  <X className="h-4 w-4" style={{ color: '#00a8c6' }} />
+   929→                </button>
+   930→              </div>
+   931→
+   932→              {/* Stats row — neumorphic raised cards with light-blue accents */}
+   933→              <div className="grid grid-cols-4 gap-3 mb-4">
+   934→                {[
+   935→                  { icon: FolderKanban, value: projects.length, label: 'Проекты', view: 'projects' as ViewName },
+   936→                  { icon: Music2, value: tracks.length, label: 'Треки', view: 'projects' as ViewName },
+   937→                  { icon: Lightbulb, value: ideas.length, label: 'Идеи', view: 'ideas' as ViewName },
+   938→                  { icon: Users, value: memberCount, label: 'Участники', view: 'group-settings' as ViewName },
+   939→                ].map((s) => (
+   940→                  <button
+   941→                    key={s.label}
+   942→                    onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
+   943→                    className="group relative flex flex-col items-center justify-center gap-1.5 py-3.5 transition-all duration-200"
+   944→                    style={{
+   945→                      clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+   946→                      background: 'linear-gradient(145deg, #f0f2f8, #d8dce4)',
+   947→                      boxShadow: '4px 4px 8px rgba(0,0,0,0.12), -4px -4px 8px rgba(255,255,255,0.7)',
+   948→                      cursor: 'pointer',
+   949→                      padding: '12px 8px',
+   950→                      border: 'none',
+   951→                    }}
+   952→                    title={`Перейти к: ${s.label}`}
+   953→                    onMouseEnter={(e) => {
+   954→                      e.currentTarget.style.transform = 'translateY(-2px)';
+   955→                      e.currentTarget.style.boxShadow = '6px 6px 14px rgba(0,168,198,0.2), -4px -4px 10px rgba(255,255,255,0.8)';
+   956→                    }}
+   957→                    onMouseLeave={(e) => {
+   958→                      e.currentTarget.style.transform = 'translateY(0)';
+   959→                      e.currentTarget.style.boxShadow = '4px 4px 8px rgba(0,0,0,0.12), -4px -4px 8px rgba(255,255,255,0.7)';
+   960→                    }}
+   961→                  >
+   962→                    {/* Icon — light-blue */}
+   963→                    <s.icon className="h-5 w-5 transition-transform group-hover:scale-110" style={{ color: '#00a8c6' }} />
+   964→
+   965→                    {/* Count — bold, large, dark */}
+   966→                    <span className="text-2xl font-extrabold tabular-nums leading-none" style={{
+   967→                      color: '#1a1a2e',
+   968→                      fontFamily: 'var(--font-rajdhani), sans-serif',
+   969→                    }}>
+   970→                      {s.value}
+   971→                    </span>
+   972→
+   973→                    {/* Label — uppercase, muted with yellow accent */}
+   974→                    <span className="text-[9px] uppercase font-bold tracking-wider" style={{
+   975→                      color: '#c7a008',
+   976→                      fontFamily: 'var(--font-rajdhani), sans-serif',
+   977→                      letterSpacing: '0.5px',
+   978→                    }}>
+   979→                      {s.label}
+   980→                    </span>
+   981→                  </button>
+   982→                ))}
+   983→              </div>
+   984→
+   985→              {/* Quick-access cards section header */}
+   986→              {quickAccessCards.length > 0 && (
+   987→                <div className="flex items-center gap-2 mb-2.5">
+   988→                  <LayoutDashboard className="h-3.5 w-3.5" style={{ color: '#00a8c6' }} />
+   989→                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{
+   990→                    color: '#00a8c6',
+   991→                    fontFamily: 'var(--font-rajdhani), sans-serif',
+   992→                    letterSpacing: '1px',
+   993→                  }}>
+   994→                    Проекты
+   995→                  </span>
+   996→                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.3), transparent)' }} />
+   997→                </div>
+   998→              )}
+   999→
+  1000→              {/* Quick-access cards — neumorphic horizontal carousel */}
+  1001→              {quickAccessCards.length > 0 ? (
+  1002→                <div className="flex items-center gap-2">
+  1003→                  {/* Left scroll button — inset neumorphic */}
+  1004→                  <button
+  1005→                    onClick={() => {
+  1006→                      const el = quickCardsScrollRef.current;
+  1007→                      if (el) el.scrollBy({ left: -220, behavior: 'smooth' });
+  1008→                    }}
+  1009→                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all active:scale-95"
+  1010→                    style={{
+  1011→                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+  1012→                      background: 'linear-gradient(145deg, #d4d8e0, #f0f2f8)',
+  1013→                      boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)',
+  1014→                      cursor: 'pointer',
+  1015→                      border: 'none',
+  1016→                    }}
+  1017→                    title="Прокрутить влево"
+  1018→                    aria-label="Прокрутить влево"
+  1019→                    onMouseEnter={(e) => {
+  1020→                      e.currentTarget.style.boxShadow = 'inset 2px 2px 6px rgba(0,168,198,0.2), inset -2px -2px 6px rgba(255,255,255,0.7)';
+  1021→                    }}
+  1022→                    onMouseLeave={(e) => {
+  1023→                      e.currentTarget.style.boxShadow = 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)';
+  1024→                    }}
+  1025→                  >
+  1026→                    <ChevronLeft className="h-4 w-4" style={{ color: '#00a8c6' }} />
+  1027→                  </button>
+  1028→
+  1029→                  {/* Scrollable cards container */}
+  1030→                  <div
+  1031→                    ref={quickCardsScrollRef}
+  1032→                    className="flex gap-2.5 overflow-x-auto pb-1 flex-1 hide-scrollbar"
+  1033→                    style={{ scrollBehavior: 'smooth', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+  1034→                  >
+  1035→                    {quickAccessCards.map((card) => {
+  1036→                      const stLabel: Record<string, string> = {
+  1037→                        draft: 'Черновик', in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз', todo: 'TODO',
+  1038→                      };
+  1039→                      const sl = stLabel[card.status] || card.status;
+  1040→                      const typeLabels: Record<string, string> = {
+  1041→                        album: 'Альбом', ep: 'EP', single: 'Сингл', general: 'Канбан',
+  1042→                      };
+  1043→                      const tl = typeLabels[card.type] || 'Проект';
+  1044→                      const count = card.kind === 'auto' ? card.trackCount : card.boardCount;
+  1045→                      const progress = card.kind === 'auto'
+  1046→                        ? (count > 0 ? 50 : 10)
+  1047→                        : (count > 0 ? 40 : 10);
+  1048→                      return (
+  1049→                        <div
+  1050→                          key={card.id}
+  1051→                          onClick={() => {
+  1052→                            if (card.kind === 'auto') {
+  1053→                              navigate('project-detail', card.id);
+  1054→                            } else {
+  1055→                              useKanbanStore.getState().selectProject(card.id);
+  1056→                              navigate('kanban');
+  1057→                            }
+  1058→                            setQuickPanelOpen(false);
+  1059→                          }}
+  1060→                          className="group relative w-52 shrink-0 cursor-pointer overflow-hidden transition-all duration-200"
+  1061→                          style={{
+  1062→                            clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+  1063→                            background: 'linear-gradient(145deg, #f0f2f8, #d8dce4)',
+  1064→                            boxShadow: '4px 4px 10px rgba(0,0,0,0.12), -3px -3px 8px rgba(255,255,255,0.7)',
+  1065→                          }}
+  1066→                          onMouseEnter={(e) => {
+  1067→                            e.currentTarget.style.transform = 'translateY(-3px)';
+  1068→                            e.currentTarget.style.boxShadow = '6px 8px 18px rgba(0,168,198,0.2), -3px -3px 8px rgba(255,255,255,0.7)';
+  1069→                          }}
+  1070→                          onMouseLeave={(e) => {
+  1071→                            e.currentTarget.style.transform = 'translateY(0)';
+  1072→                            e.currentTarget.style.boxShadow = '4px 4px 10px rgba(0,0,0,0.12), -3px -3px 8px rgba(255,255,255,0.7)';
+  1073→                          }}
+  1074→                          title={`Открыть: ${card.title}`}
+  1075→                        >
+  1076→                          {/* Body */}
+  1077→                          <div className="p-3 relative">
+  1078→                            {/* Type icon + label */}
+  1079→                            <div className="mb-2 flex items-center gap-1.5">
+  1080→                              <div
+  1081→                                className="flex h-6 w-6 items-center justify-center"
+  1082→                                style={{
+  1083→                                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+  1084→                                  background: 'linear-gradient(145deg, #e8eaf0, #d4d8e0)',
+  1085→                                  boxShadow: 'inset 1px 1px 2px rgba(0,0,0,0.1), inset -1px -1px 2px rgba(255,255,255,0.6)',
+  1086→                                }}
+  1087→                              >
+  1088→                                {card.kind === 'auto' ? (
+  1089→                                  <FolderOpen className="w-3 h-3" style={{ color: '#c7a008' }} />
+  1090→                                ) : (
+  1091→                                  <LayoutDashboard className="w-3 h-3" style={{ color: '#c7a008' }} />
+  1092→                                )}
+  1093→                              </div>
+  1094→                              <span className="text-[9px] font-bold uppercase tracking-wider" style={{
+  1095→                                color: '#c7a008',
+  1096→                                fontFamily: 'var(--font-rajdhani), sans-serif',
+  1097→                                letterSpacing: '0.5px',
+  1098→                              }}>
+  1099→                                {tl}
+  1100→                              </span>
+  1101→                            </div>
+  1102→                            {/* Title */}
+  1103→                            <p className="text-sm font-semibold line-clamp-1" style={{
+  1104→                              color: '#1a1a2e',
+  1105→                              fontFamily: 'var(--font-rajdhani), sans-serif',
+  1106→                            }}>
+  1107→                              {card.title}
+  1108→                            </p>
+  1109→                            {/* Meta — status dot + count */}
+  1110→                            <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{
+  1111→                              color: '#6a7080',
+  1112→                              fontFamily: 'var(--font-rajdhani), sans-serif',
+  1113→                            }}>
+  1114→                              <span className="flex items-center gap-1">
+  1115→                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#c7a008' }} />
+  1116→                                {sl}
+  1117→                              </span>
+  1118→                              <span>·</span>
+  1119→                              <span className="flex items-center gap-1">
+  1120→                                {card.kind === 'auto' ? (
+  1121→                                  <Music2 className="w-3 h-3" style={{ color: '#00a8c6' }} />
+  1122→                                ) : (
+  1123→                                  <Layers className="w-3 h-3" style={{ color: '#00a8c6' }} />
+  1124→                                )}
+  1125→                                {count}
+  1126→                              </span>
+  1127→                            </div>
+  1128→                            {/* Waveform progress bar */}
+  1129→                            <div className="mt-2.5">
+  1130→                              <WaveformProgressBar progress={progress} accentColor="#c7a008" height={18} bars={20} />
+  1131→                            </div>
+  1132→                          </div>
+  1133→                        </div>
+  1134→                      );
+  1135→                    })}
+  1136→                  </div>
+  1137→
+  1138→                  {/* Right scroll button — inset neumorphic */}
+  1139→                  <button
+  1140→                    onClick={() => {
+  1141→                      const el = quickCardsScrollRef.current;
+  1142→                      if (el) el.scrollBy({ left: 220, behavior: 'smooth' });
+  1143→                    }}
+  1144→                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all active:scale-95"
+  1145→                    style={{
+  1146→                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+  1147→                      background: 'linear-gradient(145deg, #d4d8e0, #f0f2f8)',
+  1148→                      boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)',
+  1149→                      cursor: 'pointer',
+  1150→                      border: 'none',
+  1151→                    }}
+  1152→                    title="Прокрутить вправо"
+  1153→                    aria-label="Прокрутить вправо"
+  1154→                    onMouseEnter={(e) => {
+  1155→                      e.currentTarget.style.boxShadow = 'inset 2px 2px 6px rgba(0,168,198,0.2), inset -2px -2px 6px rgba(255,255,255,0.7)';
+  1156→                    }}
+  1157→                    onMouseLeave={(e) => {
+  1158→                      e.currentTarget.style.boxShadow = 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)';
+  1159→                    }}
+  1160→                  >
+  1161→                    <ChevronRight className="h-4 w-4" style={{ color: '#00a8c6' }} />
+  1162→                  </button>
+  1163→                </div>
+  1164→              ) : (
+  1165→                <div className="text-center py-6">
+  1166→                  <p className="text-xs" style={{ color: '#7a8090', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+  1167→                    Нет проектов в избранном. Добавьте их на главной странице.
+  1168→                  </p>
+  1169→                </div>
+  1170→              )}
+  1171→            </div>
+  1172→          </motion.div>
+  1173→          </>
+  1174→        )}
+  1175→      </AnimatePresence>
+  1176→      </div>
+  1177→    </>
+  1178→  );
+  1179→}
+  1180→
+  1181→// Mobile nav content (shared between Sheet and could be reused)
+  1182→function MobileNavContent({
+  1183→  currentView,
+  1184→  onNavigate,
+  1185→  groupName,
+  1186→  inviteCode,
+  1187→  user,
+  1188→  onCopyCode,
+  1189→  copied,
+  1190→  onLogout,
+  1191→  notificationCount,
+  1192→}: {
+  1193→  currentView: string;
+  1194→  onNavigate: (view: ViewName) => void;
+  1195→  groupName: string;
+  1196→  inviteCode: string;
+  1197→  user: { displayName?: string; email?: string; avatarUrl?: string } | null;
+  1198→  onCopyCode: () => void;
+  1199→  copied: boolean;
+  1200→  onLogout: () => void;
+  1201→  notificationCount: number;
+  1202→}) {
+  1203→  return (
+  1204→    <div className="flex h-full flex-col">
+  1205→      {/* Logo */}
+  1206→      <div className="flex items-center gap-2 px-4 py-5">
+  1207→        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
+  1208→          <Music className="h-4 w-4 text-primary" />
+  1209→        </div>
+  1210→        <span className="text-lg font-bold text-primary">SoundFlow</span>
+  1211→      </div>
+  1212→
+  1213→      <Separator className="bg-border" />
+  1214→
+  1215→      {/* Group info */}
+  1216→      <div className="px-3 py-3">
+  1217→        <div className="rounded-lg bg-[#1E1E28] p-3">
+  1218→          <p className="text-sm font-medium text-foreground truncate">{groupName}</p>
+  1219→          {inviteCode && (
+  1220→            <div className="mt-2 flex items-center gap-1.5">
+  1221→              <code className="flex-1 rounded bg-background px-2 py-0.5 text-xs text-[#00a8c6] font-mono">
+  1222→                {inviteCode}
+  1223→              </code>
+  1224→              <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-[#2A2A36]" onClick={onCopyCode}>
+  1225→                {copied ? <Check className="h-3 w-3 text-[#10B981]" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+  1226→              </Button>
+  1227→            </div>
+  1228→          )}
+  1229→        </div>
+  1230→      </div>
+  1231→
+  1232→      {/* Navigation */}
+  1233→      <ScrollArea className="flex-1 px-3 py-2">
+  1234→        <nav className="space-y-1">
+  1235→          {navItems.map((item) => {
+  1236→            const isActive = currentView === item.view ||
+  1237→              (item.view === 'projects' && (currentView === 'project-detail' || currentView === 'track-detail'));
+  1238→            return (
+  1239→              <button
+  1240→                key={item.view}
+  1241→                onClick={() => onNavigate(item.view)}
+  1242→                className={cn(
+  1243→                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors border-l-2',
+  1244→                  isActive
+  1245→                    ? 'bg-primary/10 text-primary border-primary'
+  1246→                    : 'text-muted-foreground hover:bg-[#1E1E28] hover:text-foreground border-transparent'
+  1247→                )}
+  1248→              >
+  1249→                <item.icon className="h-4 w-4" />
+  1250→                {item.label}
+  1251→                {item.view === 'projects' && notificationCount > 0 && (
+  1252→                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[9px] font-bold text-primary-foreground">
+  1253→                    {notificationCount > 99 ? '99+' : notificationCount}
+  1254→                  </span>
+  1255→                )}
+  1256→              </button>
+  1257→            );
+  1258→          })}
+  1259→
+  1260→          <button
+  1261→            onClick={() => onNavigate('group-settings')}
+  1262→            className={cn(
+  1263→              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors border-l-2',
+  1264→              currentView === 'group-settings'
+  1265→                ? 'bg-primary/10 text-primary border-primary'
+  1266→                : 'text-muted-foreground hover:bg-[#1E1E28] hover:text-foreground border-transparent'
+  1267→            )}
+  1268→          >
+  1269→            <Settings className="h-4 w-4" />
+  1270→            Settings
+  1271→          </button>
+  1272→        </nav>
+  1273→      </ScrollArea>
+  1274→
+  1275→      {/* User Section */}
+  1276→      <Separator className="bg-border" />
+  1277→      <div className="p-3">
+  1278→        <div className="flex items-center gap-3">
+  1279→          <Avatar className="h-8 w-8">
+  1280→            <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
+  1281→            <AvatarFallback className="bg-primary/20 text-primary text-xs">
+  1282→              {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+  1283→            </AvatarFallback>
+  1284→          </Avatar>
+  1285→          <div className="flex-1 min-w-0">
+  1286→            <p className="text-sm font-medium text-foreground truncate">{user?.displayName || 'User'}</p>
+  1287→            <p className="text-xs text-muted-foreground truncate">{user?.email || ''}</p>
+  1288→          </div>
+  1289→          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground" onClick={onLogout}>
+  1290→            <LogOut className="h-4 w-4" />
+  1291→          </Button>
+  1292→        </div>
+  1293→      </div>
+  1294→    </div>
+  1295→  );
+  1296→}
+  1297→

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, X, Bell, Menu, ChevronRight, ChevronDown, ChevronLeft,
-  MessageCircle, LogOut, Settings, User, Check, Copy,
+  LogOut, Settings, Check, Copy,
   Home, Lightbulb, FolderOpen, LayoutGrid, Music,
   FolderKanban, Music2, Users, Zap, LayoutDashboard, Layers,
 } from 'lucide-react';
@@ -17,23 +17,14 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigationStore, useAuthStore, useDataStore, type ViewName } from '@/lib/store';
 import { useHeaderActionsStore } from '@/store/header-actions-store';
-import { useChatContextStore } from '@/store/chat-context-store';
-import { useChatUIStore } from '@/store/chat-ui-store';
-import { useChatUnread } from '@/components/chat/project-chat';
+import { useSidebarStore } from '@/store/sidebar-store';
 import { useKanbanStore, type Task } from '@/store/kanban-store';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -50,13 +41,6 @@ const viewLabels: Record<string, string> = {
   'group-settings': 'Settings',
 };
 
-const navItems: { icon: typeof Home; label: string; view: ViewName }[] = [
-  { icon: Home, label: 'Home', view: 'home' },
-  { icon: Lightbulb, label: 'Ideas', view: 'ideas' },
-  { icon: FolderOpen, label: 'Projects', view: 'projects' },
-  // Kanban tab merged into Projects — entry point is now via project cards.
-];
-
 export function AppHeader() {
   const { currentView, selectedProjectId, navigate } = useNavigationStore();
   const { user, logout, currentGroupName: persistedGroupName, currentGroupInviteCode: persistedInviteCode } = useAuthStore();
@@ -69,14 +53,12 @@ export function AppHeader() {
   const setNotificationCount = useDataStore((s) => s.setNotificationCount);
   const headerActions = useHeaderActionsStore((s) => s.actions);
   const headerTitle = useHeaderActionsStore((s) => s.title);
-  const { activeChatProjectId, activeChatProjectName } = useChatContextStore();
-  const { isOpen: chatOpen, toggle: toggleChat } = useChatUIStore();
-  const chatUnread = useChatUnread();
+  const toggleSidebar = useSidebarStore((s) => s.toggleMobile);
+  const isMobileSidebarOpen = useSidebarStore((s) => s.isMobileOpen);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{ type: 'project' | 'track'; id: string; title: string; subtitle?: string }[]>([]);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -311,9 +293,8 @@ export function AppHeader() {
     navigate('onboarding');
   };
 
-  const handleNavigate = (view: ViewName) => {
-    navigate(view);
-    setMobileNavOpen(false);
+  const handleHomeClick = () => {
+    navigate('home');
   };
 
   return (
@@ -376,33 +357,95 @@ export function AppHeader() {
             </header>) via a fixed-position overlay so the header's clipPath
             doesn't clip it. See the AnimatePresence block below the header. */}
 
-        {/* Mobile: hamburger menu */}
-        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden h-9 w-9 hover:bg-[#1E1E28] shrink-0"
-              style={{ color: '#00a8c6' }}
-            >
-              <Menu className="h-5 w-5" style={{ filter: 'drop-shadow(0 0 4px rgba(0,168,198,0.25))' }} />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0 bg-sidebar border-sidebar-border">
-            <SheetTitle className="sr-only">Navigation</SheetTitle>
-            <MobileNavContent
-              currentView={currentView}
-              onNavigate={handleNavigate}
-              groupName={groupName}
-              inviteCode={inviteCode}
-              user={user}
-              onCopyCode={handleCopyCode}
-              copied={copied}
-              onLogout={handleLogout}
-              notificationCount={notificationCount}
-            />
-          </SheetContent>
-        </Sheet>
+        {/* Mobile: hamburger menu — toggles the new retractable sidebar */}
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebar}
+                aria-label="Меню"
+                aria-pressed={isMobileSidebarOpen}
+                className={cn(
+                  'lg:hidden h-9 w-9 shrink-0 transition-all',
+                  isMobileSidebarOpen ? 'text-[#00a8c6]' : 'hover:bg-[#1E1E28]'
+                )}
+                style={{
+                  background: isMobileSidebarOpen ? '#161a24' : 'transparent',
+                  border: isMobileSidebarOpen ? '1px solid #00a8c6' : '1px solid transparent',
+                  borderRadius: '4px',
+                  boxShadow: isMobileSidebarOpen ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
+                  color: '#00a8c6',
+                }}
+              >
+                <Menu className="h-5 w-5" style={{ filter: 'drop-shadow(0 0 4px rgba(0,168,198,0.25))' }} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Меню</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* Home button — cyberpunk HUD style, calls navigate('home').
+            Visible on both mobile (near the hamburger) and desktop (left side). */}
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleHomeClick}
+                aria-label="На главную"
+                className={cn(
+                  'relative flex h-9 w-9 items-center justify-center transition-all duration-200 shrink-0',
+                  currentView === 'home' ? 'text-[#c7a008]' : 'text-muted-foreground hover:text-[#c7a008]'
+                )}
+                style={{
+                  background: currentView === 'home' ? '#161a24' : '#12151d',
+                  border: currentView === 'home' ? '1px solid #c7a008' : '1px solid #232a3b',
+                  borderRadius: '4px',
+                  boxShadow:
+                    currentView === 'home'
+                      ? '0 0 10px rgba(199,160,8,0.3), inset 0 0 8px rgba(199,160,8,0.08)'
+                      : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (currentView !== 'home') {
+                    e.currentTarget.style.borderColor = '#c7a008';
+                    e.currentTarget.style.boxShadow = '0 0 8px rgba(199,160,8,0.25)';
+                    e.currentTarget.style.color = '#c7a008';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentView !== 'home') {
+                    e.currentTarget.style.borderColor = '#232a3b';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.color = '';
+                  }
+                }}
+              >
+                <Home
+                  className="h-4 w-4"
+                  style={{
+                    filter:
+                      currentView === 'home'
+                        ? 'drop-shadow(0 0 4px rgba(199,160,8,0.6))'
+                        : 'none',
+                  }}
+                />
+                {/* Active corner accent — cyberpunk HUD notch */}
+                {currentView === 'home' && (
+                  <span
+                    className="absolute -top-px -left-px h-1.5 w-1.5"
+                    style={{
+                      background: '#c7a008',
+                      boxShadow: '0 0 4px rgba(199,160,8,0.8)',
+                    }}
+                  />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>На главную</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {/* Logo — mobile only (desktop has sidebar) */}
         <div className="flex items-center gap-2 lg:hidden">
@@ -678,58 +721,8 @@ export function AppHeader() {
           </AnimatePresence>
         </div>
 
-        {/* Chat toggle — recessed square icon frame */}
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={toggleChat}
-                disabled={!activeChatProjectId}
-                className={cn(
-                  'relative h-9 w-9 flex items-center justify-center transition-all duration-200 shrink-0',
-                  chatOpen
-                    ? 'text-cyan-400'
-                    : activeChatProjectId
-                      ? 'text-muted-foreground hover:text-cyan-400'
-                      : 'text-muted-foreground/40 cursor-not-allowed',
-                )}
-                style={{
-                  background: '#161a24',
-                  border: chatOpen ? '1px solid #00a8c6' : '1px solid #1a202c',
-                  borderRadius: '4px',
-                  boxShadow: chatOpen ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
-                }}
-                onMouseEnter={(e) => { if (activeChatProjectId && !chatOpen) { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; } }}
-                onMouseLeave={(e) => { if (!chatOpen) { e.currentTarget.style.borderColor = '#1a202c'; e.currentTarget.style.boxShadow = 'none'; } }}
-              >
-                {/* Pulsing aura when there are unread messages */}
-                {chatUnread > 0 && !chatOpen && activeChatProjectId && (
-                  <span className="absolute inset-0 rounded-lg bg-cyan-500/20 animate-ping" style={{ animationDuration: '2s' }} />
-                )}
-                <MessageCircle className={cn('h-4 w-4 relative transition-transform', chatOpen && 'scale-90')} />
-                {/* Unread badge */}
-                {chatUnread > 0 && !chatOpen && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-cyan-600 px-1 text-[9px] font-bold text-white shadow-lg shadow-cyan-500/30"
-                  >
-                    {chatUnread > 9 ? '9+' : chatUnread}
-                  </motion.span>
-                )}
-                {/* Active project indicator dot */}
-                {activeChatProjectId && !chatOpen && chatUnread === 0 && (
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-background" />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {activeChatProjectId
-                ? chatOpen ? 'Close chat' : `Chat: ${activeChatProjectName || 'project'}`
-                : 'Select a project to chat'}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {/* Chat toggle moved to the bottom of the sidebar — see SidebarChatSection.
+            The global <ProjectChat/> floating panel is rendered inside <AppSidebar/>. */}
 
         {/* Profile dropdown — hexagonal avatar with cyan border */}
         <Popover open={profileOpen} onOpenChange={setProfileOpen}>
@@ -1178,119 +1171,3 @@ export function AppHeader() {
   );
 }
 
-// Mobile nav content (shared between Sheet and could be reused)
-function MobileNavContent({
-  currentView,
-  onNavigate,
-  groupName,
-  inviteCode,
-  user,
-  onCopyCode,
-  copied,
-  onLogout,
-  notificationCount,
-}: {
-  currentView: string;
-  onNavigate: (view: ViewName) => void;
-  groupName: string;
-  inviteCode: string;
-  user: { displayName?: string; email?: string; avatarUrl?: string } | null;
-  onCopyCode: () => void;
-  copied: boolean;
-  onLogout: () => void;
-  notificationCount: number;
-}) {
-  return (
-    <div className="flex h-full flex-col">
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-4 py-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
-          <Music className="h-4 w-4 text-primary" />
-        </div>
-        <span className="text-lg font-bold text-primary">SoundFlow</span>
-      </div>
-
-      <Separator className="bg-border" />
-
-      {/* Group info */}
-      <div className="px-3 py-3">
-        <div className="rounded-lg bg-[#1E1E28] p-3">
-          <p className="text-sm font-medium text-foreground truncate">{groupName}</p>
-          {inviteCode && (
-            <div className="mt-2 flex items-center gap-1.5">
-              <code className="flex-1 rounded bg-background px-2 py-0.5 text-xs text-[#00a8c6] font-mono">
-                {inviteCode}
-              </code>
-              <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-[#2A2A36]" onClick={onCopyCode}>
-                {copied ? <Check className="h-3 w-3 text-[#10B981]" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-2">
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const isActive = currentView === item.view ||
-              (item.view === 'projects' && (currentView === 'project-detail' || currentView === 'track-detail'));
-            return (
-              <button
-                key={item.view}
-                onClick={() => onNavigate(item.view)}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors border-l-2',
-                  isActive
-                    ? 'bg-primary/10 text-primary border-primary'
-                    : 'text-muted-foreground hover:bg-[#1E1E28] hover:text-foreground border-transparent'
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-                {item.view === 'projects' && notificationCount > 0 && (
-                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[9px] font-bold text-primary-foreground">
-                    {notificationCount > 99 ? '99+' : notificationCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          <button
-            onClick={() => onNavigate('group-settings')}
-            className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors border-l-2',
-              currentView === 'group-settings'
-                ? 'bg-primary/10 text-primary border-primary'
-                : 'text-muted-foreground hover:bg-[#1E1E28] hover:text-foreground border-transparent'
-            )}
-          >
-            <Settings className="h-4 w-4" />
-            Settings
-          </button>
-        </nav>
-      </ScrollArea>
-
-      {/* User Section */}
-      <Separator className="bg-border" />
-      <div className="p-3">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
-            <AvatarFallback className="bg-primary/20 text-primary text-xs">
-              {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{user?.displayName || 'User'}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email || ''}</p>
-          </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-[#1E1E28] text-muted-foreground hover:text-foreground" onClick={onLogout}>
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}

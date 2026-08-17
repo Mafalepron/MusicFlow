@@ -2441,3 +2441,100 @@ Stage Summary:
 - Stats buttons: vibrant purple gradient fill (was flat), brighter corner brackets, brighter icons + labels.
 - Header chip + close button: gradient backgrounds, brighter gold borders + icons.
 - Files modified: `src/components/layout/app-header.tsx` only.
+
+---
+Task ID: SIDEBAR-REDESIGN-1
+Agent: full-stack-developer
+Task: Redesign left sidebar (remove nav sections + add artist profile card + project chat at bottom) and add Home button to header
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand the previous cyberpunk redesign work (HOME-REDESIGN-main.md).
+- Read /home/z/my-project/src/components/layout/app-sidebar.tsx (386 lines), app-header.tsx (1296 lines), src/app/page.tsx (207 lines), src/lib/store.ts (260 lines), src/store/chat-context-store.ts (25 lines), src/components/chat/project-chat.tsx (561 lines), prisma/schema.prisma, /api/groups/route.ts, /api/groups/[id]/route.ts, /api/auth/login/route.ts.
+- Verified the data shapes: Group has {id,name,description,avatarUrl,genre,inviteCode,ownerId}, Project has {id,groupId,title,type,coverUrl,status,kanbanTaskId,createdAt,updatedAt}. Confirmed useChatContextStore exposes {activeChatProjectId, activeChatProjectName, setActiveChatProject(id, name)} and useChatUIStore exposes {isOpen, open, close, toggle}.
+- Confirmed ProjectChat renders as a `position: fixed right-0 top-0 bottom-0 z-50` floating slide-in panel driven by `useChatUIStore.isOpen && useChatContextStore.activeChatProjectId`.
+
+EDITS — Created /home/z/my-project/src/store/sidebar-store.ts (new file, 29 lines):
+- Zustand store with `persist` middleware.
+- State: `isCollapsed: boolean` (desktop retract), `isMobileOpen: boolean` (mobile drawer).
+- Actions: `toggle()` (desktop), `setCollapsed(b)`, `setMobileOpen(b)`, `toggleMobile()`.
+- Persisted to localStorage under key `soundflow-sidebar` so the user's preference survives reloads.
+
+EDITS — /home/z/my-project/src/app/api/groups/route.ts:
+- Added GET handler — accepts `?userId=<userId>` and returns all groups the user is a member of, joined with `_count` aggregates for members + projects and membership info (role, instrument, joinedAt).
+- Used by the sidebar's GroupSwitcher component.
+
+EDITS — /home/z/my-project/src/app/api/groups/[id]/route.ts:
+- Added PATCH handler with zod validation (name, description, genre, avatarUrl — all optional/nullable).
+- Used by the sidebar's EditableDescription component to save group description changes.
+
+EDITS — /home/z/my-project/src/app/globals.css:
+- Added `.custom-scrollbar` styles (6px wide, cyan-tinted track + thumb with hover effect) for the sidebar's scrollable sections (artist profile projects list, chat dropdown).
+
+EDITS — /home/z/my-project/src/components/layout/app-sidebar.tsx (rewritten, ~1080 lines):
+- REMOVED: navItems array, NavItem component, group info card with invite code, user section with logout, scrollable nav.
+- ADDED: ArtistProfileCard component (top of sidebar) — contains:
+  * Large 64×64 group avatar in AVATAR_CLIP angular frame with yellow glow
+  * Group name (bold, uppercase, yellow with text-shadow glow)
+  * Group genre (uppercase, cyan, with Disc3 icon)
+  * InviteCodeRow (small monospace code box with Copy button)
+  * EditableDescription — click to edit, PATCH /api/groups/[id], supports ⌘/Ctrl+Enter to save, Esc to cancel, 500-char limit with live counter
+  * GroupSwitcher — renders ONLY when userGroups.length > 1, shows [<] [N/M] [>] arrows in BTN_CLIP boxes; clicking sets currentGroupId in auth store and re-fetches the group record
+  * Performance info section (PURPLE-themed "Показатели") — 4-cell stats grid (members, projects, tracks, ideas) plus a "Создан:" (created date) row
+  * Linked projects section — filters projects by groupId, each project is a clickable BTN_CLIP button that navigates to project-detail view
+- Fetches user's groups on mount via /api/groups?userId={userId} for the GroupSwitcher.
+- Fetches member count via /api/groups/{id}/members for the stats grid.
+- ADDED: SidebarChatSection component (bottom of sidebar) — contains:
+  * Section header with MessageCircle icon + "ЧАТ ПРОЕКТА" label
+  * Popover-based project selector dropdown (lists projects in the current group)
+  * Placeholder "Выберите проект для чата" when no project selected (per spec, in Russian)
+  * "Открыть чат" / "Чат открыт — скрыть" toggle button (YELLOW when closed, CYAN when open) that calls useChatUIStore.open()/close()
+  * When user picks a project, calls setActiveChatProject(kanbanTaskId||projectId, title) and auto-opens the chat panel
+- ADDED: AppSidebar export structure:
+  * Sliding <aside> with `transition-transform duration-300` — translate-x-0/-translate-x-full on mobile (driven by isMobileOpen), lg:translate-x-0/lg:-translate-x-full on desktop (driven by isCollapsed)
+  * Mobile backdrop overlay (bg-black/50, lg:hidden) — tap to close
+  * Floating expand toggle (top-3 left-3, BTN_CLIP, yellow glow, ChevronRight icon) — visible when sidebar is hidden (uses AnimatePresence for fade/scale)
+  * Floating collapse toggle (top-3 left-[228px], BTN_CLIP, cyan glow, ChevronsLeft icon) — visible when sidebar is shown on desktop
+  * <ProjectChat/> rendered OUTSIDE the transform-affected <aside> (in a fragment) so its `position: fixed` floating panel stays viewport-relative, not transformed by the sidebar's translate
+- Toggle handler picks the right store based on viewport width via window.innerWidth < 1024 check.
+
+EDITS — /home/z/my-project/src/components/layout/app-header.tsx (~1170 lines):
+- REMOVED: Sheet-based mobile nav (SheetContent + MobileNavContent function at the bottom of the file — ~110 lines deleted), navItems array, chat toggle button JSX (50+ lines), MessageCircle/useChatContextStore/useChatUIStore/useChatUnread imports, unused User/Separator/Sheet imports.
+- ADDED: useSidebarStore import.
+- ADDED: Home button (cyberpunk HUD style) — placed immediately after the hamburger menu. 36×36 BTN_CLIP-shaped button with:
+  * Default state: muted-foreground icon on dark #12151d background with #232a3b border
+  * Active state (when currentView === 'home'): YELLOW icon + border + 10px outer glow + 8px inner glow + top-left corner accent notch (1.5×1.5px yellow square with glow)
+  * Hover: yellow border + 8px glow (only when not active)
+  * Home icon with drop-shadow filter when active
+  * TooltipProvider/Tooltip wrapper with "На главную" label
+  * Calls navigate('home') via handleHomeClick
+- MODIFIED: Hamburger menu — was Sheet trigger, now directly calls useSidebarStore.toggleMobile(). Styled with cyan tint when active (isMobileSidebarOpen), with cyan border + glow when active. Tooltip "Меню".
+- Removed the chat toggle button (moved to the sidebar's SidebarChatSection).
+
+EDITS — /home/z/my-project/src/app/page.tsx:
+- Removed global <ProjectChat/> render (now lives inside <AppSidebar/>).
+- Added useSidebarStore import.
+- AppContent reads isSidebarCollapsed state and applies dynamic padding:
+  * Main content wrapper: `lg:pl-60` when expanded, `lg:pl-0` when collapsed, with `transition-[padding] duration-300 ease-out`
+  * Footer: `lg:ml-60` when expanded, `lg:ml-0` when collapsed, with `transition-[margin] duration-300 ease-out`
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "app-sidebar|app-header|page\.tsx|sidebar-store|groups"` → only ONE error: app-header.tsx:227 (pre-existing `react-hooks/set-state-in-effect` in the search useEffect, present in baseline before my changes — verified via git stash).
+- `cd /home/z/my-project && npx tsc --noEmit --skipLibCheck 2>&1 | grep -E "app-sidebar|app-header|page\.tsx|sidebar-store|groups"` → empty (no TypeScript errors).
+- Dev server log (/home/z/my-project/dev.log) shows:
+  * `GET /api/groups?userId=cmsx9pq880000wpvj3dss898z 200` — new endpoint works, sidebar fetches user's groups for switcher
+  * `GET /api/groups/cmsx9pxvl0002wpvj7ygpd8ft/members 200` — sidebar fetching member count
+  * `GET /api/groups/cmsx9pxvl0002wpvj7ygpd8ft 200` — sidebar fetching current group info (after potential switch)
+  * All existing API calls (notifications, tasks, projects, ideas) return 200
+  * `GET / 200` — page renders successfully
+  * `✓ Compiled in XXXms` — no compile errors
+
+Stage Summary:
+- Sidebar now retractable: click the floating ChevronRight (top-left) to expand, ChevronsLeft (right edge of sidebar) to collapse. State persists in localStorage.
+- Sidebar shows artist profile card with avatar, name, genre, invite code, editable description (click to edit + PATCH), performance stats (members/projects/tracks/ideas + created date), group switcher arrows (when multiple groups), and a list of linked projects.
+- Sidebar shows project chat at bottom: dropdown to pick project, "Выберите проект для чата" placeholder when none selected, "Открыть чат" button to toggle the floating ProjectChat panel. <ProjectChat/> embedded so the floating panel works from any view.
+- Header has a cyberpunk Home button (YELLOW active state + corner notch) that calls navigate('home'). Placed right after the hamburger menu.
+- Header hamburger menu now toggles the sidebar drawer (no longer opens a Sheet with nav items — nav items were removed per spec).
+- Header chat toggle button removed (chat moved to sidebar).
+- Main content + footer dynamically shift between lg:pl-60/lg:ml-60 (expanded) and lg:pl-0/lg:ml-0 (collapsed) with smooth 300ms transition.
+- All existing functionality preserved: purple stripe quick-access panel, track detail view, kanban view, project detail view, notifications, profile dropdown, search.
+- Lint clean for my changes (only pre-existing errors in unrelated files). TSC clean. Dev server responds HTTP 200 on `/` and all API endpoints return 200.

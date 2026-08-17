@@ -5,6 +5,65 @@ import { db } from '@/lib/db'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 
+// GET /api/groups?userId=<userId>
+// Returns all groups the given user is a member of (including owned groups).
+// Used by the sidebar's artist-profile group switcher.
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('userId')
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'userId query parameter is required' },
+        { status: 400 }
+      )
+    }
+
+    // Fetch all GroupMember rows for this user, then join the Group records.
+    const memberships = await db.groupMember.findMany({
+      where: { userId },
+      orderBy: { joinedAt: 'asc' },
+      include: {
+        group: {
+          include: {
+            _count: {
+              select: { members: true, projects: true },
+            },
+          },
+        },
+      },
+    })
+
+    const groups = memberships
+      .filter((m) => m.group !== null)
+      .map((m) => ({
+        id: m.group.id,
+        name: m.group.name,
+        description: m.group.description,
+        avatarUrl: m.group.avatarUrl,
+        genre: m.group.genre,
+        inviteCode: m.group.inviteCode,
+        ownerId: m.group.ownerId,
+        memberCount: m.group._count.members,
+        projectCount: m.group._count.projects,
+        createdAt: m.group.createdAt.toISOString(),
+        // membership info for this user
+        role: m.role,
+        instrument: m.instrument,
+        joinedAt: m.joinedAt.toISOString(),
+      }))
+
+    return NextResponse.json(groups)
+  } catch (error) {
+    console.error('List groups error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 const createGroupSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
