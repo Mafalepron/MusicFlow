@@ -870,109 +870,67 @@ export function AppHeader() {
             <div
               style={{
                 position: 'relative',
-                background: 'linear-gradient(135deg, #1a0f2e 0%, #0d0820 30%, #0a0a1a 60%, #12102a 100%)',
-                border: '1.5px solid rgba(157,78,221,0.7)',
-                clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px))',
-                boxShadow: '0 0 32px rgba(157,78,221,0.5), 0 0 12px rgba(199,160,8,0.3), 0 12px 40px rgba(0,0,0,0.8), inset 0 1px 1px rgba(157,78,221,0.25), inset 0 -1px 1px rgba(0,0,0,0.8)',
-                padding: '14px 16px 16px',
+                background: 'linear-gradient(145deg, #e8eaf0 0%, #d4d8e0 100%)',
+                clipPath: 'polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px))',
+                boxShadow: '8px 8px 24px rgba(0,0,0,0.5), -4px -4px 16px rgba(255,255,255,0.05), inset 1px 1px 2px rgba(255,255,255,0.6), inset -1px -1px 2px rgba(0,0,0,0.1)',
+                padding: '16px 18px 18px',
               }}
             >
-              {/* ── Cyberpunk corner brackets (HUD frame) — brighter purple+yellow ── */}
-              <div className="pointer-events-none absolute top-0 left-0 w-4 h-4" style={{
-                borderTop: '2.5px solid #c77dff',
-                borderLeft: '2.5px solid #c77dff',
-                boxShadow: '0 0 10px rgba(199,78,221,0.9)',
-              }} />
-              <div className="pointer-events-none absolute top-0 right-0 w-4 h-4" style={{
-                borderTop: '2.5px solid #c7a008',
-                borderRight: '2.5px solid #c7a008',
-                boxShadow: '0 0 10px rgba(199,160,8,0.9)',
-              }} />
-              <div className="pointer-events-none absolute bottom-0 left-0 w-4 h-4" style={{
-                borderBottom: '2.5px solid #c7a008',
-                borderLeft: '2.5px solid #c7a008',
-                boxShadow: '0 0 10px rgba(199,160,8,0.9)',
-              }} />
-              <div className="pointer-events-none absolute bottom-0 right-0 w-4 h-4" style={{
-                borderBottom: '2.5px solid #c77dff',
-                borderRight: '2.5px solid #c77dff',
-                boxShadow: '0 0 10px rgba(199,78,221,0.9)',
-              }} />
-
-              {/* ── Scanline overlay (CRT effect) — more visible ── */}
-              <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{
-                clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px))',
-                background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(199,160,8,0.04) 2px, rgba(199,160,8,0.04) 3px)',
-                opacity: 0.7,
-              }} />
-
-              {/* ── Header bar — title + close button ──
-                  Purple→yellow themed: icon chip has purple bg + yellow
-                  border/glow, title is yellow with glow, subtitle is muted
-                  purple. Close button is yellow-themed. */}
-              <div className="flex items-center justify-between mb-3 pb-2.5" style={{
-                borderBottom: '1px solid rgba(199,160,8,0.4)',
-                boxShadow: '0 1px 0 0 rgba(199,160,8,0.15)',
+              {/* ── Header bar — title + close button (neumorphic) ── */}
+              <div className="flex items-center justify-between mb-4 pb-3" style={{
+                borderBottom: '1px solid rgba(0,168,198,0.2)',
               }}>
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center" style={{
-                    clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                    background: 'linear-gradient(135deg, rgba(157,78,221,0.35), rgba(157,78,221,0.15))',
-                    border: '1.5px solid #ffd700',
-                    boxShadow: '0 0 10px rgba(255,215,0,0.6), 0 0 6px rgba(157,78,221,0.5)',
+                  <div className="flex h-7 w-7 items-center justify-center" style={{
+                    clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                    background: 'linear-gradient(145deg, #f0f2f8, #d8dce4)',
+                    boxShadow: '2px 2px 5px rgba(0,0,0,0.15), -2px -2px 5px rgba(255,255,255,0.8)',
                   }}>
-                    <Zap className="h-3.5 w-3.5" style={{ color: '#ffd700', filter: 'drop-shadow(0 0 5px rgba(255,215,0,1))' }} />
+                    <Zap className="h-4 w-4" style={{ color: '#00a8c6' }} />
                   </div>
-                  <span className="text-[11px] font-bold uppercase" style={{
-                    color: '#ffffff',
-                    fontFamily: 'var(--font-jetbrains-mono), monospace',
-                    letterSpacing: '2px',
-                    textShadow: '0 0 8px rgba(255,255,255,0.3)',
+                  <span className="text-[12px] font-bold uppercase" style={{
+                    color: '#1a1a2e',
+                    fontFamily: 'var(--font-rajdhani), sans-serif',
+                    letterSpacing: '1.5px',
+                    fontWeight: 800,
                   }}>
                     Быстрый доступ
                   </span>
                   <span className="text-[9px] uppercase" style={{
-                    color: 'rgba(157,78,221,0.6)',
-                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    color: '#7a8090',
+                    fontFamily: 'var(--font-rajdhani), sans-serif',
                     letterSpacing: '1px',
                   }}>
                     · обзор группы
                   </span>
                 </div>
 
-                {/* Close button — yellow-themed cyberpunk chamfered with glow + hover */}
+                {/* Close button — inset neumorphic */}
                 <button
                   onClick={() => setQuickPanelOpen(false)}
-                  className="group flex h-8 w-8 items-center justify-center transition-all hover:scale-110"
+                  className="group flex h-8 w-8 items-center justify-center transition-all active:scale-95"
                   style={{
                     clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                    background: 'linear-gradient(135deg, rgba(199,160,8,0.18), rgba(157,78,221,0.1))',
-                    border: '1.5px solid #ffd700',
-                    boxShadow: '0 0 10px rgba(255,215,0,0.5), 0 0 4px rgba(157,78,221,0.3)',
+                    background: 'linear-gradient(145deg, #d4d8e0, #f0f2f8)',
+                    boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.15), inset -2px -2px 4px rgba(255,255,255,0.8)',
                     cursor: 'pointer',
+                    border: 'none',
                   }}
                   title="Закрыть (Esc)"
                   aria-label="Закрыть"
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,90,90,0.25)';
-                    e.currentTarget.style.borderColor = '#ff5a5a';
-                    e.currentTarget.style.boxShadow = '0 0 16px rgba(255,90,90,0.8), 0 0 6px rgba(255,215,0,0.5)';
+                    e.currentTarget.style.boxShadow = 'inset 2px 2px 6px rgba(0,168,198,0.3), inset -2px -2px 6px rgba(255,255,255,0.8)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(199,160,8,0.18), rgba(157,78,221,0.1))';
-                    e.currentTarget.style.borderColor = '#ffd700';
-                    e.currentTarget.style.boxShadow = '0 0 10px rgba(255,215,0,0.5), 0 0 4px rgba(157,78,221,0.3)';
+                    e.currentTarget.style.boxShadow = 'inset 2px 2px 4px rgba(0,0,0,0.15), inset -2px -2px 4px rgba(255,255,255,0.8)';
                   }}
                 >
-                  <X className="h-4 w-4 transition-colors" style={{ color: '#ffd700', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.8))' }} />
+                  <X className="h-4 w-4" style={{ color: '#00a8c6' }} />
                 </button>
               </div>
 
-              {/* Stats row — projects / tracks / ideas / participants.
-                  Bright gradient cyberpunk tiles: dark purple base with a
-                  vivid yellow→purple gradient glow. Strong neon borders,
-                  bright yellow icon + label, white count. */}
-              <div className="grid grid-cols-4 gap-2.5 mb-3">
+              {/* Stats row — neumorphic raised cards with light-blue accents */}
+              <div className="grid grid-cols-4 gap-3 mb-4">
                 {[
                   { icon: FolderKanban, value: projects.length, label: 'Проекты', view: 'projects' as ViewName },
                   { icon: Music2, value: tracks.length, label: 'Треки', view: 'projects' as ViewName },
@@ -982,64 +940,41 @@ export function AppHeader() {
                   <button
                     key={s.label}
                     onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
-                    className="group relative flex flex-col items-center justify-center gap-1 py-3 transition-all duration-200"
+                    className="group relative flex flex-col items-center justify-center gap-1.5 py-3.5 transition-all duration-200"
                     style={{
-                      clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
-                      background: 'linear-gradient(135deg, #1a0f2e 0%, #14102a 40%, #1e1438 70%, #251a40 100%)',
-                      borderTop: '2px solid #c7a008',
+                      clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
+                      background: 'linear-gradient(145deg, #f0f2f8, #d8dce4)',
+                      boxShadow: '4px 4px 8px rgba(0,0,0,0.12), -4px -4px 8px rgba(255,255,255,0.7)',
                       cursor: 'pointer',
-                      padding: '10px 6px',
-                      boxShadow: 'inset 0 1px 16px rgba(199,160,8,0.15), inset 0 0 0 1px rgba(199,160,8,0.4), 0 0 8px rgba(199,160,8,0.15), 0 2px 8px rgba(0,0,0,0.5)',
+                      padding: '12px 8px',
+                      border: 'none',
                     }}
                     title={`Перейти к: ${s.label}`}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-3px)';
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #221038 0%, #1a1230 40%, #241640 70%, #2e1f4a 100%)';
-                      e.currentTarget.style.boxShadow = 'inset 0 1px 16px rgba(199,160,8,0.3), inset 0 0 0 1.5px rgba(199,160,8,0.8), 0 0 20px rgba(199,160,8,0.5), 0 0 6px rgba(157,78,221,0.4), 0 4px 16px rgba(0,0,0,0.6)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '6px 6px 14px rgba(0,168,198,0.2), -4px -4px 10px rgba(255,255,255,0.8)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #1a0f2e 0%, #14102a 40%, #1e1438 70%, #251a40 100%)';
-                      e.currentTarget.style.boxShadow = 'inset 0 1px 16px rgba(199,160,8,0.15), inset 0 0 0 1px rgba(199,160,8,0.4), 0 0 8px rgba(199,160,8,0.15), 0 2px 8px rgba(0,0,0,0.5)';
+                      e.currentTarget.style.boxShadow = '4px 4px 8px rgba(0,0,0,0.12), -4px -4px 8px rgba(255,255,255,0.7)';
                     }}
                   >
-                    {/* Inner beveled frame (recessed screen effect) — brighter */}
-                    <div className="pointer-events-none absolute inset-[3px]" style={{
-                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                      boxShadow: 'inset 0 0 0 1px rgba(199,160,8,0.25), inset 0 0 14px rgba(199,160,8,0.1)',
-                    }} />
+                    {/* Icon — light-blue */}
+                    <s.icon className="h-5 w-5 transition-transform group-hover:scale-110" style={{ color: '#00a8c6' }} />
 
-                    {/* Corner brackets (cyberpunk HUD frame) — yellow, brighter */}
-                    <div className="pointer-events-none absolute top-0 left-0 w-2.5 h-2.5" style={{
-                      borderTop: '2px solid #ffd700',
-                      borderLeft: '2px solid #ffd700',
-                      opacity: 1,
-                      filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.8))',
-                    }} />
-                    <div className="pointer-events-none absolute bottom-0 right-0 w-2.5 h-2.5" style={{
-                      borderBottom: '2px solid #ffd700',
-                      borderRight: '2px solid #ffd700',
-                      opacity: 1,
-                      filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.8))',
-                    }} />
-
-                    {/* Icon — bright yellow with strong glow */}
-                    <s.icon className="h-4 w-4 transition-transform group-hover:scale-110 relative" style={{ color: '#ffd700', filter: 'drop-shadow(0 0 6px rgba(255,215,0,1)) drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
-
-                    {/* Count — bold, large, white */}
-                    <span className="text-2xl font-extrabold tabular-nums leading-none relative" style={{
-                      color: '#ffffff',
+                    {/* Count — bold, large, dark */}
+                    <span className="text-2xl font-extrabold tabular-nums leading-none" style={{
+                      color: '#1a1a2e',
                       fontFamily: 'var(--font-rajdhani), sans-serif',
-                      textShadow: '0 0 10px rgba(255,255,255,0.4), 0 2px 4px rgba(0,0,0,0.5)',
                     }}>
                       {s.value}
                     </span>
 
-                    {/* Label — uppercase monospace, bright yellow */}
-                    <span className="text-[9px] uppercase font-bold tracking-[0.1em] relative" style={{
-                      color: '#ffd700',
-                      fontFamily: 'var(--font-jetbrains-mono), monospace',
-                      textShadow: '0 0 6px rgba(255,215,0,0.8), 0 1px 2px rgba(0,0,0,0.4)',
+                    {/* Label — uppercase, muted with yellow accent */}
+                    <span className="text-[9px] uppercase font-bold tracking-wider" style={{
+                      color: '#c7a008',
+                      fontFamily: 'var(--font-rajdhani), sans-serif',
+                      letterSpacing: '0.5px',
                     }}>
                       {s.label}
                     </span>
@@ -1047,61 +982,57 @@ export function AppHeader() {
                 ))}
               </div>
 
-              {/* Quick-access cards — same projects the user pinned on the home
-                  page's "Избранное" section. Reads the shared
-                  `soundflow-quick-access` localStorage key. Styled like the
-                  home page's QuickAccessCard. Cards wrap to the next line
-                  instead of horizontal scrolling. */}
-              {quickAccessCards.length > 0 ? (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <LayoutDashboard className="h-3 w-3" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 3px rgba(0,168,198,0.5))' }} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#00a8c6', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
-                      Проекты
-                    </span>
-                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.4), transparent)' }} />
-                  </div>
-                  {/* Cards carousel — horizontal layout with left/right scroll
-                      buttons. The native scrollbar is hidden via CSS. */}
-                  <div className="flex items-center gap-1.5">
-                    {/* Left scroll button */}
-                    <button
-                      onClick={() => {
-                        const el = quickCardsScrollRef.current;
-                        if (el) el.scrollBy({ left: -220, behavior: 'smooth' });
-                      }}
-                      className="group flex h-10 w-7 shrink-0 items-center justify-center transition-all hover:scale-110"
-                      style={{
-                        clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                        background: 'rgba(199,160,8,0.1)',
-                        border: '1px solid rgba(199,160,8,0.4)',
-                        boxShadow: '0 0 6px rgba(199,160,8,0.2)',
-                        cursor: 'pointer',
-                      }}
-                      title="Прокрутить влево"
-                      aria-label="Прокрутить влево"
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(199,160,8,0.25)';
-                        e.currentTarget.style.boxShadow = '0 0 10px rgba(199,160,8,0.5)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(199,160,8,0.1)';
-                        e.currentTarget.style.boxShadow = '0 0 6px rgba(199,160,8,0.2)';
-                      }}
-                    >
-                      <ChevronLeft className="h-4 w-4" style={{ color: '#c7a008' }} />
-                    </button>
+              {/* Quick-access cards section header */}
+              {quickAccessCards.length > 0 && (
+                <div className="flex items-center gap-2 mb-2.5">
+                  <LayoutDashboard className="h-3.5 w-3.5" style={{ color: '#00a8c6' }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{
+                    color: '#00a8c6',
+                    fontFamily: 'var(--font-rajdhani), sans-serif',
+                    letterSpacing: '1px',
+                  }}>
+                    Проекты
+                  </span>
+                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.3), transparent)' }} />
+                </div>
+              )}
 
-                    {/* Scrollable cards container — scrollbar hidden */}
-                    <div
-                      ref={quickCardsScrollRef}
-                      className="flex gap-2 overflow-x-auto pb-1 flex-1 hide-scrollbar"
-                      style={{ scrollBehavior: 'smooth', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                    >
+              {/* Quick-access cards — neumorphic horizontal carousel */}
+              {quickAccessCards.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  {/* Left scroll button — inset neumorphic */}
+                  <button
+                    onClick={() => {
+                      const el = quickCardsScrollRef.current;
+                      if (el) el.scrollBy({ left: -220, behavior: 'smooth' });
+                    }}
+                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all active:scale-95"
+                    style={{
+                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                      background: 'linear-gradient(145deg, #d4d8e0, #f0f2f8)',
+                      boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)',
+                      cursor: 'pointer',
+                      border: 'none',
+                    }}
+                    title="Прокрутить влево"
+                    aria-label="Прокрутить влево"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = 'inset 2px 2px 6px rgba(0,168,198,0.2), inset -2px -2px 6px rgba(255,255,255,0.7)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)';
+                    }}
+                  >
+                    <ChevronLeft className="h-4 w-4" style={{ color: '#00a8c6' }} />
+                  </button>
+
+                  {/* Scrollable cards container */}
+                  <div
+                    ref={quickCardsScrollRef}
+                    className="flex gap-2.5 overflow-x-auto pb-1 flex-1 hide-scrollbar"
+                    style={{ scrollBehavior: 'smooth', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  >
                     {quickAccessCards.map((card) => {
-                      const C_HEX = '#00a8c6';
-                      const Y_HEX = '#c7a008';
-                      // Status labels matching home-view
                       const stLabel: Record<string, string> = {
                         draft: 'Черновик', in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз', todo: 'TODO',
                       };
@@ -1121,127 +1052,118 @@ export function AppHeader() {
                             if (card.kind === 'auto') {
                               navigate('project-detail', card.id);
                             } else {
-                              // Select the kanban project FIRST so KanbanPage doesn't redirect.
                               useKanbanStore.getState().selectProject(card.id);
                               navigate('kanban');
                             }
                             setQuickPanelOpen(false);
                           }}
-                          className="group relative w-52 shrink-0 cursor-pointer overflow-hidden"
+                          className="group relative w-52 shrink-0 cursor-pointer overflow-hidden transition-all duration-200"
                           style={{
-                            clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-                            background: 'linear-gradient(135deg, rgba(0,168,198,0.10), rgba(10,14,22,0.88))',
-                            boxShadow: 'inset 0 0 0 1px rgba(0,168,198,0.3), inset 0 0 0 2.5px rgba(199,160,8,0.55), 0 0 4px rgba(199,160,8,0.1), 0 2px 10px rgba(0,0,0,0.4)',
-                            transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)',
+                            clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
+                            background: 'linear-gradient(145deg, #f0f2f8, #d8dce4)',
+                            boxShadow: '4px 4px 10px rgba(0,0,0,0.12), -3px -3px 8px rgba(255,255,255,0.7)',
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(0,168,198,0.22), rgba(10,14,22,0.96))';
-                            e.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(0,168,198,0.5), inset 0 0 0 3px rgba(199,160,8,0.8), 0 0 8px rgba(199,160,8,0.25), 0 4px 16px rgba(0,0,0,0.5)';
                             e.currentTarget.style.transform = 'translateY(-3px)';
+                            e.currentTarget.style.boxShadow = '6px 8px 18px rgba(0,168,198,0.2), -3px -3px 8px rgba(255,255,255,0.7)';
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(0,168,198,0.10), rgba(10,14,22,0.88))';
-                            e.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(0,168,198,0.3), inset 0 0 0 2.5px rgba(199,160,8,0.55), 0 0 4px rgba(199,160,8,0.1), 0 2px 10px rgba(0,0,0,0.4)';
                             e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '4px 4px 10px rgba(0,0,0,0.12), -3px -3px 8px rgba(255,255,255,0.7)';
                           }}
                           title={`Открыть: ${card.title}`}
                         >
-                          {/* Beveled edge glow — top accent strip (cyan) */}
-                          <div
-                            className="h-[2px] w-full"
-                            style={{
-                              background: `linear-gradient(90deg, transparent, ${C_HEX} 30%, ${C_HEX} 70%, transparent)`,
-                              boxShadow: `0 0 8px ${hexToRgba(C_HEX, 0.7)}`,
-                            }}
-                          />
                           {/* Body */}
-                          <div className="p-2.5 pt-3 relative">
+                          <div className="p-3 relative">
                             {/* Type icon + label */}
-                            <div className="mb-1.5 flex items-center gap-1.5">
+                            <div className="mb-2 flex items-center gap-1.5">
                               <div
-                                className="flex h-5 w-5 items-center justify-center"
+                                className="flex h-6 w-6 items-center justify-center"
                                 style={{
-                                  clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
-                                  background: hexToRgba(Y_HEX, 0.18),
-                                  border: `1px solid ${hexToRgba(Y_HEX, 0.5)}`,
+                                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
+                                  background: 'linear-gradient(145deg, #e8eaf0, #d4d8e0)',
+                                  boxShadow: 'inset 1px 1px 2px rgba(0,0,0,0.1), inset -1px -1px 2px rgba(255,255,255,0.6)',
                                 }}
                               >
                                 {card.kind === 'auto' ? (
-                                  <FolderOpen className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                  <FolderOpen className="w-3 h-3" style={{ color: '#c7a008' }} />
                                 ) : (
-                                  <LayoutDashboard className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                  <LayoutDashboard className="w-3 h-3" style={{ color: '#c7a008' }} />
                                 )}
                               </div>
-                              <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: Y_HEX, textShadow: `0 0 4px ${hexToRgba(Y_HEX, 0.4)}` }}>
+                              <span className="text-[9px] font-bold uppercase tracking-wider" style={{
+                                color: '#c7a008',
+                                fontFamily: 'var(--font-rajdhani), sans-serif',
+                                letterSpacing: '0.5px',
+                              }}>
                                 {tl}
                               </span>
                             </div>
                             {/* Title */}
-                            <p className="text-xs font-bold line-clamp-1" style={{
-                              color: '#cbd5e1',
-                              letterSpacing: '0.02em',
-                              fontFamily: 'monospace',
+                            <p className="text-sm font-semibold line-clamp-1" style={{
+                              color: '#1a1a2e',
+                              fontFamily: 'var(--font-rajdhani), sans-serif',
                             }}>
                               {card.title}
                             </p>
                             {/* Meta — status dot + count */}
-                            <div className="mt-1 flex items-center gap-2 text-[9px]" style={{ color: '#64748b', fontFamily: 'monospace' }}>
+                            <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{
+                              color: '#6a7080',
+                              fontFamily: 'var(--font-rajdhani), sans-serif',
+                            }}>
                               <span className="flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: Y_HEX, boxShadow: `0 0 4px ${hexToRgba(Y_HEX, 0.5)}` }} />
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#c7a008' }} />
                                 {sl}
                               </span>
                               <span>·</span>
                               <span className="flex items-center gap-1">
                                 {card.kind === 'auto' ? (
-                                  <Music2 className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                  <Music2 className="w-3 h-3" style={{ color: '#00a8c6' }} />
                                 ) : (
-                                  <Layers className="w-2.5 h-2.5" style={{ color: Y_HEX }} />
+                                  <Layers className="w-3 h-3" style={{ color: '#00a8c6' }} />
                                 )}
                                 {count}
                               </span>
                             </div>
                             {/* Waveform progress bar */}
-                            <div className="mt-2">
-                              <WaveformProgressBar progress={progress} accentColor={Y_HEX} height={20} bars={20} />
+                            <div className="mt-2.5">
+                              <WaveformProgressBar progress={progress} accentColor="#c7a008" height={18} bars={20} />
                             </div>
                           </div>
                         </div>
                       );
                     })}
-                    </div>
-
-                    {/* Right scroll button */}
-                    <button
-                      onClick={() => {
-                        const el = quickCardsScrollRef.current;
-                        if (el) el.scrollBy({ left: 220, behavior: 'smooth' });
-                      }}
-                      className="group flex h-10 w-7 shrink-0 items-center justify-center transition-all hover:scale-110"
-                      style={{
-                        clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                        background: 'rgba(199,160,8,0.1)',
-                        border: '1px solid rgba(199,160,8,0.4)',
-                        boxShadow: '0 0 6px rgba(199,160,8,0.2)',
-                        cursor: 'pointer',
-                      }}
-                      title="Прокрутить вправо"
-                      aria-label="Прокрутить вправо"
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(199,160,8,0.25)';
-                        e.currentTarget.style.boxShadow = '0 0 10px rgba(199,160,8,0.5)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(199,160,8,0.1)';
-                        e.currentTarget.style.boxShadow = '0 0 6px rgba(199,160,8,0.2)';
-                      }}
-                    >
-                      <ChevronRight className="h-4 w-4" style={{ color: '#c7a008' }} />
-                    </button>
                   </div>
+
+                  {/* Right scroll button — inset neumorphic */}
+                  <button
+                    onClick={() => {
+                      const el = quickCardsScrollRef.current;
+                      if (el) el.scrollBy({ left: 220, behavior: 'smooth' });
+                    }}
+                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all active:scale-95"
+                    style={{
+                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+                      background: 'linear-gradient(145deg, #d4d8e0, #f0f2f8)',
+                      boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)',
+                      cursor: 'pointer',
+                      border: 'none',
+                    }}
+                    title="Прокрутить вправо"
+                    aria-label="Прокрутить вправо"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = 'inset 2px 2px 6px rgba(0,168,198,0.2), inset -2px -2px 6px rgba(255,255,255,0.7)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)';
+                    }}
+                  >
+                    <ChevronRight className="h-4 w-4" style={{ color: '#00a8c6' }} />
+                  </button>
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <p className="text-xs" style={{ color: '#718096', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                  <p className="text-xs" style={{ color: '#7a8090', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
                     Нет проектов в избранном. Добавьте их на главной странице.
                   </p>
                 </div>
