@@ -2387,3 +2387,57 @@ Critical constraints honored:
 - `npx tsc --noEmit` reports ZERO errors in `track-detail-view.tsx` (the only tsc errors are pre-existing in unrelated files: examples/websocket/server.ts, skills/image-edit, skills/stock-analysis-skill, src/app/api/boards/route.ts, src/components/ui/sidebar.tsx).
 - `bun run lint` reports ZERO errors for `track-detail-view.tsx` (all 9 lint errors are pre-existing in project-chat.tsx, app-header.tsx, home-view.tsx).
 - `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` returns 200.
+
+---
+Task ID: VIBRANT-GRADIENT-PANEL
+Agent: main
+Task: Make the quick-access panel colors more vibrant and gradient, similar to the reference screenshot (bright purple-blue gradient background, vivid yellow neon elements, strong glow effects).
+
+Work Log:
+
+**Panel background — vibrant purple gradient:**
+- Changed from `linear-gradient(135deg, #0d0f17 0%, #0a0c12 50%, #0d0a16 100%)` (dark, muted) to `linear-gradient(135deg, #1a0f2e 0%, #0d0820 30%, #0a0a1a 60%, #12102a 100%)` — a vivid purple-blue gradient with more saturation.
+- Border: `1px solid rgba(157,78,221,0.55)` → `1.5px solid rgba(157,78,221,0.7)` — thicker + more opaque.
+- Box shadow: intensified to `0 0 32px rgba(157,78,221,0.5), 0 0 12px rgba(199,160,8,0.3), 0 12px 40px rgba(0,0,0,0.8)` — stronger purple + yellow dual glow.
+
+**Corner brackets — brighter dual-color:**
+- Changed from 2px `#9d4edd` (all 4 corners purple) to 2.5px alternating: top-left + bottom-right = `#c77dff` (bright purple), top-right + bottom-left = `#c7a008` (bright gold).
+- Glow intensified: `0 0 6px` → `0 0 10px` with higher alpha.
+
+**Scanline overlay — more visible:**
+- Changed from purple tint `rgba(157,78,221,0.025)` to yellow tint `rgba(199,160,8,0.04)` — more visible yellow scanlines.
+- Opacity: 0.6 → 0.7.
+
+**Stats buttons — vibrant gradient fill:**
+- Background: changed from flat `#161224` to `linear-gradient(135deg, #1a0f2e 0%, #14102a 40%, #1e1438 70%, #251a40 100%)` — vibrant purple gradient.
+- Hover background: brighter gradient `#221038 → #1a1230 → #241640 → #2e1f4a`.
+- Corner brackets: changed from `1.5px #c7a008` (90% opacity) to `2px #ffd700` (100% opacity) with `drop-shadow(0 0 3px rgba(255,215,0,0.8))` — brighter gold.
+- Icon color: `#c7a008` → `#ffd700` (brighter gold) with stronger glow `drop-shadow(0 0 6px rgba(255,215,0,1))`.
+- Label color: `#c7a008` → `#ffd700` with stronger glow `0 0 6px rgba(255,215,0,0.8)`.
+- Count textShadow: added white glow `0 0 10px rgba(255,255,255,0.4)`.
+- Hover boxShadow: added purple glow `0 0 6px rgba(157,78,221,0.4)` alongside the yellow glow.
+
+**Header icon chip — brighter:**
+- Background: `rgba(157,78,221,0.25)` → `linear-gradient(135deg, rgba(157,78,221,0.35), rgba(157,78,221,0.15))` — gradient.
+- Border: `1px solid #c7a008` → `1.5px solid #ffd700` (brighter gold).
+- Zap icon: `#c7a008` → `#ffd700` with stronger glow.
+
+**Close button — brighter gradient:**
+- Background: `rgba(199,160,8,0.12)` → `linear-gradient(135deg, rgba(199,160,8,0.18), rgba(157,78,221,0.1))` — yellow→purple gradient.
+- Border: `1px solid #c7a008` → `1.5px solid #ffd700`.
+- X icon: `#c7a008` → `#ffd700` with stronger glow.
+- Hover: brighter red + yellow dual glow.
+
+Verification:
+- `bun run lint` → only the 1 pre-existing error (app-header:245). No new errors.
+- dev.log: clean compile.
+- VLM confirms: "Фон панели имеет насыщенный тёмно-фиолетовый градиент. Кнопки статистики яркие с жёлто-золотистой обводкой и градиентной заливкой. Угловые скобки и рамка ярко светятся. Стиль соответствует референсу."
+
+Stage Summary:
+- Panel background: vibrant purple-blue 4-stop gradient (was dark muted 3-stop).
+- All yellow elements upgraded from `#c7a008` → `#ffd700` (brighter gold) with stronger glow effects.
+- Corner brackets: dual-color (purple + gold alternating), thicker (2.5px), brighter glow.
+- Scanlines: yellow-tinted, more visible (0.7 opacity).
+- Stats buttons: vibrant purple gradient fill (was flat), brighter corner brackets, brighter icons + labels.
+- Header chip + close button: gradient backgrounds, brighter gold borders + icons.
+- Files modified: `src/components/layout/app-header.tsx` only.

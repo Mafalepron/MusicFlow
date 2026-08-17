@@ -870,40 +870,40 @@ export function AppHeader() {
             <div
               style={{
                 position: 'relative',
-                background: 'linear-gradient(135deg, #0d0f17 0%, #0a0c12 50%, #0d0a16 100%)',
-                border: '1px solid rgba(157,78,221,0.55)',
+                background: 'linear-gradient(135deg, #1a0f2e 0%, #0d0820 30%, #0a0a1a 60%, #12102a 100%)',
+                border: '1.5px solid rgba(157,78,221,0.7)',
                 clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px))',
-                boxShadow: '0 0 24px rgba(157,78,221,0.35), 0 0 8px rgba(157,78,221,0.6), 0 12px 32px rgba(0,0,0,0.7), inset 0 1px 1px rgba(157,78,221,0.15), inset 0 -1px 1px rgba(0,0,0,0.8)',
+                boxShadow: '0 0 32px rgba(157,78,221,0.5), 0 0 12px rgba(199,160,8,0.3), 0 12px 40px rgba(0,0,0,0.8), inset 0 1px 1px rgba(157,78,221,0.25), inset 0 -1px 1px rgba(0,0,0,0.8)',
                 padding: '14px 16px 16px',
               }}
             >
-              {/* ── Cyberpunk corner brackets (HUD frame) ── */}
+              {/* ── Cyberpunk corner brackets (HUD frame) — brighter purple+yellow ── */}
               <div className="pointer-events-none absolute top-0 left-0 w-4 h-4" style={{
-                borderTop: '2px solid #9d4edd',
-                borderLeft: '2px solid #9d4edd',
-                boxShadow: '0 0 6px rgba(157,78,221,0.7)',
+                borderTop: '2.5px solid #c77dff',
+                borderLeft: '2.5px solid #c77dff',
+                boxShadow: '0 0 10px rgba(199,78,221,0.9)',
               }} />
               <div className="pointer-events-none absolute top-0 right-0 w-4 h-4" style={{
-                borderTop: '2px solid #9d4edd',
-                borderRight: '2px solid #9d4edd',
-                boxShadow: '0 0 6px rgba(157,78,221,0.7)',
+                borderTop: '2.5px solid #c7a008',
+                borderRight: '2.5px solid #c7a008',
+                boxShadow: '0 0 10px rgba(199,160,8,0.9)',
               }} />
               <div className="pointer-events-none absolute bottom-0 left-0 w-4 h-4" style={{
-                borderBottom: '2px solid #9d4edd',
-                borderLeft: '2px solid #9d4edd',
-                boxShadow: '0 0 6px rgba(157,78,221,0.7)',
+                borderBottom: '2.5px solid #c7a008',
+                borderLeft: '2.5px solid #c7a008',
+                boxShadow: '0 0 10px rgba(199,160,8,0.9)',
               }} />
               <div className="pointer-events-none absolute bottom-0 right-0 w-4 h-4" style={{
-                borderBottom: '2px solid #9d4edd',
-                borderRight: '2px solid #9d4edd',
-                boxShadow: '0 0 6px rgba(157,78,221,0.7)',
+                borderBottom: '2.5px solid #c77dff',
+                borderRight: '2.5px solid #c77dff',
+                boxShadow: '0 0 10px rgba(199,78,221,0.9)',
               }} />
 
-              {/* ── Scanline overlay (subtle CRT effect) ── */}
+              {/* ── Scanline overlay (CRT effect) — more visible ── */}
               <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{
                 clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px))',
-                background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(157,78,221,0.025) 2px, rgba(157,78,221,0.025) 3px)',
-                opacity: 0.6,
+                background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(199,160,8,0.04) 2px, rgba(199,160,8,0.04) 3px)',
+                opacity: 0.7,
               }} />
 
               {/* ── Header bar — title + close button ──
@@ -917,11 +917,11 @@ export function AppHeader() {
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center" style={{
                     clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                    background: 'rgba(157,78,221,0.25)',
-                    border: '1px solid #c7a008',
-                    boxShadow: '0 0 8px rgba(199,160,8,0.5), 0 0 4px rgba(157,78,221,0.4)',
+                    background: 'linear-gradient(135deg, rgba(157,78,221,0.35), rgba(157,78,221,0.15))',
+                    border: '1.5px solid #ffd700',
+                    boxShadow: '0 0 10px rgba(255,215,0,0.6), 0 0 6px rgba(157,78,221,0.5)',
                   }}>
-                    <Zap className="h-3.5 w-3.5" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 4px rgba(199,160,8,0.9))' }} />
+                    <Zap className="h-3.5 w-3.5" style={{ color: '#ffd700', filter: 'drop-shadow(0 0 5px rgba(255,215,0,1))' }} />
                   </div>
                   <span className="text-[11px] font-bold uppercase" style={{
                     color: '#ffffff',
@@ -946,34 +946,32 @@ export function AppHeader() {
                   className="group flex h-8 w-8 items-center justify-center transition-all hover:scale-110"
                   style={{
                     clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                    background: 'rgba(199,160,8,0.12)',
-                    border: '1px solid #c7a008',
-                    boxShadow: '0 0 8px rgba(199,160,8,0.4)',
+                    background: 'linear-gradient(135deg, rgba(199,160,8,0.18), rgba(157,78,221,0.1))',
+                    border: '1.5px solid #ffd700',
+                    boxShadow: '0 0 10px rgba(255,215,0,0.5), 0 0 4px rgba(157,78,221,0.3)',
                     cursor: 'pointer',
                   }}
                   title="Закрыть (Esc)"
                   aria-label="Закрыть"
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,90,90,0.2)';
-                    e.currentTarget.style.borderColor = 'rgba(255,90,90,0.8)';
-                    e.currentTarget.style.boxShadow = '0 0 12px rgba(255,90,90,0.7)';
+                    e.currentTarget.style.background = 'rgba(255,90,90,0.25)';
+                    e.currentTarget.style.borderColor = '#ff5a5a';
+                    e.currentTarget.style.boxShadow = '0 0 16px rgba(255,90,90,0.8), 0 0 6px rgba(255,215,0,0.5)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(199,160,8,0.12)';
-                    e.currentTarget.style.borderColor = '#c7a008';
-                    e.currentTarget.style.boxShadow = '0 0 8px rgba(199,160,8,0.4)';
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(199,160,8,0.18), rgba(157,78,221,0.1))';
+                    e.currentTarget.style.borderColor = '#ffd700';
+                    e.currentTarget.style.boxShadow = '0 0 10px rgba(255,215,0,0.5), 0 0 4px rgba(157,78,221,0.3)';
                   }}
                 >
-                  <X className="h-4 w-4 transition-colors" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 3px rgba(199,160,8,0.6))' }} />
+                  <X className="h-4 w-4 transition-colors" style={{ color: '#ffd700', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.8))' }} />
                 </button>
               </div>
 
               {/* Stats row — projects / tracks / ideas / participants.
-                  Styled like the home page's "Альбом" card: dark purple base
-                  (#161224) with a yellow top border + yellow inner glow.
-                  Yellow icon, white count, yellow label. Hover intensifies
-                  the yellow glow. No heavy gradient fill — just a dark slab
-                  with yellow accents, cyberpunk HUD style. */}
+                  Bright gradient cyberpunk tiles: dark purple base with a
+                  vivid yellow→purple gradient glow. Strong neon borders,
+                  bright yellow icon + label, white count. */}
               <div className="grid grid-cols-4 gap-2.5 mb-3">
                 {[
                   { icon: FolderKanban, value: projects.length, label: 'Проекты', view: 'projects' as ViewName },
@@ -987,59 +985,61 @@ export function AppHeader() {
                     className="group relative flex flex-col items-center justify-center gap-1 py-3 transition-all duration-200"
                     style={{
                       clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
-                      background: '#161224',
+                      background: 'linear-gradient(135deg, #1a0f2e 0%, #14102a 40%, #1e1438 70%, #251a40 100%)',
                       borderTop: '2px solid #c7a008',
                       cursor: 'pointer',
                       padding: '10px 6px',
-                      boxShadow: 'inset 0 1px 12px rgba(199,160,8,0.12), inset 0 0 0 1px rgba(199,160,8,0.3), 0 2px 8px rgba(0,0,0,0.4)',
+                      boxShadow: 'inset 0 1px 16px rgba(199,160,8,0.15), inset 0 0 0 1px rgba(199,160,8,0.4), 0 0 8px rgba(199,160,8,0.15), 0 2px 8px rgba(0,0,0,0.5)',
                     }}
                     title={`Перейти к: ${s.label}`}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = 'translateY(-3px)';
-                      e.currentTarget.style.background = '#161224';
-                      e.currentTarget.style.boxShadow = 'inset 0 1px 12px rgba(199,160,8,0.2), inset 0 0 0 1px rgba(199,160,8,0.6), 0 0 12px rgba(199,160,8,0.3), 0 4px 16px rgba(0,0,0,0.5)';
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #221038 0%, #1a1230 40%, #241640 70%, #2e1f4a 100%)';
+                      e.currentTarget.style.boxShadow = 'inset 0 1px 16px rgba(199,160,8,0.3), inset 0 0 0 1.5px rgba(199,160,8,0.8), 0 0 20px rgba(199,160,8,0.5), 0 0 6px rgba(157,78,221,0.4), 0 4px 16px rgba(0,0,0,0.6)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.background = '#161224';
-                      e.currentTarget.style.boxShadow = 'inset 0 1px 12px rgba(199,160,8,0.12), inset 0 0 0 1px rgba(199,160,8,0.3), 0 2px 8px rgba(0,0,0,0.4)';
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #1a0f2e 0%, #14102a 40%, #1e1438 70%, #251a40 100%)';
+                      e.currentTarget.style.boxShadow = 'inset 0 1px 16px rgba(199,160,8,0.15), inset 0 0 0 1px rgba(199,160,8,0.4), 0 0 8px rgba(199,160,8,0.15), 0 2px 8px rgba(0,0,0,0.5)';
                     }}
                   >
-                    {/* Inner beveled frame (recessed screen effect) */}
+                    {/* Inner beveled frame (recessed screen effect) — brighter */}
                     <div className="pointer-events-none absolute inset-[3px]" style={{
                       clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                      boxShadow: 'inset 0 0 0 1px rgba(199,160,8,0.2), inset 0 0 10px rgba(199,160,8,0.08)',
+                      boxShadow: 'inset 0 0 0 1px rgba(199,160,8,0.25), inset 0 0 14px rgba(199,160,8,0.1)',
                     }} />
 
-                    {/* Corner brackets (cyberpunk HUD frame) — yellow */}
-                    <div className="pointer-events-none absolute top-0 left-0 w-2 h-2" style={{
-                      borderTop: '1.5px solid #c7a008',
-                      borderLeft: '1.5px solid #c7a008',
-                      opacity: 0.9,
+                    {/* Corner brackets (cyberpunk HUD frame) — yellow, brighter */}
+                    <div className="pointer-events-none absolute top-0 left-0 w-2.5 h-2.5" style={{
+                      borderTop: '2px solid #ffd700',
+                      borderLeft: '2px solid #ffd700',
+                      opacity: 1,
+                      filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.8))',
                     }} />
-                    <div className="pointer-events-none absolute bottom-0 right-0 w-2 h-2" style={{
-                      borderBottom: '1.5px solid #c7a008',
-                      borderRight: '1.5px solid #c7a008',
-                      opacity: 0.9,
+                    <div className="pointer-events-none absolute bottom-0 right-0 w-2.5 h-2.5" style={{
+                      borderBottom: '2px solid #ffd700',
+                      borderRight: '2px solid #ffd700',
+                      opacity: 1,
+                      filter: 'drop-shadow(0 0 3px rgba(255,215,0,0.8))',
                     }} />
 
-                    {/* Icon — yellow with glow */}
-                    <s.icon className="h-4 w-4 transition-transform group-hover:scale-110 relative" style={{ color: '#c7a008', filter: 'drop-shadow(0 0 4px rgba(199,160,8,0.8)) drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
+                    {/* Icon — bright yellow with strong glow */}
+                    <s.icon className="h-4 w-4 transition-transform group-hover:scale-110 relative" style={{ color: '#ffd700', filter: 'drop-shadow(0 0 6px rgba(255,215,0,1)) drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
 
                     {/* Count — bold, large, white */}
                     <span className="text-2xl font-extrabold tabular-nums leading-none relative" style={{
                       color: '#ffffff',
                       fontFamily: 'var(--font-rajdhani), sans-serif',
-                      textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                      textShadow: '0 0 10px rgba(255,255,255,0.4), 0 2px 4px rgba(0,0,0,0.5)',
                     }}>
                       {s.value}
                     </span>
 
-                    {/* Label — uppercase monospace, yellow accent */}
+                    {/* Label — uppercase monospace, bright yellow */}
                     <span className="text-[9px] uppercase font-bold tracking-[0.1em] relative" style={{
-                      color: '#c7a008',
+                      color: '#ffd700',
                       fontFamily: 'var(--font-jetbrains-mono), monospace',
-                      textShadow: '0 0 4px rgba(199,160,8,0.6), 0 1px 2px rgba(0,0,0,0.4)',
+                      textShadow: '0 0 6px rgba(255,215,0,0.8), 0 1px 2px rgba(0,0,0,0.4)',
                     }}>
                       {s.label}
                     </span>
