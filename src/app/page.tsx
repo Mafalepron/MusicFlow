@@ -89,14 +89,14 @@ function AppContent() {
 
   // Main app layout with sidebar + unified header + content.
   // The sidebar is `position: fixed` so the main content needs left padding
-  // on desktop — `lg:pl-60` when the sidebar is expanded, `lg:pl-0` when it
-  // is collapsed (retracted).
+  // on desktop — `lg:pl-[360px]` when the sidebar is expanded (1.5x wider
+  // than the previous w-60/240px default), `lg:pl-0` when it is collapsed.
   return (
     <div className="min-h-screen bg-background">
       <AppSidebar />
 
       {/* Main content area — offset for sidebar on desktop */}
-      <div className={`${isSidebarCollapsed ? 'lg:pl-0' : 'lg:pl-60'} flex min-h-screen flex-col transition-[padding] duration-300 ease-out`}>
+      <div className={`${isSidebarCollapsed ? 'lg:pl-0' : 'lg:pl-[360px]'} flex min-h-screen flex-col transition-[padding] duration-300 ease-out`}>
         <AppHeader />
 
         <main className="flex-1 p-4 lg:p-6">
@@ -115,7 +115,7 @@ function AppContent() {
 
         {/* Sticky Footer — margin matches sidebar width so the footer
             aligns with the main content above it. */}
-        <footer className={`border-t border-border bg-card/50 backdrop-blur-sm px-4 py-3 lg:px-6 ${isSidebarCollapsed ? 'lg:ml-0' : 'lg:ml-60'} transition-[margin] duration-300 ease-out`}>
+        <footer className={`border-t border-border bg-card/50 backdrop-blur-sm px-4 py-3 lg:px-6 ${isSidebarCollapsed ? 'lg:ml-0' : 'lg:ml-[360px]'} transition-[margin] duration-300 ease-out`}>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>SoundFlow v1.0 MVP</span>
             <span>Built for musicians, by musicians</span>

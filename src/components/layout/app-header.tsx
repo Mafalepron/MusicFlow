@@ -41,6 +41,16 @@ const viewLabels: Record<string, string> = {
   'group-settings': 'Settings',
 };
 
+/* ─── neon synthwave palette (matches left sidebar + quick-access panel) ─── */
+const NEON_CYAN = '#00f0ff';
+const NEON_MAGENTA = '#ff00aa';
+const NEON_CYAN_RGB = '0,240,255';
+const NEON_MAGENTA_RGB = '255,0,170';
+const FONT_DISPLAY = 'var(--font-rajdhani), sans-serif';
+const FONT_MONO = 'var(--font-jetbrains-mono), monospace';
+/* Purple center stripe (kept from the previous design — clickable quick-access trigger) */
+const PURPLE_STRIPE = '#9d4edd';
+
 export function AppHeader() {
   const { currentView, selectedProjectId, navigate } = useNavigationStore();
   const { user, logout, currentGroupName: persistedGroupName, currentGroupInviteCode: persistedInviteCode } = useAuthStore();
@@ -304,13 +314,16 @@ export function AppHeader() {
           header's horizontal center even when a sidebar offsets the header
           from the viewport center. */}
       <div className="sticky top-0 z-30 relative" style={{ width: '100%' }}>
-      {/* Unified Header — custom dark cybernetic bar with chamfered bottom */}
+      {/* Unified Header — neon synthwave glassmorphism bar (matches the left
+          sidebar + quick-access panel: dark glass + cyan border + neon glow) */}
       <header
         className="flex h-14 items-center gap-2 px-3 lg:px-6"
         style={{
-          background: '#0f121a',
-          clipPath: 'polygon(0 0, 100% 0, 98% 100%, 2% 100%)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          background: 'rgba(10,14,23,0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderBottom: `1px solid rgba(${NEON_CYAN_RGB},0.3)`,
+          boxShadow: `0 0 24px rgba(${NEON_CYAN_RGB},0.15), 0 0 8px rgba(${NEON_MAGENTA_RGB},0.1), 0 4px 16px rgba(0,0,0,0.6)`,
         }}
       >
         {/* Embedded neon-purple line centered in header — CLICKABLE button
@@ -330,10 +343,10 @@ export function AppHeader() {
             style={{
               width: '120px',
               height: '2px',
-              background: '#9d4edd',
+              background: PURPLE_STRIPE,
               boxShadow: quickPanelOpen
-                ? '0 0 14px #9d4edd, 0 0 6px #9d4edd, 0 0 2px #c77dff'
-                : '0 0 10px #9d4edd, 0 0 4px #9d4edd',
+                ? `0 0 14px ${PURPLE_STRIPE}, 0 0 6px ${PURPLE_STRIPE}, 0 0 2px #c77dff`
+                : `0 0 10px ${PURPLE_STRIPE}, 0 0 4px ${PURPLE_STRIPE}`,
               opacity: quickPanelOpen ? 1 : 0.8,
             }}
           />
@@ -341,12 +354,12 @@ export function AppHeader() {
           <ChevronDown
             className="absolute left-1/2 top-full -translate-x-1/2 transition-transform duration-200 group-hover:opacity-100"
             style={{
-              color: '#9d4edd',
+              color: PURPLE_STRIPE,
               width: '12px',
               height: '12px',
               opacity: 0.7,
               transform: quickPanelOpen ? 'translate(-50%, -2px) rotate(180deg)' : 'translate(-50%, -2px)',
-              filter: 'drop-shadow(0 0 3px rgba(157,78,221,0.6))',
+              filter: `drop-shadow(0 0 3px rgba(157,78,221,0.6))`,
             }}
           />
         </button>
@@ -366,18 +379,42 @@ export function AppHeader() {
                 aria-label="Меню"
                 aria-pressed={isMobileSidebarOpen}
                 className={cn(
-                  'lg:hidden h-9 w-9 shrink-0 transition-all',
-                  isMobileSidebarOpen ? 'text-[#00a8c6]' : 'hover:bg-[#1E1E28]'
+                  'lg:hidden h-9 w-9 shrink-0 transition-all duration-200'
                 )}
                 style={{
-                  background: isMobileSidebarOpen ? '#161a24' : 'transparent',
-                  border: isMobileSidebarOpen ? '1px solid #00a8c6' : '1px solid transparent',
-                  borderRadius: '4px',
-                  boxShadow: isMobileSidebarOpen ? '0 0 8px rgba(0,168,198,0.25)' : 'none',
-                  color: '#00a8c6',
+                  borderRadius: '6px',
+                  background: isMobileSidebarOpen
+                    ? `rgba(${NEON_MAGENTA_RGB},0.15)`
+                    : 'rgba(10,20,35,0.6)',
+                  border: isMobileSidebarOpen
+                    ? `1px solid rgba(${NEON_MAGENTA_RGB},0.6)`
+                    : `1px solid rgba(${NEON_CYAN_RGB},0.2)`,
+                  boxShadow: isMobileSidebarOpen
+                    ? `0 0 12px rgba(${NEON_MAGENTA_RGB},0.3)`
+                    : 'none',
+                  color: NEON_CYAN,
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isMobileSidebarOpen) {
+                    e.currentTarget.style.borderColor = `rgba(${NEON_CYAN_RGB},0.6)`;
+                    e.currentTarget.style.boxShadow = `0 0 12px rgba(${NEON_CYAN_RGB},0.2)`;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isMobileSidebarOpen) {
+                    e.currentTarget.style.borderColor = `rgba(${NEON_CYAN_RGB},0.2)`;
+                    e.currentTarget.style.boxShadow = 'none';
+                  }
                 }}
               >
-                <Menu className="h-5 w-5" style={{ filter: 'drop-shadow(0 0 4px rgba(0,168,198,0.25))' }} />
+                <Menu
+                  className="h-5 w-5"
+                  style={{
+                    color: isMobileSidebarOpen ? NEON_MAGENTA : NEON_CYAN,
+                    filter: `drop-shadow(0 0 4px rgba(${isMobileSidebarOpen ? NEON_MAGENTA_RGB : NEON_CYAN_RGB},0.4))`,
+                  }}
+                />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Меню</TooltipContent>
@@ -386,22 +423,41 @@ export function AppHeader() {
 
         {/* Logo — mobile only (desktop has sidebar) */}
         <div className="flex items-center gap-2 lg:hidden">
-          <div className="relative flex h-7 w-7 items-center justify-center">
-            {/* Holographic double-ring icon */}
-            <div className="absolute inset-0 rounded-full" style={{ border: '1.5px solid #00a8c6', boxShadow: '0 0 8px rgba(0,168,198,0.25)' }} />
-            <div className="absolute inset-[3px] rounded-full" style={{ border: '1px solid #7b2cbf', boxShadow: '0 0 6px rgba(123,44,191,0.25)' }} />
-            <Music className="h-3 w-3 relative" style={{ color: '#00a8c6', filter: 'drop-shadow(0 0 2px rgba(0,168,198,0.25))' }} />
+          <div
+            className="flex h-7 w-7 items-center justify-center"
+            style={{
+              borderRadius: '6px',
+              background: 'rgba(255,0,170,0.08)',
+              border: '1px solid rgba(255,0,170,0.4)',
+              boxShadow: '0 0 10px rgba(255,0,170,0.15)',
+            }}
+          >
+            <Music
+              className="h-3.5 w-3.5"
+              style={{
+                color: NEON_MAGENTA,
+                filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.6))',
+              }}
+            />
           </div>
-          <span className="text-lg font-bold" style={{
-            color: '#00a8c6',
-            fontFamily: 'var(--font-rajdhani), sans-serif',
-            letterSpacing: '0.06em',
-            textShadow: '0 0 8px rgba(0,168,198,0.25)',
-          }}>SoundFlow</span>
+          <span
+            className="text-lg font-bold uppercase tracking-wider"
+            style={{
+              color: '#ffffff',
+              fontFamily: FONT_DISPLAY,
+              letterSpacing: '0.14em',
+              textShadow: `0 0 8px rgba(${NEON_MAGENTA_RGB},0.4), 0 0 20px rgba(${NEON_CYAN_RGB},0.2)`,
+            }}
+          >
+            SoundFlow
+          </span>
         </div>
 
         {/* Breadcrumbs */}
-        <nav className="hidden sm:flex items-center gap-1 text-sm min-w-0 flex-1" style={{ fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+        <nav
+          className="hidden sm:flex items-center gap-1 text-sm min-w-0 flex-1"
+          style={{ fontFamily: FONT_DISPLAY }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={breadcrumbs.map(b => b.label).join('/')}
@@ -412,19 +468,45 @@ export function AppHeader() {
             >
               {breadcrumbs.map((crumb, i) => (
                 <span key={i} className="flex items-center gap-1 min-w-0">
-                  {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />}
+                  {i > 0 && (
+                    <ChevronRight
+                      className="h-3.5 w-3.5 shrink-0"
+                      style={{ color: `rgba(${NEON_CYAN_RGB},0.4)` }}
+                    />
+                  )}
                   {crumb.view ? (
                     <button
                       onClick={() => navigate(crumb.view as ViewName, crumb.projectId)}
-                      className="text-muted-foreground hover:text-foreground transition-colors truncate max-w-[120px]"
+                      className="truncate max-w-[120px] transition-colors"
+                      style={{
+                        color: '#8892a0',
+                        fontFamily: FONT_MONO,
+                        fontSize: '11px',
+                        letterSpacing: '0.5px',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = NEON_CYAN;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = '#8892a0';
+                      }}
                     >
                       {crumb.label}
                     </button>
                   ) : (
-                    <span className={cn(
-                      'font-medium truncate',
-                      i === breadcrumbs.length - 1 ? 'text-foreground' : 'text-muted-foreground'
-                    )}>
+                    <span
+                      className={cn('truncate font-medium')}
+                      style={{
+                        color: i === breadcrumbs.length - 1 ? '#ffffff' : '#8892a0',
+                        fontFamily: i === breadcrumbs.length - 1 ? FONT_DISPLAY : FONT_MONO,
+                        fontSize: i === breadcrumbs.length - 1 ? '14px' : '11px',
+                        letterSpacing: i === breadcrumbs.length - 1 ? '0.5px' : '0.5px',
+                        textShadow:
+                          i === breadcrumbs.length - 1
+                            ? `0 0 6px rgba(${NEON_MAGENTA_RGB},0.3)`
+                            : 'none',
+                      }}
+                    >
                       {crumb.label}
                     </span>
                   )}

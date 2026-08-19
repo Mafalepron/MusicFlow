@@ -1322,7 +1322,7 @@ export function AppSidebar() {
       {/* ─── Sliding sidebar ─── */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-[#1a2030] bg-[#05080f] transition-transform duration-300 ease-out',
+          'fixed inset-y-0 left-0 z-40 flex w-[360px] flex-col border-r border-[#1a2030] bg-[#05080f] transition-transform duration-300 ease-out',
           // Mobile: hidden by default, slides in when isMobileOpen
           isMobileOpen ? 'translate-x-0' : '-translate-x-full',
           // Desktop: override — visible unless isCollapsed
@@ -1399,7 +1399,7 @@ export function AppSidebar() {
             transition={{ duration: 0.18 }}
             onClick={handleToggle}
             aria-label="Свернуть панель"
-            className="hidden lg:flex fixed top-3 left-[228px] z-50 h-7 w-5 items-center justify-center transition-all"
+            className="hidden lg:flex fixed top-3 left-[348px] z-50 h-7 w-5 items-center justify-center transition-all"
             style={{
               clipPath: BTN_CLIP,
               background: 'rgba(10,14,22,0.95)',
