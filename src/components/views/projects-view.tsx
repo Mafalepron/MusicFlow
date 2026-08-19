@@ -5,12 +5,13 @@ import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Plus, FolderOpen, LayoutDashboard, Music2, Disc3, AudioLines, Clock,
-  Search, X, Layers,
+  Search, X, Layers, Star,
 } from 'lucide-react';
 import { useNavigationStore, useDataStore, type Project } from '@/lib/store';
 import { useKanbanStore, type Task } from '@/store/kanban-store';
 import { CreateProjectDialog } from '@/components/shared/create-project-dialog';
 import { hexToRgba } from '@/lib/utils';
+import { useFavorites } from '@/lib/use-favorites';
 
 const statusHex: Record<string, string> = {
   draft: '#f59e0b',
@@ -55,10 +56,14 @@ function ProjectCardUnified({
   data,
   onClick,
   onOpenKanban,
+  isFavorite,
+  onToggleFavorite,
 }: {
   data: UnifiedCard;
   onClick: () => void;
   onOpenKanban: () => void;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 }) {
   const [h, setH] = useState(false);
 
@@ -124,12 +129,54 @@ function ProjectCardUnified({
               {data.kind === 'auto' ? 'AUTO' : 'KANBAN'}
             </span>
           </div>
-          <span
-            className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-            style={{ background: hexToRgba(sc, 0.12), color: sc, border: `1px solid ${hexToRgba(sc, 0.25)}` }}
-          >
-            {sl}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+              style={{ background: hexToRgba(sc, 0.12), color: sc, border: `1px solid ${hexToRgba(sc, 0.25)}` }}
+            >
+              {sl}
+            </span>
+            {/* Favorite star toggle — adds/removes from quick-access */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+              aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+              title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+              className="flex h-7 w-7 items-center justify-center transition-all duration-200"
+              style={{
+                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                background: isFavorite
+                  ? 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)'
+                  : 'rgba(10,20,35,0.6)',
+                border: isFavorite
+                  ? '1px solid rgba(252,238,10,0.9)'
+                  : '1px solid rgba(252,238,10,0.3)',
+                boxShadow: isFavorite
+                  ? '0 0 10px rgba(252,238,10,0.5), inset 0 1px 0 rgba(255,255,255,0.4)'
+                  : 'none',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                if (!isFavorite) {
+                  e.currentTarget.style.borderColor = 'rgba(252,238,10,0.7)';
+                  e.currentTarget.style.boxShadow = '0 0 8px rgba(252,238,10,0.3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isFavorite) {
+                  e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
+            >
+              <Star
+                className="w-3.5 h-3.5"
+                style={{
+                  color: isFavorite ? '#000' : 'rgba(252,238,10,0.7)',
+                  fill: isFavorite ? '#000' : 'none',
+                }}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -190,6 +237,7 @@ export function ProjectsView() {
   const navigate = useNavigationStore((s) => s.navigate);
   const projects = useDataStore((s) => s.projects);
   const tracks = useDataStore((s) => s.tracks);
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   const getTrackCount = (projectId: string) =>
     tracks.filter((t) => t.projectId === projectId).length;
@@ -378,27 +426,34 @@ export function ProjectsView() {
             animate="show"
             className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
           >
-            {cards.map((card) => (
-              <ProjectCardUnified
-                key={card.kind === 'auto' ? `auto-${card.project.id}` : `kanban-${card.task.id}`}
-                data={card}
-                onClick={() => {
-                  if (card.kind === 'auto') {
-                    navigate('project-detail', card.project.id);
-                  } else {
-                    // Kanban-only project — open the kanban view directly.
-                    handleOpenKanban(card.task.id);
-                  }
-                }}
-                onOpenKanban={() => {
-                  if (card.kind === 'auto' && card.project.kanbanTaskId) {
-                    handleOpenKanban(card.project.kanbanTaskId);
-                  } else if (card.kind === 'kanban') {
-                    handleOpenKanban(card.task.id);
-                  }
-                }}
-              />
-            ))}
+            {cards.map((card) => {
+              const cardId = card.kind === 'auto'
+                ? (card.project.kanbanTaskId || card.project.id)
+                : card.task.id;
+              return (
+                <ProjectCardUnified
+                  key={card.kind === 'auto' ? `auto-${card.project.id}` : `kanban-${card.task.id}`}
+                  data={card}
+                  onClick={() => {
+                    if (card.kind === 'auto') {
+                      navigate('project-detail', card.project.id);
+                    } else {
+                      // Kanban-only project — open the kanban view directly.
+                      handleOpenKanban(card.task.id);
+                    }
+                  }}
+                  onOpenKanban={() => {
+                    if (card.kind === 'auto' && card.project.kanbanTaskId) {
+                      handleOpenKanban(card.project.kanbanTaskId);
+                    } else if (card.kind === 'kanban') {
+                      handleOpenKanban(card.task.id);
+                    }
+                  }}
+                  isFavorite={isFavorite(cardId)}
+                  onToggleFavorite={() => toggleFavorite(cardId)}
+                />
+              );
+            })}
           </motion.div>
         ) : (
           <motion.div

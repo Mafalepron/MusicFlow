@@ -58,7 +58,6 @@ const fmtDate = (s: string) =>
   new Date(s).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 
 /* ─── shared types ─── */
-type SortMode = 'date' | 'name' | 'type';
 interface ModalItem {
   id: string;
   title: string;
@@ -73,8 +72,9 @@ interface ModalItem {
    and imported above as a shared component. */
 
 /* ─── Project Card — dark data slab with WaveformProgressBar ─── */
-function ProjectCard({ project, trackCount, onClick, onKanban }: {
+function ProjectCard({ project, trackCount, onClick, onKanban, isFavorite, onToggleFavorite }: {
   project: Project; trackCount: number; onClick: () => void; onKanban: () => void;
+  isFavorite: boolean; onToggleFavorite: () => void;
 }) {
   const [h, setH] = useState(false);
   const t = typeMeta[project.type] || typeMeta.general;
@@ -152,6 +152,46 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
           </div>
           <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: contentColor, textShadow: `0 0 4px ${hexToRgba(contentColor, 0.4)}` }}>{t.label}</span>
         </div>
+        {/* Favorite star toggle — adds/removes from quick-access */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+          aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+          title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+          className="flex h-7 w-7 items-center justify-center transition-all duration-200 relative z-[3]"
+          style={{
+            clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+            background: isFavorite
+              ? 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)'
+              : 'rgba(10,20,35,0.6)',
+            border: isFavorite
+              ? '1px solid rgba(252,238,10,0.9)'
+              : '1px solid rgba(252,238,10,0.3)',
+            boxShadow: isFavorite
+              ? '0 0 10px rgba(252,238,10,0.5), inset 0 1px 0 rgba(255,255,255,0.4)'
+              : 'none',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            if (!isFavorite) {
+              e.currentTarget.style.borderColor = 'rgba(252,238,10,0.7)';
+              e.currentTarget.style.boxShadow = '0 0 8px rgba(252,238,10,0.3)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isFavorite) {
+              e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)';
+              e.currentTarget.style.boxShadow = 'none';
+            }
+          }}
+        >
+          <Star
+            className="w-3.5 h-3.5 transition-transform"
+            style={{
+              color: isFavorite ? '#000' : 'rgba(252,238,10,0.7)',
+              fill: isFavorite ? '#000' : 'none',
+            }}
+          />
+        </button>
       </div>
 
       {/* Body */}
@@ -217,7 +257,7 @@ function ProjectCard({ project, trackCount, onClick, onKanban }: {
 }
 
 /* ─── Kanban Card — clean cyberpunk data slab with kanban waveform sign ─── */
-function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
+function KanbanCard({ task, onClick, isFavorite, onToggleFavorite }: { task: Task; onClick: () => void; isFavorite: boolean; onToggleFavorite: () => void }) {
   const [h, setH] = useState(false);
   const isAuto = !!task.soundflowProjectId;
   // Yellow→Blue remap per spec: auto cards were yellow, now blue. Kanban cards stay cyan.
@@ -288,12 +328,54 @@ function KanbanCard({ task, onClick }: { task: Task; onClick: () => void }) {
             />
             {isAuto ? 'AUTO' : 'KANBAN'}
           </span>
-          <span
-            className="text-[10px] font-mono uppercase tracking-wider transition-colors"
-            style={{ color: h ? hexToRgba(contentColor, 0.8) : 'rgba(100,116,139,0.7)' }}
-          >
-            {task.projectType || 'general'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-[10px] font-mono uppercase tracking-wider transition-colors"
+              style={{ color: h ? hexToRgba(contentColor, 0.8) : 'rgba(100,116,139,0.7)' }}
+            >
+              {task.projectType || 'general'}
+            </span>
+            {/* Favorite star toggle — adds/removes from quick-access */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+              aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+              title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+              className="flex h-6 w-6 items-center justify-center transition-all duration-200"
+              style={{
+                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+                background: isFavorite
+                  ? 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)'
+                  : 'rgba(10,20,35,0.6)',
+                border: isFavorite
+                  ? '1px solid rgba(252,238,10,0.9)'
+                  : '1px solid rgba(252,238,10,0.3)',
+                boxShadow: isFavorite
+                  ? '0 0 8px rgba(252,238,10,0.5), inset 0 1px 0 rgba(255,255,255,0.4)'
+                  : 'none',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                if (!isFavorite) {
+                  e.currentTarget.style.borderColor = 'rgba(252,238,10,0.7)';
+                  e.currentTarget.style.boxShadow = '0 0 6px rgba(252,238,10,0.3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isFavorite) {
+                  e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
+            >
+              <Star
+                className="w-3 h-3"
+                style={{
+                  color: isFavorite ? '#000' : 'rgba(252,238,10,0.7)',
+                  fill: isFavorite ? '#000' : 'none',
+                }}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Type icon (static, no bobbing) */}
@@ -900,157 +982,6 @@ function Carousel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ─── All Projects Modal ─── */
-function AllProjectsModal({
-  open, onClose, mode, items, quickAccess, toggleQuickAccess,
-}: {
-  open: boolean;
-  onClose: () => void;
-  mode: 'auto' | 'kanban';
-  items: ModalItem[];
-  quickAccess: string[];
-  toggleQuickAccess: (id: string, title?: string) => void;
-}) {
-  const [sortMode, setSortMode] = useState<SortMode>('date');
-
-  const sorted = useMemo(() => {
-    const arr = [...items];
-    arr.sort((a, b) => {
-      if (sortMode === 'date') return new Date(b.date).getTime() - new Date(a.date).getTime();
-      if (sortMode === 'name') return a.title.localeCompare(b.title, 'ru');
-      return (a.type || '').localeCompare(b.type || '');
-    });
-    return arr;
-  }, [items, sortMode]);
-
-  if (!open) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.96, y: 8 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.96, y: 8 }}
-        transition={{ duration: 0.2 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl flex flex-col"
-        style={{
-          maxHeight: '80vh',
-          background: 'rgba(8,10,18,0.98)',
-          border: `1px solid ${hexToRgba(Y, 0.5)}`,
-          boxShadow: `0 0 50px ${hexToRgba(Y, 0.2)}, 0 20px 60px rgba(0,0,0,0.6)`,
-          clipPath: 'polygon(0 14px, 14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px))',
-        }}
-      >
-        <div
-          className="h-[2px] shrink-0"
-          style={{ background: `linear-gradient(90deg, transparent, ${Y}, transparent)` }}
-        />
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
-          <h2 className="text-sm font-bold tracking-wide text-slate-100">
-            {mode === 'auto' ? 'Все проекты' : 'Все канбан-проекты'}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-slate-200"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.04]">
-          <span className="text-[10px] uppercase tracking-wider text-slate-600">Сортировка:</span>
-          {(['date', 'name', 'type'] as SortMode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setSortMode(m)}
-              className="rounded px-2.5 py-1 text-[11px] font-medium transition-all"
-              style={{
-                background: sortMode === m ? hexToRgba(Y, 0.12) : 'transparent',
-                color: sortMode === m ? Y : '#94a3b8',
-                border: `1px solid ${sortMode === m ? hexToRgba(Y, 0.4) : 'rgba(255,255,255,0.06)'}`,
-              }}
-            >
-              {m === 'date' ? 'Дата' : m === 'name' ? 'Название' : 'Тип'}
-            </button>
-          ))}
-          <span className="ml-auto text-[10px] text-slate-600">
-            {sorted.length} {plural(sorted.length, ['проект', 'проекта', 'проектов'])}
-          </span>
-        </div>
-        <div
-          className="flex-1 overflow-y-auto p-2"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: `${hexToRgba(Y, 0.3)} transparent` }}
-        >
-          {sorted.length === 0 ? (
-            <div className="text-center py-12 text-slate-600 text-sm">Нет проектов</div>
-          ) : (
-            sorted.map((item) => {
-              const t = typeMeta[item.type] || typeMeta.general;
-              const Icon = t.icon;
-              const sc = stHex[item.status] || '#64748b';
-              const sl = stLabel[item.status] || item.status;
-              const starred = quickAccess.includes(item.id);
-              return (
-                <div
-                  key={item.id}
-                  onClick={item.onOpen}
-                  className="group flex items-center gap-3 rounded-md px-3 py-2.5 cursor-pointer transition-colors hover:bg-white/[0.04]"
-                >
-                  <div
-                    className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
-                    style={{ background: hexToRgba(t.color, 0.1), border: `1px solid ${hexToRgba(t.color, 0.25)}` }}
-                  >
-                    <Icon className="w-4 h-4" style={{ color: t.color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-200 truncate group-hover:text-yellow-300 transition-colors">
-                      {item.title}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 text-[10px] text-slate-500">
-                      <span style={{ color: t.color }}>{t.label}</span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc, boxShadow: `0 0 4px ${hexToRgba(sc, 0.4)}` }} />
-                        {sl}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Music2 className="w-3 h-3" />
-                        {item.trackCount}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {fmtDate(item.date)}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); toggleQuickAccess(item.id, item.title); }}
-                    className="shrink-0 p-1.5 rounded-md transition-all hover:bg-white/[0.06]"
-                    style={{ color: starred ? Y : '#475569' }}
-                    title={starred ? 'Убрать из избранного' : 'В избранное'}
-                  >
-                    <Star className="w-4 h-4" style={{ color: starred ? Y : '#475569', fill: starred ? Y : 'none' }} />
-                  </button>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 /* ─── Manage Quick Access Modal — add/remove projects ─── */
 function ManageQuickAccessModal({
   open, onClose, quickAccess, toggleQuickAccess, autoItems, kanbanItems, warning,
@@ -1226,8 +1157,6 @@ export function HomeView() {
   const [memberCount, setMemberCount] = useState(0);
   const [kanbanProjects, setKanbanProjects] = useState<Task[]>([]);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
-  const [allAutoOpen, setAllAutoOpen] = useState(false);
-  const [allKanbanOpen, setAllKanbanOpen] = useState(false);
   const [quickAccess, setQuickAccess] = useState<string[]>([]);
   const [manageQuickOpen, setManageQuickOpen] = useState(false);
   const [quickWarning, setQuickWarning] = useState<string | null>(null);
@@ -1494,7 +1423,7 @@ export function HomeView() {
               title="Авто проекты"
               accentColor={Y}
               action={
-                <button onClick={() => setAllAutoOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase transition-all hover:scale-105" style={{
+                <button onClick={() => navigate('projects')} className="flex items-center gap-1 text-[11px] font-bold uppercase transition-all hover:scale-105" style={{
                   color: 'rgba(199,160,8,0.85)',
                   fontFamily: 'var(--font-jetbrains-mono), monospace',
                   letterSpacing: '1px',
@@ -1512,6 +1441,8 @@ export function HomeView() {
                   trackCount={getTrackCount(p.id)}
                   onClick={() => navigate('project-detail', p.id)}
                   onKanban={() => p.kanbanTaskId && goToKanban(p.kanbanTaskId)}
+                  isFavorite={quickAccess.includes(p.kanbanTaskId || p.id)}
+                  onToggleFavorite={() => toggleQuickAccess(p.kanbanTaskId || p.id, p.title)}
                 />
               ))}
             </div>
@@ -1541,7 +1472,7 @@ export function HomeView() {
             title="Канбан проекты"
             accentColor={C}
             action={
-              <button onClick={() => setAllKanbanOpen(true)} className="flex items-center gap-1 text-[11px] font-bold uppercase transition-all hover:scale-105" style={{
+              <button onClick={() => navigate('projects')} className="flex items-center gap-1 text-[11px] font-bold uppercase transition-all hover:scale-105" style={{
                 color: '#00a8c6',
                 fontFamily: 'var(--font-jetbrains-mono), monospace',
                 letterSpacing: '1px',
@@ -1553,7 +1484,13 @@ export function HomeView() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <CreateCard onClick={() => navigate('projects')} label="Создать" />
             {kanbanProjects.slice(0, 3).map(task => (
-              <KanbanCard key={task.id} task={task} onClick={() => goToKanban(task.id)} />
+              <KanbanCard
+                key={task.id}
+                task={task}
+                onClick={() => goToKanban(task.id)}
+                isFavorite={quickAccess.includes(task.id)}
+                onToggleFavorite={() => toggleQuickAccess(task.id, task.title)}
+              />
             ))}
           </div>
         </section>
@@ -1594,28 +1531,6 @@ export function HomeView() {
         kanbanItems={kanbanModalItems}
         warning={quickWarning}
       />
-      <AnimatePresence>
-        {allAutoOpen && (
-          <AllProjectsModal
-            open={allAutoOpen}
-            mode="auto"
-            items={autoModalItems}
-            quickAccess={quickAccess}
-            toggleQuickAccess={toggleQuickAccess}
-            onClose={() => setAllAutoOpen(false)}
-          />
-        )}
-        {allKanbanOpen && (
-          <AllProjectsModal
-            open={allKanbanOpen}
-            mode="kanban"
-            items={kanbanModalItems}
-            quickAccess={quickAccess}
-            toggleQuickAccess={toggleQuickAccess}
-            onClose={() => setAllKanbanOpen(false)}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }
