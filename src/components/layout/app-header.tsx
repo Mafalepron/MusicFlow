@@ -541,37 +541,65 @@ export function AppHeader() {
           </AnimatePresence>
         </div>
 
-        {/* Search — neon glassmorphism icon button (matches sidebar style) */}
+        {/* Search — neon glassmorphism icon button (matches sidebar style).
+            Active state (searchOpen) uses magenta glow + corner accent notch,
+            same as the Home button's active state. */}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 shrink-0 transition-all duration-200"
+                className="relative h-9 w-9 shrink-0 transition-all duration-200"
                 style={{
                   borderRadius: '6px',
-                  background: 'rgba(10,20,35,0.6)',
-                  border: '1px solid rgba(0,240,255,0.2)',
+                  background:
+                    searchOpen
+                      ? 'rgba(255,0,170,0.18)'
+                      : 'rgba(10,20,35,0.6)',
+                  border:
+                    searchOpen
+                      ? '1px solid rgba(255,0,170,0.6)'
+                      : '1px solid rgba(0,240,255,0.2)',
+                  boxShadow:
+                    searchOpen
+                      ? '0 0 14px rgba(255,0,170,0.2), 0 0 4px rgba(0,240,255,0.15)'
+                      : 'none',
                   cursor: 'pointer',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
-                  e.currentTarget.style.boxShadow = '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                  if (!searchOpen) {
+                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
+                    e.currentTarget.style.boxShadow = '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
-                  e.currentTarget.style.boxShadow = 'none';
+                  if (!searchOpen) {
+                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }
                 }}
                 onClick={() => setSearchOpen(!searchOpen)}
               >
                 <Search
                   className="h-4 w-4"
                   style={{
-                    color: NEON_CYAN,
-                    filter: 'drop-shadow(0 0 3px rgba(0,240,255,0.5))',
+                    color: searchOpen ? NEON_MAGENTA : NEON_CYAN,
+                    filter:
+                      searchOpen
+                        ? 'drop-shadow(0 0 4px rgba(255,0,170,0.7))'
+                        : 'drop-shadow(0 0 3px rgba(0,240,255,0.5))',
                   }}
                 />
+                {searchOpen && (
+                  <span
+                    className="absolute -top-px -left-px h-1.5 w-1.5 rounded-[1px]"
+                    style={{
+                      background: NEON_MAGENTA,
+                      boxShadow: '0 0 4px rgba(255,0,170,0.9)',
+                    }}
+                  />
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent>Search</TooltipContent>
@@ -797,7 +825,9 @@ export function AppHeader() {
           )}
         </AnimatePresence>
 
-        {/* Notifications — neon glassmorphism icon button with magenta badge */}
+        {/* Notifications — neon glassmorphism icon button with magenta badge.
+            Active state (notifOpen) uses magenta glow + corner accent notch,
+            same as the Home button's active state. */}
         <div className="relative" ref={notifRef}>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
@@ -808,27 +838,53 @@ export function AppHeader() {
                   className="h-9 w-9 shrink-0 relative transition-all duration-200"
                   style={{
                     borderRadius: '6px',
-                    background: 'rgba(10,20,35,0.6)',
-                    border: '1px solid rgba(0,240,255,0.2)',
+                    background:
+                      notifOpen
+                        ? 'rgba(255,0,170,0.18)'
+                        : 'rgba(10,20,35,0.6)',
+                    border:
+                      notifOpen
+                        ? '1px solid rgba(255,0,170,0.6)'
+                        : '1px solid rgba(0,240,255,0.2)',
+                    boxShadow:
+                      notifOpen
+                        ? '0 0 14px rgba(255,0,170,0.2), 0 0 4px rgba(0,240,255,0.15)'
+                        : 'none',
                     cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
-                    e.currentTarget.style.boxShadow = '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                    if (!notifOpen) {
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
+                      e.currentTarget.style.boxShadow = '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
-                    e.currentTarget.style.boxShadow = 'none';
+                    if (!notifOpen) {
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }
                   }}
                   onClick={() => setNotifOpen(!notifOpen)}
                 >
                   <Bell
                     className="h-4 w-4"
                     style={{
-                      color: NEON_CYAN,
-                      filter: 'drop-shadow(0 0 3px rgba(0,240,255,0.5))',
+                      color: notifOpen ? NEON_MAGENTA : NEON_CYAN,
+                      filter:
+                        notifOpen
+                          ? 'drop-shadow(0 0 4px rgba(255,0,170,0.7))'
+                          : 'drop-shadow(0 0 3px rgba(0,240,255,0.5))',
                     }}
                   />
+                  {notifOpen && (
+                    <span
+                      className="absolute -top-px -left-px h-1.5 w-1.5 rounded-[1px]"
+                      style={{
+                        background: NEON_MAGENTA,
+                        boxShadow: '0 0 4px rgba(255,0,170,0.9)',
+                      }}
+                    />
+                  )}
                   <AnimatePresence>
                     {notificationCount > 0 && (
                       <motion.span
@@ -981,29 +1037,54 @@ export function AppHeader() {
         {/* Chat toggle moved to the bottom of the sidebar — see SidebarChatSection.
             The global <ProjectChat/> floating panel is rendered inside <AppSidebar/>. */}
 
-        {/* Profile dropdown — neon glassmorphism avatar button (matches sidebar) */}
+        {/* Profile dropdown — neon glassmorphism avatar button (matches sidebar).
+            Active state (profileOpen) uses magenta glow + corner accent notch,
+            same as the Home button's active state. */}
         <Popover open={profileOpen} onOpenChange={setProfileOpen}>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
                   <button
-                    className="flex items-center gap-2 pl-1 pr-2 py-1 shrink-0 transition-all duration-200"
+                    className="relative flex items-center gap-2 pl-1 pr-2 py-1 shrink-0 transition-all duration-200"
                     style={{
                       borderRadius: '6px',
-                      background: 'rgba(10,20,35,0.6)',
-                      border: '1px solid rgba(0,240,255,0.2)',
+                      background:
+                        profileOpen
+                          ? 'rgba(255,0,170,0.18)'
+                          : 'rgba(10,20,35,0.6)',
+                      border:
+                        profileOpen
+                          ? '1px solid rgba(255,0,170,0.6)'
+                          : '1px solid rgba(0,240,255,0.2)',
+                      boxShadow:
+                        profileOpen
+                          ? '0 0 14px rgba(255,0,170,0.2), 0 0 4px rgba(0,240,255,0.15)'
+                          : 'none',
                       cursor: 'pointer',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(255,0,170,0.5)';
-                      e.currentTarget.style.boxShadow = '0 0 14px rgba(255,0,170,0.15), 0 0 4px rgba(0,240,255,0.1)';
+                      if (!profileOpen) {
+                        e.currentTarget.style.borderColor = 'rgba(255,0,170,0.5)';
+                        e.currentTarget.style.boxShadow = '0 0 14px rgba(255,0,170,0.15), 0 0 4px rgba(0,240,255,0.1)';
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
-                      e.currentTarget.style.boxShadow = 'none';
+                      if (!profileOpen) {
+                        e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }
                     }}
                   >
+                    {profileOpen && (
+                      <span
+                        className="absolute -top-px -left-px h-1.5 w-1.5 rounded-[1px]"
+                        style={{
+                          background: NEON_MAGENTA,
+                          boxShadow: '0 0 4px rgba(255,0,170,0.9)',
+                        }}
+                      />
+                    )}
                     <div
                       className="relative h-7 w-7"
                       style={{
@@ -1033,7 +1114,11 @@ export function AppHeader() {
                     </div>
                     <ChevronDown
                       className="h-3 w-3 hidden sm:block"
-                      style={{ color: NEON_CYAN }}
+                      style={{
+                        color: profileOpen ? NEON_MAGENTA : NEON_CYAN,
+                        transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 200ms ease, color 200ms ease',
+                      }}
                     />
                   </button>
                 </PopoverTrigger>
