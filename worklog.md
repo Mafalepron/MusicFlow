@@ -2672,3 +2672,59 @@ Stage Summary:
 - The border is now on the right edge of the panel (`border-r`) and the radial glow accent originates from the top-left corner.
 - When open, the 380px-wide chat panel covers the 360px-wide sidebar on the left side. When closed (via X button or Escape), the sidebar is fully visible again.
 - This behavior is now consistent across ALL views (home, projects, ideas, kanban, etc.) — the chat always opens from the left, matching the sidebar's chat section position.
+
+---
+Task ID: CHAT-EMBEDDED-IN-SIDEBAR-1
+Agent: main (Z.ai Code)
+Task: The project chat was opening as a separate floating window via the "Открыть чат" button. The user wants the chat to be ALWAYS VISIBLE inside the left sidebar, embedded directly, regardless of which page is open (no floating popup, no toggle button).
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand the previous chat positioning work (CHAT-LEFT-POSITIONING-1).
+- Read /home/z/my-project/src/components/chat/project-chat.tsx (563 lines) — found the chat was a floating panel gated by `useChatUIStore.isOpen`, rendered via AnimatePresence + motion.div with `position: fixed`.
+- Read /home/z/my-project/src/components/layout/app-sidebar.tsx SidebarChatSection — found it rendered a project picker + either a "Выберите проект для чата" placeholder or an "Открыть чат" toggle button (that called `useChatUIStore.open()` to show the floating panel).
+- Read /home/z/my-project/src/app/page.tsx — confirmed there's already a chat-context sync useEffect that auto-sets `activeChatProjectId` when the user navigates to kanban/project-detail/track-detail views. This means the embedded chat will automatically show the right project's messages when navigating — no extra work needed.
+
+EDITS — /home/z/my-project/src/components/chat/project-chat.tsx:
+- Added an `embedded?: boolean` prop to the `ProjectChat` component (default `false` — preserves backward compat for the floating mode).
+- Introduced `const visible = embedded ? true : isOpen;` so that in embedded mode the chat is always treated as "open" — all the message-fetching / polling / scroll / focus effects run regardless of `useChatUIStore.isOpen`.
+- Updated all 6 effects (fetchMessages, polling, unread-detection, scroll-to-bottom, input focus, Escape-to-close) to use `visible` instead of `isOpen`. The Escape handler now early-returns when `embedded` is true (no close action needed — the chat is always visible).
+- Extracted the chat body (messages + mention dropdown + input area) into a shared `chatBody` JSX variable so it can be reused by both the floating and embedded render paths.
+- Styled the chat body to match the sidebar's neon synthwave aesthetic: cyan/magenta glass tiles for the input + send button, JetBrains Mono input text, neon glow on the active send button (magenta when text is entered, dim cyan when empty).
+- Added an embedded render path: when `embedded` is true and `projectId` exists, renders `<div className="flex h-full min-h-0 flex-col">` with a compact "N messages" header bar + the shared `chatBody`. No fixed positioning, no backdrop, no animation — it fills its parent container.
+- The floating render path (AnimatePresence + motion.div + backdrop) is preserved for the non-embedded case, but is no longer used anywhere in the app.
+- Removed the now-unused `Button` import (replaced with inline styled `<button>` elements).
+
+EDITS — /home/z/my-project/src/components/layout/app-sidebar.tsx:
+- SidebarChatSection:
+  * Removed the `useChatUIStore` import usage (no more `openChat` / `chatIsOpen` / `closeChat`).
+  * Removed the `openChat()` call from `handleSelect` — selecting a project now just sets `activeChatProjectId`; the embedded chat picks it up automatically.
+  * Replaced the entire chat body (the project picker + "Открыть чат" toggle button / placeholder) with a new layout:
+    - Project picker dropdown at the top (in a `shrink-0` wrapper, unchanged styling).
+    - Below it: when no project is selected → placeholder "Выберите проект для чата"; when a project IS selected → `<ProjectChat embedded />` fills the remaining space.
+  * The chat body wrapper is `flex-1 min-h-0 flex flex-col` so the embedded chat can scroll its messages independently.
+- Removed the floating `<ProjectChat />` render from the `AppSidebar` export (it was rendered OUTSIDE the `<aside>` for the floating panel — no longer needed).
+- Removed the now-unused imports: `Send` (lucide icon), `useChatUIStore`.
+
+EDITS — none needed to /home/z/my-project/src/app/page.tsx:
+- The existing chat-context sync useEffect already auto-sets `activeChatProjectId` when navigating to kanban/project-detail/track-detail views. This means the embedded chat automatically shows the right project's messages when the user navigates — no changes needed.
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "project-chat|app-sidebar|page\.tsx"` → only the pre-existing error at project-chat.tsx:642 (the `useChatUnread` hook's set-unread-in-effect, present before this change). My refactoring introduced zero new lint errors.
+- `tail -12 /home/z/my-project/dev.log` → `✓ Compiled`, all `/api/chat?projectId=…` calls return 200, no runtime errors.
+- Agent Browser end-to-end verification (logged in as demo@soundflow.app / demo123):
+  * Home page: the sidebar's chat section shows the project picker + "Выберите проект для чата" placeholder (no "Открыть чат" button). VLM confirmed: "no 'Открыть чат' button visible — the chat is embedded directly into the sidebar card".
+  * Selected "Chrome Heart" project → the chat immediately showed the messages area ("No messages yet") + input field ("Сообщение…") + send button, all embedded in the sidebar. VLM confirmed: "the chat is embedded directly into the bottom half of the left sidebar" and "no floating chat panels covering the main content".
+  * Navigated to Projects view → the chat remained embedded in the sidebar, still showing the Chrome Heart project's chat. VLM confirmed: "the chat section is fully visible in its default state without requiring any additional clicks".
+  * Navigated to Kanban view (via "Открыть Kanban") → the chat remained embedded in the sidebar, showing "Chrome Heart" project (auto-synced via the page.tsx chat-context effect). VLM confirmed: "the chat is fully embedded within the left sidebar".
+  * Typed "Test embedded chat message" in the input → the send button turned magenta (active state). VLM confirmed: "the send button is highlighted in magenta, indicating it is active".
+  * Clicked the send button → the message appeared in the messages area with sender initial "D" (teal circle), sender name "Demo user", and timestamp "12:51". The input field cleared back to the placeholder. VLM confirmed: "the messages area displays a chat bubble containing the text 'Test embedded chat message'".
+  * The chat polling continued working (GET /api/chat?projectId=… 200 every 3 seconds) throughout all views.
+
+Stage Summary:
+- The project chat is now ALWAYS VISIBLE inside the left sidebar — embedded directly in the SidebarChatSection, not a floating popup.
+- The "Открыть чат" toggle button has been removed. Selecting a project in the picker immediately shows the chat (messages + input) below.
+- The chat remains visible when navigating between ALL pages (home, projects, kanban, ideas, project-detail, track-detail, group-settings) — it's part of the sidebar, which is persistent across views.
+- The chat project context auto-syncs when navigating to kanban/project-detail/track-detail views (via the existing page.tsx useEffect), so the embedded chat always shows the relevant project's messages.
+- The embedded chat uses the same neon synthwave styling as the sidebar: cyan/magenta glass tiles for input + send button, JetBrains Mono input text, magenta-glow active send button.
+- The floating panel mode (`<ProjectChat />` without `embedded`) is preserved in the code for potential future use but is no longer rendered anywhere in the app.
+- Full end-to-end flow verified: select project → type message → send → message appears with sender info + timestamp. Polling continues across all views.

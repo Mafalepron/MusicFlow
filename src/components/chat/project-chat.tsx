@@ -8,7 +8,6 @@ import { useAudioContextStore } from '@/store/audio-context-store';
 import { useChatUIStore } from '@/store/chat-ui-store';
 import { useAuthStore, useNavigationStore, useDataStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import {
   X, Send, AtSign, Trash2, Clock, MessageCircle,
   CheckCircle2, AlertCircle, Circle,
@@ -77,7 +76,7 @@ function parseTimestamps(text: string): { text: string; timestamp: string }[] {
   return parts;
 }
 
-export default function ProjectChat() {
+export default function ProjectChat({ embedded = false }: { embedded?: boolean } = {}) {
   const { isOpen, close } = useChatUIStore();
   const { activeChatProjectId, activeChatProjectName } = useChatContextStore();
   const { activeTrackId, currentTime } = useAudioContextStore();
@@ -102,6 +101,10 @@ export default function ProjectChat() {
 
   const projectId = activeChatProjectId;
 
+  // In embedded mode the chat is always visible — treat it as always "open"
+  // so the message fetching / polling effects run regardless of useChatUIStore.
+  const visible = embedded ? true : isOpen;
+
   const fetchMessages = useCallback((pid: string) => {
     fetch(`/api/chat?projectId=${pid}`)
       .then(res => res.json())
@@ -114,13 +117,13 @@ export default function ProjectChat() {
   }, []);
 
   useEffect(() => {
-    if (isOpen && projectId) {
+    if (visible && projectId) {
       fetchMessages(projectId);
     }
-  }, [projectId, isOpen, fetchMessages]);
+  }, [projectId, visible, fetchMessages]);
 
   useEffect(() => {
-    if (!isOpen || !projectId) {
+    if (!visible || !projectId) {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
@@ -139,10 +142,10 @@ export default function ProjectChat() {
       } catch { /* ignore */ }
     }, 3000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [isOpen, projectId]);
+  }, [visible, projectId]);
 
   useEffect(() => {
-    if (isOpen || !projectId) return;
+    if (visible || !projectId) return;
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/chat?projectId=${projectId}`);
@@ -155,31 +158,31 @@ export default function ProjectChat() {
       } catch { /* ignore */ }
     }, 5000);
     return () => clearInterval(interval);
-  }, [isOpen, projectId]);
+  }, [visible, projectId]);
 
   useEffect(() => {
-    if (isOpen && messages.length > 0) {
+    if (visible && messages.length > 0) {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
     }
-  }, [isOpen, messages.length]);
+  }, [visible, messages.length]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (visible) {
       setTimeout(() => inputRef.current?.focus(), 200);
     }
-  }, [isOpen]);
+  }, [visible]);
 
-  // Close on Escape
+  // Close on Escape — only in floating (non-embedded) mode
   useEffect(() => {
-    if (!isOpen) return;
+    if (embedded || !isOpen) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [isOpen, close]);
+  }, [isOpen, close, embedded]);
 
   const searchMentions = useCallback(async (query: string) => {
     if (!projectId || !query) {
@@ -376,6 +379,179 @@ export default function ProjectChat() {
     );
   };
 
+  // ─── Chat body — shared between floating + embedded modes ───
+  const chatBody = (
+    <>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-2">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-center px-4 py-6">
+            <div
+              className="flex w-10 h-10 items-center justify-center mb-2"
+              style={{
+                borderRadius: '8px',
+                background: 'rgba(0,240,255,0.05)',
+                border: '1px solid rgba(0,240,255,0.2)',
+              }}
+            >
+              <MessageCircle className="w-5 h-5" style={{ color: 'rgba(0,240,255,0.4)' }} />
+            </div>
+            <p
+              className="text-[10px] font-medium"
+              style={{ color: '#8892a0', fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+            >
+              No messages yet
+            </p>
+            <p
+              className="text-[9px] mt-1 leading-relaxed"
+              style={{ color: '#4a5568', fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+            >
+              Start the conversation. Use <span style={{ color: 'rgba(0,240,255,0.7)' }}>@</span> to reference tasks
+              {activeTrackId && <> or <Clock className="inline w-2.5 h-2.5" /> to link timestamps</>}
+            </p>
+          </div>
+        )}
+        {messages.map((msg, idx) => renderMessage(msg, idx))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Mention dropdown */}
+      {showMentionDropdown && mentionResults.length > 0 && (
+        <div
+          className="max-h-[120px] overflow-y-auto custom-scrollbar"
+          style={{
+            borderTop: '1px solid rgba(0,240,255,0.15)',
+            background: 'rgba(10,14,23,0.98)',
+          }}
+        >
+          {mentionResults.map((result, idx) => {
+            const style = result.type === 'task' ? { color: '#00d9ff', label: 'Task' } : { color: '#a855f7', label: 'Subtask' };
+            return (
+              <button
+                key={result.id}
+                onClick={() => selectMention(result)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-2.5 py-1.5 text-left transition-colors duration-75',
+                  idx === mentionIndex ? 'bg-slate-800/60' : 'hover:bg-slate-800/30',
+                )}
+              >
+                <AtSign className="w-3 h-3 flex-shrink-0" style={{ color: style.color }} />
+                <span className="text-[10px] text-slate-300 truncate flex-1">{result.title}</span>
+                <span className="text-[8px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: style.color + '15', color: style.color }}>
+                  {style.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Input area */}
+      <div
+        className="flex-shrink-0 p-2.5"
+        style={{ borderTop: '1px solid rgba(0,240,255,0.15)' }}
+      >
+        {activeTrackId && (
+          <div className="mb-1.5 flex items-center gap-1.5 text-[9px]" style={{ color: 'rgba(138,43,226,0.7)' }}>
+            <Clock className="w-2.5 h-2.5" />
+            <span>Audio linked · {formatTimestamp(currentTime)}</span>
+            <button onClick={insertTimestamp} className="ml-auto hover:underline font-medium" style={{ color: '#8A2BE2' }}>
+              + Insert
+            </button>
+          </div>
+        )}
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              value={inputValue}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Сообщение… (@ для задач)"
+              className="w-full px-2.5 py-1.5 pr-7 text-[11px] focus:outline-none transition-all"
+              style={{
+                borderRadius: '6px',
+                background: 'rgba(10,20,35,0.6)',
+                border: '1px solid rgba(0,240,255,0.2)',
+                color: '#ffffff',
+                fontFamily: 'var(--font-jetbrains-mono), monospace',
+              }}
+              disabled={sending}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const pos = inputRef.current?.selectionStart ?? inputValue.length;
+                const newVal = inputValue.slice(0, pos) + '@' + inputValue.slice(pos);
+                setInputValue(newVal);
+                setTimeout(() => {
+                  inputRef.current?.focus();
+                  inputRef.current?.setSelectionRange(pos + 1, pos + 1);
+                }, 0);
+              }}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded transition-all"
+              style={{ color: 'rgba(0,240,255,0.5)' }}
+              title="Reference a task"
+            >
+              <AtSign className="w-3 h-3" />
+            </button>
+          </div>
+          <button
+            onClick={handleSend}
+            disabled={!inputValue.trim() || sending}
+            className="flex h-8 w-8 shrink-0 items-center justify-center transition-all duration-200"
+            style={{
+              borderRadius: '6px',
+              background: inputValue.trim() && !sending
+                ? 'rgba(255,0,170,0.18)'
+                : 'rgba(10,20,35,0.6)',
+              border: inputValue.trim() && !sending
+                ? '1px solid rgba(255,0,170,0.6)'
+                : '1px solid rgba(0,240,255,0.2)',
+              boxShadow: inputValue.trim() && !sending
+                ? '0 0 12px rgba(255,0,170,0.2)'
+                : 'none',
+              cursor: inputValue.trim() && !sending ? 'pointer' : 'not-allowed',
+            }}
+          >
+            <Send
+              className="w-3.5 h-3.5"
+              style={{
+                color: inputValue.trim() && !sending ? '#ff00aa' : 'rgba(0,240,255,0.4)',
+              }}
+            />
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
+  // ─── Embedded mode — inline, always visible, fills its parent container ───
+  if (embedded) {
+    if (!projectId) {
+      return null;
+    }
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        {/* Messages header — compact, shows project name + message count */}
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1.5 shrink-0"
+          style={{ borderBottom: '1px solid rgba(0,240,255,0.1)' }}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span
+            className="text-[9px] truncate"
+            style={{ color: '#8892a0', fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+          >
+            {messages.length} messages
+          </span>
+        </div>
+        {chatBody}
+      </div>
+    );
+  }
+
+  // ─── Floating mode — slides in from the left as a fixed overlay ───
   return (
     <AnimatePresence>
       {isOpen && projectId && (
@@ -390,8 +566,7 @@ export default function ProjectChat() {
             className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]"
           />
 
-          {/* Chat panel — slides in from the LEFT (always on the left side,
-              consistent with the sidebar's chat section) */}
+          {/* Chat panel — slides in from the LEFT */}
           <motion.div
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
@@ -429,98 +604,7 @@ export default function ProjectChat() {
               </button>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto">
-              {messages.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-800/40 border border-slate-700/30 flex items-center justify-center mb-3">
-                    <MessageCircle className="w-6 h-6 text-slate-700" />
-                  </div>
-                  <p className="text-[11px] text-slate-500 font-medium">No messages yet</p>
-                  <p className="text-[10px] text-slate-700 mt-1 leading-relaxed">
-                    Start the conversation. Use <span className="text-cyan-500/70">@</span> to reference tasks
-                    {activeTrackId && <> or <Clock className="inline w-2.5 h-2.5" /> to link timestamps</>}
-                  </p>
-                </div>
-              )}
-              {messages.map((msg, idx) => renderMessage(msg, idx))}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Mention dropdown */}
-            {showMentionDropdown && mentionResults.length > 0 && (
-              <div className="border-t border-slate-800/60 max-h-[160px] overflow-y-auto bg-[#0c0c14]">
-                {mentionResults.map((result, idx) => {
-                  const style = result.type === 'task' ? { color: '#00d9ff', label: 'Task' } : { color: '#a855f7', label: 'Subtask' };
-                  return (
-                    <button
-                      key={result.id}
-                      onClick={() => selectMention(result)}
-                      className={cn(
-                        'w-full flex items-center gap-2.5 px-3 py-1.5 text-left transition-colors duration-75',
-                        idx === mentionIndex ? 'bg-slate-800/60' : 'hover:bg-slate-800/30',
-                      )}
-                    >
-                      <AtSign className="w-3 h-3 flex-shrink-0" style={{ color: style.color }} />
-                      <span className="text-[11px] text-slate-300 truncate flex-1">{result.title}</span>
-                      <span className="text-[8px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: style.color + '15', color: style.color }}>
-                        {style.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Input area */}
-            <div className="flex-shrink-0 border-t border-slate-800/60 bg-slate-900/40 p-3">
-              {activeTrackId && (
-                <div className="mb-2 flex items-center gap-1.5 text-[10px] text-[#8A2BE2]/70">
-                  <Clock className="w-2.5 h-2.5" />
-                  <span>Audio linked · {formatTimestamp(currentTime)}</span>
-                  <button onClick={insertTimestamp} className="ml-auto text-[#8A2BE2] hover:underline font-medium">
-                    + Insert timestamp
-                  </button>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <input
-                    ref={inputRef}
-                    value={inputValue}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Type a message... (@ for tasks)"
-                    className="w-full bg-slate-800/50 border border-slate-700/40 rounded-lg px-3 py-2 pr-9 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/40 focus:bg-slate-800/70 transition-all"
-                    disabled={sending}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const pos = inputRef.current?.selectionStart ?? inputValue.length;
-                      const newVal = inputValue.slice(0, pos) + '@' + inputValue.slice(pos);
-                      setInputValue(newVal);
-                      setTimeout(() => {
-                        inputRef.current?.focus();
-                        inputRef.current?.setSelectionRange(pos + 1, pos + 1);
-                      }, 0);
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-700/50 text-slate-600 hover:text-cyan-400 transition-all"
-                    title="Reference a task"
-                  >
-                    <AtSign className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={handleSend}
-                  disabled={!inputValue.trim() || sending}
-                  className="h-9 w-9 p-0 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-white flex-shrink-0 transition-all shadow-lg shadow-cyan-500/20"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+            {chatBody}
           </motion.div>
         </>
       )}

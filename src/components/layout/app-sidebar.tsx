@@ -17,7 +17,6 @@ import {
   Disc3,
   Lightbulb,
   MessageCircle,
-  Send,
   Calendar,
   ChevronDown,
   Zap,
@@ -31,7 +30,6 @@ import {
 import { useNavigationStore, useAuthStore, useDataStore, type Group, type Project } from '@/lib/store';
 import { useSidebarStore } from '@/store/sidebar-store';
 import { useChatContextStore } from '@/store/chat-context-store';
-import { useChatUIStore } from '@/store/chat-ui-store';
 import ProjectChat from '@/components/chat/project-chat';
 import { hexToRgba } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -867,13 +865,13 @@ function InviteCodeRow({ code }: { code: string }) {
 /*  Project chat section — lives at the bottom of the sidebar.                */
 /*  - Project selector dropdown at top                                          */
 /*  - "Выберите проект для чата" placeholder when no project selected          */
-/*  - Embeds <ProjectChat/> so its floating panel renders when isOpen          */
+/*  - Embedded <ProjectChat embedded/> fills the rest of the section —        */
+/*    the chat is ALWAYS VISIBLE in the sidebar (no floating popup).          */
 /* ────────────────────────────────────────────────────────────────────────── */
 function SidebarChatSection() {
   const projects = useDataStore((s) => s.projects);
   const currentGroup = useDataStore((s) => s.currentGroup);
   const { activeChatProjectId, activeChatProjectName, setActiveChatProject } = useChatContextStore();
-  const { open: openChat, isOpen: chatIsOpen, close: closeChat } = useChatUIStore();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // Projects linked to the current group.
@@ -887,8 +885,7 @@ function SidebarChatSection() {
     const chatId = p.kanbanTaskId || p.id;
     setActiveChatProject(chatId, p.title);
     setPickerOpen(false);
-    // Auto-open the floating chat panel.
-    openChat();
+    // No openChat() call — the chat is always visible (embedded mode).
   };
 
   return (
@@ -963,124 +960,128 @@ function SidebarChatSection() {
           )}
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-3.5 pb-3 pt-3 flex flex-col">
+        {/* Body — project selector at top, embedded chat fills the rest.
+            The chat is ALWAYS VISIBLE here (no toggle button, no floating popup).
+            When no project is selected, a placeholder prompts the user to pick one. */}
+        <div className="flex-1 min-h-0 flex flex-col">
           {/* Project selector dropdown */}
-          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-            <PopoverTrigger asChild>
-              <button
-                className="group flex w-full items-center gap-2 px-2.5 py-2 text-left transition-all duration-200"
+          <div className="px-3.5 pt-3 shrink-0">
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  className="group flex w-full items-center gap-2 px-2.5 py-2 text-left transition-all duration-200"
+                  style={{
+                    borderRadius: '6px',
+                    background: 'rgba(10,20,35,0.6)',
+                    border: '1px solid rgba(0,240,255,0.2)',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
+                    e.currentTarget.style.boxShadow =
+                      '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <FolderOpen
+                    className="h-3 w-3 shrink-0"
+                    style={{
+                      color: NEON_MAGENTA,
+                      filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.5))',
+                    }}
+                  />
+                  <span
+                    className="flex-1 truncate text-[11px]"
+                    style={{ color: '#ffffff', fontFamily: FONT_MONO }}
+                  >
+                    {activeChatProjectName || 'Выбрать проект…'}
+                  </span>
+                  <ChevronDown
+                    className="h-3 w-3 shrink-0 transition-transform"
+                    style={{
+                      color: NEON_CYAN,
+                      transform: pickerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    }}
+                  />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                sideOffset={4}
+                className="p-0 w-[220px] border-0"
                 style={{
-                  borderRadius: '6px',
-                  background: 'rgba(10,20,35,0.6)',
-                  border: '1px solid rgba(0,240,255,0.2)',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
-                  e.currentTarget.style.boxShadow =
-                    '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
-                  e.currentTarget.style.boxShadow = 'none';
+                  background: 'rgba(10,14,23,0.98)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(0,240,255,0.3)',
+                  boxShadow:
+                    '0 0 16px rgba(0,240,255,0.15), 0 12px 40px rgba(0,0,0,0.7)',
                 }}
               >
-                <FolderOpen
-                  className="h-3 w-3 shrink-0"
-                  style={{
-                    color: NEON_MAGENTA,
-                    filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.5))',
-                  }}
-                />
-                <span
-                  className="flex-1 truncate text-[11px]"
-                  style={{ color: '#ffffff', fontFamily: FONT_MONO }}
-                >
-                  {activeChatProjectName || 'Выбрать проект…'}
-                </span>
-                <ChevronDown
-                  className="h-3 w-3 shrink-0 transition-transform"
-                  style={{
-                    color: NEON_CYAN,
-                    transform: pickerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                  }}
-                />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="start"
-              sideOffset={4}
-              className="p-0 w-[220px] border-0"
-              style={{
-                background: 'rgba(10,14,23,0.98)',
-                borderRadius: '12px',
-                border: '1px solid rgba(0,240,255,0.3)',
-                boxShadow:
-                  '0 0 16px rgba(0,240,255,0.15), 0 12px 40px rgba(0,0,0,0.7)',
-              }}
-            >
-              <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                {groupProjects.length === 0 ? (
-                  <p
-                    className="px-3 py-3 text-[10px] italic"
-                    style={{ color: '#8892a0', fontFamily: FONT_MONO }}
-                  >
-                    Нет проектов в группе
-                  </p>
-                ) : (
-                  groupProjects.map((p) => {
-                    const isActive = (p.kanbanTaskId || p.id) === activeChatProjectId;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => handleSelect(p)}
-                        className="w-full flex items-center gap-2 px-2.5 py-2 text-left transition-colors"
-                        style={{
-                          background: isActive ? 'rgba(0,240,255,0.12)' : 'transparent',
-                          boxShadow: isActive
-                            ? `inset 2px 0 0 ${NEON_CYAN}`
-                            : 'inset 2px 0 0 transparent',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isActive) e.currentTarget.style.background = 'rgba(0,240,255,0.06)';
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isActive) e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <Music2
-                          className="h-3 w-3 shrink-0"
+                <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                  {groupProjects.length === 0 ? (
+                    <p
+                      className="px-3 py-3 text-[10px] italic"
+                      style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                    >
+                      Нет проектов в группе
+                    </p>
+                  ) : (
+                    groupProjects.map((p) => {
+                      const isActive = (p.kanbanTaskId || p.id) === activeChatProjectId;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => handleSelect(p)}
+                          className="w-full flex items-center gap-2 px-2.5 py-2 text-left transition-colors"
                           style={{
-                            color: isActive ? NEON_CYAN : NEON_MAGENTA,
+                            background: isActive ? 'rgba(0,240,255,0.12)' : 'transparent',
+                            boxShadow: isActive
+                              ? `inset 2px 0 0 ${NEON_CYAN}`
+                              : 'inset 2px 0 0 transparent',
                           }}
-                        />
-                        <span
-                          className="flex-1 truncate text-[11px]"
-                          style={{ color: '#ffffff', fontFamily: FONT_MONO }}
+                          onMouseEnter={(e) => {
+                            if (!isActive) e.currentTarget.style.background = 'rgba(0,240,255,0.06)';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive) e.currentTarget.style.background = 'transparent';
+                          }}
                         >
-                          {p.title}
-                        </span>
-                        <span
-                          className="text-[8px] uppercase tracking-wider"
-                          style={{ color: '#8892a0', fontFamily: FONT_MONO }}
-                        >
-                          {p.type}
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
+                          <Music2
+                            className="h-3 w-3 shrink-0"
+                            style={{
+                              color: isActive ? NEON_CYAN : NEON_MAGENTA,
+                            }}
+                          />
+                          <span
+                            className="flex-1 truncate text-[11px]"
+                            style={{ color: '#ffffff', fontFamily: FONT_MONO }}
+                          >
+                            {p.title}
+                          </span>
+                          <span
+                            className="text-[8px] uppercase tracking-wider"
+                            style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                          >
+                            {p.type}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
 
-          {/* Chat body — placeholder when no project selected, otherwise
-              show a compact "open chat" / "chat active" panel. */}
-          <div className="mt-3 flex-1 flex flex-col">
+          {/* Embedded chat — fills the remaining space.
+              When no project is selected, show a placeholder instead. */}
+          <div className="flex-1 min-h-0 flex flex-col px-1.5 pb-1.5 pt-2">
             {!activeChatProjectId ? (
               <div
-                className="flex flex-col items-center justify-center py-5 text-center flex-1"
+                className="flex flex-col items-center justify-center text-center flex-1 mx-2 mb-2"
                 style={{
                   borderRadius: '8px',
                   background: 'rgba(10,20,35,0.6)',
@@ -1102,63 +1103,7 @@ function SidebarChatSection() {
                 </p>
               </div>
             ) : (
-              <button
-                onClick={() => (chatIsOpen ? closeChat() : openChat())}
-                className="group flex w-full items-center gap-2 px-2.5 py-2 transition-all duration-200"
-                style={{
-                  borderRadius: '6px',
-                  background: chatIsOpen
-                    ? 'rgba(255,0,170,0.18)'
-                    : 'rgba(0,240,255,0.08)',
-                  border: chatIsOpen
-                    ? '1px solid rgba(255,0,170,0.6)'
-                    : '1px solid rgba(0,240,255,0.4)',
-                  boxShadow: chatIsOpen
-                    ? '0 0 12px rgba(255,0,170,0.15)'
-                    : '0 0 12px rgba(0,240,255,0.1)',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  if (!chatIsOpen) {
-                    e.currentTarget.style.background = 'rgba(255,0,170,0.15)';
-                    e.currentTarget.style.borderColor = 'rgba(255,0,170,0.6)';
-                    e.currentTarget.style.boxShadow = '0 0 16px rgba(255,0,170,0.2)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!chatIsOpen) {
-                    e.currentTarget.style.background = 'rgba(0,240,255,0.08)';
-                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.4)';
-                    e.currentTarget.style.boxShadow = '0 0 12px rgba(0,240,255,0.1)';
-                  }
-                }}
-              >
-                <Send
-                  className="h-3 w-3 shrink-0"
-                  style={{
-                    color: chatIsOpen ? NEON_MAGENTA : NEON_CYAN,
-                  }}
-                />
-                <span
-                  className="flex-1 truncate text-left text-[11px] font-semibold"
-                  style={{
-                    color: chatIsOpen ? NEON_MAGENTA : NEON_CYAN,
-                    fontFamily: FONT_DISPLAY,
-                  }}
-                >
-                  {chatIsOpen ? 'Чат открыт — скрыть' : 'Открыть чат'}
-                </span>
-                <span
-                  className="text-[9px] uppercase tracking-wider truncate max-w-[80px]"
-                  style={{
-                    color: chatIsOpen ? 'rgba(255,0,170,0.8)' : 'rgba(0,240,255,0.8)',
-                    fontFamily: FONT_MONO,
-                  }}
-                  title={activeChatProjectName || ''}
-                >
-                  {activeChatProjectName}
-                </span>
-              </button>
+              <ProjectChat embedded />
             )}
           </div>
         </div>
@@ -1420,11 +1365,9 @@ export function AppSidebar() {
         )}
       </AnimatePresence>
 
-      {/* ─── Global ProjectChat floating panel ─── */}
-      {/* Rendered OUTSIDE the transform-affected <aside> so its `position: fixed`
-          is relative to the viewport (transformed ancestors become the
-          containing block for fixed descendants — we don't want that). */}
-      <ProjectChat />
+      {/* The floating <ProjectChat/> panel is no longer rendered here —
+          the chat is now ALWAYS VISIBLE inside the sidebar (embedded mode).
+          See SidebarChatSection → <ProjectChat embedded />. */}
     </>
   );
 }
