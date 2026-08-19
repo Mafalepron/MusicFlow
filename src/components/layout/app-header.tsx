@@ -863,65 +863,72 @@ export function AppHeader() {
             <div
               style={{
                 position: 'relative',
-                background: 'linear-gradient(145deg, #f5f7fa 0%, #ffffff 100%)',
-                borderRadius: '16px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
-                border: '1px solid rgba(0,0,0,0.06)',
-                padding: '20px 24px 24px',
+                background: 'rgba(10,14,23,0.85)',
+                backdropFilter: 'blur(16px)',
+                borderRadius: '12px',
+                boxShadow: '0 0 24px rgba(0,240,255,0.15), 0 0 8px rgba(255,0,170,0.1), 0 12px 40px rgba(0,0,0,0.7)',
+                border: '1px solid rgba(0,240,255,0.3)',
+                padding: '18px 20px 20px',
               }}
             >
-              {/* ── Header bar — title + close button (clean minimalist) ── */}
+              {/* ── Header bar ── */}
               <div className="flex items-center justify-between mb-5" style={{
-                paddingBottom: '16px',
-                borderBottom: '1px solid rgba(0,0,0,0.06)',
+                paddingBottom: '14px',
+                borderBottom: '1px solid rgba(0,240,255,0.15)',
               }}>
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center" style={{
-                    borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #4fc3f7, #29b6f6)',
-                    boxShadow: '0 4px 12px rgba(79,195,247,0.3)',
+                    borderRadius: '6px',
+                    background: 'rgba(0,240,255,0.1)',
+                    border: '1px solid rgba(0,240,255,0.5)',
+                    boxShadow: '0 0 12px rgba(0,240,255,0.3)',
                   }}>
-                    <Zap className="h-4 w-4" style={{ color: '#ffffff' }} />
+                    <Zap className="h-4 w-4" style={{ color: '#00f0ff', filter: 'drop-shadow(0 0 4px rgba(0,240,255,0.8))' }} />
                   </div>
-                  <span className="text-base font-bold" style={{
-                    color: '#1a1a2e',
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 700,
+                  <span className="text-sm font-bold uppercase" style={{
+                    color: '#00f0ff',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
+                    letterSpacing: '2px',
+                    textShadow: '0 0 8px rgba(0,240,255,0.5)',
                   }}>
                     Быстрый доступ
                   </span>
-                  <span className="text-xs" style={{
-                    color: '#9e9e9e',
-                    fontFamily: 'Inter, sans-serif',
+                  <span className="text-[10px]" style={{
+                    color: 'rgba(255,0,170,0.5)',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
                   }}>
                     · обзор группы
                   </span>
                 </div>
 
-                {/* Close button — clean flat */}
+                {/* Close button */}
                 <button
                   onClick={() => setQuickPanelOpen(false)}
                   className="group flex h-8 w-8 items-center justify-center transition-all"
                   style={{
-                    borderRadius: '8px',
-                    background: 'rgba(0,0,0,0.04)',
-                    border: 'none',
+                    borderRadius: '6px',
+                    background: 'rgba(0,240,255,0.05)',
+                    border: '1px solid rgba(0,240,255,0.3)',
                     cursor: 'pointer',
                   }}
                   title="Закрыть (Esc)"
                   aria-label="Закрыть"
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(0,0,0,0.08)';
+                    e.currentTarget.style.background = 'rgba(255,0,170,0.15)';
+                    e.currentTarget.style.borderColor = 'rgba(255,0,170,0.8)';
+                    e.currentTarget.style.boxShadow = '0 0 12px rgba(255,0,170,0.5)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(0,0,0,0.04)';
+                    e.currentTarget.style.background = 'rgba(0,240,255,0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
+                    e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
-                  <X className="h-4 w-4" style={{ color: '#636e72' }} />
+                  <X className="h-4 w-4" style={{ color: '#00f0ff' }} />
                 </button>
               </div>
 
-              {/* Stats row — clean white cards with soft shadows */}
+              {/* Stats row — glassmorphism cards with neon glow */}
               <div className="grid grid-cols-4 gap-3 mb-5">
                 {[
                   { icon: FolderKanban, value: projects.length, label: 'Проекты', view: 'projects' as ViewName },
@@ -934,41 +941,43 @@ export function AppHeader() {
                     onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
                     className="group flex flex-col items-center justify-center gap-2 py-4 transition-all duration-200"
                     style={{
-                      borderRadius: '12px',
-                      background: '#ffffff',
-                      border: '1px solid rgba(0,0,0,0.06)',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                      borderRadius: '8px',
+                      background: 'rgba(10,20,35,0.6)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(0,240,255,0.2)',
                       cursor: 'pointer',
                       padding: '16px 8px',
                     }}
                     title={`Перейти к: ${s.label}`}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.1)';
-                      e.currentTarget.style.borderColor = 'rgba(79,195,247,0.3)';
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
+                      e.currentTarget.style.boxShadow = '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
-                      e.currentTarget.style.borderColor = 'rgba(0,0,0,0.06)';
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                      e.currentTarget.style.boxShadow = 'none';
                     }}
                   >
-                    {/* Icon — blue */}
-                    <s.icon className="h-6 w-6 transition-transform group-hover:scale-110" style={{ color: '#29b6f6' }} />
+                    {/* Icon — magenta */}
+                    <s.icon className="h-5 w-5 transition-transform group-hover:scale-110" style={{ color: '#ff00aa', filter: 'drop-shadow(0 0 6px rgba(255,0,170,0.7))' }} />
 
-                    {/* Count — dark bold */}
+                    {/* Count — white with magenta glow */}
                     <span className="text-2xl font-bold tabular-nums leading-none" style={{
-                      color: '#1a1a2e',
-                      fontFamily: 'Inter, sans-serif',
+                      color: '#ffffff',
+                      fontFamily: 'var(--font-rajdhani), sans-serif',
+                      textShadow: '0 0 10px rgba(255,0,170,0.4)',
                     }}>
                       {s.value}
                     </span>
 
-                    {/* Label — yellow accent */}
+                    {/* Label — cyan */}
                     <span className="text-[10px] uppercase font-semibold tracking-wider" style={{
-                      color: '#f9a825',
-                      fontFamily: 'Inter, sans-serif',
+                      color: '#00f0ff',
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
                       letterSpacing: '0.5px',
+                      textShadow: '0 0 6px rgba(0,240,255,0.4)',
                     }}>
                       {s.label}
                     </span>
@@ -979,19 +988,20 @@ export function AppHeader() {
               {/* Quick-access cards section header */}
               {quickAccessCards.length > 0 && (
                 <div className="flex items-center gap-2 mb-3">
-                  <LayoutDashboard className="h-4 w-4" style={{ color: '#29b6f6' }} />
+                  <LayoutDashboard className="h-4 w-4" style={{ color: '#00f0ff', filter: 'drop-shadow(0 0 4px rgba(0,240,255,0.6))' }} />
                   <span className="text-xs font-semibold uppercase tracking-wider" style={{
-                    color: '#29b6f6',
-                    fontFamily: 'Inter, sans-serif',
+                    color: '#00f0ff',
+                    fontFamily: 'var(--font-jetbrains-mono), monospace',
                     letterSpacing: '1px',
+                    textShadow: '0 0 6px rgba(0,240,255,0.4)',
                   }}>
                     Проекты
                   </span>
-                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(41,182,246,0.2), transparent)' }} />
+                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,240,255,0.3), transparent)' }} />
                 </div>
               )}
 
-              {/* Quick-access cards — clean white carousel */}
+              {/* Quick-access cards — glassmorphism neon carousel */}
               {quickAccessCards.length > 0 ? (
                 <div className="flex items-center gap-2">
                   {/* Left scroll button */}
@@ -1002,24 +1012,24 @@ export function AppHeader() {
                     }}
                     className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all"
                     style={{
-                      borderRadius: '8px',
-                      background: '#ffffff',
-                      border: '1px solid rgba(0,0,0,0.06)',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                      borderRadius: '6px',
+                      background: 'rgba(10,20,35,0.6)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(0,240,255,0.3)',
                       cursor: 'pointer',
                     }}
                     title="Прокрутить влево"
                     aria-label="Прокрутить влево"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f5f7fa';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.7)';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(0,240,255,0.3)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#ffffff';
-                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.04)';
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
+                      e.currentTarget.style.boxShadow = 'none';
                     }}
                   >
-                    <ChevronLeft className="h-4 w-4" style={{ color: '#29b6f6' }} />
+                    <ChevronLeft className="h-4 w-4" style={{ color: '#00f0ff' }} />
                   </button>
 
                   {/* Scrollable cards container */}
@@ -1055,23 +1065,31 @@ export function AppHeader() {
                           }}
                           className="group relative w-52 shrink-0 cursor-pointer overflow-hidden transition-all duration-200"
                           style={{
-                            borderRadius: '12px',
-                            background: '#ffffff',
-                            border: '1px solid rgba(0,0,0,0.06)',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                            borderRadius: '8px',
+                            background: 'rgba(10,20,35,0.6)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(0,240,255,0.2)',
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-3px)';
-                            e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)';
-                            e.currentTarget.style.borderColor = 'rgba(79,195,247,0.3)';
+                            e.currentTarget.style.borderColor = 'rgba(255,0,170,0.5)';
+                            e.currentTarget.style.boxShadow = '0 0 20px rgba(255,0,170,0.15), 0 0 6px rgba(0,240,255,0.1)';
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
-                            e.currentTarget.style.borderColor = 'rgba(0,0,0,0.06)';
+                            e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                            e.currentTarget.style.boxShadow = 'none';
                           }}
                           title={`Открыть: ${card.title}`}
                         >
+                          {/* Top accent strip — cyan */}
+                          <div
+                            className="h-[2px] w-full"
+                            style={{
+                              background: 'linear-gradient(90deg, transparent, #00f0ff 30%, #00f0ff 70%, transparent)',
+                              boxShadow: '0 0 6px rgba(0,240,255,0.6)',
+                            }}
+                          />
                           {/* Body */}
                           <div className="p-3.5 relative">
                             {/* Type icon + label */}
@@ -1079,53 +1097,55 @@ export function AppHeader() {
                               <div
                                 className="flex h-7 w-7 items-center justify-center"
                                 style={{
-                                  borderRadius: '8px',
-                                  background: 'rgba(41,182,246,0.08)',
+                                  borderRadius: '6px',
+                                  background: 'rgba(255,0,170,0.08)',
+                                  border: '1px solid rgba(255,0,170,0.3)',
                                 }}
                               >
                                 {card.kind === 'auto' ? (
-                                  <FolderOpen className="w-3.5 h-3.5" style={{ color: '#29b6f6' }} />
+                                  <FolderOpen className="w-3.5 h-3.5" style={{ color: '#ff00aa', filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.6))' }} />
                                 ) : (
-                                  <LayoutDashboard className="w-3.5 h-3.5" style={{ color: '#29b6f6' }} />
+                                  <LayoutDashboard className="w-3.5 h-3.5" style={{ color: '#ff00aa', filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.6))' }} />
                                 )}
                               </div>
                               <span className="text-[10px] font-semibold uppercase tracking-wider" style={{
-                                color: '#f9a825',
-                                fontFamily: 'Inter, sans-serif',
+                                color: '#ff00aa',
+                                fontFamily: 'var(--font-jetbrains-mono), monospace',
                                 letterSpacing: '0.5px',
+                                textShadow: '0 0 4px rgba(255,0,170,0.4)',
                               }}>
                                 {tl}
                               </span>
                             </div>
                             {/* Title */}
                             <p className="text-sm font-semibold line-clamp-1" style={{
-                              color: '#1a1a2e',
-                              fontFamily: 'Inter, sans-serif',
+                              color: '#ffffff',
+                              fontFamily: 'var(--font-rajdhani), sans-serif',
                             }}>
                               {card.title}
                             </p>
                             {/* Meta — status dot + count */}
                             <div className="mt-1.5 flex items-center gap-2 text-[11px]" style={{
-                              color: '#9e9e9e',
-                              fontFamily: 'Inter, sans-serif',
+                              color: '#8892a0',
+                              fontFamily: 'var(--font-jetbrains-mono), monospace',
                             }}>
                               <span className="flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#f9a825' }} />
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#ff00aa', boxShadow: '0 0 4px rgba(255,0,170,0.6)' }} />
                                 {sl}
                               </span>
                               <span>·</span>
                               <span className="flex items-center gap-1">
                                 {card.kind === 'auto' ? (
-                                  <Music2 className="w-3 h-3" style={{ color: '#29b6f6' }} />
+                                  <Music2 className="w-3 h-3" style={{ color: '#00f0ff' }} />
                                 ) : (
-                                  <Layers className="w-3 h-3" style={{ color: '#29b6f6' }} />
+                                  <Layers className="w-3 h-3" style={{ color: '#00f0ff' }} />
                                 )}
                                 {count}
                               </span>
                             </div>
                             {/* Waveform progress bar */}
                             <div className="mt-2.5">
-                              <WaveformProgressBar progress={progress} accentColor="#f9a825" height={18} bars={20} />
+                              <WaveformProgressBar progress={progress} accentColor="#ff00aa" height={18} bars={20} />
                             </div>
                           </div>
                         </div>
@@ -1141,29 +1161,29 @@ export function AppHeader() {
                     }}
                     className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all"
                     style={{
-                      borderRadius: '8px',
-                      background: '#ffffff',
-                      border: '1px solid rgba(0,0,0,0.06)',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                      borderRadius: '6px',
+                      background: 'rgba(10,20,35,0.6)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(0,240,255,0.3)',
                       cursor: 'pointer',
                     }}
                     title="Прокрутить вправо"
                     aria-label="Прокрутить вправо"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f5f7fa';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.7)';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(0,240,255,0.3)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#ffffff';
-                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.04)';
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
+                      e.currentTarget.style.boxShadow = 'none';
                     }}
                   >
-                    <ChevronRight className="h-4 w-4" style={{ color: '#29b6f6' }} />
+                    <ChevronRight className="h-4 w-4" style={{ color: '#00f0ff' }} />
                   </button>
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-sm" style={{ color: '#9e9e9e', fontFamily: 'Inter, sans-serif' }}>
+                  <p className="text-sm" style={{ color: '#8892a0', fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
                     Нет проектов в избранном. Добавьте их на главной странице.
                   </p>
                 </div>
