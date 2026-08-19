@@ -203,10 +203,8 @@ export function AppHeader() {
     return () => document.removeEventListener('mousedown', handler);
   }, [notifOpen]);
 
-  // Build breadcrumbs
-  const breadcrumbs: { label: string; view?: string; projectId?: string }[] = [
-    { label: groupName },
-  ];
+  // Build breadcrumbs — group name removed from header (shown in sidebar)
+  const breadcrumbs: { label: string; view?: string; projectId?: string }[] = [];
 
   if (currentView === 'project-detail' && selectedProjectId) {
     breadcrumbs.push({ label: 'Projects', view: 'projects' });
@@ -386,67 +384,6 @@ export function AppHeader() {
           </Tooltip>
         </TooltipProvider>
 
-        {/* Home button — cyberpunk HUD style, calls navigate('home').
-            Visible on both mobile (near the hamburger) and desktop (left side). */}
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={handleHomeClick}
-                aria-label="На главную"
-                className={cn(
-                  'relative flex h-9 w-9 items-center justify-center transition-all duration-200 shrink-0',
-                  currentView === 'home' ? 'text-[#c7a008]' : 'text-muted-foreground hover:text-[#c7a008]'
-                )}
-                style={{
-                  background: currentView === 'home' ? '#161a24' : '#12151d',
-                  border: currentView === 'home' ? '1px solid #c7a008' : '1px solid #232a3b',
-                  borderRadius: '4px',
-                  boxShadow:
-                    currentView === 'home'
-                      ? '0 0 10px rgba(199,160,8,0.3), inset 0 0 8px rgba(199,160,8,0.08)'
-                      : 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (currentView !== 'home') {
-                    e.currentTarget.style.borderColor = '#c7a008';
-                    e.currentTarget.style.boxShadow = '0 0 8px rgba(199,160,8,0.25)';
-                    e.currentTarget.style.color = '#c7a008';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (currentView !== 'home') {
-                    e.currentTarget.style.borderColor = '#232a3b';
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.color = '';
-                  }
-                }}
-              >
-                <Home
-                  className="h-4 w-4"
-                  style={{
-                    filter:
-                      currentView === 'home'
-                        ? 'drop-shadow(0 0 4px rgba(199,160,8,0.6))'
-                        : 'none',
-                  }}
-                />
-                {/* Active corner accent — cyberpunk HUD notch */}
-                {currentView === 'home' && (
-                  <span
-                    className="absolute -top-px -left-px h-1.5 w-1.5"
-                    style={{
-                      background: '#c7a008',
-                      boxShadow: '0 0 4px rgba(199,160,8,0.8)',
-                    }}
-                  />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>На главную</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
         {/* Logo — mobile only (desktop has sidebar) */}
         <div className="flex items-center gap-2 lg:hidden">
           <div className="relative flex h-7 w-7 items-center justify-center">
@@ -546,6 +483,66 @@ export function AppHeader() {
               </Button>
             </TooltipTrigger>
             <TooltipContent>Search</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {/* Home button — purple neon style (matches center stripe color #9d4edd),
+            placed right after the search button. */}
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleHomeClick}
+                aria-label="На главную"
+                className={cn(
+                  'relative flex h-9 w-9 items-center justify-center transition-all duration-200 shrink-0',
+                  currentView === 'home' ? 'text-[#9d4edd]' : 'text-muted-foreground hover:text-[#9d4edd]'
+                )}
+                style={{
+                  background: currentView === 'home' ? '#1a1228' : '#12151d',
+                  border: currentView === 'home' ? '1px solid #9d4edd' : '1px solid #232a3b',
+                  borderRadius: '4px',
+                  boxShadow:
+                    currentView === 'home'
+                      ? '0 0 10px rgba(157,78,221,0.4), inset 0 0 8px rgba(157,78,221,0.08)'
+                      : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (currentView !== 'home') {
+                    e.currentTarget.style.borderColor = '#9d4edd';
+                    e.currentTarget.style.boxShadow = '0 0 8px rgba(157,78,221,0.3)';
+                    e.currentTarget.style.color = '#9d4edd';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentView !== 'home') {
+                    e.currentTarget.style.borderColor = '#232a3b';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.color = '';
+                  }
+                }}
+              >
+                <Home
+                  className="h-4 w-4"
+                  style={{
+                    filter:
+                      currentView === 'home'
+                        ? 'drop-shadow(0 0 4px rgba(157,78,221,0.7))'
+                        : 'none',
+                  }}
+                />
+                {currentView === 'home' && (
+                  <span
+                    className="absolute -top-px -left-px h-1.5 w-1.5"
+                    style={{
+                      background: '#9d4edd',
+                      boxShadow: '0 0 4px rgba(157,78,221,0.9)',
+                    }}
+                  />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>На главную</TooltipContent>
           </Tooltip>
         </TooltipProvider>
 
