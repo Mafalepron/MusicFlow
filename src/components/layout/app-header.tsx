@@ -863,67 +863,66 @@ export function AppHeader() {
             <div
               style={{
                 position: 'relative',
-                background: 'linear-gradient(145deg, #e8eaf0 0%, #d4d8e0 100%)',
-                clipPath: 'polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px))',
-                boxShadow: '8px 8px 24px rgba(0,0,0,0.5), -4px -4px 16px rgba(255,255,255,0.05), inset 1px 1px 2px rgba(255,255,255,0.6), inset -1px -1px 2px rgba(0,0,0,0.1)',
-                padding: '16px 18px 18px',
+                background: 'linear-gradient(145deg, #f5f7fa 0%, #ffffff 100%)',
+                borderRadius: '16px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
+                border: '1px solid rgba(0,0,0,0.06)',
+                padding: '20px 24px 24px',
               }}
             >
-              {/* ── Header bar — title + close button (neumorphic) ── */}
-              <div className="flex items-center justify-between mb-4 pb-3" style={{
-                borderBottom: '1px solid rgba(0,168,198,0.2)',
+              {/* ── Header bar — title + close button (clean minimalist) ── */}
+              <div className="flex items-center justify-between mb-5" style={{
+                paddingBottom: '16px',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
               }}>
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center" style={{
-                    clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                    background: 'linear-gradient(145deg, #f0f2f8, #d8dce4)',
-                    boxShadow: '2px 2px 5px rgba(0,0,0,0.15), -2px -2px 5px rgba(255,255,255,0.8)',
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center" style={{
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #4fc3f7, #29b6f6)',
+                    boxShadow: '0 4px 12px rgba(79,195,247,0.3)',
                   }}>
-                    <Zap className="h-4 w-4" style={{ color: '#00a8c6' }} />
+                    <Zap className="h-4 w-4" style={{ color: '#ffffff' }} />
                   </div>
-                  <span className="text-[12px] font-bold uppercase" style={{
+                  <span className="text-base font-bold" style={{
                     color: '#1a1a2e',
-                    fontFamily: 'var(--font-rajdhani), sans-serif',
-                    letterSpacing: '1.5px',
-                    fontWeight: 800,
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 700,
                   }}>
                     Быстрый доступ
                   </span>
-                  <span className="text-[9px] uppercase" style={{
-                    color: '#7a8090',
-                    fontFamily: 'var(--font-rajdhani), sans-serif',
-                    letterSpacing: '1px',
+                  <span className="text-xs" style={{
+                    color: '#9e9e9e',
+                    fontFamily: 'Inter, sans-serif',
                   }}>
                     · обзор группы
                   </span>
                 </div>
 
-                {/* Close button — inset neumorphic */}
+                {/* Close button — clean flat */}
                 <button
                   onClick={() => setQuickPanelOpen(false)}
-                  className="group flex h-8 w-8 items-center justify-center transition-all active:scale-95"
+                  className="group flex h-8 w-8 items-center justify-center transition-all"
                   style={{
-                    clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                    background: 'linear-gradient(145deg, #d4d8e0, #f0f2f8)',
-                    boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.15), inset -2px -2px 4px rgba(255,255,255,0.8)',
-                    cursor: 'pointer',
+                    borderRadius: '8px',
+                    background: 'rgba(0,0,0,0.04)',
                     border: 'none',
+                    cursor: 'pointer',
                   }}
                   title="Закрыть (Esc)"
                   aria-label="Закрыть"
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = 'inset 2px 2px 6px rgba(0,168,198,0.3), inset -2px -2px 6px rgba(255,255,255,0.8)';
+                    e.currentTarget.style.background = 'rgba(0,0,0,0.08)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'inset 2px 2px 4px rgba(0,0,0,0.15), inset -2px -2px 4px rgba(255,255,255,0.8)';
+                    e.currentTarget.style.background = 'rgba(0,0,0,0.04)';
                   }}
                 >
-                  <X className="h-4 w-4" style={{ color: '#00a8c6' }} />
+                  <X className="h-4 w-4" style={{ color: '#636e72' }} />
                 </button>
               </div>
 
-              {/* Stats row — neumorphic raised cards with light-blue accents */}
-              <div className="grid grid-cols-4 gap-3 mb-4">
+              {/* Stats row — clean white cards with soft shadows */}
+              <div className="grid grid-cols-4 gap-3 mb-5">
                 {[
                   { icon: FolderKanban, value: projects.length, label: 'Проекты', view: 'projects' as ViewName },
                   { icon: Music2, value: tracks.length, label: 'Треки', view: 'projects' as ViewName },
@@ -933,40 +932,42 @@ export function AppHeader() {
                   <button
                     key={s.label}
                     onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
-                    className="group relative flex flex-col items-center justify-center gap-1.5 py-3.5 transition-all duration-200"
+                    className="group flex flex-col items-center justify-center gap-2 py-4 transition-all duration-200"
                     style={{
-                      clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
-                      background: 'linear-gradient(145deg, #f0f2f8, #d8dce4)',
-                      boxShadow: '4px 4px 8px rgba(0,0,0,0.12), -4px -4px 8px rgba(255,255,255,0.7)',
+                      borderRadius: '12px',
+                      background: '#ffffff',
+                      border: '1px solid rgba(0,0,0,0.06)',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                       cursor: 'pointer',
-                      padding: '12px 8px',
-                      border: 'none',
+                      padding: '16px 8px',
                     }}
                     title={`Перейти к: ${s.label}`}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '6px 6px 14px rgba(0,168,198,0.2), -4px -4px 10px rgba(255,255,255,0.8)';
+                      e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.1)';
+                      e.currentTarget.style.borderColor = 'rgba(79,195,247,0.3)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '4px 4px 8px rgba(0,0,0,0.12), -4px -4px 8px rgba(255,255,255,0.7)';
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
+                      e.currentTarget.style.borderColor = 'rgba(0,0,0,0.06)';
                     }}
                   >
-                    {/* Icon — light-blue */}
-                    <s.icon className="h-5 w-5 transition-transform group-hover:scale-110" style={{ color: '#00a8c6' }} />
+                    {/* Icon — blue */}
+                    <s.icon className="h-6 w-6 transition-transform group-hover:scale-110" style={{ color: '#29b6f6' }} />
 
-                    {/* Count — bold, large, dark */}
-                    <span className="text-2xl font-extrabold tabular-nums leading-none" style={{
+                    {/* Count — dark bold */}
+                    <span className="text-2xl font-bold tabular-nums leading-none" style={{
                       color: '#1a1a2e',
-                      fontFamily: 'var(--font-rajdhani), sans-serif',
+                      fontFamily: 'Inter, sans-serif',
                     }}>
                       {s.value}
                     </span>
 
-                    {/* Label — uppercase, muted with yellow accent */}
-                    <span className="text-[9px] uppercase font-bold tracking-wider" style={{
-                      color: '#c7a008',
-                      fontFamily: 'var(--font-rajdhani), sans-serif',
+                    {/* Label — yellow accent */}
+                    <span className="text-[10px] uppercase font-semibold tracking-wider" style={{
+                      color: '#f9a825',
+                      fontFamily: 'Inter, sans-serif',
                       letterSpacing: '0.5px',
                     }}>
                       {s.label}
@@ -977,52 +978,54 @@ export function AppHeader() {
 
               {/* Quick-access cards section header */}
               {quickAccessCards.length > 0 && (
-                <div className="flex items-center gap-2 mb-2.5">
-                  <LayoutDashboard className="h-3.5 w-3.5" style={{ color: '#00a8c6' }} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{
-                    color: '#00a8c6',
-                    fontFamily: 'var(--font-rajdhani), sans-serif',
+                <div className="flex items-center gap-2 mb-3">
+                  <LayoutDashboard className="h-4 w-4" style={{ color: '#29b6f6' }} />
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{
+                    color: '#29b6f6',
+                    fontFamily: 'Inter, sans-serif',
                     letterSpacing: '1px',
                   }}>
                     Проекты
                   </span>
-                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,168,198,0.3), transparent)' }} />
+                  <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(41,182,246,0.2), transparent)' }} />
                 </div>
               )}
 
-              {/* Quick-access cards — neumorphic horizontal carousel */}
+              {/* Quick-access cards — clean white carousel */}
               {quickAccessCards.length > 0 ? (
                 <div className="flex items-center gap-2">
-                  {/* Left scroll button — inset neumorphic */}
+                  {/* Left scroll button */}
                   <button
                     onClick={() => {
                       const el = quickCardsScrollRef.current;
                       if (el) el.scrollBy({ left: -220, behavior: 'smooth' });
                     }}
-                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all active:scale-95"
+                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all"
                     style={{
-                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                      background: 'linear-gradient(145deg, #d4d8e0, #f0f2f8)',
-                      boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)',
+                      borderRadius: '8px',
+                      background: '#ffffff',
+                      border: '1px solid rgba(0,0,0,0.06)',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
                       cursor: 'pointer',
-                      border: 'none',
                     }}
                     title="Прокрутить влево"
                     aria-label="Прокрутить влево"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow = 'inset 2px 2px 6px rgba(0,168,198,0.2), inset -2px -2px 6px rgba(255,255,255,0.7)';
+                      e.currentTarget.style.background = '#f5f7fa';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)';
+                      e.currentTarget.style.background = '#ffffff';
+                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.04)';
                     }}
                   >
-                    <ChevronLeft className="h-4 w-4" style={{ color: '#00a8c6' }} />
+                    <ChevronLeft className="h-4 w-4" style={{ color: '#29b6f6' }} />
                   </button>
 
                   {/* Scrollable cards container */}
                   <div
                     ref={quickCardsScrollRef}
-                    className="flex gap-2.5 overflow-x-auto pb-1 flex-1 hide-scrollbar"
+                    className="flex gap-3 overflow-x-auto pb-1 flex-1 hide-scrollbar"
                     style={{ scrollBehavior: 'smooth', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                   >
                     {quickAccessCards.map((card) => {
@@ -1052,41 +1055,43 @@ export function AppHeader() {
                           }}
                           className="group relative w-52 shrink-0 cursor-pointer overflow-hidden transition-all duration-200"
                           style={{
-                            clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))',
-                            background: 'linear-gradient(145deg, #f0f2f8, #d8dce4)',
-                            boxShadow: '4px 4px 10px rgba(0,0,0,0.12), -3px -3px 8px rgba(255,255,255,0.7)',
+                            borderRadius: '12px',
+                            background: '#ffffff',
+                            border: '1px solid rgba(0,0,0,0.06)',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-3px)';
-                            e.currentTarget.style.boxShadow = '6px 8px 18px rgba(0,168,198,0.2), -3px -3px 8px rgba(255,255,255,0.7)';
+                            e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(79,195,247,0.3)';
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '4px 4px 10px rgba(0,0,0,0.12), -3px -3px 8px rgba(255,255,255,0.7)';
+                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
+                            e.currentTarget.style.borderColor = 'rgba(0,0,0,0.06)';
                           }}
                           title={`Открыть: ${card.title}`}
                         >
                           {/* Body */}
-                          <div className="p-3 relative">
+                          <div className="p-3.5 relative">
                             {/* Type icon + label */}
-                            <div className="mb-2 flex items-center gap-1.5">
+                            <div className="mb-2.5 flex items-center gap-2">
                               <div
-                                className="flex h-6 w-6 items-center justify-center"
+                                className="flex h-7 w-7 items-center justify-center"
                                 style={{
-                                  clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
-                                  background: 'linear-gradient(145deg, #e8eaf0, #d4d8e0)',
-                                  boxShadow: 'inset 1px 1px 2px rgba(0,0,0,0.1), inset -1px -1px 2px rgba(255,255,255,0.6)',
+                                  borderRadius: '8px',
+                                  background: 'rgba(41,182,246,0.08)',
                                 }}
                               >
                                 {card.kind === 'auto' ? (
-                                  <FolderOpen className="w-3 h-3" style={{ color: '#c7a008' }} />
+                                  <FolderOpen className="w-3.5 h-3.5" style={{ color: '#29b6f6' }} />
                                 ) : (
-                                  <LayoutDashboard className="w-3 h-3" style={{ color: '#c7a008' }} />
+                                  <LayoutDashboard className="w-3.5 h-3.5" style={{ color: '#29b6f6' }} />
                                 )}
                               </div>
-                              <span className="text-[9px] font-bold uppercase tracking-wider" style={{
-                                color: '#c7a008',
-                                fontFamily: 'var(--font-rajdhani), sans-serif',
+                              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{
+                                color: '#f9a825',
+                                fontFamily: 'Inter, sans-serif',
                                 letterSpacing: '0.5px',
                               }}>
                                 {tl}
@@ -1095,32 +1100,32 @@ export function AppHeader() {
                             {/* Title */}
                             <p className="text-sm font-semibold line-clamp-1" style={{
                               color: '#1a1a2e',
-                              fontFamily: 'var(--font-rajdhani), sans-serif',
+                              fontFamily: 'Inter, sans-serif',
                             }}>
                               {card.title}
                             </p>
                             {/* Meta — status dot + count */}
-                            <div className="mt-1.5 flex items-center gap-2 text-[10px]" style={{
-                              color: '#6a7080',
-                              fontFamily: 'var(--font-rajdhani), sans-serif',
+                            <div className="mt-1.5 flex items-center gap-2 text-[11px]" style={{
+                              color: '#9e9e9e',
+                              fontFamily: 'Inter, sans-serif',
                             }}>
                               <span className="flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#c7a008' }} />
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#f9a825' }} />
                                 {sl}
                               </span>
                               <span>·</span>
                               <span className="flex items-center gap-1">
                                 {card.kind === 'auto' ? (
-                                  <Music2 className="w-3 h-3" style={{ color: '#00a8c6' }} />
+                                  <Music2 className="w-3 h-3" style={{ color: '#29b6f6' }} />
                                 ) : (
-                                  <Layers className="w-3 h-3" style={{ color: '#00a8c6' }} />
+                                  <Layers className="w-3 h-3" style={{ color: '#29b6f6' }} />
                                 )}
                                 {count}
                               </span>
                             </div>
                             {/* Waveform progress bar */}
                             <div className="mt-2.5">
-                              <WaveformProgressBar progress={progress} accentColor="#c7a008" height={18} bars={20} />
+                              <WaveformProgressBar progress={progress} accentColor="#f9a825" height={18} bars={20} />
                             </div>
                           </div>
                         </div>
@@ -1128,35 +1133,37 @@ export function AppHeader() {
                     })}
                   </div>
 
-                  {/* Right scroll button — inset neumorphic */}
+                  {/* Right scroll button */}
                   <button
                     onClick={() => {
                       const el = quickCardsScrollRef.current;
                       if (el) el.scrollBy({ left: 220, behavior: 'smooth' });
                     }}
-                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all active:scale-95"
+                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all"
                     style={{
-                      clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
-                      background: 'linear-gradient(145deg, #d4d8e0, #f0f2f8)',
-                      boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)',
+                      borderRadius: '8px',
+                      background: '#ffffff',
+                      border: '1px solid rgba(0,0,0,0.06)',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
                       cursor: 'pointer',
-                      border: 'none',
                     }}
                     title="Прокрутить вправо"
                     aria-label="Прокрутить вправо"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow = 'inset 2px 2px 6px rgba(0,168,198,0.2), inset -2px -2px 6px rgba(255,255,255,0.7)';
+                      e.currentTarget.style.background = '#f5f7fa';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = 'inset 2px 2px 4px rgba(0,0,0,0.12), inset -2px -2px 4px rgba(255,255,255,0.7)';
+                      e.currentTarget.style.background = '#ffffff';
+                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.04)';
                     }}
                   >
-                    <ChevronRight className="h-4 w-4" style={{ color: '#00a8c6' }} />
+                    <ChevronRight className="h-4 w-4" style={{ color: '#29b6f6' }} />
                   </button>
                 </div>
               ) : (
-                <div className="text-center py-6">
-                  <p className="text-xs" style={{ color: '#7a8090', fontFamily: 'var(--font-rajdhani), sans-serif' }}>
+                <div className="text-center py-8">
+                  <p className="text-sm" style={{ color: '#9e9e9e', fontFamily: 'Inter, sans-serif' }}>
                     Нет проектов в избранном. Добавьте их на главной странице.
                   </p>
                 </div>
