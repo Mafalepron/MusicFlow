@@ -79,24 +79,43 @@ function GroupSwitcher({
         disabled={atStart}
         aria-label="Previous group"
         className={cn(
-          'flex h-6 w-6 items-center justify-center transition-all',
-          atStart ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-100 opacity-70'
+          'flex h-6 w-6 items-center justify-center transition-all duration-200',
+          atStart ? 'opacity-30 cursor-not-allowed' : ''
         )}
         style={{
-          borderRadius: '4px',
-          background: `rgba(${NEON_CYAN_RGB},0.05)`,
-          border: `1px solid rgba(${NEON_CYAN_RGB},0.3)`,
+          clipPath: YELLOW_BTN_CLIP,
+          background: atStart
+            ? 'rgba(40,40,40,0.4)'
+            : 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+          border: atStart
+            ? '1px solid rgba(252,238,10,0.2)'
+            : '1px solid rgba(252,238,10,0.9)',
+          boxShadow: atStart
+            ? 'none'
+            : '0 0 8px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.4)',
           cursor: atStart ? 'not-allowed' : 'pointer',
         }}
+        onMouseEnter={(e) => {
+          if (!atStart) {
+            e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.5), inset 0 1px 0 rgba(255,255,255,0.5)';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!atStart) {
+            e.currentTarget.style.boxShadow = '0 0 8px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.4)';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }
+        }}
       >
-        <ChevronLeft className="h-3.5 w-3.5" style={{ color: NEON_CYAN }} />
+        <ChevronLeft className="h-3.5 w-3.5" style={{ color: atStart ? '#666' : '#000' }} />
       </button>
       <span
         className="text-[10px] uppercase tracking-[0.18em] font-bold"
         style={{
-          color: NEON_CYAN,
+          color: YELLOW,
           fontFamily: FONT_MONO,
-          textShadow: `0 0 6px rgba(${NEON_CYAN_RGB},0.4)`,
+          textShadow: '0 0 6px rgba(252,238,10,0.4)',
         }}
       >
         {currentIndex + 1} / {total}
@@ -106,17 +125,36 @@ function GroupSwitcher({
         disabled={atEnd}
         aria-label="Next group"
         className={cn(
-          'flex h-6 w-6 items-center justify-center transition-all',
-          atEnd ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-100 opacity-70'
+          'flex h-6 w-6 items-center justify-center transition-all duration-200',
+          atEnd ? 'opacity-30 cursor-not-allowed' : ''
         )}
         style={{
-          borderRadius: '4px',
-          background: `rgba(${NEON_CYAN_RGB},0.05)`,
-          border: `1px solid rgba(${NEON_CYAN_RGB},0.3)`,
+          clipPath: YELLOW_BTN_CLIP,
+          background: atEnd
+            ? 'rgba(40,40,40,0.4)'
+            : 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+          border: atEnd
+            ? '1px solid rgba(252,238,10,0.2)'
+            : '1px solid rgba(252,238,10,0.9)',
+          boxShadow: atEnd
+            ? 'none'
+            : '0 0 8px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.4)',
           cursor: atEnd ? 'not-allowed' : 'pointer',
         }}
+        onMouseEnter={(e) => {
+          if (!atEnd) {
+            e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.5), inset 0 1px 0 rgba(255,255,255,0.5)';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!atEnd) {
+            e.currentTarget.style.boxShadow = '0 0 8px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.4)';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }
+        }}
       >
-        <ChevronRight className="h-3.5 w-3.5" style={{ color: NEON_CYAN }} />
+        <ChevronRight className="h-3.5 w-3.5" style={{ color: atEnd ? '#666' : '#000' }} />
       </button>
     </div>
   );
@@ -379,29 +417,29 @@ function ArtistProfileCard() {
           onClick={toggleProfile}
           className="group flex w-full items-center gap-2.5 px-2.5 py-2.5 transition-all duration-200"
           style={{
-            borderRadius: '8px',
-            background: 'rgba(10,20,35,0.6)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(0,240,255,0.2)',
+            clipPath: YELLOW_BTN_CLIP,
+            background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+            border: '1.5px solid rgba(252,238,10,0.9)',
+            boxShadow: '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4)',
             cursor: 'pointer',
           }}
           title="Развернуть карточку группы"
           aria-label="Развернуть карточку группы"
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(255,0,170,0.5)';
-            e.currentTarget.style.boxShadow = '0 0 16px rgba(255,0,170,0.15), 0 0 4px rgba(0,240,255,0.1)';
+            e.currentTarget.style.boxShadow = '0 0 0 1px rgba(252,238,10,0.4), 0 4px 16px rgba(0,0,0,0.4), 0 0 24px rgba(252,238,10,0.25), inset 0 1px 0 rgba(255,255,255,0.5)';
+            e.currentTarget.style.transform = 'translateY(-1px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
-            e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4)';
+            e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
           <div
             className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden"
             style={{
               borderRadius: '6px',
-              background: 'rgba(255,0,170,0.08)',
-              border: '1px solid rgba(255,0,170,0.4)',
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px solid rgba(0,0,0,0.4)',
             }}
           >
             <Avatar className="h-7 w-7" style={{ borderRadius: 0 }}>
@@ -409,9 +447,9 @@ function ArtistProfileCard() {
               <AvatarFallback
                 className="bg-transparent text-xs font-bold"
                 style={{
-                  color: NEON_MAGENTA,
+                  color: '#000',
                   fontFamily: FONT_DISPLAY,
-                  textShadow: '0 0 6px rgba(255,0,170,0.6)',
+                  textShadow: '0 1px 0 rgba(255,255,255,0.3)',
                 }}
               >
                 {currentGroup.name?.charAt(0)?.toUpperCase() || 'G'}
@@ -420,21 +458,22 @@ function ArtistProfileCard() {
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p
-              className="truncate text-xs font-semibold uppercase tracking-wider"
+              className="truncate text-xs font-bold uppercase tracking-wider"
               style={{
-                color: '#ffffff',
+                color: '#000',
                 fontFamily: FONT_DISPLAY,
+                textShadow: '0 1px 0 rgba(255,255,255,0.3)',
               }}
             >
               {currentGroup.name}
             </p>
             {currentGroup.genre && (
               <p
-                className="truncate text-[9px] uppercase tracking-[1px]"
+                className="truncate text-[9px] uppercase tracking-[1px] font-bold"
                 style={{
-                  color: NEON_CYAN,
+                  color: '#000',
                   fontFamily: FONT_MONO,
-                  textShadow: '0 0 4px rgba(0,240,255,0.4)',
+                  opacity: 0.7,
                 }}
               >
                 {currentGroup.genre}
@@ -443,7 +482,7 @@ function ArtistProfileCard() {
           </div>
           <ChevronDown
             className="h-3.5 w-3.5 shrink-0 rotate-180 transition-transform"
-            style={{ color: NEON_CYAN }}
+            style={{ color: '#000' }}
           />
         </button>
       </div>
@@ -515,27 +554,26 @@ function ArtistProfileCard() {
             onClick={toggleProfile}
             className="flex h-6 w-6 items-center justify-center transition-all duration-200"
             style={{
-              borderRadius: '6px',
-              background: 'rgba(0,240,255,0.05)',
-              border: '1px solid rgba(0,240,255,0.3)',
+              clipPath: YELLOW_BTN_CLIP,
+              background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+              border: '1px solid rgba(252,238,10,0.9)',
+              boxShadow: '0 0 8px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.4)',
               cursor: 'pointer',
             }}
             title="Свернуть карточку"
             aria-label="Свернуть карточку"
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,0,170,0.15)';
-              e.currentTarget.style.borderColor = 'rgba(255,0,170,0.8)';
-              e.currentTarget.style.boxShadow = '0 0 12px rgba(255,0,170,0.5)';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.5), inset 0 1px 0 rgba(255,255,255,0.5)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(0,240,255,0.05)';
-              e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
-              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.boxShadow = '0 0 8px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.4)';
+              e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
             <ChevronDown
               className="h-3.5 w-3.5 transition-transform"
-              style={{ color: NEON_CYAN }}
+              style={{ color: '#000' }}
             />
           </button>
         </div>
@@ -1319,29 +1357,30 @@ export function AppSidebar() {
             onClick={handleToggle}
             aria-label="Развернуть панель"
             className={cn(
-              'fixed top-3 left-3 z-50 flex h-9 w-9 items-center justify-center transition-all',
-              // Hide on desktop when sidebar is expanded
+              'fixed top-3 left-3 z-50 flex h-9 w-9 items-center justify-center transition-all duration-200',
               !isCollapsed && 'lg:hidden',
-              // Hide on mobile when sidebar is open
               isMobileOpen && 'hidden'
             )}
             style={{
-              clipPath: BTN_CLIP,
-              background: 'rgba(10,14,22,0.95)',
-              boxShadow: `inset 0 0 0 1px rgba(${NEON_MAGENTA_RGB},0.5), 0 0 14px rgba(${NEON_MAGENTA_RGB},0.18)`,
+              clipPath: YELLOW_BTN_CLIP,
+              background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+              border: '1.5px solid rgba(252,238,10,0.9)',
+              boxShadow: '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px rgba(${NEON_MAGENTA_RGB},0.8), 0 0 18px rgba(${NEON_MAGENTA_RGB},0.35)`;
+              e.currentTarget.style.boxShadow = '0 0 0 1px rgba(252,238,10,0.4), 0 4px 16px rgba(0,0,0,0.4), 0 0 24px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.5)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px rgba(${NEON_MAGENTA_RGB},0.5), 0 0 14px rgba(${NEON_MAGENTA_RGB},0.18)`;
+              e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4)';
+              e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
             <ChevronRight
               className="h-4 w-4"
               style={{
-                color: NEON_MAGENTA,
-                filter: `drop-shadow(0 0 4px rgba(${NEON_MAGENTA_RGB},0.6))`,
+                color: '#000',
+                filter: 'none',
               }}
             />
           </motion.button>
@@ -1358,22 +1397,25 @@ export function AppSidebar() {
             transition={{ duration: 0.18 }}
             onClick={handleToggle}
             aria-label="Свернуть панель"
-            className="hidden lg:flex fixed top-3 left-[348px] z-50 h-7 w-5 items-center justify-center transition-all"
+            className="hidden lg:flex fixed top-3 left-[348px] z-50 h-7 w-5 items-center justify-center transition-all duration-200"
             style={{
-              clipPath: BTN_CLIP,
-              background: 'rgba(10,14,22,0.95)',
-              boxShadow: `inset 0 0 0 1px rgba(${NEON_CYAN_RGB},0.4)`,
+              clipPath: YELLOW_BTN_CLIP,
+              background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+              border: '1.5px solid rgba(252,238,10,0.9)',
+              boxShadow: '0 0 10px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px rgba(${NEON_CYAN_RGB},0.8), 0 0 12px rgba(${NEON_CYAN_RGB},0.25)`;
+              e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.6), inset 0 1px 0 rgba(255,255,255,0.5)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px rgba(${NEON_CYAN_RGB},0.4)`;
+              e.currentTarget.style.boxShadow = '0 0 10px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)';
+              e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
             <ChevronsLeft
               className="h-3 w-3"
-              style={{ color: NEON_CYAN }}
+              style={{ color: '#000' }}
             />
           </motion.button>
         )}

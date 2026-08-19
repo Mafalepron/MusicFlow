@@ -842,21 +842,20 @@ function Carousel({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative group/carousel" style={{ padding: '0 44px' }}>
-      {/* Left arrow — custom chamfered frame, always active */}
+      {/* Left arrow — yellow accent button style */}
       <button
         onClick={() => scroll('left')}
         className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center transition-all duration-200"
         style={{
-          background: '#161a24',
-          border: '1px solid #00a8c6',
-          borderRadius: '4px',
-          boxShadow: '0 0 8px rgba(0,168,198,0.25)',
-          color: '#00a8c6',
+          clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+          background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+          border: '1.5px solid rgba(252,238,10,0.9)',
+          boxShadow: '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)',
+          color: '#000',
           cursor: 'pointer',
-          opacity: 0.9,
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)'; e.currentTarget.style.transform = 'translateY(-50%) translateX(-1px)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
         aria-label="Прокрутить влево"
       >
         <ChevronLeft className="w-4 h-4" />
@@ -874,21 +873,20 @@ function Carousel({ children }: { children: React.ReactNode }) {
         {children}
       </div>
 
-      {/* Right arrow — custom chamfered frame, always active */}
+      {/* Right arrow — yellow accent button style */}
       <button
         onClick={() => scroll('right')}
         className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center transition-all duration-200"
         style={{
-          background: '#161a24',
-          border: '1px solid #00a8c6',
-          borderRadius: '4px',
-          boxShadow: '0 0 8px rgba(0,168,198,0.25)',
-          color: '#00a8c6',
+          clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+          background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+          border: '1.5px solid rgba(252,238,10,0.9)',
+          boxShadow: '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)',
+          color: '#000',
           cursor: 'pointer',
-          opacity: 0.9,
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)'; e.currentTarget.style.transform = 'translateY(-50%) translateX(1px)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
         aria-label="Прокрутить вправо"
       >
         <ChevronRight className="w-4 h-4" />

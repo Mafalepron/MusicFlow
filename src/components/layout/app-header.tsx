@@ -48,8 +48,11 @@ const NEON_CYAN_RGB = '0,240,255';
 const NEON_MAGENTA_RGB = '255,0,170';
 const FONT_DISPLAY = 'var(--font-rajdhani), sans-serif';
 const FONT_MONO = 'var(--font-jetbrains-mono), monospace';
-/* Purple center stripe (kept from the previous design — clickable quick-access trigger) */
-const PURPLE_STRIPE = '#9d4edd';
+
+/* ─── Yellow accent button style (matches "Новый проект" in Projects view) ─── */
+const YELLOW = '#FCEE0A';
+const YELLOW_RGB = '252,238,10';
+const YELLOW_BTN_CLIP = 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))';
 
 export function AppHeader() {
   const { currentView, selectedProjectId, navigate } = useNavigationStore();
@@ -326,40 +329,46 @@ export function AppHeader() {
           boxShadow: `0 0 24px rgba(${NEON_CYAN_RGB},0.15), 0 0 8px rgba(${NEON_MAGENTA_RGB},0.1), 0 4px 16px rgba(0,0,0,0.6)`,
         }}
       >
-        {/* Embedded neon-purple line centered in header — CLICKABLE button
+        {/* Embedded neon-yellow stripe centered in header — CLICKABLE button
             that opens a quick-access slide-down panel (projects, tracks,
-            ideas, participants). The stripe pulses + scales on hover so it
-            reads as interactive. */}
+            ideas, participants). The stripe + chevron are stacked vertically
+            and centered horizontally. The stripe pulses + scales on hover so
+            it reads as interactive. Styled to match the yellow "Новый проект"
+            button: bright #FCEE0A with a glow. */}
         <button
           ref={quickStripeRef}
           onClick={() => setQuickPanelOpen((o) => !o)}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group flex items-center justify-center"
-          style={{ width: '180px', height: '24px', background: 'transparent', border: 'none', cursor: 'pointer' }}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group flex flex-col items-center justify-center gap-0.5"
+          style={{ width: '180px', height: '40px', background: 'transparent', border: 'none', cursor: 'pointer' }}
           title="Избранное — проекты, треки, идеи, участники"
           aria-label="Открыть панель быстрого доступа"
         >
+          {/* Yellow stripe — bright neon-yellow with glow */}
           <div
             className="pointer-events-none transition-all duration-200 group-hover:scale-x-110 group-hover:opacity-100"
             style={{
               width: '120px',
-              height: '2px',
-              background: PURPLE_STRIPE,
+              height: '3px',
+              background: YELLOW,
               boxShadow: quickPanelOpen
-                ? `0 0 14px ${PURPLE_STRIPE}, 0 0 6px ${PURPLE_STRIPE}, 0 0 2px #c77dff`
-                : `0 0 10px ${PURPLE_STRIPE}, 0 0 4px ${PURPLE_STRIPE}`,
-              opacity: quickPanelOpen ? 1 : 0.8,
+                ? `0 0 14px ${YELLOW}, 0 0 6px ${YELLOW}, 0 0 2px #fff8a0`
+                : `0 0 10px ${YELLOW}, 0 0 4px ${YELLOW}`,
+              opacity: quickPanelOpen ? 1 : 0.9,
+              borderRadius: '1.5px',
             }}
           />
-          {/* Tiny chevron indicator — flips direction when the panel is open */}
+          {/* Tiny chevron indicator — directly below the stripe, centered.
+              Flips direction when the panel is open. */}
           <ChevronDown
-            className="absolute left-1/2 top-full -translate-x-1/2 transition-transform duration-200 group-hover:opacity-100"
+            className="transition-transform duration-200 group-hover:opacity-100"
             style={{
-              color: PURPLE_STRIPE,
+              color: YELLOW,
               width: '12px',
               height: '12px',
-              opacity: 0.7,
-              transform: quickPanelOpen ? 'translate(-50%, -2px) rotate(180deg)' : 'translate(-50%, -2px)',
-              filter: `drop-shadow(0 0 3px rgba(157,78,221,0.6))`,
+              opacity: 0.8,
+              transform: quickPanelOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              filter: `drop-shadow(0 0 3px rgba(${YELLOW_RGB},0.6))`,
+              marginTop: '-1px',
             }}
           />
         </button>
@@ -368,7 +377,8 @@ export function AppHeader() {
             </header>) via a fixed-position overlay so the header's clipPath
             doesn't clip it. See the AnimatePresence block below the header. */}
 
-        {/* Mobile: hamburger menu — toggles the new retractable sidebar */}
+        {/* Mobile: hamburger menu — toggles the new retractable sidebar.
+            Styled as a yellow accent button (matches "Новый проект"). */}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -382,38 +392,25 @@ export function AppHeader() {
                   'lg:hidden h-9 w-9 shrink-0 transition-all duration-200'
                 )}
                 style={{
-                  borderRadius: '6px',
-                  background: isMobileSidebarOpen
-                    ? `rgba(${NEON_MAGENTA_RGB},0.15)`
-                    : 'rgba(10,20,35,0.6)',
-                  border: isMobileSidebarOpen
-                    ? `1px solid rgba(${NEON_MAGENTA_RGB},0.6)`
-                    : `1px solid rgba(${NEON_CYAN_RGB},0.2)`,
-                  boxShadow: isMobileSidebarOpen
-                    ? `0 0 12px rgba(${NEON_MAGENTA_RGB},0.3)`
-                    : 'none',
-                  color: NEON_CYAN,
+                  clipPath: YELLOW_BTN_CLIP,
+                  background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+                  border: '1.5px solid rgba(252,238,10,0.9)',
+                  boxShadow: '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4)',
+                  color: '#000',
                   cursor: 'pointer',
                 }}
                 onMouseEnter={(e) => {
-                  if (!isMobileSidebarOpen) {
-                    e.currentTarget.style.borderColor = `rgba(${NEON_CYAN_RGB},0.6)`;
-                    e.currentTarget.style.boxShadow = `0 0 12px rgba(${NEON_CYAN_RGB},0.2)`;
-                  }
+                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(252,238,10,0.4), 0 4px 16px rgba(0,0,0,0.4), 0 0 24px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.5)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
                 }}
                 onMouseLeave={(e) => {
-                  if (!isMobileSidebarOpen) {
-                    e.currentTarget.style.borderColor = `rgba(${NEON_CYAN_RGB},0.2)`;
-                    e.currentTarget.style.boxShadow = 'none';
-                  }
+                  e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4)';
+                  e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
                 <Menu
                   className="h-5 w-5"
-                  style={{
-                    color: isMobileSidebarOpen ? NEON_MAGENTA : NEON_CYAN,
-                    filter: `drop-shadow(0 0 4px rgba(${isMobileSidebarOpen ? NEON_MAGENTA_RGB : NEON_CYAN_RGB},0.4))`,
-                  }}
+                  style={{ color: '#000' }}
                 />
               </Button>
             </TooltipTrigger>
@@ -1422,32 +1419,32 @@ export function AppHeader() {
               {/* Quick-access cards — glassmorphism neon carousel */}
               {quickAccessCards.length > 0 ? (
                 <div className="flex items-center gap-2">
-                  {/* Left scroll button */}
+                  {/* Left scroll button — yellow accent style */}
                   <button
                     onClick={() => {
                       const el = quickCardsScrollRef.current;
                       if (el) el.scrollBy({ left: -220, behavior: 'smooth' });
                     }}
-                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all"
+                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all duration-200"
                     style={{
-                      borderRadius: '6px',
-                      background: 'rgba(10,20,35,0.6)',
-                      backdropFilter: 'blur(8px)',
-                      border: '1px solid rgba(0,240,255,0.3)',
+                      clipPath: YELLOW_BTN_CLIP,
+                      background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+                      border: '1.5px solid rgba(252,238,10,0.9)',
+                      boxShadow: '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)',
                       cursor: 'pointer',
                     }}
                     title="Прокрутить влево"
                     aria-label="Прокрутить влево"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.7)';
-                      e.currentTarget.style.boxShadow = '0 0 12px rgba(0,240,255,0.3)';
+                      e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
-                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)';
+                      e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    <ChevronLeft className="h-4 w-4" style={{ color: '#00f0ff' }} />
+                    <ChevronLeft className="h-4 w-4" style={{ color: '#000' }} />
                   </button>
 
                   {/* Scrollable cards container */}
@@ -1571,32 +1568,32 @@ export function AppHeader() {
                     })}
                   </div>
 
-                  {/* Right scroll button */}
+                  {/* Right scroll button — yellow accent style */}
                   <button
                     onClick={() => {
                       const el = quickCardsScrollRef.current;
                       if (el) el.scrollBy({ left: 220, behavior: 'smooth' });
                     }}
-                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all"
+                    className="group flex h-12 w-8 shrink-0 items-center justify-center transition-all duration-200"
                     style={{
-                      borderRadius: '6px',
-                      background: 'rgba(10,20,35,0.6)',
-                      backdropFilter: 'blur(8px)',
-                      border: '1px solid rgba(0,240,255,0.3)',
+                      clipPath: YELLOW_BTN_CLIP,
+                      background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+                      border: '1.5px solid rgba(252,238,10,0.9)',
+                      boxShadow: '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)',
                       cursor: 'pointer',
                     }}
                     title="Прокрутить вправо"
                     aria-label="Прокрутить вправо"
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.7)';
-                      e.currentTarget.style.boxShadow = '0 0 12px rgba(0,240,255,0.3)';
+                      e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
-                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)';
+                      e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    <ChevronRight className="h-4 w-4" style={{ color: '#00f0ff' }} />
+                    <ChevronRight className="h-4 w-4" style={{ color: '#000' }} />
                   </button>
                 </div>
               ) : (

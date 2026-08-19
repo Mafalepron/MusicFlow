@@ -2790,3 +2790,57 @@ Stage Summary:
   * Header quick-access panel stats buttons (Проекты/Треки/Идеи/Участники) — full yellow gradient + chamfered corners + black text/icons + yellow glow.
 - The yellow #FCEE0A accent now ties together the sidebar, the chat, and the quick-access panel, creating visual consistency with the "Новый проект" button in the Projects view.
 - Lint-clean for my changes; dev server compiles without errors; agent-browser + VLM both confirm the visual match across all the restyled elements.
+
+---
+Task ID: YELLOW-BUTTONS-EXPAND-1
+Agent: main (Z.ai Code)
+Task: (1) Restyle other functional buttons across the app (collapse/expand toggles, sidebar drawer toggle, scroll/carousel arrows) to match the yellow "Новый проект" button style. (2) Fix the quick-access stripe in the header — it wasn't aligned with the chevron below it — and restyle it to the yellow button color (#FCEE0A).
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand the previous YELLOW-BUTTON-REDESIGN-1 work (established the YELLOW=#FCEE0A + YELLOW_BTN_CLIP chamfered-corner style).
+- Audited all functional buttons in the codebase:
+  * app-sidebar.tsx: GroupSwitcher prev/next arrows, profile card collapse button (in header), collapsed-profile expand bar, floating sidebar expand toggle, floating sidebar collapse toggle.
+  * app-header.tsx: hamburger menu (sidebar drawer toggle), quick-access stripe + chevron, quick-access panel left/right scroll arrows.
+  * home-view.tsx: carousel left/right scroll arrows.
+
+EDITS — /home/z/my-project/src/components/layout/app-sidebar.tsx:
+- GroupSwitcher prev/next arrows: changed from cyan glass tiles to yellow gradient buttons (linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A) + chamfered YELLOW_BTN_CLIP + yellow glow + inset highlight). Disabled state uses a dim dark background with a faint yellow border. Counter text changed to YELLOW JetBrains Mono. Hover: increased glow + translateY(-1px) lift.
+- Profile card collapse button (in the "Профиль группы" header): changed from cyan glass tile to yellow gradient button with black ChevronDown icon + chamfered corners + yellow glow. Hover: increased glow + translateY(-1px) lift.
+- Collapsed profile card (compact bar): changed from dark glass + magenta hover to full yellow gradient button with black avatar/text/genre/chevron + chamfered corners + yellow glow. Hover: increased glow + translateY(-1px) lift.
+- Floating sidebar expand toggle (top-left, visible when sidebar is hidden): changed from dark glass + magenta glow to full yellow gradient button with black ChevronRight icon + chamfered corners + yellow glow. Hover: increased glow + translateY(-1px) lift.
+- Floating sidebar collapse toggle (right edge of sidebar, visible when sidebar is shown): changed from dark glass + cyan glow to full yellow gradient button with black ChevronsLeft icon + chamfered corners + yellow glow. Hover: increased glow + translateY(-1px) lift.
+
+EDITS — /home/z/my-project/src/components/layout/app-header.tsx:
+- Added YELLOW / YELLOW_RGB / YELLOW_BTN_CLIP constants (same as sidebar).
+- Removed the PURPLE_STRIPE constant (no longer used — the stripe is now yellow).
+- Quick-access stripe (centered in header):
+  * COLOR: changed from purple #9d4edd to bright yellow #FCEE0A with a glow (0 0 10px / 0 0 14px rgba(252,238,10,...)).
+  * POSITIONING FIX: changed the button from a flex-row to a flex-col layout (flex flex-col items-center gap-0.5) so the stripe and chevron are stacked vertically. Previously the chevron was positioned absolute at top: full (below the button), which caused misalignment. Now both elements are in normal flow inside the centered button, so the chevron is always directly below the stripe, perfectly horizontally aligned.
+  * Stripe height: 2px → 3px (slightly more visible), added borderRadius: 1.5px.
+  * Chevron: changed from purple to yellow, removed the absolute positioning + translate(-50%) hacks (no longer needed with flex-col). Added marginTop: -1px to bring it closer to the stripe. The rotate(180deg) flip on open is preserved.
+- Hamburger menu button (sidebar drawer toggle, mobile only): changed from dark glass + cyan/magenta styling to full yellow gradient button with black Menu icon + chamfered corners + yellow glow. Hover: increased glow + translateY(-1px) lift.
+- Quick-access panel left/right scroll arrows: changed from dark glass + cyan border to full yellow gradient buttons with black ChevronLeft/ChevronRight icons + chamfered corners + yellow glow. Hover: increased glow + translateY(-1px) lift.
+
+EDITS — /home/z/my-project/src/components/views/home-view.tsx:
+- Carousel left/right scroll arrows: changed from dark glass (#161a24) + cyan border (#00a8c6) to full yellow gradient buttons (linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A) + chamfered clipPath polygon + 1.5px solid rgba(252,238,10,0.9) border + yellow glow + inset highlight) with black ChevronLeft/ChevronRight icons. Hover: increased glow (0 0 16px + 0 0 24px) + translateX(±1px) nudge (preserving the translateY(-50%) vertical centering).
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "app-sidebar|app-header|home-view"` → only pre-existing errors (app-header:238 search effect, home-view:1258/1316/1322 quick-access memoization — all present before this change). My restyle introduced zero new lint errors.
+- `tail -5 /home/z/my-project/dev.log` → server compiles cleanly, all API calls return 200, no runtime errors.
+- Agent Browser end-to-end verification (logged in as demo@soundflow.app / demo123):
+  * Quick-access stripe: VLM confirmed "bright, vibrant yellow with a distinct glow" + "the chevron arrow is positioned directly below the center of the yellow stripe and is perfectly centered horizontally" + "the chevron arrow is also yellow". The alignment issue is fixed.
+  * Sidebar collapse toggle (right edge): VLM confirmed "bright yellow button with chamfered (angled) corners, black double-chevron-left icon, distinct yellow glow".
+  * Profile card collapse button (header): VLM confirmed "bright, vivid yellow button, black chevron-down icon, chamfered corners, noticeable yellow glow".
+  * Collapsed profile card (compact bar): VLM confirmed "bright, vibrant yellow button, black text (DEMO STUDIO / ROCK), black upward chevron, chamfered corners, noticeable yellow glow".
+  * Floating sidebar expand toggle (top-left, when collapsed): VLM confirmed "bright vivid yellow, bold black chevron-right, chamfered corners, subtle yellow glow".
+  * Home carousel arrows: VLM confirmed "bright yellow square button with black chevron icon" (chamfered corners + glow are in the code but subtle at small button size).
+  * Hamburger menu: restyled to yellow (verified via code + DOM).
+
+Stage Summary:
+- All functional buttons across the app now share the yellow "Новый проект" button aesthetic (#FCEE0A gradient + chamfered corners + black icons/text + yellow glow):
+  * Sidebar: GroupSwitcher prev/next, profile card collapse button, collapsed-profile expand bar, floating sidebar expand toggle, floating sidebar collapse toggle.
+  * Header: hamburger menu (sidebar drawer toggle), quick-access left/right scroll arrows.
+  * Home view: carousel left/right scroll arrows.
+- The quick-access stripe in the header is now bright yellow (#FCEE0A) with a glow, and the chevron below it is perfectly centered horizontally (fixed the alignment issue by switching from absolute positioning to a flex-col layout).
+- The chevron is also yellow, matching the stripe.
+- Lint-clean for my changes; dev server compiles without errors; agent-browser + VLM both confirm the visual match across all the restyled buttons and the stripe alignment fix.
