@@ -470,9 +470,9 @@ export default function ProjectChat({ embedded = false }: { embedded?: boolean }
               placeholder="Сообщение… (@ для задач)"
               className="w-full px-2.5 py-1.5 pr-7 text-[11px] focus:outline-none transition-all"
               style={{
-                borderRadius: '6px',
+                clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
                 background: 'rgba(10,20,35,0.6)',
-                border: '1px solid rgba(0,240,255,0.2)',
+                border: '1px solid rgba(252,238,10,0.3)',
                 color: '#ffffff',
                 fontFamily: 'var(--font-jetbrains-mono), monospace',
               }}
@@ -489,8 +489,8 @@ export default function ProjectChat({ embedded = false }: { embedded?: boolean }
                   inputRef.current?.setSelectionRange(pos + 1, pos + 1);
                 }, 0);
               }}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded transition-all"
-              style={{ color: 'rgba(0,240,255,0.5)' }}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 transition-all"
+              style={{ color: 'rgba(252,238,10,0.6)' }}
               title="Reference a task"
             >
               <AtSign className="w-3 h-3" />
@@ -501,23 +501,35 @@ export default function ProjectChat({ embedded = false }: { embedded?: boolean }
             disabled={!inputValue.trim() || sending}
             className="flex h-8 w-8 shrink-0 items-center justify-center transition-all duration-200"
             style={{
-              borderRadius: '6px',
+              clipPath: 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))',
               background: inputValue.trim() && !sending
-                ? 'rgba(255,0,170,0.18)'
+                ? 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)'
                 : 'rgba(10,20,35,0.6)',
               border: inputValue.trim() && !sending
-                ? '1px solid rgba(255,0,170,0.6)'
-                : '1px solid rgba(0,240,255,0.2)',
+                ? '1.5px solid rgba(252,238,10,0.9)'
+                : '1px solid rgba(252,238,10,0.2)',
               boxShadow: inputValue.trim() && !sending
-                ? '0 0 12px rgba(255,0,170,0.2)'
+                ? '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)'
                 : 'none',
               cursor: inputValue.trim() && !sending ? 'pointer' : 'not-allowed',
+            }}
+            onMouseEnter={(e) => {
+              if (inputValue.trim() && !sending) {
+                e.currentTarget.style.boxShadow = '0 0 18px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (inputValue.trim() && !sending) {
+                e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }
             }}
           >
             <Send
               className="w-3.5 h-3.5"
               style={{
-                color: inputValue.trim() && !sending ? '#ff00aa' : 'rgba(0,240,255,0.4)',
+                color: inputValue.trim() && !sending ? '#000' : 'rgba(252,238,10,0.4)',
               }}
             />
           </button>

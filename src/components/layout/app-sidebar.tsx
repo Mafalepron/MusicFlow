@@ -46,6 +46,11 @@ const NEON_MAGENTA_RGB = '255,0,170';
 const FONT_DISPLAY = 'var(--font-rajdhani), sans-serif';
 const FONT_MONO = 'var(--font-jetbrains-mono), monospace';
 
+/* ─── Yellow accent button style (matches "Новый проект" in Projects view) ─── */
+const YELLOW = '#FCEE0A';
+const YELLOW_RGB = '252,238,10';
+const YELLOW_BTN_CLIP = 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))';
+
 const BTN_CLIP =
   'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))';
 
@@ -650,35 +655,46 @@ function ArtistProfileCard() {
               {stats.map((s) => (
                 <div
                   key={s.label}
-                  className="flex flex-col items-center py-1.5 transition-all duration-200"
+                  className="group/stat flex flex-col items-center py-1.5 transition-all duration-200"
                   style={{
-                    borderRadius: '6px',
-                    background: 'rgba(10,20,35,0.6)',
-                    border: '1px solid rgba(0,240,255,0.2)',
+                    clipPath: YELLOW_BTN_CLIP,
+                    background: 'linear-gradient(135deg, rgba(252,238,10,0.95), rgba(241,241,0,0.9) 50%, rgba(252,238,10,0.95))',
+                    border: '1px solid rgba(252,238,10,0.9)',
+                    boxShadow: '0 0 10px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.4)',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.5), 0 0 20px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.5)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 0 10px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.4)';
+                    e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
                   <s.icon
                     className="h-3 w-3 mb-0.5"
                     style={{
-                      color: NEON_MAGENTA,
-                      filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.5))',
+                      color: '#000',
+                      filter: 'drop-shadow(0 1px 0 rgba(255,255,255,0.3))',
                     }}
                   />
                   <span
                     className="text-sm font-bold tabular-nums leading-none"
                     style={{
-                      color: '#ffffff',
+                      color: '#000',
                       fontFamily: FONT_DISPLAY,
-                      textShadow: '0 0 8px rgba(255,0,170,0.4)',
+                      textShadow: '0 1px 0 rgba(255,255,255,0.3)',
                     }}
                   >
                     {s.value}
                   </span>
                   <span
-                    className="mt-0.5 text-[8px] uppercase tracking-wider font-medium"
+                    className="mt-0.5 text-[8px] uppercase tracking-wider font-bold"
                     style={{
-                      color: NEON_CYAN,
+                      color: '#000',
                       fontFamily: FONT_MONO,
+                      opacity: 0.7,
                     }}
                   >
                     {s.label}
@@ -689,21 +705,22 @@ function ArtistProfileCard() {
             <div
               className="mt-2 flex items-center gap-1.5 px-2 py-1.5"
               style={{
-                borderRadius: '6px',
-                background: 'rgba(10,20,35,0.6)',
-                border: '1px solid rgba(0,240,255,0.2)',
+                clipPath: YELLOW_BTN_CLIP,
+                background: 'linear-gradient(135deg, rgba(252,238,10,0.95), rgba(241,241,0,0.9) 50%, rgba(252,238,10,0.95))',
+                border: '1px solid rgba(252,238,10,0.9)',
+                boxShadow: '0 0 10px rgba(252,238,10,0.3), inset 0 1px 0 rgba(255,255,255,0.4)',
               }}
             >
-              <Calendar className="h-2.5 w-2.5" style={{ color: NEON_CYAN }} />
+              <Calendar className="h-2.5 w-2.5" style={{ color: '#000' }} />
               <span
-                className="text-[9px] uppercase tracking-wider"
-                style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                className="text-[9px] uppercase tracking-wider font-bold"
+                style={{ color: '#000', fontFamily: FONT_MONO, opacity: 0.7 }}
               >
                 Создан:
               </span>
               <span
-                className="ml-auto text-[9px] tabular-nums font-medium"
-                style={{ color: '#ffffff', fontFamily: FONT_MONO }}
+                className="ml-auto text-[9px] tabular-nums font-bold"
+                style={{ color: '#000', fontFamily: FONT_MONO, textShadow: '0 1px 0 rgba(255,255,255,0.3)' }}
               >
                 {createdLabel}
               </span>
@@ -971,38 +988,35 @@ function SidebarChatSection() {
                 <button
                   className="group flex w-full items-center gap-2 px-2.5 py-2 text-left transition-all duration-200"
                   style={{
-                    borderRadius: '6px',
-                    background: 'rgba(10,20,35,0.6)',
-                    border: '1px solid rgba(0,240,255,0.2)',
+                    clipPath: YELLOW_BTN_CLIP,
+                    background: 'linear-gradient(135deg, rgba(252,238,10,0.95), rgba(241,241,0,0.9) 50%, rgba(252,238,10,0.95))',
+                    border: '1px solid rgba(252,238,10,0.9)',
+                    boxShadow: '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)',
                     cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
-                    e.currentTarget.style.boxShadow =
-                      '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                    e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
-                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)';
+                    e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
                   <FolderOpen
                     className="h-3 w-3 shrink-0"
-                    style={{
-                      color: NEON_MAGENTA,
-                      filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.5))',
-                    }}
+                    style={{ color: '#000' }}
                   />
                   <span
-                    className="flex-1 truncate text-[11px]"
-                    style={{ color: '#ffffff', fontFamily: FONT_MONO }}
+                    className="flex-1 truncate text-[11px] font-bold uppercase tracking-wider"
+                    style={{ color: '#000', fontFamily: FONT_MONO, textShadow: '0 1px 0 rgba(255,255,255,0.3)' }}
                   >
                     {activeChatProjectName || 'Выбрать проект…'}
                   </span>
                   <ChevronDown
                     className="h-3 w-3 shrink-0 transition-transform"
                     style={{
-                      color: NEON_CYAN,
+                      color: '#000',
                       transform: pickerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                     }}
                   />

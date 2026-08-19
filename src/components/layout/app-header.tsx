@@ -1344,7 +1344,7 @@ export function AppHeader() {
                 </button>
               </div>
 
-              {/* Stats row — glassmorphism cards with neon glow */}
+              {/* Stats row — yellow accent buttons (matches "Новый проект" style) */}
               <div className="grid grid-cols-4 gap-3 mb-5">
                 {[
                   { icon: FolderKanban, value: projects.length, label: 'Проекты', view: 'projects' as ViewName },
@@ -1357,43 +1357,45 @@ export function AppHeader() {
                     onClick={() => { navigate(s.view); setQuickPanelOpen(false); }}
                     className="group flex flex-col items-center justify-center gap-2 py-4 transition-all duration-200"
                     style={{
-                      borderRadius: '8px',
-                      background: 'rgba(10,20,35,0.6)',
-                      backdropFilter: 'blur(8px)',
-                      border: '1px solid rgba(0,240,255,0.2)',
+                      clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+                      background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+                      border: '1.5px solid rgba(252,238,10,0.9)',
+                      boxShadow: '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4)',
                       cursor: 'pointer',
                       padding: '16px 8px',
                     }}
                     title={`Перейти к: ${s.label}`}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
-                      e.currentTarget.style.boxShadow = '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                      e.currentTarget.style.color = '#FCEE0A';
+                      e.currentTarget.style.border = '1.5px solid #FCEE0A';
+                      e.currentTarget.style.boxShadow = '0 0 0 1px rgba(252,238,10,0.4), 0 4px 16px rgba(0,0,0,0.4), 0 0 24px rgba(252,238,10,0.25), inset 0 1px 0 rgba(255,255,255,0.5)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
-                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.color = '';
+                      e.currentTarget.style.border = '1.5px solid rgba(252,238,10,0.9)';
+                      e.currentTarget.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4)';
                     }}
                   >
-                    {/* Icon — magenta */}
-                    <s.icon className="h-5 w-5 transition-transform group-hover:scale-110" style={{ color: '#ff00aa', filter: 'drop-shadow(0 0 6px rgba(255,0,170,0.7))' }} />
+                    {/* Icon — black on yellow */}
+                    <s.icon className="h-5 w-5 transition-transform group-hover:scale-110" style={{ color: '#000' }} />
 
-                    {/* Count — white with magenta glow */}
+                    {/* Count — black with white text-shadow */}
                     <span className="text-2xl font-bold tabular-nums leading-none" style={{
-                      color: '#ffffff',
+                      color: '#000',
                       fontFamily: 'var(--font-rajdhani), sans-serif',
-                      textShadow: '0 0 10px rgba(255,0,170,0.4)',
+                      textShadow: '0 1px 0 rgba(255,255,255,0.3)',
                     }}>
                       {s.value}
                     </span>
 
-                    {/* Label — cyan */}
-                    <span className="text-[10px] uppercase font-semibold tracking-wider" style={{
-                      color: '#00f0ff',
+                    {/* Label — black, uppercase mono */}
+                    <span className="text-[10px] uppercase font-bold tracking-wider" style={{
+                      color: '#000',
                       fontFamily: 'var(--font-jetbrains-mono), monospace',
                       letterSpacing: '0.5px',
-                      textShadow: '0 0 6px rgba(0,240,255,0.4)',
+                      opacity: 0.75,
                     }}>
                       {s.label}
                     </span>

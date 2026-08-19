@@ -2728,3 +2728,65 @@ Stage Summary:
 - The embedded chat uses the same neon synthwave styling as the sidebar: cyan/magenta glass tiles for input + send button, JetBrains Mono input text, magenta-glow active send button.
 - The floating panel mode (`<ProjectChat />` without `embedded`) is preserved in the code for potential future use but is no longer rendered anywhere in the app.
 - Full end-to-end flow verified: select project → type message → send → message appears with sender info + timestamp. Polling continues across all views.
+
+---
+Task ID: YELLOW-BUTTON-REDESIGN-1
+Agent: main (Z.ai Code)
+Task: Mix the design of the left sidebar stats, chat buttons, and the quick-access panel stats buttons in the header to make them match the yellow "Новый проект" (New Project) button style from the Projects view.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand the previous neon sidebar/header redesign work.
+- Read /home/z/my-project/src/components/views/projects-view.tsx (lines 255-300) to extract the exact "Новый проект" button style:
+  * Color: #FCEE0A (bright neon yellow)
+  * Background: linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)
+  * Border: 1.5px solid rgba(252,238,10,0.9)
+  * clipPath: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px)) — chamfered corners
+  * boxShadow: 0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4) — yellow glow + inset highlight
+  * Text color: #000 (black on yellow)
+  * Text shadow: 0 1px 0 rgba(255,255,255,0.3)
+  * Hover: text becomes yellow, border solid yellow, increased glow, translateY(-1px)
+
+EDITS — /home/z/my-project/src/components/layout/app-sidebar.tsx:
+- Added yellow palette constants near the top: YELLOW='#FCEE0A', YELLOW_RGB='252,238,10', YELLOW_BTN_CLIP (the chamfered-corner polygon).
+- Sidebar profile card stats grid (4-cell: Участн./Проекты/Треки/Идеи):
+  * Replaced the dark glass + cyan border style with the yellow button style: linear-gradient(135deg, rgba(252,238,10,0.95), rgba(241,241,0,0.9) 50%, rgba(252,238,10,0.95)) background, 1px solid rgba(252,238,10,0.9) border, YELLOW_BTN_CLIP chamfered corners, 0 0 10px rgba(252,238,10,0.3) glow + inset highlight.
+  * Icons + numbers + labels all changed to #000 (black) with appropriate text-shadows.
+  * Added hover effect: increased glow (0 0 14px + 0 0 20px) + translateY(-1px) lift.
+- "Создан:" (Created) row below the stats grid:
+  * Same yellow button style: gradient background, chamfered corners, yellow glow, black text/icon.
+- Chat project picker dropdown button (ВЫБРАТЬ ПРОЕКТ):
+  * Replaced the cyan glass tile with the yellow button style: gradient yellow background, chamfered corners, 0 0 12px rgba(252,238,10,0.4) glow + inset highlight, black FolderOpen icon + black uppercase JetBrains Mono text + black ChevronDown.
+  * Hover: increased glow + translateY(-1px) lift.
+
+EDITS — /home/z/my-project/src/components/chat/project-chat.tsx:
+- Chat input field: changed border to 1px solid rgba(252,238,10,0.3) (yellow tint) + chamfered clipPath corners. The @ button tinted yellow.
+- Chat send button:
+  * When active (text entered): bright yellow gradient background + 1.5px solid rgba(252,238,10,0.9) border + chamfered corners + 0 0 14px rgba(252,238,10,0.4) glow + inset highlight. Send icon is black (#000).
+  * When inactive (empty): dark glass background + thin yellow border, dim yellow icon.
+  * Hover (active): increased glow (0 0 18px + 0 0 24px) + translateY(-1px) lift.
+
+EDITS — /home/z/my-project/src/components/layout/app-header.tsx:
+- Quick-access panel stats row (4 buttons: Проекты/Треки/Идеи/Участники):
+  * Replaced the dark glass + cyan border + magenta icons style with the full yellow button style: linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A) background, 1.5px solid rgba(252,238,10,0.9) border, polygon chamfered corners (calc(100% - 7px)), full boxShadow glow (0 0 14px + 0 0 28px + inset highlight).
+  * Icons + counts + labels all changed to #000 (black) with text-shadow.
+  * Hover: text becomes yellow, border solid yellow, increased glow (0 0 24px) + translateY(-2px) lift — matches the "Новый проект" hover behavior exactly.
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "app-sidebar|app-header|project-chat"` → only pre-existing errors (project-chat.tsx:654 useChatUnread set-state-in-effect, app-header.tsx:235 search set-state-in-effect — both present before this change). My restyle introduced zero new lint errors.
+- `tail -6 /home/z/my-project/dev.log` → server compiles cleanly, all /api/chat calls return 200, no runtime errors.
+- Agent Browser end-to-end verification (logged in as demo@soundflow.app / demo123):
+  * Confirmed via DOM inspection that all 4 sidebar stats cells + the "Создан:" row have yellow gradient backgrounds (background contains "252, 238, 10").
+  * VLM confirmed the sidebar stats grid: "bright, solid yellow background... numbers and labels are in a dark black color" ✓
+  * VLM confirmed the quick-access panel stats buttons: "bright YELLOW buttons... chamfered/clipped corners (top-left and bottom-right corners cut at an angle), BLACK text and icons" + "match the style of the other yellow UI elements" ✓
+  * VLM confirmed the chat send button (when active): "bright yellow button with a black paper plane icon... chamfered (clipped) corner shape... distinct yellow glow" ✓
+  * The chat project picker (ВЫБРАТЬ ПРОЕКТ) renders as a yellow button with black text/icon ✓
+
+Stage Summary:
+- All the requested elements now share the yellow "Новый проект" button aesthetic:
+  * Left sidebar profile card stats grid (4 cells: Участн./Проекты/Треки/Идеи) — yellow gradient + chamfered corners + black text + yellow glow.
+  * Left sidebar "Создан:" row — yellow button with black text.
+  * Left sidebar chat project picker (ВЫБРАТЬ ПРОЕКТ) — yellow button with black text/icon.
+  * Left sidebar chat send button — yellow (when active) with black icon + chamfered corners + yellow glow.
+  * Header quick-access panel stats buttons (Проекты/Треки/Идеи/Участники) — full yellow gradient + chamfered corners + black text/icons + yellow glow.
+- The yellow #FCEE0A accent now ties together the sidebar, the chat, and the quick-access panel, creating visual consistency with the "Новый проект" button in the Projects view.
+- Lint-clean for my changes; dev server compiles without errors; agent-browser + VLM both confirm the visual match across all the restyled elements.
