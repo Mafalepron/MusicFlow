@@ -2538,3 +2538,53 @@ Stage Summary:
 - Main content + footer dynamically shift between lg:pl-60/lg:ml-60 (expanded) and lg:pl-0/lg:ml-0 (collapsed) with smooth 300ms transition.
 - All existing functionality preserved: purple stripe quick-access panel, track detail view, kanban view, project detail view, notifications, profile dropdown, search.
 - Lint clean for my changes (only pre-existing errors in unrelated files). TSC clean. Dev server responds HTTP 200 on `/` and all API endpoints return 200.
+
+---
+Task ID: SIDEBAR-NEON-REDESIGN-1
+Agent: main (Z.ai Code)
+Task: Restyle the group profile card in the left sidebar to match the top quick-access panel (cyan + magenta neon glassmorphism, rounded corners, JetBrains Mono + Rajdhani fonts). Make the card collapsible/expandable. When collapsed → chat fills the freed space. When expanded → card and chat split the sidebar 50/50.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand previous sidebar/header work.
+- Read /home/z/my-project/src/components/layout/app-sidebar.tsx (1082 lines), /home/z/my-project/src/store/sidebar-store.ts, and the top quick-access panel block in app-header.tsx (lines 860-1180) to capture its visual language: 12px border-radius, rgba(10,14,23,0.85) + backdrop-filter:blur(16px) background, 1px solid rgba(0,240,255,0.3) cyan border, box-shadow `0 0 24px rgba(0,240,255,0.15), 0 0 8px rgba(255,0,170,0.1), 0 12px 40px rgba(0,0,0,0.7)`, cyan #00f0ff labels with magenta #ff00aa icons, JetBrains Mono for labels / Rajdhani for numbers/titles.
+- Added `profileCollapsed: boolean` state to /home/z/my-project/src/store/sidebar-store.ts plus `toggleProfile()` and `setProfileCollapsed(b)` actions, persisted under the existing `soundflow-sidebar` localStorage key.
+- Restyled /home/z/my-project/src/components/layout/app-sidebar.tsx end-to-end:
+  * Added neon palette constants (NEON_CYAN=#00f0ff, NEON_MAGENTA=#ff00aa, NEON_CYAN_RGB, NEON_MAGENTA_RGB, FONT_DISPLAY=var(--font-rajdhani), FONT_MONO=var(--font-jetbrains-mono)).
+  * Removed now-unused ScrollArea import, CARD_CLIP / AVATAR_CLIP constants, and the old YELLOW / CYAN / PURPLE / AMBER color constants.
+  * GroupSwitcher: switched from clipPath + hexToRgba(CYAN) buttons to 4px-radius cyan-bordered buttons with JetBrains Mono counter.
+  * EditableDescription: switched to 6px-radius glassmorphism panels with cyan borders + JetBrains Mono text.
+  * InviteCodeRow: 6px-radius glassmorphism code box (cyan text + JetBrains Mono) + magenta-hover copy button.
+  * ArtistProfileCard — completely rewritten:
+    - COLLAPSED view: compact 8px-radius bar with 32px avatar + group name + genre + rotated ChevronDown expand button.
+    - EXPANDED view: full 12px-radius glassmorphism card with cyan top accent strip, header bar (magenta Zap icon + cyan "Профиль группы" label + collapse ChevronDown button), scrollable body containing avatar (magenta-glow frame), group name (Rajdhani white with magenta text-shadow), genre (cyan mono), invite code, editable description, 4-cell stats grid (magenta icons + white Rajdhani numbers + cyan mono labels), created-date row, and linked projects list.
+  * SidebarChatSection — completely rewritten as a matching 12px-radius glassmorphism card:
+    - Magenta top accent strip (instead of cyan, to distinguish from the profile card).
+    - Header bar with cyan MessageCircle icon + "Чат проекта" label + active project name (magenta mono).
+    - Scrollable body with project picker dropdown (6px-radius glass button with magenta FolderOpen icon) and either a placeholder card or an "Открыть чат" toggle button (cyan when closed, magenta when open).
+  * SidebarContent — restructured into a flex-col middle container where:
+    - Profile wrapper is `shrink-0` when collapsed (natural height compact bar) or `flex-1 min-h-0` when expanded (grows to 50%).
+    - Chat wrapper is always `flex-1 min-h-0` — fills the rest when profile is collapsed, splits 50/50 when expanded.
+    - Logo restyled with magenta Hexagon icon + Rajdhani "SoundFlow" wordmark.
+    - Removed the old ScrollArea wrapper around ArtistProfileCard (the card now handles its own internal scrolling).
+  * AppSidebar floating toggle buttons restyled: expand button uses magenta glow (was yellow), collapse button uses cyan glow.
+  * Removed an empty no-op `useEffect` in SidebarChatSection that did nothing but trigger a lint warning.
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "app-sidebar|sidebar-store"` → no output (clean). The 9 remaining lint errors are all pre-existing in unrelated files: project-chat.tsx:557, app-header.tsx:225, home-view.tsx:1260/1318/1328 (setState-in-effect + manual-memoization warnings — all present before this change).
+- `tail -40 /home/z/my-project/dev.log` shows `✓ Compiled in 235ms`, all API calls (`/api/groups?userId=…`, `/api/groups/{id}/members`) return HTTP 200, no compile/runtime errors after the rewrite.
+- Agent Browser end-to-end verification:
+  * Opened http://localhost:3000/, page rendered successfully with no runtime errors in the console (only normal Fast Refresh log entries).
+  * Snapshot shows new interactive elements: `button "Свернуть карточку"` (the new cyan collapse button in the profile card header), `button "Copy invite code"`, `button "Выбрать проект…"` (chat project picker).
+  * Clicked the collapse button → button label changes from "Свернуть карточку" to "Развернуть карточку группы" — confirming the toggle works in both directions.
+  * Clicked the chat project picker dropdown → opens a dialog listing all projects in the group ("аквыа ALBUM", "Test Album ALBUM", "Unity Album ALBUM", "ип EP", etc.).
+  * VLM (z-ai vision) confirmed visually:
+    - Expanded state: "sidebar is clearly split into two distinct vertical sections" (top: "ПРОФИЛЬ ГРУППЫ" card, bottom: "ЧАТ ПРОЕКТА" section), "neon cyan and magenta colors are prominent", "glassmorphism effect with translucent appearance and visible backdrop blur", "significantly rounded corners" and "subtle neon glow effects".
+    - Collapsed state: "group profile card section is collapsed. It appears as a compact bar at the top of the sidebar showing avatar + name + small upward-pointing chevron/expand button", and "project chat section fills the remaining vertical space of the sidebar".
+
+Stage Summary:
+- The group profile card in the left sidebar now matches the top quick-access panel: cyan #00f0ff + magenta #ff00aa neon palette, 12px rounded corners, backdrop-filter:blur(16px) glassmorphism, JetBrains Mono labels + Rajdhani numbers, neon glow box-shadows.
+- The card is collapsible/expandable via a small cyan ChevronDown button in its header bar (toggles `profileCollapsed` in the persisted sidebar store).
+- When collapsed, the card shrinks to a compact bar (~60px tall) showing only avatar + group name + genre + an expand button; the chat section grows to fill the freed space.
+- When expanded, the card and chat section split the sidebar 50/50 (both flex-1 siblings in a flex-col container with min-h-0).
+- The chat section itself was restyled as a matching 12px-radius glassmorphism card with a magenta top accent strip (to distinguish it from the cyan-accented profile card), a header bar, project picker dropdown, and an "Открыть чат" toggle button.
+- Lint-clean for my changes; dev server compiles and runs without errors; agent-browser + VLM both confirm the visual match and functional behavior.

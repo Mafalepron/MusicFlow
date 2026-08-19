@@ -20,9 +20,9 @@ import {
   Send,
   Calendar,
   ChevronDown,
+  Zap,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Popover,
   PopoverContent,
@@ -36,20 +36,20 @@ import ProjectChat from '@/components/chat/project-chat';
 import { hexToRgba } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-/* ─── cyberpunk palette ─── */
-const YELLOW = '#c7a008';
-const CYAN = '#00a8c6';
-const PURPLE = '#7b2cbf';
+/* ─── cyberpunk palette (legacy — still used by floating sidebar toggles) ─── */
 const RED = '#EF4444';
 const GREEN = '#10B981';
-const AMBER = '#F59E0B';
 
-const CARD_CLIP =
-  'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))';
+/* ─── neon synthwave palette (matches top quick-access panel) ─── */
+const NEON_CYAN = '#00f0ff';
+const NEON_MAGENTA = '#ff00aa';
+const NEON_CYAN_RGB = '0,240,255';
+const NEON_MAGENTA_RGB = '255,0,170';
+const FONT_DISPLAY = 'var(--font-rajdhani), sans-serif';
+const FONT_MONO = 'var(--font-jetbrains-mono), monospace';
+
 const BTN_CLIP =
   'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))';
-const AVATAR_CLIP =
-  'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Group switcher — small < name > control. Only renders when the user      */
@@ -80,16 +80,21 @@ function GroupSwitcher({
           atStart ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-100 opacity-70'
         )}
         style={{
-          clipPath: BTN_CLIP,
-          background: hexToRgba(CYAN, 0.08),
-          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}`,
+          borderRadius: '4px',
+          background: `rgba(${NEON_CYAN_RGB},0.05)`,
+          border: `1px solid rgba(${NEON_CYAN_RGB},0.3)`,
+          cursor: atStart ? 'not-allowed' : 'pointer',
         }}
       >
-        <ChevronLeft className="h-3.5 w-3.5" style={{ color: CYAN }} />
+        <ChevronLeft className="h-3.5 w-3.5" style={{ color: NEON_CYAN }} />
       </button>
       <span
         className="text-[10px] uppercase tracking-[0.18em] font-bold"
-        style={{ color: hexToRgba('#e2e8f0', 0.7) }}
+        style={{
+          color: NEON_CYAN,
+          fontFamily: FONT_MONO,
+          textShadow: `0 0 6px rgba(${NEON_CYAN_RGB},0.4)`,
+        }}
       >
         {currentIndex + 1} / {total}
       </span>
@@ -102,12 +107,13 @@ function GroupSwitcher({
           atEnd ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-100 opacity-70'
         )}
         style={{
-          clipPath: BTN_CLIP,
-          background: hexToRgba(CYAN, 0.08),
-          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}`,
+          borderRadius: '4px',
+          background: `rgba(${NEON_CYAN_RGB},0.05)`,
+          border: `1px solid rgba(${NEON_CYAN_RGB},0.3)`,
+          cursor: atEnd ? 'not-allowed' : 'pointer',
         }}
       >
-        <ChevronRight className="h-3.5 w-3.5" style={{ color: CYAN }} />
+        <ChevronRight className="h-3.5 w-3.5" style={{ color: NEON_CYAN }} />
       </button>
     </div>
   );
@@ -189,17 +195,20 @@ function EditableDescription({
           rows={3}
           maxLength={500}
           placeholder="Введите описание группы…"
-          className="w-full resize-none rounded-md bg-[#070b14] px-2 py-1.5 text-[11px] leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none"
+          className="w-full resize-none px-2 py-1.5 text-[11px] leading-relaxed focus:outline-none"
           style={{
-            clipPath: BTN_CLIP,
-            boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.5)}`,
+            borderRadius: '6px',
+            background: 'rgba(10,20,35,0.6)',
+            color: '#ffffff',
+            fontFamily: FONT_MONO,
+            border: `1px solid rgba(${NEON_CYAN_RGB},0.5)`,
           }}
         />
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-[9px] uppercase tracking-wider text-slate-600">
+          <span className="text-[9px] uppercase tracking-wider" style={{ color: '#8892a0', fontFamily: FONT_MONO }}>
             {saving ? 'Сохранение…' : '⌘/Ctrl+Enter — сохранить · Esc — отмена'}
           </span>
-          <span className="text-[9px] tabular-nums text-slate-600">{draft.length}/500</span>
+          <span className="text-[9px] tabular-nums" style={{ color: '#8892a0', fontFamily: FONT_MONO }}>{draft.length}/500</span>
         </div>
       </div>
     );
@@ -212,20 +221,23 @@ function EditableDescription({
       title="Нажмите, чтобы редактировать описание"
     >
       <div
-        className="relative px-2 py-1.5 text-[11px] leading-relaxed text-slate-300 transition-all"
+        className="relative px-2.5 py-1.5 text-[11px] leading-relaxed transition-all"
         style={{
-          clipPath: BTN_CLIP,
-          background: hexToRgba(CYAN, 0.04),
-          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.18)}`,
+          borderRadius: '6px',
+          background: 'rgba(10,20,35,0.6)',
+          border: `1px solid rgba(${NEON_CYAN_RGB},0.2)`,
+          color: '#cfd6e0',
+          fontFamily: FONT_MONO,
         }}
       >
         {group?.description?.trim() ? (
           <p className="whitespace-pre-wrap break-words pr-5">{group.description}</p>
         ) : (
-          <p className="italic text-slate-500 pr-5">Нет описания. Нажмите, чтобы добавить…</p>
+          <p className="italic pr-5" style={{ color: '#8892a0' }}>Нет описания. Нажмите, чтобы добавить…</p>
         )}
         <Pencil
-          className="absolute right-1.5 top-1.5 h-3 w-3 text-slate-600 opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute right-1.5 top-1.5 h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100"
+          style={{ color: NEON_CYAN }}
         />
       </div>
     </button>
@@ -244,6 +256,9 @@ function ArtistProfileCard() {
   const tracks = useDataStore((s) => s.tracks);
   const ideas = useDataStore((s) => s.ideas);
   const navigate = useNavigationStore((s) => s.navigate);
+  // Profile card collapse/expand — when collapsed, the chat fills the freed space.
+  const profileCollapsed = useSidebarStore((s) => s.profileCollapsed);
+  const toggleProfile = useSidebarStore((s) => s.toggleProfile);
 
   // Local copy of the user's group memberships — fetched on mount via
   // /api/groups?userId=… so the < > switcher can work even though the
@@ -337,11 +352,14 @@ function ArtistProfileCard() {
     return (
       <div className="px-3 py-3">
         <div
-          className="p-3 text-center text-[11px] text-slate-500"
+          className="p-3 text-center text-[11px]"
           style={{
-            clipPath: CARD_CLIP,
-            background: 'rgba(8,12,22,0.9)',
-            boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.2)}`,
+            borderRadius: '12px',
+            background: 'rgba(10,14,23,0.85)',
+            backdropFilter: 'blur(16px)',
+            border: `1px solid rgba(${NEON_CYAN_RGB},0.3)`,
+            color: '#8892a0',
+            fontFamily: FONT_MONO,
           }}
         >
           Группа не выбрана
@@ -350,228 +368,438 @@ function ArtistProfileCard() {
     );
   }
 
-  const stats: { icon: typeof Users; label: string; value: number; color: string }[] = [
-    { icon: Users, label: 'Участн.', value: memberCount, color: CYAN },
-    { icon: FolderOpen, label: 'Проекты', value: groupProjects.length, color: YELLOW },
-    { icon: Music2, label: 'Треки', value: groupTrackCount, color: AMBER },
-    { icon: Lightbulb, label: 'Идеи', value: groupIdeaCount, color: GREEN },
-  ];
-
-  return (
-    <div className="relative px-3 py-3">
-      <div
-        className="relative p-3"
-        style={{
-          clipPath: CARD_CLIP,
-          background:
-            'linear-gradient(160deg, rgba(10,14,22,0.95) 0%, rgba(8,12,20,0.85) 100%)',
-          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}, 0 0 18px ${hexToRgba(CYAN, 0.06)}`,
-        }}
-      >
-        {/* Top accent stripe */}
-        <div
-          className="absolute left-0 right-0 top-0 h-px"
+  // Collapsed view — compact bar with avatar + name + expand button.
+  if (profileCollapsed) {
+    return (
+      <div className="px-3 pt-3 pb-2">
+        <button
+          onClick={toggleProfile}
+          className="group flex w-full items-center gap-2.5 px-2.5 py-2.5 transition-all duration-200"
           style={{
-            background: `linear-gradient(90deg, transparent, ${hexToRgba(YELLOW, 0.6)}, transparent)`,
+            borderRadius: '8px',
+            background: 'rgba(10,20,35,0.6)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(0,240,255,0.2)',
+            cursor: 'pointer',
           }}
-        />
-
-        {/* Avatar + switcher row */}
-        <div className="flex flex-col items-center pt-1">
+          title="Развернуть карточку группы"
+          aria-label="Развернуть карточку группы"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255,0,170,0.5)';
+            e.currentTarget.style.boxShadow = '0 0 16px rgba(255,0,170,0.15), 0 0 4px rgba(0,240,255,0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
           <div
-            className="relative flex h-16 w-16 items-center justify-center"
+            className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden"
             style={{
-              clipPath: AVATAR_CLIP,
-              background: hexToRgba(YELLOW, 0.1),
-              boxShadow: `inset 0 0 0 1.5px ${hexToRgba(YELLOW, 0.5)}, 0 0 18px ${hexToRgba(YELLOW, 0.15)}`,
+              borderRadius: '6px',
+              background: 'rgba(255,0,170,0.08)',
+              border: '1px solid rgba(255,0,170,0.4)',
             }}
           >
-            <Avatar className="h-14 w-14" style={{ borderRadius: 0 }}>
+            <Avatar className="h-7 w-7" style={{ borderRadius: 0 }}>
               <AvatarImage src={currentGroup.avatarUrl} alt={currentGroup.name} />
               <AvatarFallback
-                className="bg-transparent text-lg font-bold"
+                className="bg-transparent text-xs font-bold"
                 style={{
-                  color: YELLOW,
-                  textShadow: `0 0 8px ${hexToRgba(YELLOW, 0.6)}`,
+                  color: NEON_MAGENTA,
+                  fontFamily: FONT_DISPLAY,
+                  textShadow: '0 0 6px rgba(255,0,170,0.6)',
                 }}
               >
                 {currentGroup.name?.charAt(0)?.toUpperCase() || 'G'}
               </AvatarFallback>
             </Avatar>
           </div>
-
-          {/* Group switcher — only when multiple groups */}
-          <GroupSwitcher
-            groups={userGroups}
-            currentIndex={currentIndex}
-            onSelect={handleSwitchGroup}
-          />
-        </div>
-
-        {/* Group name + genre */}
-        <div className="mt-2 text-center">
-          <p
-            className="truncate text-sm font-bold uppercase tracking-[0.14em]"
-            style={{
-              color: YELLOW,
-              textShadow: `0 0 8px ${hexToRgba(YELLOW, 0.5)}`,
-            }}
-            title={currentGroup.name}
-          >
-            {currentGroup.name}
-          </p>
-          {currentGroup.genre && (
+          <div className="flex-1 min-w-0 text-left">
             <p
-              className="mt-0.5 text-[10px] uppercase tracking-[0.18em] font-medium"
-              style={{ color: CYAN }}
-            >
-              <Disc3 className="inline h-2.5 w-2.5 mr-1 -mt-0.5" style={{ color: CYAN }} />
-              {currentGroup.genre}
-            </p>
-          )}
-        </div>
-
-        {/* Invite code (small, with copy) */}
-        {currentGroup.inviteCode && (
-          <InviteCodeRow code={currentGroup.inviteCode} />
-        )}
-
-        {/* Editable description */}
-        <EditableDescription
-          group={currentGroup}
-          onSaved={(g) => setCurrentGroup(g)}
-        />
-
-        {/* Performance info section */}
-        <div className="mt-3">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <div
-              className="flex h-3.5 w-3.5 items-center justify-center"
+              className="truncate text-xs font-semibold uppercase tracking-wider"
               style={{
-                clipPath: BTN_CLIP,
-                background: hexToRgba(PURPLE, 0.18),
-                boxShadow: `inset 0 0 0 1px ${hexToRgba(PURPLE, 0.5)}`,
+                color: '#ffffff',
+                fontFamily: FONT_DISPLAY,
               }}
             >
-              <Calendar className="h-2 w-2" style={{ color: PURPLE }} />
-            </div>
-            <span
-              className="text-[9px] font-bold uppercase tracking-[0.18em]"
-              style={{ color: PURPLE }}
-            >
-              Показатели
-            </span>
-            <div
-              className="flex-1 h-px"
-              style={{ background: `linear-gradient(90deg, ${hexToRgba(PURPLE, 0.4)}, transparent)` }}
-            />
-          </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            {stats.map((s) => (
-              <div
-                key={s.label}
-                className="flex flex-col items-center py-1.5"
+              {currentGroup.name}
+            </p>
+            {currentGroup.genre && (
+              <p
+                className="truncate text-[9px] uppercase tracking-[1px]"
                 style={{
-                  clipPath: BTN_CLIP,
-                  background: hexToRgba(s.color, 0.05),
-                  boxShadow: `inset 0 0 0 1px ${hexToRgba(s.color, 0.2)}`,
+                  color: NEON_CYAN,
+                  fontFamily: FONT_MONO,
+                  textShadow: '0 0 4px rgba(0,240,255,0.4)',
                 }}
               >
-                <s.icon className="h-3 w-3 mb-0.5" style={{ color: s.color }} />
-                <span
-                  className="text-sm font-bold tabular-nums leading-none"
-                  style={{ color: '#e2e8f0' }}
-                >
-                  {s.value}
-                </span>
-                <span
-                  className="mt-0.5 text-[8px] uppercase tracking-wider font-medium"
-                  style={{ color: hexToRgba('#94a3b8', 0.8) }}
-                >
-                  {s.label}
-                </span>
-              </div>
-            ))}
+                {currentGroup.genre}
+              </p>
+            )}
           </div>
-          <div
-            className="mt-2 flex items-center gap-1.5 px-1.5 py-1"
+          <ChevronDown
+            className="h-3.5 w-3.5 shrink-0 rotate-180 transition-transform"
+            style={{ color: NEON_CYAN }}
+          />
+        </button>
+      </div>
+    );
+  }
+
+  // Stats — magenta icons, white numbers, cyan labels (matches quick-access panel).
+  const stats: { icon: typeof Users; label: string; value: number }[] = [
+    { icon: Users, label: 'Участн.', value: memberCount },
+    { icon: FolderOpen, label: 'Проекты', value: groupProjects.length },
+    { icon: Music2, label: 'Треки', value: groupTrackCount },
+    { icon: Lightbulb, label: 'Идеи', value: groupIdeaCount },
+  ];
+
+  // Expanded view — full neon glassmorphism card matching the quick-access panel.
+  return (
+    <div className="px-3 pt-3 pb-2 h-full min-h-0 flex flex-col">
+      <div
+        className="relative flex flex-col h-full overflow-hidden"
+        style={{
+          borderRadius: '12px',
+          background: 'rgba(10,14,23,0.85)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(0,240,255,0.3)',
+          boxShadow:
+            '0 0 24px rgba(0,240,255,0.15), 0 0 8px rgba(255,0,170,0.1), 0 12px 40px rgba(0,0,0,0.7)',
+        }}
+      >
+        {/* Top accent strip — cyan glow */}
+        <div
+          className="h-[2px] w-full shrink-0"
+          style={{
+            background: 'linear-gradient(90deg, transparent, #00f0ff 30%, #00f0ff 70%, transparent)',
+            boxShadow: '0 0 6px rgba(0,240,255,0.6)',
+          }}
+        />
+
+        {/* Header bar — title + collapse button */}
+        <div
+          className="flex items-center justify-between px-3.5 pt-3 pb-3 shrink-0"
+          style={{ borderBottom: '1px solid rgba(0,240,255,0.15)' }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="flex h-6 w-6 items-center justify-center"
+              style={{
+                borderRadius: '6px',
+                background: 'rgba(255,0,170,0.08)',
+                border: '1px solid rgba(255,0,170,0.3)',
+              }}
+            >
+              <Zap
+                className="h-3 w-3"
+                style={{ color: NEON_MAGENTA, filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.6))' }}
+              />
+            </div>
+            <span
+              className="text-[10px] font-semibold uppercase tracking-[2px] truncate"
+              style={{
+                color: NEON_CYAN,
+                fontFamily: FONT_MONO,
+                textShadow: '0 0 6px rgba(0,240,255,0.4)',
+              }}
+            >
+              Профиль группы
+            </span>
+          </div>
+          <button
+            onClick={toggleProfile}
+            className="flex h-6 w-6 items-center justify-center transition-all duration-200"
             style={{
-              clipPath: BTN_CLIP,
-              background: hexToRgba(CYAN, 0.04),
-              boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.15)}`,
+              borderRadius: '6px',
+              background: 'rgba(0,240,255,0.05)',
+              border: '1px solid rgba(0,240,255,0.3)',
+              cursor: 'pointer',
+            }}
+            title="Свернуть карточку"
+            aria-label="Свернуть карточку"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255,0,170,0.15)';
+              e.currentTarget.style.borderColor = 'rgba(255,0,170,0.8)';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(255,0,170,0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(0,240,255,0.05)';
+              e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
+              e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            <Calendar className="h-2.5 w-2.5" style={{ color: CYAN }} />
-            <span className="text-[9px] uppercase tracking-wider text-slate-400">
-              Создан:
-            </span>
-            <span className="ml-auto text-[9px] tabular-nums text-slate-300 font-medium">
-              {createdLabel}
-            </span>
-          </div>
+            <ChevronDown
+              className="h-3.5 w-3.5 transition-transform"
+              style={{ color: NEON_CYAN }}
+            />
+          </button>
         </div>
 
-        {/* Linked projects section */}
-        <div className="mt-3">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <FolderOpen className="h-3 w-3" style={{ color: YELLOW }} />
-            <span
-              className="text-[9px] font-bold uppercase tracking-[0.18em]"
-              style={{ color: YELLOW }}
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-3.5 pb-3 pt-3">
+          {/* Avatar + switcher row */}
+          <div className="flex flex-col items-center pt-1">
+            <div
+              className="relative flex h-16 w-16 items-center justify-center overflow-hidden"
+              style={{
+                borderRadius: '8px',
+                background: 'rgba(255,0,170,0.08)',
+                border: '1.5px solid rgba(255,0,170,0.5)',
+                boxShadow: '0 0 18px rgba(255,0,170,0.15)',
+              }}
             >
-              Проекты группы
-            </span>
-            <span className="ml-auto text-[9px] tabular-nums text-slate-500">
-              {groupProjects.length}
-            </span>
-          </div>
-          {groupProjects.length === 0 ? (
-            <p className="text-[10px] text-slate-600 italic px-1">Нет проектов</p>
-          ) : (
-            <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-1">
-              {groupProjects.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => navigate('project-detail', p.id)}
-                  className="group/proj flex w-full items-center gap-2 px-2 py-1.5 text-left transition-all"
+              <Avatar className="h-14 w-14" style={{ borderRadius: 0 }}>
+                <AvatarImage src={currentGroup.avatarUrl} alt={currentGroup.name} />
+                <AvatarFallback
+                  className="bg-transparent text-lg font-bold"
                   style={{
-                    clipPath: BTN_CLIP,
-                    background: hexToRgba(CYAN, 0.04),
-                    boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.15)}`,
+                    color: NEON_MAGENTA,
+                    fontFamily: FONT_DISPLAY,
+                    textShadow: '0 0 8px rgba(255,0,170,0.6)',
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = hexToRgba(CYAN, 0.1);
-                    e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.4)}`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = hexToRgba(CYAN, 0.04);
-                    e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.15)}`;
-                  }}
-                  title={`Открыть: ${p.title}`}
                 >
-                  <span
-                    className="flex h-4 w-4 shrink-0 items-center justify-center"
+                  {currentGroup.name?.charAt(0)?.toUpperCase() || 'G'}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+
+            <GroupSwitcher
+              groups={userGroups}
+              currentIndex={currentIndex}
+              onSelect={handleSwitchGroup}
+            />
+          </div>
+
+          {/* Group name + genre */}
+          <div className="mt-2 text-center">
+            <p
+              className="truncate text-base font-bold uppercase tracking-[0.14em]"
+              style={{
+                color: '#ffffff',
+                fontFamily: FONT_DISPLAY,
+                textShadow: '0 0 10px rgba(255,0,170,0.4)',
+              }}
+              title={currentGroup.name}
+            >
+              {currentGroup.name}
+            </p>
+            {currentGroup.genre && (
+              <p
+                className="mt-1 text-[10px] uppercase tracking-[1.5px] font-medium"
+                style={{
+                  color: NEON_CYAN,
+                  fontFamily: FONT_MONO,
+                  textShadow: '0 0 6px rgba(0,240,255,0.4)',
+                }}
+              >
+                <Disc3
+                  className="inline h-2.5 w-2.5 mr-1 -mt-0.5"
+                  style={{ color: NEON_CYAN }}
+                />
+                {currentGroup.genre}
+              </p>
+            )}
+          </div>
+
+          {/* Invite code */}
+          {currentGroup.inviteCode && (
+            <InviteCodeRow code={currentGroup.inviteCode} />
+          )}
+
+          {/* Editable description */}
+          <EditableDescription
+            group={currentGroup}
+            onSaved={(g) => setCurrentGroup(g)}
+          />
+
+          {/* Performance info section */}
+          <div className="mt-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className="flex h-3.5 w-3.5 items-center justify-center"
+                style={{
+                  borderRadius: '4px',
+                  background: 'rgba(255,0,170,0.08)',
+                  border: '1px solid rgba(255,0,170,0.3)',
+                }}
+              >
+                <Calendar
+                  className="h-2 w-2"
+                  style={{ color: NEON_MAGENTA }}
+                />
+              </div>
+              <span
+                className="text-[9px] font-bold uppercase tracking-[1px]"
+                style={{
+                  color: NEON_MAGENTA,
+                  fontFamily: FONT_MONO,
+                  textShadow: '0 0 4px rgba(255,0,170,0.4)',
+                }}
+              >
+                Показатели
+              </span>
+              <div
+                className="flex-1 h-px"
+                style={{
+                  background:
+                    'linear-gradient(90deg, rgba(255,0,170,0.3), transparent)',
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {stats.map((s) => (
+                <div
+                  key={s.label}
+                  className="flex flex-col items-center py-1.5 transition-all duration-200"
+                  style={{
+                    borderRadius: '6px',
+                    background: 'rgba(10,20,35,0.6)',
+                    border: '1px solid rgba(0,240,255,0.2)',
+                  }}
+                >
+                  <s.icon
+                    className="h-3 w-3 mb-0.5"
                     style={{
-                      clipPath: BTN_CLIP,
-                      background: hexToRgba(YELLOW, 0.12),
-                      boxShadow: `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.4)}`,
+                      color: NEON_MAGENTA,
+                      filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.5))',
+                    }}
+                  />
+                  <span
+                    className="text-sm font-bold tabular-nums leading-none"
+                    style={{
+                      color: '#ffffff',
+                      fontFamily: FONT_DISPLAY,
+                      textShadow: '0 0 8px rgba(255,0,170,0.4)',
                     }}
                   >
-                    <Music2 className="h-2 w-2" style={{ color: YELLOW }} />
-                  </span>
-                  <span className="flex-1 truncate text-[10px] text-slate-300 group-hover/proj:text-slate-100">
-                    {p.title}
+                    {s.value}
                   </span>
                   <span
-                    className="text-[8px] uppercase tracking-wider"
-                    style={{ color: hexToRgba(CYAN, 0.7) }}
+                    className="mt-0.5 text-[8px] uppercase tracking-wider font-medium"
+                    style={{
+                      color: NEON_CYAN,
+                      fontFamily: FONT_MONO,
+                    }}
                   >
-                    {p.type}
+                    {s.label}
                   </span>
-                </button>
+                </div>
               ))}
             </div>
-          )}
+            <div
+              className="mt-2 flex items-center gap-1.5 px-2 py-1.5"
+              style={{
+                borderRadius: '6px',
+                background: 'rgba(10,20,35,0.6)',
+                border: '1px solid rgba(0,240,255,0.2)',
+              }}
+            >
+              <Calendar className="h-2.5 w-2.5" style={{ color: NEON_CYAN }} />
+              <span
+                className="text-[9px] uppercase tracking-wider"
+                style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+              >
+                Создан:
+              </span>
+              <span
+                className="ml-auto text-[9px] tabular-nums font-medium"
+                style={{ color: '#ffffff', fontFamily: FONT_MONO }}
+              >
+                {createdLabel}
+              </span>
+            </div>
+          </div>
+
+          {/* Linked projects section */}
+          <div className="mt-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <FolderOpen
+                className="h-3 w-3"
+                style={{ color: NEON_MAGENTA }}
+              />
+              <span
+                className="text-[9px] font-bold uppercase tracking-[1px]"
+                style={{
+                  color: NEON_MAGENTA,
+                  fontFamily: FONT_MONO,
+                  textShadow: '0 0 4px rgba(255,0,170,0.4)',
+                }}
+              >
+                Проекты группы
+              </span>
+              <span
+                className="ml-auto text-[9px] tabular-nums"
+                style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+              >
+                {groupProjects.length}
+              </span>
+            </div>
+            {groupProjects.length === 0 ? (
+              <p
+                className="text-[10px] italic px-1"
+                style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+              >
+                Нет проектов
+              </p>
+            ) : (
+              <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-1">
+                {groupProjects.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => navigate('project-detail', p.id)}
+                    className="group/proj flex w-full items-center gap-2 px-2 py-1.5 text-left transition-all duration-200"
+                    style={{
+                      borderRadius: '6px',
+                      background: 'rgba(10,20,35,0.6)',
+                      border: '1px solid rgba(0,240,255,0.2)',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(255,0,170,0.5)';
+                      e.currentTarget.style.boxShadow =
+                        '0 0 12px rgba(255,0,170,0.15), 0 0 4px rgba(0,240,255,0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                    title={`Открыть: ${p.title}`}
+                  >
+                    <span
+                      className="flex h-4 w-4 shrink-0 items-center justify-center"
+                      style={{
+                        borderRadius: '4px',
+                        background: 'rgba(255,0,170,0.08)',
+                        border: '1px solid rgba(255,0,170,0.3)',
+                      }}
+                    >
+                      <Music2
+                        className="h-2 w-2"
+                        style={{ color: NEON_MAGENTA }}
+                      />
+                    </span>
+                    <span
+                      className="flex-1 truncate text-[10px]"
+                      style={{
+                        color: '#ffffff',
+                        fontFamily: FONT_MONO,
+                      }}
+                    >
+                      {p.title}
+                    </span>
+                    <span
+                      className="text-[8px] uppercase tracking-wider"
+                      style={{ color: NEON_CYAN }}
+                    >
+                      {p.type}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -592,13 +820,14 @@ function InviteCodeRow({ code }: { code: string }) {
   return (
     <div className="mt-2 flex items-center gap-1.5">
       <code
-        className="flex-1 px-2 py-1 font-mono text-[10px] tracking-wider"
+        className="flex-1 px-2 py-1 text-[10px] tracking-wider"
         style={{
-          clipPath: BTN_CLIP,
-          background: hexToRgba(CYAN, 0.08),
-          color: CYAN,
-          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}`,
-          textShadow: `0 0 6px ${hexToRgba(CYAN, 0.4)}`,
+          borderRadius: '6px',
+          background: 'rgba(10,20,35,0.6)',
+          border: '1px solid rgba(0,240,255,0.3)',
+          color: NEON_CYAN,
+          fontFamily: FONT_MONO,
+          textShadow: '0 0 6px rgba(0,240,255,0.4)',
         }}
       >
         {code}
@@ -606,25 +835,28 @@ function InviteCodeRow({ code }: { code: string }) {
       <button
         onClick={handleCopy}
         aria-label="Copy invite code"
-        className="flex h-6 w-6 items-center justify-center transition-all"
+        className="flex h-6 w-6 items-center justify-center transition-all duration-200"
         style={{
-          clipPath: BTN_CLIP,
-          background: hexToRgba(CYAN, 0.06),
-          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.25)}`,
+          borderRadius: '6px',
+          background: 'rgba(0,240,255,0.05)',
+          border: '1px solid rgba(0,240,255,0.3)',
+          cursor: 'pointer',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = hexToRgba(CYAN, 0.15);
-          e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.5)}`;
+          e.currentTarget.style.background = 'rgba(255,0,170,0.15)';
+          e.currentTarget.style.borderColor = 'rgba(255,0,170,0.8)';
+          e.currentTarget.style.boxShadow = '0 0 12px rgba(255,0,170,0.5)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = hexToRgba(CYAN, 0.06);
-          e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.25)}`;
+          e.currentTarget.style.background = 'rgba(0,240,255,0.05)';
+          e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
+          e.currentTarget.style.boxShadow = 'none';
         }}
       >
         {copied ? (
           <Check className="h-3 w-3" style={{ color: GREEN }} />
         ) : (
-          <Copy className="h-3 w-3" style={{ color: CYAN }} />
+          <Copy className="h-3 w-3" style={{ color: NEON_CYAN }} />
         )}
       </button>
     </div>
@@ -650,13 +882,6 @@ function SidebarChatSection() {
     return projects.filter((p) => p.groupId === currentGroup.id);
   }, [projects, currentGroup]);
 
-  // Auto-select the first project if none is selected.
-  useEffect(() => {
-    if (!activeChatProjectId && groupProjects.length > 0) {
-      // Don't auto-set — let user pick. Per spec: placeholder when no project selected.
-    }
-  }, [activeChatProjectId, groupProjects.length]);
-
   const handleSelect = (p: Project) => {
     // Use the kanbanTaskId if available (chat is keyed by kanban task id), else fall back to project id.
     const chatId = p.kanbanTaskId || p.id;
@@ -667,182 +892,276 @@ function SidebarChatSection() {
   };
 
   return (
-    <div className="relative px-3 pb-3 pt-2 border-t" style={{ borderColor: hexToRgba(CYAN, 0.15) }}>
-      {/* Section header */}
-      <div className="flex items-center gap-1.5 mb-2 px-0.5">
+    <div className="px-3 pt-2 pb-3 h-full min-h-0 flex flex-col">
+      <div
+        className="relative flex flex-col h-full overflow-hidden"
+        style={{
+          borderRadius: '12px',
+          background: 'rgba(10,14,23,0.85)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(0,240,255,0.3)',
+          boxShadow:
+            '0 0 24px rgba(0,240,255,0.15), 0 0 8px rgba(255,0,170,0.1), 0 12px 40px rgba(0,0,0,0.7)',
+        }}
+      >
+        {/* Top accent strip — magenta glow */}
         <div
-          className="flex h-3.5 w-3.5 items-center justify-center"
+          className="h-[2px] w-full shrink-0"
           style={{
-            clipPath: BTN_CLIP,
-            background: hexToRgba(CYAN, 0.15),
-            boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.5)}`,
+            background:
+              'linear-gradient(90deg, transparent, #ff00aa 30%, #ff00aa 70%, transparent)',
+            boxShadow: '0 0 6px rgba(255,0,170,0.6)',
           }}
-        >
-          <MessageCircle className="h-2 w-2" style={{ color: CYAN }} />
-        </div>
-        <span
-          className="text-[9px] font-bold uppercase tracking-[0.18em]"
-          style={{ color: CYAN }}
-        >
-          Чат проекта
-        </span>
-        <div
-          className="flex-1 h-px"
-          style={{ background: `linear-gradient(90deg, ${hexToRgba(CYAN, 0.4)}, transparent)` }}
         />
-      </div>
 
-      {/* Project selector dropdown */}
-      <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-        <PopoverTrigger asChild>
-          <button
-            className="group flex w-full items-center gap-2 px-2 py-1.5 text-left transition-all"
-            style={{
-              clipPath: BTN_CLIP,
-              background: hexToRgba(CYAN, 0.05),
-              boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.25)}`,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = hexToRgba(CYAN, 0.1);
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.5)}`;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = hexToRgba(CYAN, 0.05);
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.25)}`;
-            }}
-          >
-            <FolderOpen className="h-3 w-3 shrink-0" style={{ color: YELLOW }} />
-            <span className="flex-1 truncate text-[11px] text-slate-200">
-              {activeChatProjectName || 'Выбрать проект…'}
-            </span>
-            <ChevronDown
-              className="h-3 w-3 shrink-0 transition-transform"
-              style={{
-                color: CYAN,
-                transform: pickerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-              }}
-            />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          sideOffset={4}
-          className="p-0 w-[220px] border-0"
-          style={{
-            background: 'rgba(8,12,22,0.98)',
-            clipPath: CARD_CLIP,
-            boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}, 0 8px 24px rgba(0,0,0,0.6)`,
-          }}
+        {/* Header bar — title */}
+        <div
+          className="flex items-center justify-between px-3.5 pt-3 pb-3 shrink-0"
+          style={{ borderBottom: '1px solid rgba(0,240,255,0.15)' }}
         >
-          <div className="max-h-60 overflow-y-auto custom-scrollbar">
-            {groupProjects.length === 0 ? (
-              <p className="px-3 py-3 text-[10px] text-slate-500 italic">
-                Нет проектов в группе
-              </p>
-            ) : (
-              groupProjects.map((p) => {
-                const isActive = (p.kanbanTaskId || p.id) === activeChatProjectId;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => handleSelect(p)}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 text-left transition-colors"
-                    style={{
-                      background: isActive ? hexToRgba(CYAN, 0.12) : 'transparent',
-                      boxShadow: isActive
-                        ? `inset 2px 0 0 ${CYAN}`
-                        : 'inset 2px 0 0 transparent',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) e.currentTarget.style.background = hexToRgba(CYAN, 0.06);
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) e.currentTarget.style.background = 'transparent';
-                    }}
-                  >
-                    <Music2 className="h-3 w-3 shrink-0" style={{ color: isActive ? CYAN : YELLOW }} />
-                    <span className="flex-1 truncate text-[11px] text-slate-200">
-                      {p.title}
-                    </span>
-                    <span
-                      className="text-[8px] uppercase tracking-wider"
-                      style={{ color: hexToRgba('#94a3b8', 0.8) }}
-                    >
-                      {p.type}
-                    </span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      {/* Chat body — placeholder when no project selected, otherwise
-          show a compact "open chat" / "chat active" panel. */}
-      <div className="mt-2">
-        {!activeChatProjectId ? (
-          <div
-            className="flex flex-col items-center justify-center py-5 text-center"
-            style={{
-              clipPath: CARD_CLIP,
-              background: hexToRgba(CYAN, 0.03),
-              boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.15)}`,
-            }}
-          >
-            <MessageCircle
-              className="h-5 w-5 mb-1.5"
-              style={{ color: hexToRgba(CYAN, 0.4) }}
-            />
-            <p className="text-[10px] text-slate-400 font-medium">
-              Выберите проект для чата
-            </p>
-          </div>
-        ) : (
-          <button
-            onClick={() => (chatIsOpen ? closeChat() : openChat())}
-            className="group flex w-full items-center gap-2 px-2 py-2 transition-all"
-            style={{
-              clipPath: BTN_CLIP,
-              background: chatIsOpen
-                ? hexToRgba(CYAN, 0.18)
-                : hexToRgba(YELLOW, 0.08),
-              boxShadow: chatIsOpen
-                ? `inset 0 0 0 1px ${hexToRgba(CYAN, 0.6)}, 0 0 12px ${hexToRgba(CYAN, 0.15)}`
-                : `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.4)}`,
-            }}
-            onMouseEnter={(e) => {
-              if (!chatIsOpen) {
-                e.currentTarget.style.background = hexToRgba(YELLOW, 0.15);
-                e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.6)}, 0 0 12px ${hexToRgba(YELLOW, 0.15)}`;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!chatIsOpen) {
-                e.currentTarget.style.background = hexToRgba(YELLOW, 0.08);
-                e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.4)}`;
-              }
-            }}
-          >
-            <Send
-              className="h-3 w-3 shrink-0"
-              style={{ color: chatIsOpen ? CYAN : YELLOW }}
-            />
-            <span
-              className="flex-1 truncate text-left text-[11px] font-semibold"
-              style={{ color: chatIsOpen ? CYAN : YELLOW }}
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="flex h-6 w-6 items-center justify-center"
+              style={{
+                borderRadius: '6px',
+                background: 'rgba(0,240,255,0.1)',
+                border: '1px solid rgba(0,240,255,0.5)',
+                boxShadow: '0 0 12px rgba(0,240,255,0.3)',
+              }}
             >
-              {chatIsOpen ? 'Чат открыт — скрыть' : 'Открыть чат'}
-            </span>
+              <MessageCircle
+                className="h-3 w-3"
+                style={{
+                  color: NEON_CYAN,
+                  filter: 'drop-shadow(0 0 4px rgba(0,240,255,0.8))',
+                }}
+              />
+            </div>
             <span
-              className="text-[9px] uppercase tracking-wider truncate max-w-[80px]"
-              style={{ color: chatIsOpen ? hexToRgba(CYAN, 0.8) : hexToRgba(YELLOW, 0.8) }}
-              title={activeChatProjectName || ''}
+              className="text-[10px] font-semibold uppercase tracking-[2px] truncate"
+              style={{
+                color: NEON_CYAN,
+                fontFamily: FONT_MONO,
+                textShadow: '0 0 6px rgba(0,240,255,0.4)',
+              }}
+            >
+              Чат проекта
+            </span>
+          </div>
+          {activeChatProjectName && (
+            <span
+              className="text-[9px] uppercase tracking-[1px] truncate max-w-[100px]"
+              style={{
+                color: NEON_MAGENTA,
+                fontFamily: FONT_MONO,
+                textShadow: '0 0 4px rgba(255,0,170,0.4)',
+              }}
+              title={activeChatProjectName}
             >
               {activeChatProjectName}
             </span>
-          </button>
-        )}
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-3.5 pb-3 pt-3 flex flex-col">
+          {/* Project selector dropdown */}
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="group flex w-full items-center gap-2 px-2.5 py-2 text-left transition-all duration-200"
+                style={{
+                  borderRadius: '6px',
+                  background: 'rgba(10,20,35,0.6)',
+                  border: '1px solid rgba(0,240,255,0.2)',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
+                  e.currentTarget.style.boxShadow =
+                    '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <FolderOpen
+                  className="h-3 w-3 shrink-0"
+                  style={{
+                    color: NEON_MAGENTA,
+                    filter: 'drop-shadow(0 0 3px rgba(255,0,170,0.5))',
+                  }}
+                />
+                <span
+                  className="flex-1 truncate text-[11px]"
+                  style={{ color: '#ffffff', fontFamily: FONT_MONO }}
+                >
+                  {activeChatProjectName || 'Выбрать проект…'}
+                </span>
+                <ChevronDown
+                  className="h-3 w-3 shrink-0 transition-transform"
+                  style={{
+                    color: NEON_CYAN,
+                    transform: pickerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  }}
+                />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              sideOffset={4}
+              className="p-0 w-[220px] border-0"
+              style={{
+                background: 'rgba(10,14,23,0.98)',
+                borderRadius: '12px',
+                border: '1px solid rgba(0,240,255,0.3)',
+                boxShadow:
+                  '0 0 16px rgba(0,240,255,0.15), 0 12px 40px rgba(0,0,0,0.7)',
+              }}
+            >
+              <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                {groupProjects.length === 0 ? (
+                  <p
+                    className="px-3 py-3 text-[10px] italic"
+                    style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                  >
+                    Нет проектов в группе
+                  </p>
+                ) : (
+                  groupProjects.map((p) => {
+                    const isActive = (p.kanbanTaskId || p.id) === activeChatProjectId;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => handleSelect(p)}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 text-left transition-colors"
+                        style={{
+                          background: isActive ? 'rgba(0,240,255,0.12)' : 'transparent',
+                          boxShadow: isActive
+                            ? `inset 2px 0 0 ${NEON_CYAN}`
+                            : 'inset 2px 0 0 transparent',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive) e.currentTarget.style.background = 'rgba(0,240,255,0.06)';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <Music2
+                          className="h-3 w-3 shrink-0"
+                          style={{
+                            color: isActive ? NEON_CYAN : NEON_MAGENTA,
+                          }}
+                        />
+                        <span
+                          className="flex-1 truncate text-[11px]"
+                          style={{ color: '#ffffff', fontFamily: FONT_MONO }}
+                        >
+                          {p.title}
+                        </span>
+                        <span
+                          className="text-[8px] uppercase tracking-wider"
+                          style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                        >
+                          {p.type}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Chat body — placeholder when no project selected, otherwise
+              show a compact "open chat" / "chat active" panel. */}
+          <div className="mt-3 flex-1 flex flex-col">
+            {!activeChatProjectId ? (
+              <div
+                className="flex flex-col items-center justify-center py-5 text-center flex-1"
+                style={{
+                  borderRadius: '8px',
+                  background: 'rgba(10,20,35,0.6)',
+                  border: '1px solid rgba(0,240,255,0.2)',
+                }}
+              >
+                <MessageCircle
+                  className="h-5 w-5 mb-1.5"
+                  style={{
+                    color: NEON_CYAN,
+                    filter: 'drop-shadow(0 0 4px rgba(0,240,255,0.4))',
+                  }}
+                />
+                <p
+                  className="text-[10px] font-medium"
+                  style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                >
+                  Выберите проект для чата
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={() => (chatIsOpen ? closeChat() : openChat())}
+                className="group flex w-full items-center gap-2 px-2.5 py-2 transition-all duration-200"
+                style={{
+                  borderRadius: '6px',
+                  background: chatIsOpen
+                    ? 'rgba(255,0,170,0.18)'
+                    : 'rgba(0,240,255,0.08)',
+                  border: chatIsOpen
+                    ? '1px solid rgba(255,0,170,0.6)'
+                    : '1px solid rgba(0,240,255,0.4)',
+                  boxShadow: chatIsOpen
+                    ? '0 0 12px rgba(255,0,170,0.15)'
+                    : '0 0 12px rgba(0,240,255,0.1)',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  if (!chatIsOpen) {
+                    e.currentTarget.style.background = 'rgba(255,0,170,0.15)';
+                    e.currentTarget.style.borderColor = 'rgba(255,0,170,0.6)';
+                    e.currentTarget.style.boxShadow = '0 0 16px rgba(255,0,170,0.2)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!chatIsOpen) {
+                    e.currentTarget.style.background = 'rgba(0,240,255,0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.4)';
+                    e.currentTarget.style.boxShadow = '0 0 12px rgba(0,240,255,0.1)';
+                  }
+                }}
+              >
+                <Send
+                  className="h-3 w-3 shrink-0"
+                  style={{
+                    color: chatIsOpen ? NEON_MAGENTA : NEON_CYAN,
+                  }}
+                />
+                <span
+                  className="flex-1 truncate text-left text-[11px] font-semibold"
+                  style={{
+                    color: chatIsOpen ? NEON_MAGENTA : NEON_CYAN,
+                    fontFamily: FONT_DISPLAY,
+                  }}
+                >
+                  {chatIsOpen ? 'Чат открыт — скрыть' : 'Открыть чат'}
+                </span>
+                <span
+                  className="text-[9px] uppercase tracking-wider truncate max-w-[80px]"
+                  style={{
+                    color: chatIsOpen ? 'rgba(255,0,170,0.8)' : 'rgba(0,240,255,0.8)',
+                    fontFamily: FONT_MONO,
+                  }}
+                  title={activeChatProjectName || ''}
+                >
+                  {activeChatProjectName}
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -851,42 +1170,53 @@ function SidebarChatSection() {
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Sidebar content — top logo + collapse button, artist profile,            */
 /*  spacer, chat at bottom.                                                    */
+/*                                                                             */
+/*  Layout:                                                                    */
+/*    - When the profile card is COLLAPSED: the card shrinks to its natural    */
+/*      height (compact header bar) and the chat section grows to fill the    */
+/*      rest of the sidebar.                                                  */
+/*    - When the profile card is EXPANDED: both the card and the chat are     */
+/*      flex-1 siblings so they split the available height 50/50.             */
 /* ────────────────────────────────────────────────────────────────────────── */
 function SidebarContent({ onClose }: { onClose?: () => void }) {
+  const profileCollapsed = useSidebarStore((s) => s.profileCollapsed);
+
   return (
     <div className="relative flex h-full flex-col bg-[#05080f] text-slate-100">
       {/* subtle grid background */}
       <div
         className="pointer-events-none absolute inset-0 opacity-50"
         style={{
-          backgroundImage: `linear-gradient(${hexToRgba(CYAN, 0.035)} 1px, transparent 1px), linear-gradient(90deg, ${hexToRgba(CYAN, 0.035)} 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(rgba(${NEON_CYAN_RGB},0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(${NEON_CYAN_RGB},0.035) 1px, transparent 1px)`,
           backgroundSize: '24px 24px',
         }}
       />
 
       {/* ─── Logo + close button ─── */}
-      <div className="relative px-4 py-4 flex items-center gap-2.5">
+      <div className="relative px-4 py-4 flex items-center gap-2.5 shrink-0">
         <div
           className="flex h-8 w-8 shrink-0 items-center justify-center"
           style={{
-            clipPath: BTN_CLIP,
-            background: hexToRgba(YELLOW, 0.12),
-            boxShadow: `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.5)}, 0 0 12px ${hexToRgba(YELLOW, 0.2)}`,
+            borderRadius: '8px',
+            background: 'rgba(255,0,170,0.1)',
+            border: '1px solid rgba(255,0,170,0.5)',
+            boxShadow: '0 0 12px rgba(255,0,170,0.2)',
           }}
         >
           <Hexagon
             className="h-4 w-4"
             style={{
-              color: YELLOW,
-              filter: `drop-shadow(0 0 4px ${hexToRgba(YELLOW, 0.7)})`,
+              color: NEON_MAGENTA,
+              filter: 'drop-shadow(0 0 4px rgba(255,0,170,0.7))',
             }}
           />
         </div>
         <span
           className="text-base font-bold uppercase tracking-[0.18em]"
           style={{
-            color: YELLOW,
-            textShadow: `0 0 8px ${hexToRgba(YELLOW, 0.5)}, 0 0 20px ${hexToRgba(YELLOW, 0.2)}`,
+            color: '#ffffff',
+            fontFamily: FONT_DISPLAY,
+            textShadow: '0 0 8px rgba(255,0,170,0.5), 0 0 20px rgba(0,240,255,0.2)',
           }}
         >
           SoundFlow
@@ -897,19 +1227,20 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           aria-label="Свернуть панель"
           className="ml-auto flex h-7 w-7 items-center justify-center transition-all lg:hidden"
           style={{
-            clipPath: BTN_CLIP,
+            borderRadius: '6px',
             background: hexToRgba(RED, 0.06),
-            boxShadow: `inset 0 0 0 1px ${hexToRgba(RED, 0.25)}`,
+            border: `1px solid ${hexToRgba(RED, 0.25)}`,
             color: '#94a3b8',
+            cursor: 'pointer',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = hexToRgba(RED, 0.15);
-            e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(RED, 0.6)}`;
+            e.currentTarget.style.borderColor = hexToRgba(RED, 0.6);
             e.currentTarget.style.color = RED;
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = hexToRgba(RED, 0.06);
-            e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(RED, 0.25)}`;
+            e.currentTarget.style.borderColor = hexToRgba(RED, 0.25);
             e.currentTarget.style.color = '#94a3b8';
           }}
         >
@@ -917,21 +1248,38 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
         </button>
       </div>
 
-      {/* divider with cyan glow */}
+      {/* divider with neon glow */}
       <div
-        className="mx-4 mb-1 h-px"
+        className="mx-4 mb-1 h-px shrink-0"
         style={{
-          background: `linear-gradient(90deg, transparent, ${hexToRgba(CYAN, 0.4)}, transparent)`,
+          background:
+            'linear-gradient(90deg, transparent, rgba(0,240,255,0.4), transparent)',
         }}
       />
 
-      {/* ─── Artist profile (scrollable) ─── */}
-      <ScrollArea className="relative flex-1">
-        <ArtistProfileCard />
-      </ScrollArea>
+      {/* ─── Middle container — profile (top) + chat (bottom) ───
+          Both sections are flex children of this container. When the
+          profile is collapsed, it shrinks to its natural height; when
+          expanded, both are flex-1 so they split the space 50/50. */}
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        {/* Profile section */}
+        <div
+          className={cn(
+            'min-h-0',
+            profileCollapsed ? 'shrink-0' : 'flex-1'
+          )}
+        >
+          <ArtistProfileCard />
+        </div>
 
-      {/* ─── Project chat at the bottom ─── */}
-      <SidebarChatSection />
+        {/* Chat section — always grows to fill the available space.
+            When the profile is collapsed, this means the chat fills
+            nearly the entire sidebar. When expanded, both are flex-1
+            so the chat takes exactly half. */}
+        <div className="flex-1 min-h-0">
+          <SidebarChatSection />
+        </div>
+      </div>
     </div>
   );
 }
@@ -1021,20 +1369,20 @@ export function AppSidebar() {
             style={{
               clipPath: BTN_CLIP,
               background: 'rgba(10,14,22,0.95)',
-              boxShadow: `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.5)}, 0 0 14px ${hexToRgba(YELLOW, 0.18)}`,
+              boxShadow: `inset 0 0 0 1px rgba(${NEON_MAGENTA_RGB},0.5), 0 0 14px rgba(${NEON_MAGENTA_RGB},0.18)`,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.8)}, 0 0 18px ${hexToRgba(YELLOW, 0.35)}`;
+              e.currentTarget.style.boxShadow = `inset 0 0 0 1px rgba(${NEON_MAGENTA_RGB},0.8), 0 0 18px rgba(${NEON_MAGENTA_RGB},0.35)`;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.5)}, 0 0 14px ${hexToRgba(YELLOW, 0.18)}`;
+              e.currentTarget.style.boxShadow = `inset 0 0 0 1px rgba(${NEON_MAGENTA_RGB},0.5), 0 0 14px rgba(${NEON_MAGENTA_RGB},0.18)`;
             }}
           >
             <ChevronRight
               className="h-4 w-4"
               style={{
-                color: YELLOW,
-                filter: `drop-shadow(0 0 4px ${hexToRgba(YELLOW, 0.6)})`,
+                color: NEON_MAGENTA,
+                filter: `drop-shadow(0 0 4px rgba(${NEON_MAGENTA_RGB},0.6))`,
               }}
             />
           </motion.button>
@@ -1055,18 +1403,18 @@ export function AppSidebar() {
             style={{
               clipPath: BTN_CLIP,
               background: 'rgba(10,14,22,0.95)',
-              boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.4)}`,
+              boxShadow: `inset 0 0 0 1px rgba(${NEON_CYAN_RGB},0.4)`,
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.8)}, 0 0 12px ${hexToRgba(CYAN, 0.25)}`;
+              e.currentTarget.style.boxShadow = `inset 0 0 0 1px rgba(${NEON_CYAN_RGB},0.8), 0 0 12px rgba(${NEON_CYAN_RGB},0.25)`;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.4)}`;
+              e.currentTarget.style.boxShadow = `inset 0 0 0 1px rgba(${NEON_CYAN_RGB},0.4)`;
             }}
           >
             <ChevronsLeft
               className="h-3 w-3"
-              style={{ color: CYAN }}
+              style={{ color: NEON_CYAN }}
             />
           </motion.button>
         )}

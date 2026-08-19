@@ -1,0 +1,1083 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  Hexagon,
+     7→  ChevronLeft,
+     8→  ChevronRight,
+     9→  ChevronsLeft,
+    10→  X,
+    11→  Copy,
+    12→  Check,
+    13→  Pencil,
+    14→  Music2,
+    15→  FolderOpen,
+    16→  Users,
+    17→  Disc3,
+    18→  Lightbulb,
+    19→  MessageCircle,
+    20→  Send,
+    21→  Calendar,
+    22→  ChevronDown,
+    23→} from 'lucide-react';
+    24→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+    25→import { ScrollArea } from '@/components/ui/scroll-area';
+    26→import {
+    27→  Popover,
+    28→  PopoverContent,
+    29→  PopoverTrigger,
+    30→} from '@/components/ui/popover';
+    31→import { useNavigationStore, useAuthStore, useDataStore, type Group, type Project } from '@/lib/store';
+    32→import { useSidebarStore } from '@/store/sidebar-store';
+    33→import { useChatContextStore } from '@/store/chat-context-store';
+    34→import { useChatUIStore } from '@/store/chat-ui-store';
+    35→import ProjectChat from '@/components/chat/project-chat';
+    36→import { hexToRgba } from '@/lib/utils';
+    37→import { cn } from '@/lib/utils';
+    38→
+    39→/* ─── cyberpunk palette ─── */
+    40→const YELLOW = '#c7a008';
+    41→const CYAN = '#00a8c6';
+    42→const PURPLE = '#7b2cbf';
+    43→const RED = '#EF4444';
+    44→const GREEN = '#10B981';
+    45→const AMBER = '#F59E0B';
+    46→
+    47→const CARD_CLIP =
+    48→  'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))';
+    49→const BTN_CLIP =
+    50→  'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))';
+    51→const AVATAR_CLIP =
+    52→  'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)';
+    53→
+    54→/* ────────────────────────────────────────────────────────────────────────── */
+    55→/*  Group switcher — small < name > control. Only renders when the user      */
+    56→/*  has more than one group.                                                 */
+    57→/* ────────────────────────────────────────────────────────────────────────── */
+    58→function GroupSwitcher({
+    59→  groups,
+    60→  currentIndex,
+    61→  onSelect,
+    62→}: {
+    63→  groups: Group[];
+    64→  currentIndex: number;
+    65→  onSelect: (index: number) => void;
+    66→}) {
+    67→  if (groups.length <= 1) return null;
+    68→  const atStart = currentIndex <= 0;
+    69→  const atEnd = currentIndex >= groups.length - 1;
+    70→  const total = groups.length;
+    71→
+    72→  return (
+    73→    <div className="flex items-center justify-center gap-2 mt-2">
+    74→      <button
+    75→        onClick={() => !atStart && onSelect(currentIndex - 1)}
+    76→        disabled={atStart}
+    77→        aria-label="Previous group"
+    78→        className={cn(
+    79→          'flex h-6 w-6 items-center justify-center transition-all',
+    80→          atStart ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-100 opacity-70'
+    81→        )}
+    82→        style={{
+    83→          clipPath: BTN_CLIP,
+    84→          background: hexToRgba(CYAN, 0.08),
+    85→          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}`,
+    86→        }}
+    87→      >
+    88→        <ChevronLeft className="h-3.5 w-3.5" style={{ color: CYAN }} />
+    89→      </button>
+    90→      <span
+    91→        className="text-[10px] uppercase tracking-[0.18em] font-bold"
+    92→        style={{ color: hexToRgba('#e2e8f0', 0.7) }}
+    93→      >
+    94→        {currentIndex + 1} / {total}
+    95→      </span>
+    96→      <button
+    97→        onClick={() => !atEnd && onSelect(currentIndex + 1)}
+    98→        disabled={atEnd}
+    99→        aria-label="Next group"
+   100→        className={cn(
+   101→          'flex h-6 w-6 items-center justify-center transition-all',
+   102→          atEnd ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-100 opacity-70'
+   103→        )}
+   104→        style={{
+   105→          clipPath: BTN_CLIP,
+   106→          background: hexToRgba(CYAN, 0.08),
+   107→          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}`,
+   108→        }}
+   109→      >
+   110→        <ChevronRight className="h-3.5 w-3.5" style={{ color: CYAN }} />
+   111→      </button>
+   112→    </div>
+   113→  );
+   114→}
+   115→
+   116→/* ────────────────────────────────────────────────────────────────────────── */
+   117→/*  Editable group description — click to edit, PATCH /api/groups/[id]       */
+   118→/*  on blur or Cmd/Ctrl+Enter.                                               */
+   119→/* ────────────────────────────────────────────────────────────────────────── */
+   120→function EditableDescription({
+   121→  group,
+   122→  onSaved,
+   123→}: {
+   124→  group: Group | null;
+   125→  onSaved?: (next: Group) => void;
+   126→}) {
+   127→  const [editing, setEditing] = useState(false);
+   128→  const [draft, setDraft] = useState(group?.description || '');
+   129→  const [saving, setSaving] = useState(false);
+   130→  const textareaRef = useRef<HTMLTextAreaElement>(null);
+   131→
+   132→  // Keep draft in sync with the latest group description when not editing.
+   133→  useEffect(() => {
+   134→    if (!editing) setDraft(group?.description || '');
+   135→  }, [group?.description, editing, group?.id]);
+   136→
+   137→  // Focus + select-all when entering edit mode.
+   138→  useEffect(() => {
+   139→    if (editing && textareaRef.current) {
+   140→      textareaRef.current.focus();
+   141→      textareaRef.current.select();
+   142→    }
+   143→  }, [editing]);
+   144→
+   145→  const save = useCallback(async () => {
+   146→    if (!group) return;
+   147→    const trimmed = draft.trim();
+   148→    if (trimmed === (group.description || '').trim()) {
+   149→      setEditing(false);
+   150→      return;
+   151→    }
+   152→    setSaving(true);
+   153→    try {
+   154→      const res = await fetch(`/api/groups/${group.id}`, {
+   155→        method: 'PATCH',
+   156→        headers: { 'Content-Type': 'application/json' },
+   157→        body: JSON.stringify({ description: trimmed }),
+   158→      });
+   159→      if (res.ok) {
+   160→        const updated = await res.json();
+   161→        onSaved?.(updated);
+   162→      }
+   163→    } catch {
+   164→      /* swallow */
+   165→    } finally {
+   166→      setSaving(false);
+   167→      setEditing(false);
+   168→    }
+   169→  }, [draft, group, onSaved]);
+   170→
+   171→  if (editing) {
+   172→    return (
+   173→      <div className="mt-2">
+   174→        <textarea
+   175→          ref={textareaRef}
+   176→          value={draft}
+   177→          onChange={(e) => setDraft(e.target.value)}
+   178→          onBlur={save}
+   179→          onKeyDown={(e) => {
+   180→            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+   181→              e.preventDefault();
+   182→              save();
+   183→            }
+   184→            if (e.key === 'Escape') {
+   185→              setDraft(group?.description || '');
+   186→              setEditing(false);
+   187→            }
+   188→          }}
+   189→          rows={3}
+   190→          maxLength={500}
+   191→          placeholder="Введите описание группы…"
+   192→          className="w-full resize-none rounded-md bg-[#070b14] px-2 py-1.5 text-[11px] leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none"
+   193→          style={{
+   194→            clipPath: BTN_CLIP,
+   195→            boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.5)}`,
+   196→          }}
+   197→        />
+   198→        <div className="mt-1 flex items-center justify-between">
+   199→          <span className="text-[9px] uppercase tracking-wider text-slate-600">
+   200→            {saving ? 'Сохранение…' : '⌘/Ctrl+Enter — сохранить · Esc — отмена'}
+   201→          </span>
+   202→          <span className="text-[9px] tabular-nums text-slate-600">{draft.length}/500</span>
+   203→        </div>
+   204→      </div>
+   205→    );
+   206→  }
+   207→
+   208→  return (
+   209→    <button
+   210→      onClick={() => setEditing(true)}
+   211→      className="group mt-2 block w-full text-left"
+   212→      title="Нажмите, чтобы редактировать описание"
+   213→    >
+   214→      <div
+   215→        className="relative px-2 py-1.5 text-[11px] leading-relaxed text-slate-300 transition-all"
+   216→        style={{
+   217→          clipPath: BTN_CLIP,
+   218→          background: hexToRgba(CYAN, 0.04),
+   219→          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.18)}`,
+   220→        }}
+   221→      >
+   222→        {group?.description?.trim() ? (
+   223→          <p className="whitespace-pre-wrap break-words pr-5">{group.description}</p>
+   224→        ) : (
+   225→          <p className="italic text-slate-500 pr-5">Нет описания. Нажмите, чтобы добавить…</p>
+   226→        )}
+   227→        <Pencil
+   228→          className="absolute right-1.5 top-1.5 h-3 w-3 text-slate-600 opacity-0 transition-opacity group-hover:opacity-100"
+   229→        />
+   230→      </div>
+   231→    </button>
+   232→  );
+   233→}
+   234→
+   235→/* ────────────────────────────────────────────────────────────────────────── */
+   236→/*  Artist profile card — group avatar, name, genre, editable description,   */
+   237→/*  performance stats, group switcher, linked projects list.                  */
+   238→/* ────────────────────────────────────────────────────────────────────────── */
+   239→function ArtistProfileCard() {
+   240→  const { user, currentGroupId, setCurrentGroupId, setCurrentGroupName, setCurrentGroupInviteCode } = useAuthStore();
+   241→  const currentGroup = useDataStore((s) => s.currentGroup);
+   242→  const setCurrentGroup = useDataStore((s) => s.setCurrentGroup);
+   243→  const projects = useDataStore((s) => s.projects);
+   244→  const tracks = useDataStore((s) => s.tracks);
+   245→  const ideas = useDataStore((s) => s.ideas);
+   246→  const navigate = useNavigationStore((s) => s.navigate);
+   247→
+   248→  // Local copy of the user's group memberships — fetched on mount via
+   249→  // /api/groups?userId=… so the < > switcher can work even though the
+   250→  // global `groups` array isn't populated elsewhere.
+   251→  const [userGroups, setUserGroups] = useState<Group[]>([]);
+   252→  useEffect(() => {
+   253→    if (!user?.id) return;
+   254→    let cancelled = false;
+   255→    fetch(`/api/groups?userId=${user.id}`)
+   256→      .then((r) => (r.ok ? r.json() : []))
+   257→      .then((list: Group[]) => {
+   258→        if (!cancelled) setUserGroups(list);
+   259→      })
+   260→      .catch(() => {});
+   261→    return () => {
+   262→      cancelled = true;
+   263→    };
+   264→  }, [user?.id]);
+   265→
+   266→  const currentIndex = useMemo(() => {
+   267→    if (!currentGroupId) return 0;
+   268→    const idx = userGroups.findIndex((g) => g.id === currentGroupId);
+   269→    return idx === -1 ? 0 : idx;
+   270→  }, [userGroups, currentGroupId]);
+   271→
+   272→  // Group switcher handler — set currentGroupId + pull fresh group info.
+   273→  const handleSwitchGroup = useCallback(
+   274→    (nextIndex: number) => {
+   275→      const next = userGroups[nextIndex];
+   276→      if (!next) return;
+   277→      setCurrentGroupId(next.id);
+   278→      setCurrentGroupName(next.name);
+   279→      setCurrentGroupInviteCode(next.inviteCode);
+   280→      // Refetch the full group record so currentGroup has all fields.
+   281→      fetch(`/api/groups/${next.id}`)
+   282→        .then((r) => (r.ok ? r.json() : null))
+   283→        .then((g) => {
+   284→          if (g) {
+   285→            setCurrentGroup(g);
+   286→            setCurrentGroupName(g.name);
+   287→            setCurrentGroupInviteCode(g.inviteCode);
+   288→          }
+   289→        })
+   290→        .catch(() => {});
+   291→    },
+   292→    [userGroups, setCurrentGroupId, setCurrentGroupName, setCurrentGroupInviteCode, setCurrentGroup]
+   293→  );
+   294→
+   295→  // Projects linked to this group — filter by groupId.
+   296→  const groupProjects = useMemo<Project[]>(() => {
+   297→    if (!currentGroup) return [];
+   298→    return projects.filter((p) => p.groupId === currentGroup.id);
+   299→  }, [projects, currentGroup]);
+   300→
+   301→  // Tracks count for this group.
+   302→  const groupTrackCount = useMemo(() => {
+   303→    if (!currentGroup) return 0;
+   304→    const ids = new Set(groupProjects.map((p) => p.id));
+   305→    return tracks.filter((t) => ids.has(t.projectId)).length;
+   306→  }, [tracks, groupProjects, currentGroup]);
+   307→
+   308→  // Ideas count for this group.
+   309→  const groupIdeaCount = useMemo(() => {
+   310→    if (!currentGroup) return 0;
+   311→    return ideas.filter((i) => i.groupId === currentGroup.id).length;
+   312→  }, [ideas, currentGroup]);
+   313→
+   314→  // Member count — fetched alongside group info.
+   315→  const [memberCount, setMemberCount] = useState(0);
+   316→  useEffect(() => {
+   317→    if (!currentGroup?.id) return;
+   318→    fetch(`/api/groups/${currentGroup.id}/members`)
+   319→      .then((r) => (r.ok ? r.json() : []))
+   320→      .then((m: unknown) => setMemberCount(Array.isArray(m) ? m.length : 0))
+   321→      .catch(() => {});
+   322→  }, [currentGroup?.id]);
+   323→
+   324→  // Created date (formatted).
+   325→  const createdLabel = useMemo(() => {
+   326→    if (!currentGroup) return '—';
+   327→    const raw = (userGroups.find((g) => g.id === currentGroup.id) as unknown as { createdAt?: string } | undefined)?.createdAt;
+   328→    if (!raw) return '—';
+   329→    try {
+   330→      return new Date(raw).toLocaleDateString('ru-RU', { year: 'numeric', month: 'short', day: 'numeric' });
+   331→    } catch {
+   332→      return '—';
+   333→    }
+   334→  }, [currentGroup, userGroups]);
+   335→
+   336→  if (!currentGroup) {
+   337→    return (
+   338→      <div className="px-3 py-3">
+   339→        <div
+   340→          className="p-3 text-center text-[11px] text-slate-500"
+   341→          style={{
+   342→            clipPath: CARD_CLIP,
+   343→            background: 'rgba(8,12,22,0.9)',
+   344→            boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.2)}`,
+   345→          }}
+   346→        >
+   347→          Группа не выбрана
+   348→        </div>
+   349→      </div>
+   350→    );
+   351→  }
+   352→
+   353→  const stats: { icon: typeof Users; label: string; value: number; color: string }[] = [
+   354→    { icon: Users, label: 'Участн.', value: memberCount, color: CYAN },
+   355→    { icon: FolderOpen, label: 'Проекты', value: groupProjects.length, color: YELLOW },
+   356→    { icon: Music2, label: 'Треки', value: groupTrackCount, color: AMBER },
+   357→    { icon: Lightbulb, label: 'Идеи', value: groupIdeaCount, color: GREEN },
+   358→  ];
+   359→
+   360→  return (
+   361→    <div className="relative px-3 py-3">
+   362→      <div
+   363→        className="relative p-3"
+   364→        style={{
+   365→          clipPath: CARD_CLIP,
+   366→          background:
+   367→            'linear-gradient(160deg, rgba(10,14,22,0.95) 0%, rgba(8,12,20,0.85) 100%)',
+   368→          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}, 0 0 18px ${hexToRgba(CYAN, 0.06)}`,
+   369→        }}
+   370→      >
+   371→        {/* Top accent stripe */}
+   372→        <div
+   373→          className="absolute left-0 right-0 top-0 h-px"
+   374→          style={{
+   375→            background: `linear-gradient(90deg, transparent, ${hexToRgba(YELLOW, 0.6)}, transparent)`,
+   376→          }}
+   377→        />
+   378→
+   379→        {/* Avatar + switcher row */}
+   380→        <div className="flex flex-col items-center pt-1">
+   381→          <div
+   382→            className="relative flex h-16 w-16 items-center justify-center"
+   383→            style={{
+   384→              clipPath: AVATAR_CLIP,
+   385→              background: hexToRgba(YELLOW, 0.1),
+   386→              boxShadow: `inset 0 0 0 1.5px ${hexToRgba(YELLOW, 0.5)}, 0 0 18px ${hexToRgba(YELLOW, 0.15)}`,
+   387→            }}
+   388→          >
+   389→            <Avatar className="h-14 w-14" style={{ borderRadius: 0 }}>
+   390→              <AvatarImage src={currentGroup.avatarUrl} alt={currentGroup.name} />
+   391→              <AvatarFallback
+   392→                className="bg-transparent text-lg font-bold"
+   393→                style={{
+   394→                  color: YELLOW,
+   395→                  textShadow: `0 0 8px ${hexToRgba(YELLOW, 0.6)}`,
+   396→                }}
+   397→              >
+   398→                {currentGroup.name?.charAt(0)?.toUpperCase() || 'G'}
+   399→              </AvatarFallback>
+   400→            </Avatar>
+   401→          </div>
+   402→
+   403→          {/* Group switcher — only when multiple groups */}
+   404→          <GroupSwitcher
+   405→            groups={userGroups}
+   406→            currentIndex={currentIndex}
+   407→            onSelect={handleSwitchGroup}
+   408→          />
+   409→        </div>
+   410→
+   411→        {/* Group name + genre */}
+   412→        <div className="mt-2 text-center">
+   413→          <p
+   414→            className="truncate text-sm font-bold uppercase tracking-[0.14em]"
+   415→            style={{
+   416→              color: YELLOW,
+   417→              textShadow: `0 0 8px ${hexToRgba(YELLOW, 0.5)}`,
+   418→            }}
+   419→            title={currentGroup.name}
+   420→          >
+   421→            {currentGroup.name}
+   422→          </p>
+   423→          {currentGroup.genre && (
+   424→            <p
+   425→              className="mt-0.5 text-[10px] uppercase tracking-[0.18em] font-medium"
+   426→              style={{ color: CYAN }}
+   427→            >
+   428→              <Disc3 className="inline h-2.5 w-2.5 mr-1 -mt-0.5" style={{ color: CYAN }} />
+   429→              {currentGroup.genre}
+   430→            </p>
+   431→          )}
+   432→        </div>
+   433→
+   434→        {/* Invite code (small, with copy) */}
+   435→        {currentGroup.inviteCode && (
+   436→          <InviteCodeRow code={currentGroup.inviteCode} />
+   437→        )}
+   438→
+   439→        {/* Editable description */}
+   440→        <EditableDescription
+   441→          group={currentGroup}
+   442→          onSaved={(g) => setCurrentGroup(g)}
+   443→        />
+   444→
+   445→        {/* Performance info section */}
+   446→        <div className="mt-3">
+   447→          <div className="flex items-center gap-1.5 mb-1.5">
+   448→            <div
+   449→              className="flex h-3.5 w-3.5 items-center justify-center"
+   450→              style={{
+   451→                clipPath: BTN_CLIP,
+   452→                background: hexToRgba(PURPLE, 0.18),
+   453→                boxShadow: `inset 0 0 0 1px ${hexToRgba(PURPLE, 0.5)}`,
+   454→              }}
+   455→            >
+   456→              <Calendar className="h-2 w-2" style={{ color: PURPLE }} />
+   457→            </div>
+   458→            <span
+   459→              className="text-[9px] font-bold uppercase tracking-[0.18em]"
+   460→              style={{ color: PURPLE }}
+   461→            >
+   462→              Показатели
+   463→            </span>
+   464→            <div
+   465→              className="flex-1 h-px"
+   466→              style={{ background: `linear-gradient(90deg, ${hexToRgba(PURPLE, 0.4)}, transparent)` }}
+   467→            />
+   468→          </div>
+   469→          <div className="grid grid-cols-4 gap-1.5">
+   470→            {stats.map((s) => (
+   471→              <div
+   472→                key={s.label}
+   473→                className="flex flex-col items-center py-1.5"
+   474→                style={{
+   475→                  clipPath: BTN_CLIP,
+   476→                  background: hexToRgba(s.color, 0.05),
+   477→                  boxShadow: `inset 0 0 0 1px ${hexToRgba(s.color, 0.2)}`,
+   478→                }}
+   479→              >
+   480→                <s.icon className="h-3 w-3 mb-0.5" style={{ color: s.color }} />
+   481→                <span
+   482→                  className="text-sm font-bold tabular-nums leading-none"
+   483→                  style={{ color: '#e2e8f0' }}
+   484→                >
+   485→                  {s.value}
+   486→                </span>
+   487→                <span
+   488→                  className="mt-0.5 text-[8px] uppercase tracking-wider font-medium"
+   489→                  style={{ color: hexToRgba('#94a3b8', 0.8) }}
+   490→                >
+   491→                  {s.label}
+   492→                </span>
+   493→              </div>
+   494→            ))}
+   495→          </div>
+   496→          <div
+   497→            className="mt-2 flex items-center gap-1.5 px-1.5 py-1"
+   498→            style={{
+   499→              clipPath: BTN_CLIP,
+   500→              background: hexToRgba(CYAN, 0.04),
+   501→              boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.15)}`,
+   502→            }}
+   503→          >
+   504→            <Calendar className="h-2.5 w-2.5" style={{ color: CYAN }} />
+   505→            <span className="text-[9px] uppercase tracking-wider text-slate-400">
+   506→              Создан:
+   507→            </span>
+   508→            <span className="ml-auto text-[9px] tabular-nums text-slate-300 font-medium">
+   509→              {createdLabel}
+   510→            </span>
+   511→          </div>
+   512→        </div>
+   513→
+   514→        {/* Linked projects section */}
+   515→        <div className="mt-3">
+   516→          <div className="flex items-center gap-1.5 mb-1.5">
+   517→            <FolderOpen className="h-3 w-3" style={{ color: YELLOW }} />
+   518→            <span
+   519→              className="text-[9px] font-bold uppercase tracking-[0.18em]"
+   520→              style={{ color: YELLOW }}
+   521→            >
+   522→              Проекты группы
+   523→            </span>
+   524→            <span className="ml-auto text-[9px] tabular-nums text-slate-500">
+   525→              {groupProjects.length}
+   526→            </span>
+   527→          </div>
+   528→          {groupProjects.length === 0 ? (
+   529→            <p className="text-[10px] text-slate-600 italic px-1">Нет проектов</p>
+   530→          ) : (
+   531→            <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-1">
+   532→              {groupProjects.map((p) => (
+   533→                <button
+   534→                  key={p.id}
+   535→                  onClick={() => navigate('project-detail', p.id)}
+   536→                  className="group/proj flex w-full items-center gap-2 px-2 py-1.5 text-left transition-all"
+   537→                  style={{
+   538→                    clipPath: BTN_CLIP,
+   539→                    background: hexToRgba(CYAN, 0.04),
+   540→                    boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.15)}`,
+   541→                  }}
+   542→                  onMouseEnter={(e) => {
+   543→                    e.currentTarget.style.background = hexToRgba(CYAN, 0.1);
+   544→                    e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.4)}`;
+   545→                  }}
+   546→                  onMouseLeave={(e) => {
+   547→                    e.currentTarget.style.background = hexToRgba(CYAN, 0.04);
+   548→                    e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.15)}`;
+   549→                  }}
+   550→                  title={`Открыть: ${p.title}`}
+   551→                >
+   552→                  <span
+   553→                    className="flex h-4 w-4 shrink-0 items-center justify-center"
+   554→                    style={{
+   555→                      clipPath: BTN_CLIP,
+   556→                      background: hexToRgba(YELLOW, 0.12),
+   557→                      boxShadow: `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.4)}`,
+   558→                    }}
+   559→                  >
+   560→                    <Music2 className="h-2 w-2" style={{ color: YELLOW }} />
+   561→                  </span>
+   562→                  <span className="flex-1 truncate text-[10px] text-slate-300 group-hover/proj:text-slate-100">
+   563→                    {p.title}
+   564→                  </span>
+   565→                  <span
+   566→                    className="text-[8px] uppercase tracking-wider"
+   567→                    style={{ color: hexToRgba(CYAN, 0.7) }}
+   568→                  >
+   569→                    {p.type}
+   570→                  </span>
+   571→                </button>
+   572→              ))}
+   573→            </div>
+   574→          )}
+   575→        </div>
+   576→      </div>
+   577→    </div>
+   578→  );
+   579→}
+   580→
+   581→/* ────────────────────────────────────────────────────────────────────────── */
+   582→/*  Invite code row — small box + copy button                                 */
+   583→/* ────────────────────────────────────────────────────────────────────────── */
+   584→function InviteCodeRow({ code }: { code: string }) {
+   585→  const [copied, setCopied] = useState(false);
+   586→  const handleCopy = () => {
+   587→    if (!code) return;
+   588→    navigator.clipboard.writeText(code);
+   589→    setCopied(true);
+   590→    setTimeout(() => setCopied(false), 2000);
+   591→  };
+   592→  return (
+   593→    <div className="mt-2 flex items-center gap-1.5">
+   594→      <code
+   595→        className="flex-1 px-2 py-1 font-mono text-[10px] tracking-wider"
+   596→        style={{
+   597→          clipPath: BTN_CLIP,
+   598→          background: hexToRgba(CYAN, 0.08),
+   599→          color: CYAN,
+   600→          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}`,
+   601→          textShadow: `0 0 6px ${hexToRgba(CYAN, 0.4)}`,
+   602→        }}
+   603→      >
+   604→        {code}
+   605→      </code>
+   606→      <button
+   607→        onClick={handleCopy}
+   608→        aria-label="Copy invite code"
+   609→        className="flex h-6 w-6 items-center justify-center transition-all"
+   610→        style={{
+   611→          clipPath: BTN_CLIP,
+   612→          background: hexToRgba(CYAN, 0.06),
+   613→          boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.25)}`,
+   614→        }}
+   615→        onMouseEnter={(e) => {
+   616→          e.currentTarget.style.background = hexToRgba(CYAN, 0.15);
+   617→          e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.5)}`;
+   618→        }}
+   619→        onMouseLeave={(e) => {
+   620→          e.currentTarget.style.background = hexToRgba(CYAN, 0.06);
+   621→          e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.25)}`;
+   622→        }}
+   623→      >
+   624→        {copied ? (
+   625→          <Check className="h-3 w-3" style={{ color: GREEN }} />
+   626→        ) : (
+   627→          <Copy className="h-3 w-3" style={{ color: CYAN }} />
+   628→        )}
+   629→      </button>
+   630→    </div>
+   631→  );
+   632→}
+   633→
+   634→/* ────────────────────────────────────────────────────────────────────────── */
+   635→/*  Project chat section — lives at the bottom of the sidebar.                */
+   636→/*  - Project selector dropdown at top                                          */
+   637→/*  - "Выберите проект для чата" placeholder when no project selected          */
+   638→/*  - Embeds <ProjectChat/> so its floating panel renders when isOpen          */
+   639→/* ────────────────────────────────────────────────────────────────────────── */
+   640→function SidebarChatSection() {
+   641→  const projects = useDataStore((s) => s.projects);
+   642→  const currentGroup = useDataStore((s) => s.currentGroup);
+   643→  const { activeChatProjectId, activeChatProjectName, setActiveChatProject } = useChatContextStore();
+   644→  const { open: openChat, isOpen: chatIsOpen, close: closeChat } = useChatUIStore();
+   645→  const [pickerOpen, setPickerOpen] = useState(false);
+   646→
+   647→  // Projects linked to the current group.
+   648→  const groupProjects = useMemo<Project[]>(() => {
+   649→    if (!currentGroup) return [];
+   650→    return projects.filter((p) => p.groupId === currentGroup.id);
+   651→  }, [projects, currentGroup]);
+   652→
+   653→  // Auto-select the first project if none is selected.
+   654→  useEffect(() => {
+   655→    if (!activeChatProjectId && groupProjects.length > 0) {
+   656→      // Don't auto-set — let user pick. Per spec: placeholder when no project selected.
+   657→    }
+   658→  }, [activeChatProjectId, groupProjects.length]);
+   659→
+   660→  const handleSelect = (p: Project) => {
+   661→    // Use the kanbanTaskId if available (chat is keyed by kanban task id), else fall back to project id.
+   662→    const chatId = p.kanbanTaskId || p.id;
+   663→    setActiveChatProject(chatId, p.title);
+   664→    setPickerOpen(false);
+   665→    // Auto-open the floating chat panel.
+   666→    openChat();
+   667→  };
+   668→
+   669→  return (
+   670→    <div className="relative px-3 pb-3 pt-2 border-t" style={{ borderColor: hexToRgba(CYAN, 0.15) }}>
+   671→      {/* Section header */}
+   672→      <div className="flex items-center gap-1.5 mb-2 px-0.5">
+   673→        <div
+   674→          className="flex h-3.5 w-3.5 items-center justify-center"
+   675→          style={{
+   676→            clipPath: BTN_CLIP,
+   677→            background: hexToRgba(CYAN, 0.15),
+   678→            boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.5)}`,
+   679→          }}
+   680→        >
+   681→          <MessageCircle className="h-2 w-2" style={{ color: CYAN }} />
+   682→        </div>
+   683→        <span
+   684→          className="text-[9px] font-bold uppercase tracking-[0.18em]"
+   685→          style={{ color: CYAN }}
+   686→        >
+   687→          Чат проекта
+   688→        </span>
+   689→        <div
+   690→          className="flex-1 h-px"
+   691→          style={{ background: `linear-gradient(90deg, ${hexToRgba(CYAN, 0.4)}, transparent)` }}
+   692→        />
+   693→      </div>
+   694→
+   695→      {/* Project selector dropdown */}
+   696→      <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+   697→        <PopoverTrigger asChild>
+   698→          <button
+   699→            className="group flex w-full items-center gap-2 px-2 py-1.5 text-left transition-all"
+   700→            style={{
+   701→              clipPath: BTN_CLIP,
+   702→              background: hexToRgba(CYAN, 0.05),
+   703→              boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.25)}`,
+   704→            }}
+   705→            onMouseEnter={(e) => {
+   706→              e.currentTarget.style.background = hexToRgba(CYAN, 0.1);
+   707→              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.5)}`;
+   708→            }}
+   709→            onMouseLeave={(e) => {
+   710→              e.currentTarget.style.background = hexToRgba(CYAN, 0.05);
+   711→              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.25)}`;
+   712→            }}
+   713→          >
+   714→            <FolderOpen className="h-3 w-3 shrink-0" style={{ color: YELLOW }} />
+   715→            <span className="flex-1 truncate text-[11px] text-slate-200">
+   716→              {activeChatProjectName || 'Выбрать проект…'}
+   717→            </span>
+   718→            <ChevronDown
+   719→              className="h-3 w-3 shrink-0 transition-transform"
+   720→              style={{
+   721→                color: CYAN,
+   722→                transform: pickerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+   723→              }}
+   724→            />
+   725→          </button>
+   726→        </PopoverTrigger>
+   727→        <PopoverContent
+   728→          align="start"
+   729→          sideOffset={4}
+   730→          className="p-0 w-[220px] border-0"
+   731→          style={{
+   732→            background: 'rgba(8,12,22,0.98)',
+   733→            clipPath: CARD_CLIP,
+   734→            boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.3)}, 0 8px 24px rgba(0,0,0,0.6)`,
+   735→          }}
+   736→        >
+   737→          <div className="max-h-60 overflow-y-auto custom-scrollbar">
+   738→            {groupProjects.length === 0 ? (
+   739→              <p className="px-3 py-3 text-[10px] text-slate-500 italic">
+   740→                Нет проектов в группе
+   741→              </p>
+   742→            ) : (
+   743→              groupProjects.map((p) => {
+   744→                const isActive = (p.kanbanTaskId || p.id) === activeChatProjectId;
+   745→                return (
+   746→                  <button
+   747→                    key={p.id}
+   748→                    onClick={() => handleSelect(p)}
+   749→                    className="w-full flex items-center gap-2 px-2.5 py-2 text-left transition-colors"
+   750→                    style={{
+   751→                      background: isActive ? hexToRgba(CYAN, 0.12) : 'transparent',
+   752→                      boxShadow: isActive
+   753→                        ? `inset 2px 0 0 ${CYAN}`
+   754→                        : 'inset 2px 0 0 transparent',
+   755→                    }}
+   756→                    onMouseEnter={(e) => {
+   757→                      if (!isActive) e.currentTarget.style.background = hexToRgba(CYAN, 0.06);
+   758→                    }}
+   759→                    onMouseLeave={(e) => {
+   760→                      if (!isActive) e.currentTarget.style.background = 'transparent';
+   761→                    }}
+   762→                  >
+   763→                    <Music2 className="h-3 w-3 shrink-0" style={{ color: isActive ? CYAN : YELLOW }} />
+   764→                    <span className="flex-1 truncate text-[11px] text-slate-200">
+   765→                      {p.title}
+   766→                    </span>
+   767→                    <span
+   768→                      className="text-[8px] uppercase tracking-wider"
+   769→                      style={{ color: hexToRgba('#94a3b8', 0.8) }}
+   770→                    >
+   771→                      {p.type}
+   772→                    </span>
+   773→                  </button>
+   774→                );
+   775→              })
+   776→            )}
+   777→          </div>
+   778→        </PopoverContent>
+   779→      </Popover>
+   780→
+   781→      {/* Chat body — placeholder when no project selected, otherwise
+   782→          show a compact "open chat" / "chat active" panel. */}
+   783→      <div className="mt-2">
+   784→        {!activeChatProjectId ? (
+   785→          <div
+   786→            className="flex flex-col items-center justify-center py-5 text-center"
+   787→            style={{
+   788→              clipPath: CARD_CLIP,
+   789→              background: hexToRgba(CYAN, 0.03),
+   790→              boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.15)}`,
+   791→            }}
+   792→          >
+   793→            <MessageCircle
+   794→              className="h-5 w-5 mb-1.5"
+   795→              style={{ color: hexToRgba(CYAN, 0.4) }}
+   796→            />
+   797→            <p className="text-[10px] text-slate-400 font-medium">
+   798→              Выберите проект для чата
+   799→            </p>
+   800→          </div>
+   801→        ) : (
+   802→          <button
+   803→            onClick={() => (chatIsOpen ? closeChat() : openChat())}
+   804→            className="group flex w-full items-center gap-2 px-2 py-2 transition-all"
+   805→            style={{
+   806→              clipPath: BTN_CLIP,
+   807→              background: chatIsOpen
+   808→                ? hexToRgba(CYAN, 0.18)
+   809→                : hexToRgba(YELLOW, 0.08),
+   810→              boxShadow: chatIsOpen
+   811→                ? `inset 0 0 0 1px ${hexToRgba(CYAN, 0.6)}, 0 0 12px ${hexToRgba(CYAN, 0.15)}`
+   812→                : `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.4)}`,
+   813→            }}
+   814→            onMouseEnter={(e) => {
+   815→              if (!chatIsOpen) {
+   816→                e.currentTarget.style.background = hexToRgba(YELLOW, 0.15);
+   817→                e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.6)}, 0 0 12px ${hexToRgba(YELLOW, 0.15)}`;
+   818→              }
+   819→            }}
+   820→            onMouseLeave={(e) => {
+   821→              if (!chatIsOpen) {
+   822→                e.currentTarget.style.background = hexToRgba(YELLOW, 0.08);
+   823→                e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.4)}`;
+   824→              }
+   825→            }}
+   826→          >
+   827→            <Send
+   828→              className="h-3 w-3 shrink-0"
+   829→              style={{ color: chatIsOpen ? CYAN : YELLOW }}
+   830→            />
+   831→            <span
+   832→              className="flex-1 truncate text-left text-[11px] font-semibold"
+   833→              style={{ color: chatIsOpen ? CYAN : YELLOW }}
+   834→            >
+   835→              {chatIsOpen ? 'Чат открыт — скрыть' : 'Открыть чат'}
+   836→            </span>
+   837→            <span
+   838→              className="text-[9px] uppercase tracking-wider truncate max-w-[80px]"
+   839→              style={{ color: chatIsOpen ? hexToRgba(CYAN, 0.8) : hexToRgba(YELLOW, 0.8) }}
+   840→              title={activeChatProjectName || ''}
+   841→            >
+   842→              {activeChatProjectName}
+   843→            </span>
+   844→          </button>
+   845→        )}
+   846→      </div>
+   847→    </div>
+   848→  );
+   849→}
+   850→
+   851→/* ────────────────────────────────────────────────────────────────────────── */
+   852→/*  Sidebar content — top logo + collapse button, artist profile,            */
+   853→/*  spacer, chat at bottom.                                                    */
+   854→/* ────────────────────────────────────────────────────────────────────────── */
+   855→function SidebarContent({ onClose }: { onClose?: () => void }) {
+   856→  return (
+   857→    <div className="relative flex h-full flex-col bg-[#05080f] text-slate-100">
+   858→      {/* subtle grid background */}
+   859→      <div
+   860→        className="pointer-events-none absolute inset-0 opacity-50"
+   861→        style={{
+   862→          backgroundImage: `linear-gradient(${hexToRgba(CYAN, 0.035)} 1px, transparent 1px), linear-gradient(90deg, ${hexToRgba(CYAN, 0.035)} 1px, transparent 1px)`,
+   863→          backgroundSize: '24px 24px',
+   864→        }}
+   865→      />
+   866→
+   867→      {/* ─── Logo + close button ─── */}
+   868→      <div className="relative px-4 py-4 flex items-center gap-2.5">
+   869→        <div
+   870→          className="flex h-8 w-8 shrink-0 items-center justify-center"
+   871→          style={{
+   872→            clipPath: BTN_CLIP,
+   873→            background: hexToRgba(YELLOW, 0.12),
+   874→            boxShadow: `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.5)}, 0 0 12px ${hexToRgba(YELLOW, 0.2)}`,
+   875→          }}
+   876→        >
+   877→          <Hexagon
+   878→            className="h-4 w-4"
+   879→            style={{
+   880→              color: YELLOW,
+   881→              filter: `drop-shadow(0 0 4px ${hexToRgba(YELLOW, 0.7)})`,
+   882→            }}
+   883→          />
+   884→        </div>
+   885→        <span
+   886→          className="text-base font-bold uppercase tracking-[0.18em]"
+   887→          style={{
+   888→            color: YELLOW,
+   889→            textShadow: `0 0 8px ${hexToRgba(YELLOW, 0.5)}, 0 0 20px ${hexToRgba(YELLOW, 0.2)}`,
+   890→          }}
+   891→        >
+   892→          SoundFlow
+   893→        </span>
+   894→        {/* Close button — visible on mobile, also used to collapse on desktop */}
+   895→        <button
+   896→          onClick={onClose}
+   897→          aria-label="Свернуть панель"
+   898→          className="ml-auto flex h-7 w-7 items-center justify-center transition-all lg:hidden"
+   899→          style={{
+   900→            clipPath: BTN_CLIP,
+   901→            background: hexToRgba(RED, 0.06),
+   902→            boxShadow: `inset 0 0 0 1px ${hexToRgba(RED, 0.25)}`,
+   903→            color: '#94a3b8',
+   904→          }}
+   905→          onMouseEnter={(e) => {
+   906→            e.currentTarget.style.background = hexToRgba(RED, 0.15);
+   907→            e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(RED, 0.6)}`;
+   908→            e.currentTarget.style.color = RED;
+   909→          }}
+   910→          onMouseLeave={(e) => {
+   911→            e.currentTarget.style.background = hexToRgba(RED, 0.06);
+   912→            e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(RED, 0.25)}`;
+   913→            e.currentTarget.style.color = '#94a3b8';
+   914→          }}
+   915→        >
+   916→          <X className="h-3.5 w-3.5" />
+   917→        </button>
+   918→      </div>
+   919→
+   920→      {/* divider with cyan glow */}
+   921→      <div
+   922→        className="mx-4 mb-1 h-px"
+   923→        style={{
+   924→          background: `linear-gradient(90deg, transparent, ${hexToRgba(CYAN, 0.4)}, transparent)`,
+   925→        }}
+   926→      />
+   927→
+   928→      {/* ─── Artist profile (scrollable) ─── */}
+   929→      <ScrollArea className="relative flex-1">
+   930→        <ArtistProfileCard />
+   931→      </ScrollArea>
+   932→
+   933→      {/* ─── Project chat at the bottom ─── */}
+   934→      <SidebarChatSection />
+   935→    </div>
+   936→  );
+   937→}
+   938→
+   939→/* ────────────────────────────────────────────────────────────────────────── */
+   940→/*  AppSidebar — exported component. Renders:                                  */
+   941→/*   - The sliding sidebar (artist profile + chat)                             */
+   942→/*   - A floating toggle button (visible when sidebar is collapsed/closed)    */
+   943→/*   - The global ProjectChat floating panel (rendered OUTSIDE the            */
+   944→/*     transform-affected aside so its `position: fixed` is relative to        */
+   945→/*     the viewport, not the sidebar)                                          */
+   946→/* ────────────────────────────────────────────────────────────────────────── */
+   947→export function AppSidebar() {
+   948→  const isCollapsed = useSidebarStore((s) => s.isCollapsed);
+   949→  const isMobileOpen = useSidebarStore((s) => s.isMobileOpen);
+   950→  const toggle = useSidebarStore((s) => s.toggle);
+   951→  const toggleMobile = useSidebarStore((s) => s.toggleMobile);
+   952→  const setMobileOpen = useSidebarStore((s) => s.setMobileOpen);
+   953→
+   954→  // Unified toggle handler — picks the right store based on viewport width.
+   955→  const handleToggle = () => {
+   956→    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+   957→      toggleMobile();
+   958→    } else {
+   959→      toggle();
+   960→    }
+   961→  };
+   962→
+   963→  const handleClose = () => {
+   964→    // Close on mobile, collapse on desktop.
+   965→    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+   966→      setMobileOpen(false);
+   967→    } else {
+   968→      toggle();
+   969→    }
+   970→  };
+   971→
+   972→  return (
+   973→    <>
+   974→      {/* ─── Sliding sidebar ─── */}
+   975→      <aside
+   976→        className={cn(
+   977→          'fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-[#1a2030] bg-[#05080f] transition-transform duration-300 ease-out',
+   978→          // Mobile: hidden by default, slides in when isMobileOpen
+   979→          isMobileOpen ? 'translate-x-0' : '-translate-x-full',
+   980→          // Desktop: override — visible unless isCollapsed
+   981→          isCollapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0',
+   982→          // Always flex on lg, hidden on mobile unless open (still rendered for the slide animation)
+   983→          'lg:flex'
+   984→        )}
+   985→        aria-hidden={isCollapsed && !isMobileOpen}
+   986→      >
+   987→        <SidebarContent onClose={handleClose} />
+   988→      </aside>
+   989→
+   990→      {/* ─── Mobile backdrop — tap to close ─── */}
+   991→      <AnimatePresence>
+   992→        {isMobileOpen && (
+   993→          <motion.div
+   994→            initial={{ opacity: 0 }}
+   995→            animate={{ opacity: 1 }}
+   996→            exit={{ opacity: 0 }}
+   997→            transition={{ duration: 0.2 }}
+   998→            onClick={() => setMobileOpen(false)}
+   999→            className="fixed inset-0 z-30 bg-black/50 backdrop-blur-[2px] lg:hidden"
+  1000→          />
+  1001→        )}
+  1002→      </AnimatePresence>
+  1003→
+  1004→      {/* ─── Floating expand toggle — visible when sidebar is hidden ─── */}
+  1005→      <AnimatePresence>
+  1006→        {(isCollapsed || !isMobileOpen) && (
+  1007→          <motion.button
+  1008→            initial={{ opacity: 0, scale: 0.8 }}
+  1009→            animate={{ opacity: 1, scale: 1 }}
+  1010→            exit={{ opacity: 0, scale: 0.8 }}
+  1011→            transition={{ duration: 0.18 }}
+  1012→            onClick={handleToggle}
+  1013→            aria-label="Развернуть панель"
+  1014→            className={cn(
+  1015→              'fixed top-3 left-3 z-50 flex h-9 w-9 items-center justify-center transition-all',
+  1016→              // Hide on desktop when sidebar is expanded
+  1017→              !isCollapsed && 'lg:hidden',
+  1018→              // Hide on mobile when sidebar is open
+  1019→              isMobileOpen && 'hidden'
+  1020→            )}
+  1021→            style={{
+  1022→              clipPath: BTN_CLIP,
+  1023→              background: 'rgba(10,14,22,0.95)',
+  1024→              boxShadow: `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.5)}, 0 0 14px ${hexToRgba(YELLOW, 0.18)}`,
+  1025→            }}
+  1026→            onMouseEnter={(e) => {
+  1027→              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.8)}, 0 0 18px ${hexToRgba(YELLOW, 0.35)}`;
+  1028→            }}
+  1029→            onMouseLeave={(e) => {
+  1030→              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(YELLOW, 0.5)}, 0 0 14px ${hexToRgba(YELLOW, 0.18)}`;
+  1031→            }}
+  1032→          >
+  1033→            <ChevronRight
+  1034→              className="h-4 w-4"
+  1035→              style={{
+  1036→                color: YELLOW,
+  1037→                filter: `drop-shadow(0 0 4px ${hexToRgba(YELLOW, 0.6)})`,
+  1038→              }}
+  1039→            />
+  1040→          </motion.button>
+  1041→        )}
+  1042→      </AnimatePresence>
+  1043→
+  1044→      {/* ─── Floating collapse toggle — visible when sidebar is shown on desktop ─── */}
+  1045→      <AnimatePresence>
+  1046→        {!isCollapsed && (
+  1047→          <motion.button
+  1048→            initial={{ opacity: 0, scale: 0.8 }}
+  1049→            animate={{ opacity: 1, scale: 1 }}
+  1050→            exit={{ opacity: 0, scale: 0.8 }}
+  1051→            transition={{ duration: 0.18 }}
+  1052→            onClick={handleToggle}
+  1053→            aria-label="Свернуть панель"
+  1054→            className="hidden lg:flex fixed top-3 left-[228px] z-50 h-7 w-5 items-center justify-center transition-all"
+  1055→            style={{
+  1056→              clipPath: BTN_CLIP,
+  1057→              background: 'rgba(10,14,22,0.95)',
+  1058→              boxShadow: `inset 0 0 0 1px ${hexToRgba(CYAN, 0.4)}`,
+  1059→            }}
+  1060→            onMouseEnter={(e) => {
+  1061→              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.8)}, 0 0 12px ${hexToRgba(CYAN, 0.25)}`;
+  1062→            }}
+  1063→            onMouseLeave={(e) => {
+  1064→              e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(CYAN, 0.4)}`;
+  1065→            }}
+  1066→          >
+  1067→            <ChevronsLeft
+  1068→              className="h-3 w-3"
+  1069→              style={{ color: CYAN }}
+  1070→            />
+  1071→          </motion.button>
+  1072→        )}
+  1073→      </AnimatePresence>
+  1074→
+  1075→      {/* ─── Global ProjectChat floating panel ─── */}
+  1076→      {/* Rendered OUTSIDE the transform-affected <aside> so its `position: fixed`
+  1077→          is relative to the viewport (transformed ancestors become the
+  1078→          containing block for fixed descendants — we don't want that). */}
+  1079→      <ProjectChat />
+  1080→    </>
+  1081→  );
+  1082→}
+  1083→
