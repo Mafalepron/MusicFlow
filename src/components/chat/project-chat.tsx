@@ -390,15 +390,16 @@ export default function ProjectChat() {
             className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]"
           />
 
-          {/* Chat panel — slides in from the right */}
+          {/* Chat panel — slides in from the LEFT (always on the left side,
+              consistent with the sidebar's chat section) */}
           <motion.div
-            initial={{ x: '100%' }}
+            initial={{ x: '-100%' }}
             animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-            className="fixed right-0 top-0 bottom-0 z-50 w-full sm:w-[380px] flex flex-col bg-[#0a0a10]/95 backdrop-blur-2xl border-l border-cyan-500/15 shadow-2xl shadow-black/60"
+            className="fixed left-0 top-0 bottom-0 z-50 w-full sm:w-[380px] flex flex-col bg-[#0a0a10]/95 backdrop-blur-2xl border-r border-cyan-500/15 shadow-2xl shadow-black/60"
             style={{
-              backgroundImage: 'radial-gradient(ellipse at top right, rgba(0,217,255,0.04), transparent 60%)',
+              backgroundImage: 'radial-gradient(ellipse at top left, rgba(0,217,255,0.04), transparent 60%)',
             }}
           >
             {/* Glow accent line */}

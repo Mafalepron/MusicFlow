@@ -2639,3 +2639,36 @@ Stage Summary:
   * Invite code shown in cyan monospace box with cyan copy button (magenta hover).
   * Notifications badge: magenta with JetBrains Mono count + magenta glow.
 - Lint-clean for my changes; dev server compiles without errors; agent-browser + VLM both confirm the visual match across header, sidebar, and all dropdowns.
+
+---
+Task ID: CHAT-LEFT-POSITIONING-1
+Agent: main (Z.ai Code)
+Task: The floating project chat panel was opening on the RIGHT side of the screen on all views except the main page. It should always open on the LEFT side (consistent with the sidebar's chat section).
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand the sidebar/header neon redesign context.
+- Read /home/z/my-project/src/components/chat/project-chat.tsx (line ~380-410) — found the floating chat panel was positioned `fixed right-0 top-0 bottom-0` and animated with `initial={{ x: '100%' }}` / `exit={{ x: '100%' }}` (slides in from the right). It had `border-l` (left border) and a `radial-gradient(ellipse at top right, ...)` accent.
+- Changed the panel to open from the LEFT:
+  * Position: `right-0` → `left-0` (now anchored to the left edge of the viewport).
+  * Animation: `initial={{ x: '100%' }}` → `initial={{ x: '-100%' }}` and `exit={{ x: '100%' }}` → `exit={{ x: '-100%' }}` (slides in/out from the left).
+  * Border: `border-l` → `border-r` (the border is now on the right edge of the panel, since the panel is on the left side).
+  * Radial gradient: `at top right` → `at top left` (the glow accent now originates from the top-left corner).
+- The backdrop (`fixed inset-0 z-40`) and z-index (`z-50`) are unchanged — the chat panel still sits above the backdrop and below nothing.
+- When open, the chat panel (380px wide) covers the sidebar (360px wide) on the left side of the screen. When closed (via the X button in the chat header or the Escape key), the sidebar becomes visible again.
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep "project-chat"` → only the pre-existing error at project-chat.tsx:558 (set-unread-in-effect, present before this change). My positioning change introduced zero new lint errors.
+- `tail -8 /home/z/my-project/dev.log` → `✓ Compiled`, all API calls return 200, no runtime errors.
+- Agent Browser end-to-end verification (logged in as demo@soundflow.app / demo123):
+  * On the home page, clicked "Открыть чат CHROME HEART" in the sidebar's chat section.
+  * The floating chat panel slid in from the LEFT side of the screen (VLM confirmed: "The floating chat panel is positioned on the LEFT side of the screen" and "The chat input field is located at the left edge (bottom-left corner)").
+  * The chat panel showed the "Chrome Heart" project header, "No messages yet" empty state, and "Type a message..." input at the bottom-left.
+  * Pressed Escape → the chat panel slid back to the left and the sidebar (with profile card + chat section) became fully visible again (VLM confirmed: "the left sidebar is fully visible and restored").
+  * The chat panel no longer appears on the right side on any view — it always opens from the left, consistent with the sidebar's chat section position.
+
+Stage Summary:
+- The floating project chat panel now always opens on the LEFT side of the screen (was right side).
+- It slides in from the left edge (`left-0`, `x: '-100%'` initial animation) instead of the right edge.
+- The border is now on the right edge of the panel (`border-r`) and the radial glow accent originates from the top-left corner.
+- When open, the 380px-wide chat panel covers the 360px-wide sidebar on the left side. When closed (via X button or Escape), the sidebar is fully visible again.
+- This behavior is now consistent across ALL views (home, projects, ideas, kanban, etc.) — the chat always opens from the left, matching the sidebar's chat section position.
