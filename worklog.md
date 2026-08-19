@@ -2588,3 +2588,54 @@ Stage Summary:
 - When expanded, the card and chat section split the sidebar 50/50 (both flex-1 siblings in a flex-col container with min-h-0).
 - The chat section itself was restyled as a matching 12px-radius glassmorphism card with a magenta top accent strip (to distinguish it from the cyan-accented profile card), a header bar, project picker dropdown, and an "Открыть чат" toggle button.
 - Lint-clean for my changes; dev server compiles and runs without errors; agent-browser + VLM both confirm the visual match and functional behavior.
+
+---
+Task ID: HEADER-NEON-REDESIGN-2
+Agent: main (Z.ai Code)
+Task: (1) Make the left sidebar 1.5x wider. (2) Restyle the top app-header so its color + styling matches the left sidebar + quick-access panel (neon cyan + magenta glassmorphism, JetBrains Mono/Rajdhani fonts, rounded corners, neon glow). Specifically the home, notifications, and profile dropdown buttons + all dropdown menus.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand the previous SIDEBAR-NEON-REDESIGN-1 work (established the NEON_CYAN=#00f0ff, NEON_MAGENTA=#ff00aa, FONT_DISPLAY=var(--font-rajdhani), FONT_MONO=var(--font-jetbrains-mono) palette).
+- Made the left sidebar 1.5× wider:
+  * /home/z/my-project/src/components/layout/app-sidebar.tsx: `<aside>` width `w-60` (240px) → `w-[360px]` (360px = 1.5×); collapse toggle button `left-[228px]` → `left-[348px]`.
+  * /home/z/my-project/src/app/page.tsx: main content padding `lg:pl-60` → `lg:pl-[360px]`; footer margin `lg:ml-60` → `lg:ml-[360px]`. Updated comments.
+- Added the same neon synthwave palette constants (NEON_CYAN, NEON_MAGENTA, NEON_CYAN_RGB, NEON_MAGENTA_RGB, FONT_DISPLAY, FONT_MONO, PURPLE_STRIPE=#9d4edd for the center stripe) to /home/z/my-project/src/components/layout/app-header.tsx.
+- Restyled the header chrome (`<header>` element):
+  * Old: flat #0f121a background with chamfered clipPath + small drop-shadow.
+  * New: rgba(10,14,23,0.85) + backdrop-filter:blur(16px) glassmorphism, 1px solid rgba(0,240,255,0.3) cyan border-bottom, box-shadow `0 0 24px rgba(0,240,255,0.15), 0 0 8px rgba(255,0,170,0.1), 0 4px 16px rgba(0,0,0,0.6)` (matches sidebar cards).
+- Restyled the mobile hamburger menu button — 6px-radius glass tile, cyan border default, magenta glow when sidebar is open, cyan→magenta icon with drop-shadow.
+- Restyled the mobile logo — magenta Music icon in a 6px glass tile + Rajdhani "SoundFlow" wordmark with magenta+cyan text-shadow.
+- Restyled breadcrumbs — JetBrains Mono for inactive crumbs (cyan hover), Rajdhani white for the active crumb with magenta text-shadow; cyan chevron separators.
+- Restyled the Search button — 6px glass tile, cyan border + icon with drop-shadow, hover → cyan border + dual cyan/magenta glow.
+- Restyled the Home button — 6px glass tile, cyan border default + cyan icon; active state (currentView === 'home') → magenta background/border/icon with magenta glow + corner notch accent.
+- Restyled the search overlay dropdown — 12px-radius glassmorphism card (rgba(10,14,23,0.95) + blur(16px) + cyan border + dual neon glow shadow), cyan search icon, white input text in JetBrains Mono with slate-500 placeholder, cyan-bordered close (X) button with magenta hover, search results styled as cyan/magenta icon tiles with hover inset stripe.
+- Restyled the Notifications button — 6px glass tile (same as search), cyan Bell icon with drop-shadow, magenta notification badge (was purple #7b2cbf) with JetBrains Mono count + magenta glow.
+- Restyled the notifications dropdown — 12px glass card, cyan "NOTIFICATIONS" header in JetBrains Mono, magenta "Mark all read" link, notification rows with JetBrains Mono text + magenta ✓ indicator for unread, cyan hover for read items.
+- Restyled the Profile avatar trigger — 6px glass tile with magenta-bordered square avatar (was hexagonal cyan), cyan chevron.
+- Restyled the profile dropdown (PopoverContent) — 12px glass card, magenta-bordered avatar with magenta glow, "GROUP" label in cyan JetBrains Mono, white group name in Rajdhani, cyan monospace invite code box with cyan copy button (magenta hover), Settings/Logout menu items with magenta icons + JetBrains Mono text + cyan/magenta inset stripe hover.
+- Removed the old hexagonal clipPath avatar — replaced with rounded square frames matching the sidebar's avatar style.
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "app-header|page\.tsx|app-sidebar"` → only the pre-existing error at app-header.tsx:235 (setSearchResults inside useEffect — present before this change, in the search useEffect). My restyle changes introduced zero new lint errors.
+- `tail -15 /home/z/my-project/dev.log` → `✓ Compiled`, all API calls return 200, no runtime errors.
+- Agent Browser end-to-end verification (logged in as demo@soundflow.app / demo123):
+  * Header renders with dark glass background + cyan border + neon glow (VLM confirmed).
+  * Home button shows active magenta state on the home view; cyan when inactive (VLM confirmed "magenta glow on Home, cyan glow on Search").
+  * Icon buttons (search, home, bell, profile) all render as 6px glass tiles with thin cyan borders + neon drop-shadows (VLM confirmed "rounded corners, dark background, cyan/magenta borders").
+  * Search dropdown opens with 12px glass card + cyan border + cyan search icon + JetBrains Mono input + cyan close button (VLM confirmed all 4 points).
+  * Notifications dropdown opens with 12px glass card + cyan border + cyan "NOTIFICATIONS" header + magenta "Mark all read" link + JetBrains Mono notification rows (VLM confirmed).
+  * Profile dropdown opens with 12px glass card + cyan border + magenta-bordered avatar + cyan "GROUP" label + white group name + cyan monospace invite code box + cyan copy button + magenta Settings/Logout icons (VLM confirmed all 4 points).
+  * Sidebar width is visibly 1.5× wider (~360px / ~25-28% of viewport) and the profile card + chat card are well-proportioned in the wider space (VLM confirmed "noticeably wide, fully visible and well-proportioned").
+  * Header + sidebar share the same neon cyan/magenta glassmorphism aesthetic (VLM confirmed "header visually matches the sidebar's aesthetic — same neon cyan + magenta against dark background").
+
+Stage Summary:
+- Left sidebar is now 1.5× wider: 240px → 360px. Main content padding + footer margin updated to match (lg:pl-[360px] / lg:ml-[360px]). Collapse toggle button repositioned to left-[348px].
+- Top app-header fully restyled to match the left sidebar + quick-access panel aesthetic:
+  * Header chrome: dark glassmorphism (rgba(10,14,23,0.85) + backdrop-blur(16px)) + cyan border-bottom + dual neon glow shadow.
+  * All icon buttons (hamburger, search, home, bell, profile): 6px-radius glass tiles with thin cyan borders + neon drop-shadows + cyan/magenta hover glows.
+  * Home button active state: magenta background + magenta border + magenta icon with drop-shadow + corner notch accent.
+  * All three dropdowns (search, notifications, profile): 12px-radius glass cards with cyan borders + dual neon glow shadows + JetBrains Mono labels + Rajdhani display text + cyan/magenta accent icons.
+  * Profile avatar: rounded square with magenta border + glow (was hexagonal cyan).
+  * Invite code shown in cyan monospace box with cyan copy button (magenta hover).
+  * Notifications badge: magenta with JetBrains Mono count + magenta glow.
+- Lint-clean for my changes; dev server compiles without errors; agent-browser + VLM both confirm the visual match across header, sidebar, and all dropdowns.

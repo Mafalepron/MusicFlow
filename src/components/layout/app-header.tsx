@@ -544,81 +544,97 @@ export function AppHeader() {
           </AnimatePresence>
         </div>
 
-        {/* Search — recessed square icon frame */}
+        {/* Search — neon glassmorphism icon button (matches sidebar style) */}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 hover:text-[#00a8c6] shrink-0 transition-all"
+                className="h-9 w-9 shrink-0 transition-all duration-200"
                 style={{
-                  background: '#161a24',
-                  border: '1px solid #232a3b',
-                  borderRadius: '4px',
+                  borderRadius: '6px',
+                  background: 'rgba(10,20,35,0.6)',
+                  border: '1px solid rgba(0,240,255,0.2)',
+                  cursor: 'pointer',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#1a202c'; e.currentTarget.style.boxShadow = 'none'; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
+                  e.currentTarget.style.boxShadow = '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
                 onClick={() => setSearchOpen(!searchOpen)}
               >
-                <Search className="h-4 w-4" />
+                <Search
+                  className="h-4 w-4"
+                  style={{
+                    color: NEON_CYAN,
+                    filter: 'drop-shadow(0 0 3px rgba(0,240,255,0.5))',
+                  }}
+                />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Search</TooltipContent>
           </Tooltip>
         </TooltipProvider>
 
-        {/* Home button — purple neon style (matches center stripe color #9d4edd),
-            placed right after the search button. */}
+        {/* Home button — neon glassmorphism (matches sidebar profile card style).
+            Active state uses magenta glow + corner accent notch. */}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={handleHomeClick}
                 aria-label="На главную"
-                className={cn(
-                  'relative flex h-9 w-9 items-center justify-center transition-all duration-200 shrink-0',
-                  currentView === 'home' ? 'text-[#9d4edd]' : 'text-muted-foreground hover:text-[#9d4edd]'
-                )}
+                className="relative flex h-9 w-9 items-center justify-center transition-all duration-200 shrink-0"
                 style={{
-                  background: currentView === 'home' ? '#1a1228' : '#12151d',
-                  border: currentView === 'home' ? '1px solid #9d4edd' : '1px solid #232a3b',
-                  borderRadius: '4px',
+                  borderRadius: '6px',
+                  background:
+                    currentView === 'home'
+                      ? 'rgba(255,0,170,0.18)'
+                      : 'rgba(10,20,35,0.6)',
+                  border:
+                    currentView === 'home'
+                      ? '1px solid rgba(255,0,170,0.6)'
+                      : '1px solid rgba(0,240,255,0.2)',
                   boxShadow:
                     currentView === 'home'
-                      ? '0 0 10px rgba(157,78,221,0.4), inset 0 0 8px rgba(157,78,221,0.08)'
+                      ? '0 0 14px rgba(255,0,170,0.2), 0 0 4px rgba(0,240,255,0.15)'
                       : 'none',
+                  cursor: 'pointer',
                 }}
                 onMouseEnter={(e) => {
                   if (currentView !== 'home') {
-                    e.currentTarget.style.borderColor = '#9d4edd';
-                    e.currentTarget.style.boxShadow = '0 0 8px rgba(157,78,221,0.3)';
-                    e.currentTarget.style.color = '#9d4edd';
+                    e.currentTarget.style.borderColor = 'rgba(255,0,170,0.5)';
+                    e.currentTarget.style.boxShadow = '0 0 14px rgba(255,0,170,0.15), 0 0 4px rgba(0,240,255,0.1)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (currentView !== 'home') {
-                    e.currentTarget.style.borderColor = '#232a3b';
+                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
                     e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.color = '';
                   }
                 }}
               >
                 <Home
                   className="h-4 w-4"
                   style={{
+                    color: currentView === 'home' ? NEON_MAGENTA : NEON_CYAN,
                     filter:
                       currentView === 'home'
-                        ? 'drop-shadow(0 0 4px rgba(157,78,221,0.7))'
-                        : 'none',
+                        ? 'drop-shadow(0 0 4px rgba(255,0,170,0.7))'
+                        : 'drop-shadow(0 0 3px rgba(0,240,255,0.4))',
                   }}
                 />
                 {currentView === 'home' && (
                   <span
-                    className="absolute -top-px -left-px h-1.5 w-1.5"
+                    className="absolute -top-px -left-px h-1.5 w-1.5 rounded-[1px]"
                     style={{
-                      background: '#9d4edd',
-                      boxShadow: '0 0 4px rgba(157,78,221,0.9)',
+                      background: NEON_MAGENTA,
+                      boxShadow: '0 0 4px rgba(255,0,170,0.9)',
                     }}
                   />
                 )}
@@ -628,7 +644,7 @@ export function AppHeader() {
           </Tooltip>
         </TooltipProvider>
 
-        {/* Search overlay */}
+        {/* Search overlay — neon glassmorphism dropdown */}
         <AnimatePresence>
           {searchOpen && (
             <motion.div
@@ -638,9 +654,25 @@ export function AppHeader() {
               transition={{ duration: 0.2 }}
               className="absolute left-3 right-3 top-full mt-1 z-40 sm:left-auto sm:right-16 sm:w-80"
             >
-              <div className="rounded-xl border border-border bg-card shadow-2xl shadow-black/40 overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
-                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div
+                className="overflow-hidden"
+                style={{
+                  borderRadius: '12px',
+                  background: 'rgba(10,14,23,0.95)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(0,240,255,0.3)',
+                  boxShadow: '0 0 24px rgba(0,240,255,0.15), 0 0 8px rgba(255,0,170,0.1), 0 12px 40px rgba(0,0,0,0.7)',
+                }}
+              >
+                <div
+                  className="flex items-center gap-2 px-3 py-2.5"
+                  style={{ borderBottom: '1px solid rgba(0,240,255,0.15)' }}
+                >
+                  <Search
+                    className="h-4 w-4 shrink-0"
+                    style={{ color: NEON_CYAN, filter: 'drop-shadow(0 0 3px rgba(0,240,255,0.5))' }}
+                  />
                   <input
                     autoFocus
                     value={searchQuery}
@@ -649,17 +681,33 @@ export function AppHeader() {
                       if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); }
                       if (e.key === 'Enter' && searchResults.length > 0) handleSearchSelect(searchResults[0]);
                     }}
-                    placeholder="Search projects, tracks..."
-                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                    placeholder="Search projects, tracks…"
+                    className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-slate-500"
+                    style={{
+                      color: '#ffffff',
+                      fontFamily: FONT_MONO,
+                    }}
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 shrink-0"
+                  <button
                     onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+                    className="flex h-6 w-6 items-center justify-center transition-all duration-200"
+                    style={{
+                      borderRadius: '4px',
+                      background: 'rgba(0,240,255,0.05)',
+                      border: '1px solid rgba(0,240,255,0.3)',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,0,170,0.15)';
+                      e.currentTarget.style.borderColor = 'rgba(255,0,170,0.8)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(0,240,255,0.05)';
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
+                    }}
                   >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
+                    <X className="h-3.5 w-3.5" style={{ color: NEON_CYAN }} />
+                  </button>
                 </div>
                 {searchResults.length > 0 && (
                   <ScrollArea className="max-h-64">
@@ -668,27 +716,68 @@ export function AppHeader() {
                         <button
                           key={result.type + result.id}
                           onClick={() => handleSearchSelect(result)}
-                          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#1E1E28] transition-colors text-left"
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 transition-all duration-200 text-left"
+                          style={{
+                            borderRadius: '6px',
+                            background: 'transparent',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(0,240,255,0.08)';
+                            e.currentTarget.style.boxShadow = 'inset 2px 0 0 rgba(0,240,255,0.6)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.boxShadow = 'none';
+                          }}
                         >
-                          <div className={cn(
-                            'w-7 h-7 rounded-md flex items-center justify-center shrink-0',
-                            result.type === 'project' ? 'bg-primary/15' : 'bg-[#00a8c6]/15'
-                          )}>
-                            {result.type === 'project'
-                              ? <FolderOpen className="h-3.5 w-3.5 text-primary" />
-                              : <Music className="h-3.5 w-3.5 text-[#00a8c6]" />
-                            }
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-foreground truncate">{result.title}</p>
-                            {result.subtitle && (
-                              <p className="text-[10px] text-muted-foreground truncate capitalize">{result.subtitle}</p>
+                          <div
+                            className="flex w-7 h-7 items-center justify-center shrink-0"
+                            style={{
+                              borderRadius: '6px',
+                              background:
+                                result.type === 'project'
+                                  ? 'rgba(255,0,170,0.08)'
+                                  : 'rgba(0,240,255,0.08)',
+                              border:
+                                result.type === 'project'
+                                  ? '1px solid rgba(255,0,170,0.3)'
+                                  : '1px solid rgba(0,240,255,0.3)',
+                            }}
+                          >
+                            {result.type === 'project' ? (
+                              <FolderOpen className="h-3.5 w-3.5" style={{ color: NEON_MAGENTA }} />
+                            ) : (
+                              <Music className="h-3.5 w-3.5" style={{ color: NEON_CYAN }} />
                             )}
                           </div>
-                          <span className={cn(
-                            'text-[9px] px-1.5 py-0.5 rounded shrink-0',
-                            result.type === 'project' ? 'bg-primary/15 text-primary' : 'bg-[#00a8c6]/15 text-[#00a8c6]'
-                          )}>
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="text-xs font-medium truncate"
+                              style={{ color: '#ffffff', fontFamily: FONT_DISPLAY }}
+                            >
+                              {result.title}
+                            </p>
+                            {result.subtitle && (
+                              <p
+                                className="text-[10px] truncate capitalize"
+                                style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                              >
+                                {result.subtitle}
+                              </p>
+                            )}
+                          </div>
+                          <span
+                            className="text-[9px] px-1.5 py-0.5 shrink-0 uppercase tracking-wider"
+                            style={{
+                              borderRadius: '4px',
+                              background:
+                                result.type === 'project'
+                                  ? 'rgba(255,0,170,0.08)'
+                                  : 'rgba(0,240,255,0.08)',
+                              color: result.type === 'project' ? NEON_MAGENTA : NEON_CYAN,
+                              fontFamily: FONT_MONO,
+                            }}
+                          >
                             {result.type}
                           </span>
                         </button>
@@ -698,7 +787,12 @@ export function AppHeader() {
                 )}
                 {searchQuery && searchResults.length === 0 && (
                   <div className="p-6 text-center">
-                    <p className="text-xs text-muted-foreground">No results found</p>
+                    <p
+                      className="text-xs"
+                      style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                    >
+                      No results found
+                    </p>
                   </div>
                 )}
               </div>
@@ -706,7 +800,7 @@ export function AppHeader() {
           )}
         </AnimatePresence>
 
-        {/* Notifications — recessed square icon frame with purple alert badge */}
+        {/* Notifications — neon glassmorphism icon button with magenta badge */}
         <div className="relative" ref={notifRef}>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
@@ -714,28 +808,43 @@ export function AppHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 hover:text-[#00a8c6] shrink-0 relative transition-all"
+                  className="h-9 w-9 shrink-0 relative transition-all duration-200"
                   style={{
-                    background: '#161a24',
-                    border: '1px solid #232a3b',
-                    borderRadius: '4px',
+                    borderRadius: '6px',
+                    background: 'rgba(10,20,35,0.6)',
+                    border: '1px solid rgba(0,240,255,0.2)',
+                    cursor: 'pointer',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00a8c6'; e.currentTarget.style.boxShadow = '0 0 8px rgba(0,168,198,0.25)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#1a202c'; e.currentTarget.style.boxShadow = 'none'; }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.6)';
+                    e.currentTarget.style.boxShadow = '0 0 16px rgba(0,240,255,0.2), 0 0 4px rgba(255,0,170,0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                   onClick={() => setNotifOpen(!notifOpen)}
                 >
-                  <Bell className="h-4 w-4" />
+                  <Bell
+                    className="h-4 w-4"
+                    style={{
+                      color: NEON_CYAN,
+                      filter: 'drop-shadow(0 0 3px rgba(0,240,255,0.5))',
+                    }}
+                  />
                   <AnimatePresence>
                     {notificationCount > 0 && (
                       <motion.span
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
-                        className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold"
+                        className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center px-1 text-[9px] font-bold"
                         style={{
-                          background: '#7b2cbf',
-                          color: '#fff',
-                          boxShadow: '0 0 6px rgba(123,44,191,0.25)',
+                          borderRadius: '4px',
+                          background: NEON_MAGENTA,
+                          color: '#ffffff',
+                          fontFamily: FONT_MONO,
+                          boxShadow: '0 0 8px rgba(255,0,170,0.6)',
                         }}
                       >
                         {notificationCount > 99 ? '99+' : notificationCount}
@@ -755,38 +864,110 @@ export function AppHeader() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-card shadow-2xl shadow-black/60 z-50 overflow-hidden"
+                className="absolute right-0 top-full mt-2 w-80 z-50 overflow-hidden"
+                style={{
+                  borderRadius: '12px',
+                  background: 'rgba(10,14,23,0.95)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(0,240,255,0.3)',
+                  boxShadow: '0 0 24px rgba(0,240,255,0.15), 0 0 8px rgba(255,0,170,0.1), 0 12px 40px rgba(0,0,0,0.7)',
+                }}
               >
-                <div className="flex items-center justify-between border-b border-border p-3">
-                  <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
+                <div
+                  className="flex items-center justify-between p-3"
+                  style={{ borderBottom: '1px solid rgba(0,240,255,0.15)' }}
+                >
+                  <h3
+                    className="text-sm font-semibold uppercase tracking-wider"
+                    style={{
+                      color: NEON_CYAN,
+                      fontFamily: FONT_MONO,
+                      textShadow: '0 0 6px rgba(0,240,255,0.4)',
+                    }}
+                  >
+                    Notifications
+                  </h3>
                   {notificationCount > 0 && (
-                    <button onClick={markAllRead} className="text-[10px] text-primary hover:underline">Mark all read</button>
+                    <button
+                      onClick={markAllRead}
+                      className="text-[10px] uppercase tracking-wider transition-colors"
+                      style={{
+                        color: NEON_MAGENTA,
+                        fontFamily: FONT_MONO,
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#ffffff'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = NEON_MAGENTA; }}
+                    >
+                      Mark all read
+                    </button>
                   )}
                 </div>
-                <div className="max-h-64 overflow-y-auto">
+                <div className="max-h-64 overflow-y-auto custom-scrollbar">
                   {notifications.length === 0 ? (
                     <div className="p-6 text-center">
-                      <Bell className="mx-auto mb-2 h-6 w-6 text-muted-foreground/30" />
-                      <p className="text-xs text-muted-foreground">No notifications</p>
+                      <Bell
+                        className="mx-auto mb-2 h-6 w-6"
+                        style={{ color: 'rgba(0,240,255,0.3)' }}
+                      />
+                      <p
+                        className="text-xs"
+                        style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                      >
+                        No notifications
+                      </p>
                     </div>
                   ) : (
                     notifications.map((notif) => (
                       <button
                         key={notif.id}
                         onClick={() => handleNotificationClick(notif)}
-                        className={cn(
-                          'w-full text-left px-3 py-2.5 border-b border-border/50 last:border-0 transition-colors hover:bg-[#1E1E28]',
-                          !notif.isRead && 'bg-primary/5'
-                        )}
+                        className="w-full text-left px-3 py-2.5 transition-all duration-200"
+                        style={{
+                          borderBottom: '1px solid rgba(0,240,255,0.08)',
+                          background: notif.isRead ? 'transparent' : 'rgba(255,0,170,0.04)',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = notif.isRead
+                            ? 'rgba(0,240,255,0.06)'
+                            : 'rgba(255,0,170,0.08)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = notif.isRead
+                            ? 'transparent'
+                            : 'rgba(255,0,170,0.04)';
+                        }}
                       >
                         <div className="flex items-start gap-2">
-                          <span className={cn('mt-0.5 text-xs', notif.isRead ? 'text-muted-foreground/40' : 'text-primary')}>
+                          <span
+                            className="mt-0.5 text-xs"
+                            style={{
+                              color: notif.isRead ? '#4a5568' : NEON_MAGENTA,
+                              fontFamily: FONT_MONO,
+                            }}
+                          >
                             {notif.isRead ? '✓✓' : '✓'}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-foreground truncate">{notif.title}</p>
-                            {notif.body && <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{notif.body}</p>}
-                            <p className="text-[10px] text-muted-foreground/40 mt-1">
+                            <p
+                              className="text-xs font-medium truncate"
+                              style={{ color: '#ffffff', fontFamily: FONT_DISPLAY }}
+                            >
+                              {notif.title}
+                            </p>
+                            {notif.body && (
+                              <p
+                                className="text-[11px] truncate mt-0.5"
+                                style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                              >
+                                {notif.body}
+                              </p>
+                            )}
+                            <p
+                              className="text-[10px] mt-1"
+                              style={{ color: '#4a5568', fontFamily: FONT_MONO }}
+                            >
                               {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
                             </p>
                           </div>
@@ -803,29 +984,60 @@ export function AppHeader() {
         {/* Chat toggle moved to the bottom of the sidebar — see SidebarChatSection.
             The global <ProjectChat/> floating panel is rendered inside <AppSidebar/>. */}
 
-        {/* Profile dropdown — hexagonal avatar with cyan border */}
+        {/* Profile dropdown — neon glassmorphism avatar button (matches sidebar) */}
         <Popover open={profileOpen} onOpenChange={setProfileOpen}>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 pl-1 pr-2 py-1 hover:bg-white/[0.04] transition-colors shrink-0">
-                    <div className="relative h-7 w-7" style={{
-                      clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)',
-                      padding: '1.5px',
-                      background: '#00a8c6',
-                    }}>
-                      <Avatar className="h-full w-full" style={{
-                        clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)',
-                        borderRadius: 0,
-                      }}>
+                  <button
+                    className="flex items-center gap-2 pl-1 pr-2 py-1 shrink-0 transition-all duration-200"
+                    style={{
+                      borderRadius: '6px',
+                      background: 'rgba(10,20,35,0.6)',
+                      border: '1px solid rgba(0,240,255,0.2)',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(255,0,170,0.5)';
+                      e.currentTarget.style.boxShadow = '0 0 14px rgba(255,0,170,0.15), 0 0 4px rgba(0,240,255,0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.2)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div
+                      className="relative h-7 w-7"
+                      style={{
+                        borderRadius: '4px',
+                        padding: '1.5px',
+                        background: NEON_MAGENTA,
+                        boxShadow: '0 0 8px rgba(255,0,170,0.3)',
+                      }}
+                    >
+                      <Avatar
+                        className="h-full w-full"
+                        style={{ borderRadius: '3px' }}
+                      >
                         <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
-                        <AvatarFallback className="bg-[#161a24] text-[#00a8c6] text-xs">
+                        <AvatarFallback
+                          className="text-xs font-bold"
+                          style={{
+                            background: '#0a0e17',
+                            color: NEON_MAGENTA,
+                            fontFamily: FONT_DISPLAY,
+                            textShadow: '0 0 6px rgba(255,0,170,0.6)',
+                          }}
+                        >
                           {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                    <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
+                    <ChevronDown
+                      className="h-3 w-3 hidden sm:block"
+                      style={{ color: NEON_CYAN }}
+                    />
                   </button>
                 </PopoverTrigger>
               </TooltipTrigger>
@@ -833,20 +1045,58 @@ export function AppHeader() {
             </Tooltip>
           </TooltipProvider>
 
-          <PopoverContent align="end" className="w-64 p-0 bg-card border-border">
-            <div className="p-3 border-b border-border">
+          <PopoverContent
+            align="end"
+            className="w-64 p-0 border-0"
+            style={{
+              borderRadius: '12px',
+              background: 'rgba(10,14,23,0.95)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(0,240,255,0.3)',
+              boxShadow: '0 0 24px rgba(0,240,255,0.15), 0 0 8px rgba(255,0,170,0.1), 0 12px 40px rgba(0,0,0,0.7)',
+            }}
+          >
+            <div
+              className="p-3"
+              style={{ borderBottom: '1px solid rgba(0,240,255,0.15)' }}
+            >
               <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
-                  <AvatarFallback className="bg-primary/20 text-primary">
-                    {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
+                <div
+                  className="flex h-10 w-10 items-center justify-center overflow-hidden"
+                  style={{
+                    borderRadius: '6px',
+                    padding: '1.5px',
+                    background: NEON_MAGENTA,
+                    boxShadow: '0 0 10px rgba(255,0,170,0.3)',
+                  }}
+                >
+                  <Avatar className="h-full w-full" style={{ borderRadius: '4px' }}>
+                    <AvatarImage src={user?.avatarUrl} alt={user?.displayName} />
+                    <AvatarFallback
+                      className="text-sm font-bold"
+                      style={{
+                        background: '#0a0e17',
+                        color: NEON_MAGENTA,
+                        fontFamily: FONT_DISPLAY,
+                        textShadow: '0 0 8px rgba(255,0,170,0.6)',
+                      }}
+                    >
+                      {user?.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground truncate">
+                  <p
+                    className="text-sm font-medium truncate"
+                    style={{ color: '#ffffff', fontFamily: FONT_DISPLAY }}
+                  >
                     {user?.displayName || 'User'}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p
+                    className="text-xs truncate"
+                    style={{ color: '#8892a0', fontFamily: FONT_MONO }}
+                  >
                     {user?.email || ''}
                   </p>
                 </div>
@@ -854,22 +1104,67 @@ export function AppHeader() {
             </div>
 
             {/* Group info */}
-            <div className="p-3 border-b border-border">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">Group</p>
-              <p className="text-sm font-medium text-foreground truncate mb-1.5">{groupName}</p>
+            <div
+              className="p-3"
+              style={{ borderBottom: '1px solid rgba(0,240,255,0.15)' }}
+            >
+              <p
+                className="text-[10px] uppercase tracking-[1px] mb-1.5"
+                style={{
+                  color: NEON_CYAN,
+                  fontFamily: FONT_MONO,
+                  textShadow: '0 0 4px rgba(0,240,255,0.4)',
+                }}
+              >
+                Group
+              </p>
+              <p
+                className="text-sm font-medium truncate mb-1.5"
+                style={{ color: '#ffffff', fontFamily: FONT_DISPLAY }}
+              >
+                {groupName}
+              </p>
               {inviteCode && (
                 <div className="flex items-center gap-1.5">
-                  <code className="flex-1 rounded bg-background px-2 py-1 text-xs text-[#00a8c6] font-mono">
+                  <code
+                    className="flex-1 px-2 py-1 text-[10px] tracking-wider"
+                    style={{
+                      borderRadius: '6px',
+                      background: 'rgba(10,20,35,0.6)',
+                      border: '1px solid rgba(0,240,255,0.3)',
+                      color: NEON_CYAN,
+                      fontFamily: FONT_MONO,
+                      textShadow: '0 0 6px rgba(0,240,255,0.4)',
+                    }}
+                  >
                     {inviteCode}
                   </code>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 hover:bg-[#2A2A36] shrink-0"
+                  <button
+                    className="flex h-7 w-7 items-center justify-center transition-all duration-200 shrink-0"
+                    style={{
+                      borderRadius: '6px',
+                      background: 'rgba(0,240,255,0.05)',
+                      border: '1px solid rgba(0,240,255,0.3)',
+                      cursor: 'pointer',
+                    }}
                     onClick={handleCopyCode}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,0,170,0.15)';
+                      e.currentTarget.style.borderColor = 'rgba(255,0,170,0.8)';
+                      e.currentTarget.style.boxShadow = '0 0 12px rgba(255,0,170,0.5)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(0,240,255,0.05)';
+                      e.currentTarget.style.borderColor = 'rgba(0,240,255,0.3)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
                   >
-                    {copied ? <Check className="h-3 w-3 text-[#10B981]" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
-                  </Button>
+                    {copied ? (
+                      <Check className="h-3 w-3" style={{ color: '#10B981' }} />
+                    ) : (
+                      <Copy className="h-3 w-3" style={{ color: NEON_CYAN }} />
+                    )}
+                  </button>
                 </div>
               )}
             </div>
@@ -878,17 +1173,59 @@ export function AppHeader() {
             <div className="p-1.5">
               <button
                 onClick={() => { setProfileOpen(false); navigate('group-settings'); }}
-                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#1E1E28] transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 transition-all duration-200 text-left"
+                style={{
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(0,240,255,0.08)';
+                  e.currentTarget.style.boxShadow = 'inset 2px 0 0 rgba(0,240,255,0.6)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
-                <Settings className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-foreground">Settings</span>
+                <Settings
+                  className="h-4 w-4"
+                  style={{ color: NEON_MAGENTA }}
+                />
+                <span
+                  className="text-sm"
+                  style={{ color: '#ffffff', fontFamily: FONT_DISPLAY }}
+                >
+                  Settings
+                </span>
               </button>
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-[#1E1E28] transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 transition-all duration-200 text-left"
+                style={{
+                  borderRadius: '6px',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,0,170,0.08)';
+                  e.currentTarget.style.boxShadow = 'inset 2px 0 0 rgba(255,0,170,0.6)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
-                <LogOut className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-foreground">Logout</span>
+                <LogOut
+                  className="h-4 w-4"
+                  style={{ color: NEON_MAGENTA }}
+                />
+                <span
+                  className="text-sm"
+                  style={{ color: '#ffffff', fontFamily: FONT_DISPLAY }}
+                >
+                  Logout
+                </span>
               </button>
             </div>
           </PopoverContent>
