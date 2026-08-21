@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import {
+     4→  useState,
+     5→  useEffect,
+     6→  useRef,
+     7→  useCallback,
+     8→  useMemo,
+     9→} from 'react';
+    10→import { createPortal } from 'react-dom';
+    11→import { motion, AnimatePresence } from 'framer-motion';
+    12→import { io, type Socket } from 'socket.io-client';
+    13→import { format } from 'date-fns';
+    14→import {
+    15→  Play,
+    16→  Pause,
+    17→  SkipBack,
+    18→  SkipForward,
+    19→  Volume2,
+    20→  VolumeX,
+    21→  Send,
+    22→  Plus,
+    23→  MessageCircle,
+    24→  ArrowLeft,
+    25→  Music2,
+    26→  LocateFixed,
+    27→  Lightbulb,
+    28→  X,
+    29→  Reply,
+    30→  Upload,
+    31→  MapPin,
+    32→  MoveHorizontal,
+    33→  Pencil,
+    34→  Trash2,
+    35→  Check,
+    36→  CheckCheck,
+    37→  ChevronDown,
+    38→  ChevronRight,
+    39→  MessageSquareQuote,
+    40→  LayoutDashboard,
+    41→  Zap,
+    42→} from 'lucide-react';
+    43→
+    44→import { Button } from '@/components/ui/button';
+    45→import { Badge } from '@/components/ui/badge';
+    46→import { Input } from '@/components/ui/input';
+    47→import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+    48→import {
+    49→  ScrollArea,
+    50→} from '@/components/ui/scroll-area';
+    51→import { Card, CardContent } from '@/components/ui/card';
+    52→import {
+    53→  Tooltip,
+    54→  TooltipContent,
+    55→  TooltipTrigger,
+    56→} from '@/components/ui/tooltip';
+    57→import {
+    58→  Select,
+    59→  SelectContent,
+    60→  SelectItem,
+    61→  SelectTrigger,
+    62→  SelectValue,
+    63→} from '@/components/ui/select';
+    64→import {
+    65→  useNavigationStore,
+    66→  useDataStore,
+    67→  useAuthStore,
+    68→  type Comment,
+    69→  type Idea,
+    70→  type TrackVersion,
+    71→} from '@/lib/store';
+    72→import { useKanbanStore, type Task } from '@/store/kanban-store';
+    73→import { useAudioContextStore } from '@/store/audio-context-store';
+    74→import { useHeaderActionsStore } from '@/store/header-actions-store';
+    75→
+    76→import { hexToRgba } from '@/lib/utils';
+    77→import { useToast } from '@/hooks/use-toast';
+    78→import { WaveformProgressBar } from '@/components/waveform-progress-bar';
+    79→import {
+    80→  Dialog,
+    81→  DialogContent,
+    82→  DialogHeader,
+    83→  DialogTitle,
+    84→  DialogDescription,
+    85→} from '@/components/ui/dialog';
+    86→
+    87→/* ─── Cyberpunk 2077 HUD palette (mirrors home-view.tsx / project-detail-view.tsx) ─── */
+    88→const Y = '#c7a008'; // industrial desaturated gold
+    89→const Y2 = '#9e7c06';
+    90→const C = '#00a8c6'; // controlled cyan
+    91→const C2 = '#0085a0';
+    92→const P = '#7b2cbf'; // deep violet
+    93→const P2 = '#5a1d8f';
+    94→const A = '#718096'; // muted grey
+    95→const G = '#4a8d6f'; // muted green
+    96→const BG_MAIN = '#0a0c10';
+    97→const BG_PANEL = '#11141d';
+    98→const BG_CARD_PURPLE = '#161224';
+    99→const BG_CARD_TEAL = '#0e1a24';
+   100→const BORDER_MUTED = '#1f2633';
+   101→const TEXT_PRIMARY = '#e2e8f0';
+   102→const TEXT_SECONDARY = '#718096';
+   103→
+   104→/* Shared chamfer clip-paths (mirrors home-view.tsx bevel language) */
+   105→const CHAMFER_8 = 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))';
+   106→const CHAMFER_5 = 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))';
+   107→const CHAMFER_4 = 'polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px))';
+   108→const CHAMFER_3 = 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))';
+   109→const CHAMFER_PANEL = 'polygon(0 5px, 5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 calc(100% - 5px), 0 5px)';
+   110→
+   111→/* Panel border style — same as StatBar / Quick Access panel in home-view.tsx */
+   112→const PANEL_BORDER_STYLE: React.CSSProperties = {
+   113→  border: `1px solid ${hexToRgba(C, 0.4)}`,
+   114→  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)',
+   115→  background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+   116→};
+   117→
+   118→/* Yellow CREATE-style button (mirrors CreateCard core — gold gradient, dark text, chamfered) */
+   119→const YELLOW_BUTTON_STYLE: React.CSSProperties = {
+   120→  color: '#0a0b10',
+   121→  background: `linear-gradient(135deg, ${Y} 0%, ${Y2} 50%, ${Y} 100%)`,
+   122→  fontFamily: 'var(--font-jetbrains-mono), monospace',
+   123→  fontSize: '11px',
+   124→  fontWeight: 700,
+   125→  letterSpacing: '1.5px',
+   126→  textTransform: 'uppercase',
+   127→  clipPath: CHAMFER_4,
+   128→  boxShadow: `0 0 8px ${hexToRgba(Y, 0.5)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+   129→};
+   130→
+   131→/* Cyan-bordered dark HUD input style */
+   132→const HUD_INPUT_STYLE: React.CSSProperties = {
+   133→  background: BG_MAIN,
+   134→  border: `1px solid ${hexToRgba(C, 0.3)}`,
+   135→  color: TEXT_PRIMARY,
+   136→  fontFamily: 'var(--font-jetbrains-mono), monospace',
+   137→  fontSize: '13px',
+   138→  clipPath: CHAMFER_3,
+   139→};
+   140→
+   141→/* Section title style — uppercase white HUD heading (mirrors home-view SectionHeader) */
+   142→const SECTION_TITLE_STYLE: React.CSSProperties = {
+   143→  color: '#ffffff',
+   144→  fontFamily: 'var(--font-rajdhani), sans-serif',
+   145→  fontWeight: 700,
+   146→  letterSpacing: '2px',
+   147→  textTransform: 'uppercase' as const,
+   148→};
+   149→
+   150→/* Inset bevel shadow used on every major HUD panel */
+   151→const INSET_BEVEL_SHADOW = 'inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8)';
+   152→
+   153→/* L-shaped corner brackets — blue top-left + yellow bottom-right (mirrors home-view StatBar) */
+   154→function CornerBrackets({ size = 12 }: { size?: number }) {
+   155→  return (
+   156→    <>
+   157→      {/* Blue corner bracket (top-left) */}
+   158→      <div
+   159→        className="absolute top-0 left-0 pointer-events-none"
+   160→        style={{
+   161→          width: `${size}px`,
+   162→          height: `${size}px`,
+   163→          borderTop: '1.5px solid rgba(0,168,198,0.6)',
+   164→          borderLeft: '1.5px solid rgba(0,168,198,0.6)',
+   165→        }}
+   166→      />
+   167→      {/* Yellow corner bracket (bottom-right) */}
+   168→      <div
+   169→        className="absolute bottom-0 right-0 pointer-events-none"
+   170→        style={{
+   171→          width: `${size}px`,
+   172→          height: `${size}px`,
+   173→          borderBottom: '1.5px solid rgba(199,160,8,0.6)',
+   174→          borderRight: '1.5px solid rgba(199,160,8,0.6)',
+   175→        }}
+   176→      />
+   177→    </>
+   178→  );
+   179→}
+   180→
+   181→/* StatDot — compact stats badge: small colored status dot with label + count.
+   182→ * Used in the Kanban progress panel for track + project status buckets.
+   183→ * The dot carries a 4px glow in its own color so each status reads at a glance. */
+   184→function StatDot({
+   185→  label,
+   186→  count,
+   187→  color,
+   188→  compact = false,
+   189→}: {
+   190→  label: string;
+   191→  count: number;
+   192→  color: string;
+   193→  compact?: boolean;
+   194→}) {
+   195→  return (
+   196→    <div className="flex items-center gap-1">
+   197→      <span
+   198→        className="inline-block shrink-0 rounded-full"
+   199→        style={{
+   200→          width: compact ? '5px' : '6px',
+   201→          height: compact ? '5px' : '6px',
+   202→          background: color,
+   203→          boxShadow: `0 0 4px ${hexToRgba(color, 0.8)}`,
+   204→        }}
+   205→      />
+   206→      <span
+   207→        style={{
+   208→          color: TEXT_SECONDARY,
+   209→          fontFamily: 'var(--font-jetbrains-mono), monospace',
+   210→          fontSize: compact ? '9px' : '10px',
+   211→          letterSpacing: '0.5px',
+   212→        }}
+   213→      >
+   214→        {label}
+   215→      </span>
+   216→      <span
+   217→        className="tabular-nums"
+   218→        style={{
+   219→          color,
+   220→          fontFamily: 'var(--font-jetbrains-mono), monospace',
+   221→          fontSize: compact ? '9px' : '10px',
+   222→          fontWeight: 700,
+   223→        }}
+   224→      >
+   225→        {count}
+   226→      </span>
+   227→    </div>
+   228→  );
+   229→}
+   230→
+   231→// --- Types ---
+   232→
+   233→interface ChatMember {
+   234→  userId: string;
+   235→  displayName: string;
+   236→  email: string;
+   237→  avatarUrl?: string;
+   238→  role: string;
+   239→  instrument?: string;
+   240→  joinedAt: string;
+   241→}
+   242→
+   243→// --- Constants ---
+   244→
+   245→// Build a nested tree from flat comment list
+   246→interface CommentNode extends Comment {
+   247→  replies: CommentNode[];
+   248→}
+   249→
+   250→function buildCommentTree(
+   251→  comments: Comment[],
+   252→  rootComparator?: (a: CommentNode, b: CommentNode) => number
+   253→): CommentNode[] {
+   254→  const map = new Map<string, CommentNode>();
+   255→  const roots: CommentNode[] = [];
+   256→  
+   257→  for (const c of comments) {
+   258→    map.set(c.id, { ...c, replies: [] });
+   259→  }
+   260→  for (const c of comments) {
+   261→    const node = map.get(c.id)!;
+   262→    if (c.parentId && map.has(c.parentId)) {
+   263→      map.get(c.parentId)!.replies.push(node);
+   264→    } else {
+   265→      roots.push(node);
+   266→    }
+   267→  }
+   268→  // Sort root comments — caller may pass a custom comparator (e.g. by date/author/status).
+   269→  // Default: ascending by timestampMs (oldest first) — preserves the original behavior.
+   270→  if (rootComparator) {
+   271→    roots.sort(rootComparator);
+   272→  } else {
+   273→    roots.sort((a, b) => a.timestampMs - b.timestampMs);
+   274→  }
+   275→  for (const r of roots) {
+   276→    r.replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+   277→  }
+   278→  return roots;
+   279→}
+   280→
+   281→// DoubleCheckmark SVG component for resolved state
+   282→function DoubleCheckIcon({ className }: { className?: string }) {
+   283→  return (
+   284→    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+   285→      <polyline points="20 6 9 17 4 12" />
+   286→      <polyline points="14 6 9 11 4 6" />
+   287→    </svg>
+   288→  );
+   289→}
+   290→
+   291→const statusDotColors: Record<string, string> = {
+   292→  idea: '#c7a008',
+   293→  recording: '#00a8c6',
+   294→  mixing: '#7b2cbf',
+   295→  final: '#4a8d6f',
+   296→  // Cyberpunk 2077 status palette — muted colors per HUD spec
+   297→  draft: '#00a8c6',
+   298→  in_progress: '#00a8c6',
+   299→  mastering: '#4a8d6f',
+   300→  released: '#00a8c6',
+   301→  review: '#c7a008',
+   302→};
+   303→
+   304→// Russian labels for track statuses (Cyberpunk 2077 HUD)
+   305→const statusLabels: Record<string, string> = {
+   306→  draft: 'Черновик',
+   307→  in_progress: 'В работе',
+   308→  mixing: 'Сведение',
+   309→  mastering: 'Мастеринг',
+   310→  released: 'Релиз',
+   311→  recording: 'Запись',
+   312→  review: 'Проверка',
+   313→  // Legacy statuses (backward compat with existing data)
+   314→  idea: 'Идея',
+   315→  final: 'Финал',
+   316→};
+   317→
+   318→// Ordered list of statuses shown in the Select dropdown
+   319→const STATUS_OPTIONS: string[] = [
+   320→  'draft',
+   321→  'in_progress',
+   322→  'mixing',
+   323→  'mastering',
+   324→  'released',
+   325→  'recording',
+   326→  'review',
+   327→];
+   328→
+   329→// --- Helpers ---
+   330→
+   331→function formatTimestamp(ms: number): string {
+   332→  const totalSeconds = ms / 1000;
+   333→  const minutes = Math.floor(totalSeconds / 60);
+   334→  const seconds = Math.floor(totalSeconds % 60);
+   335→  const milliseconds = Math.floor((totalSeconds % 1) * 10);
+   336→  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds}`;
+   337→}
+   338→
+   339→function formatDuration(seconds: number): string {
+   340→  const mins = Math.floor(seconds / 60);
+   341→  const secs = Math.floor(seconds % 60);
+   342→  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+   343→}
+   344→
+   345→function getInitials(name?: string | null): string {
+   346→  if (!name) return '?';
+   347→  return name
+   348→    .trim()
+   349→    .split(' ')
+   350→    .map((n) => n[0])
+   351→    .join('')
+   352→    .toUpperCase()
+   353→    .slice(0, 2);
+   354→}
+   355→
+   356→// Recursively flatten ALL descendants of a task tree.
+   357→// The backend returns tasks with up to 3 levels of `children` (task → child → grandchild),
+   358→// but this helper is generic so it works for any depth. Used by the track + project
+   359→// progress panels to count every subtask regardless of how deep it nests.
+   360→function countAllDescendants(tasks: { children?: unknown[] }[]): any[] {
+   361→  const result: any[] = [];
+   362→  const walk = (nodes: unknown[]) => {
+   363→    for (const n of nodes as any[]) {
+   364→      result.push(n);
+   365→      if (n && Array.isArray(n.children) && n.children.length > 0) {
+   366→        walk(n.children);
+   367→      }
+   368→    }
+   369→  };
+   370→  walk(tasks as unknown[]);
+   371→  return result;
+   372→}
+   373→
+   374→// The backend API returns comments with a nested `user` object
+   375→// (e.g. `user: { displayName, ... }`), but the frontend store types expect a
+   376→// flat `userName` field. This normalizer bridges that gap so the rest of the
+   377→// component can rely on `userName` always being present.
+   378→function normalizeComment(raw: any): Comment {
+   379→  return {
+   380→    id: raw.id,
+   381→    trackId: raw.trackId,
+   382→    versionId: raw.versionId ?? raw.version?.id ?? undefined,
+   383→    parentId: raw.parentId ?? undefined,
+   384→    userId: raw.userId,
+   385→    userName: raw.userName ?? raw.user?.displayName ?? 'Неизвестный',
+   386→    timestampMs: raw.timestampMs ?? 0,
+   387→    rangeEndMs: raw.rangeEndMs ?? undefined,
+   388→    text: raw.text ?? '',
+   389→    isResolved: raw.isResolved ?? false,
+   390→    createdAt: raw.createdAt,
+   391→  };
+   392→}
+   393→
+   394→// --- Ideas Sticker Strip (square sticker cards) ---
+   395→
+   396→/* Muted HUD palette — 4 colors cycle: gold (Y), cyan (C), violet (P), green (G).
+   397→   Source idea uses gold (Y) to read as "primary / originating". */
+   398→const STICKER_COLORS = [
+   399→  { bg: 'from-[#7b2cbf]/20 to-[#5a1d8f]/20', border: 'border-[#7b2cbf]/30', accent: P, gradient: 'from-[#7b2cbf] to-[#5a1d8f]' },
+   400→  { bg: 'from-[#00a8c6]/20 to-[#0085a0]/20', border: 'border-[#00a8c6]/30', accent: C, gradient: 'from-[#00a8c6] to-[#0085a0]' },
+   401→  { bg: 'from-[#c7a008]/20 to-[#9e7c06]/20', border: 'border-[#c7a008]/30', accent: Y, gradient: 'from-[#c7a008] to-[#9e7c06]' },
+   402→  { bg: 'from-[#4a8d6f]/20 to-[#356a52]/20', border: 'border-[#4a8d6f]/30', accent: G, gradient: 'from-[#4a8d6f] to-[#356a52]' },
+   403→];
+   404→
+   405→const SOURCE_STICKER = {
+   406→  bg: 'from-[#c7a008]/25 to-[#9e7c06]/25',
+   407→  border: 'border-[#c7a008]/50',
+   408→  accent: Y,
+   409→  gradient: 'from-[#c7a008] to-[#9e7c06]',
+   410→};
+   411→
+   412→interface IdeasStoriesStripProps {
+   413→  ideas: Idea[];
+   414→  sourceIdeaId?: string;
+   415→  projectName: string;
+   416→}
+   417→
+   418→function IdeasStoriesStrip({ ideas, sourceIdeaId, projectName }: IdeasStoriesStripProps) {
+   419→  const [expandedIdea, setExpandedIdea] = useState<string | null>(null);
+   420→  const scrollRef = useRef<HTMLDivElement>(null);
+   421→
+   422→  // Build the ordered list: source idea first (highlighted), then all others
+   423→  const orderedIdeas = useMemo(() => {
+   424→    const sorted = [...ideas];
+   425→    if (sourceIdeaId) {
+   426→      const srcIdx = sorted.findIndex((i) => i.id === sourceIdeaId);
+   427→      if (srcIdx > 0) {
+   428→        const [src] = sorted.splice(srcIdx, 1);
+   429→        sorted.unshift(src);
+   430→      }
+   431→    }
+   432→    return sorted;
+   433→  }, [ideas, sourceIdeaId]);
+   434→
+   435→  if (orderedIdeas.length === 0) return null;
+   436→
+   437→  return (
+   438→    <div className="shrink-0">
+   439→      {/* Sticky label row */}
+   440→      <motion.div
+   441→        initial={{ opacity: 0, x: -8 }}
+   442→        animate={{ opacity: 1, x: 0 }}
+   443→        transition={{ duration: 0.3 }}
+   444→        className="flex items-center gap-2 px-4 pt-3 pb-2 lg:px-6"
+   445→      >
+   446→        <Lightbulb className="h-3.5 w-3.5 text-[#c7a008]" />
+   447→        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+   448→          Идеи
+   449→        </span>
+   450→        <span className="text-[10px] text-muted-foreground/40">{ideas.length}</span>
+   451→      </motion.div>
+   452→
+   453→      {/* Horizontal scrolling square stickers */}
+   454→      <div
+   455→        ref={scrollRef}
+   456→        className="flex gap-3 overflow-x-auto px-4 pb-3 lg:px-6 scrollbar-none"
+   457→        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+   458→      >
+   459→        {orderedIdeas.map((idea, idx) => {
+   460→          const isSource = idea.id === sourceIdeaId;
+   461→          const isExpanded = expandedIdea === idea.id;
+   462→          const color = isSource ? SOURCE_STICKER : STICKER_COLORS[idx % STICKER_COLORS.length];
+   463→          const creatorName =
+   464→            (idea as any).creator?.displayName ??
+   465→            (idea as any).userName ??
+   466→            '';
+   467→          const initials = getInitials(creatorName);
+   468→
+   469→          return (
+   470→            <div key={idea.id} className="relative shrink-0">
+   471→              {/* --- Expanded panel: slides down from the sticker --- */}
+   472→              <AnimatePresence>
+   473→                {isExpanded && (
+   474→                  <motion.div
+   475→                    key={idea.id}
+   476→                    initial={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(4px)' }}
+   477→                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+   478→                    exit={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(4px)' }}
+   479→                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+   480→                    className="absolute top-full left-0 z-50 mt-1 w-64 border border-border shadow-2xl shadow-black/60"
+   481→                    style={{
+   482→                      background: BG_PANEL,
+   483→                      border: `1px solid ${hexToRgba(C, 0.4)}`,
+   484→                      clipPath: CHAMFER_5,
+   485→                    }}
+   486→                  >
+   487→                    {/* Top accent bar */}
+   488→                    <div
+   489→                      className={`h-1 w-full bg-gradient-to-r ${color.gradient}`}
+   490→                      style={{ clipPath: CHAMFER_5 }}
+   491→                    />
+   492→                    <div className="p-3.5">
+   493→                      <div className="flex items-start justify-between gap-2">
+   494→                        <div className="min-w-0 flex-1">
+   495→                          {isSource && (
+   496→                            <span className="mb-1 inline-block rounded bg-[#c7a008]/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-[#c7a008]">
+   497→                              Исходная идея
+   498→                            </span>
+   499→                          )}
+   500→                          <h4 className="text-sm font-semibold text-foreground leading-tight truncate">
+   501→                            {idea.title}
+   502→                          </h4>
+   503→                        </div>
+   504→                        <button
+   505→                          onClick={(e) => { e.stopPropagation(); setExpandedIdea(null); }}
+   506→                          className="shrink-0 mt-0.5 flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground/40 transition-colors hover:bg-[#161224] hover:text-foreground"
+   507→                        >
+   508→                          <span className="text-sm leading-none">×</span>
+   509→                        </button>
+   510→                      </div>
+   511→
+   512→                      {idea.description && (
+   513→                        <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground line-clamp-3">
+   514→                          {idea.description}
+   515→                        </p>
+   516→                      )}
+   517→
+   518→                      <div className="mt-2.5 flex items-center gap-1.5">
+   519→                        {/* Mini avatar */}
+   520→                        <div
+   521→                          className={`flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br ${color.gradient} text-[8px] font-bold text-white`}
+   522→                        >
+   523→                          {initials}
+   524→                        </div>
+   525→                        <span className="text-[10px] text-muted-foreground/60">
+   526→                          {creatorName} · {format(new Date(idea.createdAt), 'MMM d')}
+   527→                        </span>
+   528→                      </div>
+   529→
+   530→                      {/* Tags */}
+   531→                      {(() => {
+   532→                        const raw = idea.tags;
+   533→                        if (!raw) return null;
+   534→                        let tags: string[];
+   535→                        try {
+   536→                          const parsed = JSON.parse(raw);
+   537→                          tags = Array.isArray(parsed) ? parsed : [];
+   538→                        } catch {
+   539→                          tags = raw.split(',').map((t) => t.trim()).filter(Boolean);
+   540→                        }
+   541→                        if (tags.length === 0) return null;
+   542→                        return (
+   543→                          <div className="mt-2 flex flex-wrap gap-1">
+   544→                            {tags.map((tag) => (
+   545→                              <span
+   546→                                key={tag}
+   547→                                className="rounded-full bg-[#161224] px-1.5 py-0.5 text-[9px] text-muted-foreground/70"
+   548→                              >
+   549→                                {tag}
+   550→                              </span>
+   551→                            ))}
+   552→                          </div>
+   553→                        );
+   554→                      })()}
+   555→                    </div>
+   556→                  </motion.div>
+   557→                )}
+   558→              </AnimatePresence>
+   559→
+   560→              {/* --- The square sticker itself --- */}
+   561→              <motion.button
+   562→                whileHover={{ scale: 1.06, y: -2 }}
+   563→                whileTap={{ scale: 0.97 }}
+   564→                transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+   565→                onClick={() => setExpandedIdea(isExpanded ? null : idea.id)}
+   566→                className="group/sticker relative flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-xl border bg-gradient-to-br outline-none transition-shadow duration-200 hover:shadow-lg"
+   567→                style={{
+   568→                  borderColor: isSource ? 'rgba(199,160,8,0.4)' : `color-mix(in srgb, ${color.accent} 30%, transparent)`,
+   569→                  boxShadow: isSource
+   570→                    ? `0 2px 12px rgba(199,160,8,0.15)`
+   571→                    : `0 1px 6px ${color.accent}08`,
+   572→                }}
+   573→              >
+   574→                {/* Background gradient fill */}
+   575→                <div
+   576→                  className={`absolute inset-0 rounded-xl bg-gradient-to-br ${color.bg} opacity-80 group-hover/sticker:opacity-100 transition-opacity`}
+   577→                />
+   578→                {/* Subtle top-left shine for sticker feel */}
+   579→                <div
+   580→                  className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-xl"
+   581→                  style={{
+   582→                    background: `linear-gradient(to bottom, rgba(255,255,255,0.04), transparent)`,
+   583→                  }}
+   584→                />
+   585→
+   586→                {/* Initials */}
+   587→                <span className="relative text-base font-bold" style={{ color: color.accent }}>
+   588→                  {initials}
+   589→                </span>
+   590→
+   591→                {/* Tiny decorative line */}
+   592→                <div
+   593→                  className="relative h-0.5 w-4 rounded-full opacity-40"
+   594→                  style={{ backgroundColor: color.accent }}
+   595→                />
+   596→
+   597→                {/* Hover title tooltip — appears above the sticker — dark HUD chip with yellow text */}
+   598→                <div
+   599→                  className="pointer-events-none absolute -top-9 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 shadow-xl opacity-0 transition-opacity duration-150 group-hover/sticker:opacity-100"
+   600→                  style={{
+   601→                    background: BG_PANEL,
+   602→                    border: `1px solid ${hexToRgba(Y, 0.4)}`,
+   603→                    clipPath: CHAMFER_3,
+   604→                  }}
+   605→                >
+   606→                  <p className="text-[10px] font-medium" style={{ color: Y, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>{idea.title}</p>
+   607→                </div>
+   608→
+   609→                {/* Source indicator dot */}
+   610→                {isSource && (
+   611→                  <div className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#c7a008] ring-2 ring-[#0a0c10] shadow-sm shadow-[#c7a008]/40" />
+   612→                )}
+   613→              </motion.button>
+   614→            </div>
+   615→          );
+   616→        })}
+   617→
+   618→        {/* End spacer */}
+   619→        <div className="w-2 shrink-0" />
+   620→      </div>
+   621→    </div>
+   622→  );
+   623→}
+   624→
+   625→// --- Main Component ---
+   626→
+   627→export function TrackDetailView() {
+   628→  // Store state
+   629→  const selectedTrackId = useNavigationStore((s) => s.selectedTrackId);
+   630→  const selectedProjectId = useNavigationStore((s) => s.selectedProjectId);
+   631→  const navigate = useNavigationStore((s) => s.navigate);
+   632→  const tracks = useDataStore((s) => s.tracks);
+   633→  const user = useAuthStore((s) => s.user);
+   634→  const addComment = useDataStore((s) => s.addComment);
+   635→  const updateCommentStore = useDataStore((s) => s.updateComment);
+   636→  const removeCommentStore = useDataStore((s) => s.removeComment);
+   637→  const updateTrackStatus = useDataStore((s) => s.updateTrackStatus);
+   638→
+   639→  // Audio context store — sync local playback state to global store for floating chat widget
+   640→  const setActiveTrack = useAudioContextStore((s) => s.setActiveTrack);
+   641→  const setAudioContextTime = useAudioContextStore((s) => s.setCurrentTime);
+   642→  const setAudioContextPlaying = useAudioContextStore((s) => s.setIsPlaying);
+   643→
+   644→  // Header actions store — register contextual actions (Open in Kanban) and the
+   645→  // page title with the unified AppHeader. The duplicate inline back button +
+   646→  // title header has been removed; breadcrumbs are rendered by AppHeader.
+   647→  const setHeaderActions = useHeaderActionsStore((s) => s.setActions);
+   648→  const setHeaderTitle = useHeaderActionsStore((s) => s.setTitle);
+   649→
+   650→  const track = useMemo(
+   651→    () => tracks.find((t) => t.id === selectedTrackId) ?? null,
+   652→    [tracks, selectedTrackId]
+   653→  );
+   654→
+   655→  // Audio player state
+   656→  const audioRef = useRef<HTMLAudioElement | null>(null);
+   657→  const [isPlaying, setIsPlaying] = useState(false);
+   658→  const [currentTime, setCurrentTime] = useState(0);
+   659→  const [duration, setDuration] = useState(0);
+   660→  const [volume, setVolume] = useState(0.8);
+   661→  const [isMuted, setIsMuted] = useState(false);
+   662→  const [audioLoaded, setAudioLoaded] = useState(false);
+   663→
+   664→  // Waveform state
+   665→  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+   666→  const waveformRef = useRef<Float32Array | null>(null);
+   667→  const [waveformReady, setWaveformReady] = useState(false);
+   668→  const animFrameRef = useRef<number>(0);
+   669→  const [waveformHoverTime, setWaveformHoverTime] = useState<{ x: number; ms: number } | null>(null);
+   670→  const [markerTooltipPos, setMarkerTooltipPos] = useState<{ top: number; left: number; right: boolean } | null>(null);
+   671→  const markerTooltipHoverRef = useRef(false);
+   672→  const markerHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   673→  // Pinned marker tooltip — when a marker is clicked the tooltip stays open
+   674→  // until the user closes it (X button) or clicks elsewhere. Lets the user
+   675→  // interact with the Edit/Resolve/Delete buttons without fighting the 200ms
+   676→  // hover hide timer.
+   677→  const [pinnedMarkerId, setPinnedMarkerId] = useState<string | null>(null);
+   678→  // Helper: compute + apply the tooltip position for a given marker element.
+   679→  // The tooltip is centered horizontally on the marker (left = marker center x)
+   680→  // and anchored just above it. The `right` flag tells the tooltip to also clamp
+   681→  // itself inside the viewport when the marker sits near the right edge.
+   682→  const showMarkerTooltipFor = useCallback((el: HTMLElement, commentId: string) => {
+   683→    if (markerHideTimerRef.current) {
+   684→      clearTimeout(markerHideTimerRef.current);
+   685→      markerHideTimerRef.current = null;
+   686→    }
+   687→    const rect = el.getBoundingClientRect();
+   688→    const centerX = rect.left + rect.width / 2;
+   689→    const isRight = centerX > window.innerWidth - 160; // within 160px of right edge
+   690→    setHoveredMarkerId(commentId);
+   691→    setMarkerTooltipPos({ top: rect.top - 8, left: centerX, right: isRight });
+   692→  }, []);
+   693→
+   694→
+   695→  // Comment state
+   696→  const [comments, setComments] = useState<Comment[]>([]);
+   697→  const [newCommentText, setNewCommentText] = useState('');
+   698→  const [showCommentInput, setShowCommentInput] = useState(false);
+   699→  const [commentTimestamp, setCommentTimestamp] = useState(0);
+   700→  const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
+   701→  const commentsEndRef = useRef<HTMLDivElement | null>(null);
+   702→
+   703→  // Comment sort mode — drives the order of root comments in the comments panel
+   704→  const [sortBy, setSortBy] = useState<'date' | 'time' | 'author' | 'status'>('time');
+   705→
+   706→  // Marker mode: 'point' for single-timestamp, 'range' for start→end
+   707→  const [markerMode, setMarkerMode] = useState<'point' | 'range'>('point');
+   708→  const [rangeStartMs, setRangeStartMs] = useState(0);
+   709→  const [rangeEndMsState, setRangeEndMsState] = useState(0);
+   710→  const [isSelectingRange, setIsSelectingRange] = useState(false);
+   711→
+   712→  // Reply state
+   713→  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+   714→  const [replyText, setReplyText] = useState('');
+   715→
+   716→  // Collapsed replies state
+   717→  const [collapsedThreads, setCollapsedThreads] = useState<Set<string>>(new Set());
+   718→  const toggleThread = useCallback((id: string) => {
+   719→    setCollapsedThreads((prev) => {
+   720→      const next = new Set(prev);
+   721→      if (next.has(id)) next.delete(id);
+   722→      else next.add(id);
+   723→      return next;
+   724→    });
+   725→  }, []);
+   726→
+   727→  // Edit comment state
+   728→  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+   729→  const [editCommentText, setEditCommentText] = useState('');
+   730→
+   731→  const { toast } = useToast();
+   732→
+   733→  // Version state
+   734→  const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
+   735→  const [versions, setVersions] = useState<TrackVersion[]>([]);
+   736→  const [showAddVersionDialog, setShowAddVersionDialog] = useState(false);
+   737→  const [uploadProgress, setUploadProgress] = useState(0);
+   738→  const [isUploadingVersion, setIsUploadingVersion] = useState(false);
+   739→
+   740→  // Derived: active version from list
+   741→  const activeVersion = useMemo(
+   742→    () => versions.find((v) => v.id === activeVersionId) ?? versions[0] ?? null,
+   743→    [versions, activeVersionId]
+   744→  );
+   745→
+   746→  // Hovered comment marker (waveform overlay tooltip)
+   747→  const [hoveredMarkerId, setHoveredMarkerId] = useState<string | null>(null);
+   748→
+   749→  // Participant presence
+   750→  const [groupMembers, setGroupMembers] = useState<ChatMember[]>([]);
+   751→  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+   752→
+   753→  // WebSocket
+   754→  const socketRef = useRef<Socket | null>(null);
+   755→
+   756→  // Ideas (for this project — displayed as stories above the waveform)
+   757→  const currentGroupId = useAuthStore((s) => s.currentGroupId);
+   758→  const projects = useDataStore((s) => s.projects);
+   759→  const [projectIdeas, setProjectIdeas] = useState<Idea[]>([]);
+   760→  const projectOfTrack = useMemo(
+   761→    () => projects.find((p) => p.id === selectedProjectId),
+   762→    [projects, selectedProjectId]
+   763→  );
+   764→
+   765→  // --- Kanban progress state ---
+   766→  // trackTasks: all Kanban tasks linked to the currently-selected SoundFlow track
+   767→  // (fetched via /api/tasks?soundflowTrackId=…&deep=true). Each task carries its
+   768→  // own children (2 levels deep) so we can render a per-task mini progress bar.
+   769→  const [trackTasks, setTrackTasks] = useState<Task[]>([]);
+   770→  // projectTask: the Kanban "project" task for the project this track belongs to
+   771→  // (fetched by parentId). Used to show a project-level progress summary next to
+   772→  // the track progress. Stays null when the project has no linked kanbanTaskId.
+   773→  const [projectTask, setProjectTask] = useState<Task | null>(null);
+   774→
+   775→  useEffect(() => {
+   776→    if (!selectedTrackId) {
+   777→      setTrackTasks([]);
+   778→      return;
+   779→    }
+   780→    let cancelled = false;
+   781→    fetch(`/api/tasks?soundflowTrackId=${encodeURIComponent(selectedTrackId)}&deep=true`)
+   782→      .then((r) => r.ok ? r.json() : null)
+   783→      .then((data) => {
+   784→        if (cancelled) return;
+   785→        if (data && Array.isArray(data.tasks)) {
+   786→          setTrackTasks(data.tasks as Task[]);
+   787→        } else {
+   788→          setTrackTasks([]);
+   789→        }
+   790→      })
+   791→      .catch(() => {
+   792→        if (!cancelled) setTrackTasks([]);
+   793→      });
+   794→    return () => { cancelled = true; };
+   795→  }, [selectedTrackId]);
+   796→
+   797→  useEffect(() => {
+   798→    const kanbanTaskId = projectOfTrack?.kanbanTaskId;
+   799→    if (!kanbanTaskId) {
+   800→      setProjectTask(null);
+   801→      return;
+   802→    }
+   803→    let cancelled = false;
+   804→    // Fetch the project kanban task BY ID with deep=true so we get its
+   805→    // full children subtree and can recursively count all descendants.
+   806→    fetch(`/api/tasks?id=${encodeURIComponent(kanbanTaskId)}&deep=true`)
+   807→      .then((r) => r.ok ? r.json() : null)
+   808→      .then((data) => {
+   809→        if (cancelled) return;
+   810→        // The API returns { tasks: [...] } — single project task expected.
+   811→        if (data && Array.isArray(data.tasks) && data.tasks.length > 0) {
+   812→          setProjectTask(data.tasks[0] as Task);
+   813→        } else {
+   814→          setProjectTask(null);
+   815→        }
+   816→      })
+   817→      .catch(() => {
+   818→        if (!cancelled) setProjectTask(null);
+   819→      });
+   820→    return () => { cancelled = true; };
+   821→  }, [projectOfTrack?.kanbanTaskId]);
+   822→
+   823→  // Compute kanban progress statistics for the currently-selected track.
+   824→  // Flatten ALL descendants (not just direct children) of every fetched track-task
+   825→  // and bucket them by status — gives a true reflection of the track's kanban position.
+   826→  const trackProgress = useMemo(() => {
+   827→    const allDescendants = countAllDescendants(trackTasks);
+   828→    const total = allDescendants.length;
+   829→    const done = allDescendants.filter((c) => c.status === 'done').length;
+   830→    const inProgress = allDescendants.filter((c) => c.status === 'in-progress').length;
+   831→    const review = allDescendants.filter((c) => c.status === 'review').length;
+   832→    const todo = allDescendants.filter((c) => c.status === 'todo').length;
+   833→    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+   834→    return { allChildren: allDescendants, total, done, inProgress, review, todo, pct };
+   835→  }, [trackTasks]);
+   836→
+   837→  // Project-level progress: count ALL descendants of the project's kanban task
+   838→  // (recursively, not just direct children).
+   839→  const projectProgress = useMemo(() => {
+   840→    if (!projectTask) return null;
+   841→    const allDescendants = countAllDescendants([projectTask]);
+   842→    const total = allDescendants.length;
+   843→    const done = allDescendants.filter((c) => c.status === 'done').length;
+   844→    const inProgress = allDescendants.filter((c) => c.status === 'in-progress').length;
+   845→    const review = allDescendants.filter((c) => c.status === 'review').length;
+   846→    const todo = allDescendants.filter((c) => c.status === 'todo').length;
+   847→    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+   848→    return { total, done, inProgress, review, todo, pct };
+   849→  }, [projectTask]);
+   850→
+   851→  useEffect(() => {
+   852→    if (!currentGroupId || !selectedProjectId) return;
+   853→    fetch(`/api/ideas?groupId=${currentGroupId}&projectId=${selectedProjectId}`)
+   854→      .then((r) => r.json())
+   855→      .then((data) => {
+   856→        if (Array.isArray(data)) setProjectIdeas(data);
+   857→      })
+   858→      .catch(() => {});
+   859→  }, [currentGroupId, selectedProjectId]);
+   860→
+   861→  // Fetch group members for participant avatars
+   862→  useEffect(() => {
+   863→    if (!currentGroupId) return;
+   864→    fetch(`/api/groups/${currentGroupId}/members`)
+   865→      .then((r) => r.json())
+   866→      .then((data) => {
+   867→        if (Array.isArray(data)) setGroupMembers(data);
+   868→      })
+   869→      .catch(() => {});
+   870→  }, [currentGroupId]);
+   871→
+   872→  // --- Audio Playback ---
+   873→
+   874→  // The audioUrl to play: active version's audioUrl, or fallback to track's audioUrl
+   875→  const currentAudioUrl = activeVersion?.audioUrl || track?.audioUrl || '';
+   876→
+   877→  useEffect(() => {
+   878→    if (!currentAudioUrl) return;
+   879→
+   880→    const audio = new Audio(currentAudioUrl);
+   881→    audioRef.current = audio;
+   882→    audio.volume = isMuted ? 0 : volume;
+   883→    setIsPlaying(false);
+   884→    setCurrentTime(0);
+   885→    setDuration(0);
+   886→    setAudioLoaded(false);
+   887→    setWaveformReady(false);
+   888→    waveformRef.current = null;
+   889→
+   890→    const onLoaded = () => {
+   891→      setDuration(audio.duration);
+   892→      setAudioLoaded(true);
+   893→    };
+   894→    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+   895→    const onEnded = () => setIsPlaying(false);
+   896→    const onPlay = () => setIsPlaying(true);
+   897→    const onPause = () => setIsPlaying(false);
+   898→
+   899→    audio.addEventListener('loadedmetadata', onLoaded);
+   900→    audio.addEventListener('timeupdate', onTimeUpdate);
+   901→    audio.addEventListener('ended', onEnded);
+   902→    audio.addEventListener('play', onPlay);
+   903→    audio.addEventListener('pause', onPause);
+   904→
+   905→    return () => {
+   906→      audio.removeEventListener('loadedmetadata', onLoaded);
+   907→      audio.removeEventListener('timeupdate', onTimeUpdate);
+   908→      audio.removeEventListener('ended', onEnded);
+   909→      audio.removeEventListener('play', onPlay);
+   910→      audio.removeEventListener('pause', onPause);
+   911→      audio.pause();
+   912→      audio.src = '';
+   913→      audioRef.current = null;
+   914→    };
+   915→  }, [currentAudioUrl]);
+   916→
+   917→  // Display duration: prefer audio-loaded duration, fall back to track metadata
+   918→  const displayDuration = duration > 0 ? duration : (track?.durationMs ? track.durationMs / 1000 : 0);
+   919→
+   920→  // Sync volume
+   921→  useEffect(() => {
+   922→    if (audioRef.current) {
+   923→      audioRef.current.volume = isMuted ? 0 : volume;
+   924→    }
+   925→  }, [volume, isMuted]);
+   926→
+   927→  // Sync current playback position to global audio context store (used by floating chat widget)
+   928→  useEffect(() => {
+   929→    setAudioContextTime(currentTime);
+   930→  }, [currentTime, setAudioContextTime]);
+   931→
+   932→  // Sync play/pause state to global audio context store
+   933→  useEffect(() => {
+   934→    setAudioContextPlaying(isPlaying);
+   935→  }, [isPlaying, setAudioContextPlaying]);
+   936→
+   937→  // Sync active track (trackId, projectId, kanbanTaskId) to global audio context store.
+   938→  // The floating chat widget reads these to scope its messages and timestamp links.
+   939→  useEffect(() => {
+   940→    if (!selectedTrackId) {
+   941→      setActiveTrack(null, null, null);
+   942→      return;
+   943→    }
+   944→    setActiveTrack(
+   945→      selectedTrackId,
+   946→      selectedProjectId ?? null,
+   947→      projectOfTrack?.kanbanTaskId ?? null
+   948→    );
+   949→    return () => {
+   950→      setActiveTrack(null, null, null);
+   951→    };
+   952→  }, [selectedTrackId, selectedProjectId, projectOfTrack?.kanbanTaskId, setActiveTrack]);
+   953→
+   954→  // Register contextual header actions and the page title with the unified
+   955→  // AppHeader. Breadcrumbs (Group / Projects / Project Title / Track) are
+   956→  // rendered by AppHeader, and the "Open in Kanban" action appears as a header
+   957→  // button (only when this project has a linked kanbanTaskId).
+   958→  useEffect(() => {
+   959→    if (!track) {
+   960→      setHeaderTitle(null);
+   961→      setHeaderActions([]);
+   962→      return;
+   963→    }
+   964→
+   965→    setHeaderTitle(track.title);
+   966→
+   967→    const kanbanTaskId = projectOfTrack?.kanbanTaskId;
+   968→    if (kanbanTaskId) {
+   969→      setHeaderActions([
+   970→        {
+   971→          id: 'open-in-kanban',
+   972→          label: 'Открыть в Канбане',
+   973→          icon: <LayoutDashboard className="h-3.5 w-3.5" />,
+   974→          variant: 'outline',
+   975→          onClick: () => {
+   976→            const project = useDataStore
+   977→              .getState()
+   978→              .projects.find((p) => p.id === selectedProjectId);
+   979→            if (!project?.kanbanTaskId) return;
+   980→            useNavigationStore.getState().navigate('kanban');
+   981→            const taskId = project.kanbanTaskId;
+   982→            setTimeout(() => {
+   983→              useKanbanStore.getState().selectProject(taskId);
+   984→            }, 300);
+   985→          },
+   986→        },
+   987→      ]);
+   988→    } else {
+   989→      setHeaderActions([]);
+   990→    }
+   991→
+   992→    return () => {
+   993→      setHeaderActions([]);
+   994→      setHeaderTitle(null);
+   995→    };
+   996→  }, [
+   997→    track,
+   998→    projectOfTrack?.kanbanTaskId,
+   999→    selectedProjectId,
+  1000→    setHeaderActions,
+  1001→    setHeaderTitle,
+  1002→  ]);
+  1003→
+  1004→  // Marker tooltip position is now calculated directly in onMouseEnter handler
+  1005→  // (removed the old useEffect + ref pattern to fix timing issues with framer-motion)
+  1006→
+  1007→  const togglePlay = useCallback(() => {
+  1008→    if (!audioRef.current) return;
+  1009→    if (isPlaying) {
+  1010→      audioRef.current.pause();
+  1011→    } else {
+  1012→      audioRef.current.play();
+  1013→    }
+  1014→  }, [isPlaying]);
+  1015→
+  1016→  const skip = useCallback((seconds: number) => {
+  1017→    if (!audioRef.current) return;
+  1018→    audioRef.current.currentTime = Math.max(
+  1019→      0,
+  1020→      Math.min(audioRef.current.currentTime + seconds, duration)
+  1021→    );
+  1022→  }, [duration]);
+  1023→
+  1024→  const seekTo = useCallback((time: number) => {
+  1025→    if (!audioRef.current) return;
+  1026→    audioRef.current.currentTime = time;
+  1027→    setCurrentTime(time);
+  1028→  }, []);
+  1029→
+  1030→  // --- Waveform ---
+  1031→
+  1032→  useEffect(() => {
+  1033→    if (!currentAudioUrl) return;
+  1034→
+  1035→    let cancelled = false;
+  1036→    setWaveformReady(false);
+  1037→
+  1038→    async function generateWaveform() {
+  1039→      try {
+  1040→        const url = `/api/waveform?audio=${encodeURIComponent(currentAudioUrl)}&samples=200`;
+  1041→        const res = await fetch(url);
+  1042→        if (!res.ok || cancelled) return;
+  1043→        const data = await res.json();
+  1044→        if (cancelled) return;
+  1045→        if (data.samples && data.samples.length > 0) {
+  1046→          waveformRef.current = new Float32Array(data.samples);
+  1047→          setWaveformReady(true);
+  1048→        }
+  1049→      } catch {
+  1050→        // Silently fail — waveform won't render
+  1051→      }
+  1052→    }
+  1053→
+  1054→    generateWaveform();
+  1055→    return () => { cancelled = true; };
+  1056→  }, [currentAudioUrl]);
+  1057→
+  1058→  // Draw waveform — uses requestAnimationFrame only while playing, single draw otherwise
+  1059→  useEffect(() => {
+  1060→    const canvas = canvasRef.current;
+  1061→    const waveform = waveformRef.current;
+  1062→    if (!canvas || !waveform) return;
+  1063→
+  1064→    const ctx = canvas.getContext('2d');
+  1065→    if (!ctx) return;
+  1066→
+  1067→    let rafId = 0;
+  1068→
+  1069→    const draw = () => {
+  1070→      const dpr = window.devicePixelRatio || 1;
+  1071→      const rect = canvas.getBoundingClientRect();
+  1072→
+  1073→      // Only resize canvas if dimensions changed
+  1074→      const targetW = Math.round(rect.width * dpr);
+  1075→      const targetH = Math.round(rect.height * dpr);
+  1076→      if (canvas.width !== targetW || canvas.height !== targetH) {
+  1077→        canvas.width = targetW;
+  1078→        canvas.height = targetH;
+  1079→      }
+  1080→      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  1081→
+  1082→      const width = rect.width;
+  1083→      const height = rect.height;
+  1084→      const barCount = waveform.length;
+  1085→      const barWidth = width / barCount;
+  1086→      const barGap = 1;
+  1087→      const centerY = height / 2;
+  1088→
+  1089→      // Clear
+  1090→      ctx.clearRect(0, 0, width, height);
+  1091→
+  1092→      const progress = duration > 0 ? currentTime / duration : 0;
+  1093→      const progressX = progress * width;
+  1094→
+  1095→      // Create gradient (cached via closure — only recreated when canvas resets)
+  1096→      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+  1097→      gradient.addColorStop(0, '#7b2cbf');
+  1098→      gradient.addColorStop(0.5, '#5a1d8f');
+  1099→      gradient.addColorStop(1, '#00a8c6');
+  1100→
+  1101→      const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
+  1102→      dimGradient.addColorStop(0, 'rgba(123,44,191,0.7)');
+  1103→      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.7)');
+  1104→      dimGradient.addColorStop(1, 'rgba(0,168,198,0.7)');
+  1105→      // First pass: unplayed bars
+  1106→      ctx.fillStyle = dimGradient;
+  1107→      for (let i = 0; i < barCount; i++) {
+  1108→        const x = i * barWidth;
+  1109→        if (x < progressX) continue;
+  1110→        const amplitude = waveform[i];
+  1111→        const barHeight = Math.max(2, amplitude * centerY * 0.85);
+  1112→        const bw = Math.max(1, barWidth - barGap);
+  1113→        ctx.beginPath();
+  1114→        ctx.roundRect(x, centerY - barHeight, bw, barHeight * 2, 1);
+  1115→        ctx.fill();
+  1116→      }
+  1117→
+  1118→      // Second pass: played bars
+  1119→      ctx.fillStyle = gradient;
+  1120→      for (let i = 0; i < barCount; i++) {
+  1121→        const x = i * barWidth;
+  1122→        if (x >= progressX) continue;
+  1123→        const amplitude = waveform[i];
+  1124→        const barHeight = Math.max(2, amplitude * centerY * 0.85);
+  1125→        const bw = Math.max(1, barWidth - barGap);
+  1126→        ctx.beginPath();
+  1127→        ctx.roundRect(x, centerY - barHeight, bw, barHeight * 2, 1);
+  1128→        ctx.fill();
+  1129→      }
+  1130→
+  1131→      // Progress cursor
+  1132→      if (progress > 0 && progress < 1) {
+  1133→        ctx.strokeStyle = '#FFFFFF';
+  1134→        ctx.lineWidth = 2;
+  1135→        ctx.shadowColor = 'rgba(255,255,255,0.5)';
+  1136→        ctx.shadowBlur = 4;
+  1137→        ctx.beginPath();
+  1138→        ctx.moveTo(progressX, 0);
+  1139→        ctx.lineTo(progressX, height);
+  1140→        ctx.stroke();
+  1141→        ctx.shadowBlur = 0;
+  1142→      }
+  1143→
+  1144→      // Keep animating only while playing
+  1145→      if (isPlaying) {
+  1146→        rafId = requestAnimationFrame(draw);
+  1147→      }
+  1148→    };
+  1149→
+  1150→    draw();
+  1151→
+  1152→    // Also draw on resize
+  1153→    const handleResize = () => { rafId = requestAnimationFrame(draw); };
+  1154→    window.addEventListener('resize', handleResize);
+  1155→
+  1156→    return () => {
+  1157→      cancelAnimationFrame(rafId);
+  1158→      window.removeEventListener('resize', handleResize);
+  1159→    };
+  1160→  }, [waveformReady, currentTime, duration, isPlaying]);
+  1161→
+  1162→  // Redraw once when seeking while paused
+  1163→  useEffect(() => {
+  1164→    if (waveformReady && !isPlaying) {
+  1165→      const canvas = canvasRef.current;
+  1166→      if (!canvas) return;
+  1167→      // Force a redraw by triggering a minimal state change
+  1168→      const ctx = canvas.getContext('2d');
+  1169→      if (!ctx || !waveformRef.current) return;
+  1170→      const waveform = waveformRef.current;
+  1171→      const dpr = window.devicePixelRatio || 1;
+  1172→      const rect = canvas.getBoundingClientRect();
+  1173→      const width = rect.width;
+  1174→      const height = rect.height;
+  1175→      const barCount = waveform.length;
+  1176→      const barWidth = width / barCount;
+  1177→      const barGap = 1;
+  1178→      const centerY = height / 2;
+  1179→      const progress = duration > 0 ? currentTime / duration : 0;
+  1180→      const progressX = progress * width;
+  1181→      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  1182→      ctx.clearRect(0, 0, width, height);
+  1183→      const gradient = ctx.createLinearGradient(0, 0, width, 0);
+  1184→      gradient.addColorStop(0, '#7b2cbf');
+  1185→      gradient.addColorStop(0.5, '#5a1d8f');
+  1186→      gradient.addColorStop(1, '#00a8c6');
+  1187→      const dimGradient = ctx.createLinearGradient(0, 0, width, 0);
+  1188→      dimGradient.addColorStop(0, 'rgba(123,44,191,0.7)');
+  1189→      dimGradient.addColorStop(0.5, 'rgba(90,29,143,0.7)');
+  1190→      dimGradient.addColorStop(1, 'rgba(0,168,198,0.7)');
+  1191→      ctx.fillStyle = dimGradient;
+  1192→      for (let i = 0; i < barCount; i++) {
+  1193→        const x = i * barWidth;
+  1194→        if (x < progressX) continue;
+  1195→        const a = waveform[i];
+  1196→        const bh = Math.max(2, a * centerY * 0.85);
+  1197→        const bw = Math.max(1, barWidth - barGap);
+  1198→        ctx.beginPath();
+  1199→        ctx.roundRect(x, centerY - bh, bw, bh * 2, 1);
+  1200→        ctx.fill();
+  1201→      }
+  1202→      ctx.fillStyle = gradient;
+  1203→      for (let i = 0; i < barCount; i++) {
+  1204→        const x = i * barWidth;
+  1205→        if (x >= progressX) continue;
+  1206→        const a = waveform[i];
+  1207→        const bh = Math.max(2, a * centerY * 0.85);
+  1208→        const bw = Math.max(1, barWidth - barGap);
+  1209→        ctx.beginPath();
+  1210→        ctx.roundRect(x, centerY - bh, bw, bh * 2, 1);
+  1211→        ctx.fill();
+  1212→      }
+  1213→      if (progress > 0 && progress < 1) {
+  1214→        ctx.strokeStyle = '#FFFFFF';
+  1215→        ctx.lineWidth = 2;
+  1216→        ctx.shadowColor = 'rgba(255,255,255,0.5)';
+  1217→        ctx.shadowBlur = 4;
+  1218→        ctx.beginPath();
+  1219→        ctx.moveTo(progressX, 0);
+  1220→        ctx.lineTo(progressX, height);
+  1221→        ctx.stroke();
+  1222→        ctx.shadowBlur = 0;
+  1223→      }
+  1224→    }
+  1225→  }, [currentTime, waveformReady, isPlaying, duration]);
+  1226→
+  1227→  const handleWaveformClick = useCallback(
+  1228→    (e: React.MouseEvent<HTMLCanvasElement>) => {
+  1229→      const canvas = canvasRef.current;
+  1230→      if (!canvas || duration <= 0) return;
+  1231→
+  1232→      const rect = canvas.getBoundingClientRect();
+  1233→      const x = e.clientX - rect.left;
+  1234→      const progress = x / rect.width;
+  1235→      const time = progress * duration;
+  1236→
+  1237→      seekTo(time);
+  1238→
+  1239→      const clickedMs = Math.round(time * 1000);
+  1240→
+  1241→      if (markerMode === 'range') {
+  1242→        if (!isSelectingRange) {
+  1243→          // First click — set range start
+  1244→          setRangeStartMs(clickedMs);
+  1245→          setRangeEndMsState(clickedMs);
+  1246→          setIsSelectingRange(true);
+  1247→          setCommentTimestamp(clickedMs);
+  1248→          setShowCommentInput(true);
+  1249→        } else {
+  1250→          // Second click — set range end
+  1251→          const start = Math.min(rangeStartMs, clickedMs);
+  1252→          const end = Math.max(rangeStartMs, clickedMs);
+  1253→          setRangeStartMs(start);
+  1254→          setRangeEndMsState(end);
+  1255→          setCommentTimestamp(start);
+  1256→          setIsSelectingRange(false);
+  1257→        }
+  1258→      } else {
+  1259→        // Point mode — single timestamp
+  1260→        setCommentTimestamp(clickedMs);
+  1261→        setRangeStartMs(0);
+  1262→        setRangeEndMsState(0);
+  1263→        setShowCommentInput(true);
+  1264→      }
+  1265→    },
+  1266→    [duration, seekTo, markerMode, isSelectingRange, rangeStartMs]
+  1267→  );
+  1268→
+  1269→  const handleMarkerClick = useCallback(
+  1270→    (comment: Comment) => {
+  1271→      seekTo(comment.timestampMs / 1000);
+  1272→      setFocusedCommentId(comment.id);
+  1273→      // Keep highlight for 3 seconds
+  1274→      setTimeout(() => {
+  1275→        setFocusedCommentId(null);
+  1276→      }, 3000);
+  1277→    },
+  1278→    [seekTo]
+  1279→  );
+  1280→
+  1281→  // Global click listener — when a pinned marker tooltip is open, dismiss it
+  1282→  // if the user clicks anywhere outside the tooltip (and outside any marker).
+  1283→  // Marker buttons + tooltip both call `e.stopPropagation()` on their click
+  1284→  // handlers, so this listener only fires for "outside" clicks.
+  1285→  useEffect(() => {
+  1286→    if (!pinnedMarkerId) return;
+  1287→    const handler = (e: MouseEvent) => {
+  1288→      const target = e.target as Node | null;
+  1289→      if (!target) return;
+  1290→      // Dismiss the pinned tooltip on any outside click.
+  1291→      setPinnedMarkerId(null);
+  1292→      // Also clear hoveredMarkerId + position so the tooltip fully closes.
+  1293→      setHoveredMarkerId(null);
+  1294→      setMarkerTooltipPos(null);
+  1295→    };
+  1296→    // Defer registration by a tick so the click that *opened* the tooltip
+  1297→    // doesn't immediately close it.
+  1298→    const t = setTimeout(() => {
+  1299→      document.addEventListener('click', handler);
+  1300→    }, 0);
+  1301→    return () => {
+  1302→      clearTimeout(t);
+  1303→      document.removeEventListener('click', handler);
+  1304→    };
+  1305→  }, [pinnedMarkerId]);
+  1306→
+  1307→  // --- Comments ---
+  1308→
+  1309→  useEffect(() => {
+  1310→    if (!selectedTrackId) return;
+  1311→    fetch(`/api/tracks/${selectedTrackId}/comments`)
+  1312→      .then((r) => r.json())
+  1313→      .then((data) => {
+  1314→        if (Array.isArray(data)) setComments(data.map(normalizeComment));
+  1315→      })
+  1316→      .catch(() => {});
+  1317→  }, [selectedTrackId, activeVersionId]);
+  1318→
+  1319→  // Scroll to focused comment
+  1320→  useEffect(() => {
+  1321→    if (focusedCommentId) {
+  1322→      const el = document.getElementById(`comment-${focusedCommentId}`);
+  1323→      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  1324→    }
+  1325→  }, [focusedCommentId]);
+  1326→
+  1327→  const handleAddComment = useCallback(async () => {
+  1328→    if (!newCommentText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
+  1329→
+  1330→    const timestamp = commentTimestamp || Math.round(currentTime * 1000);
+  1331→
+  1332→    try {
+  1333→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments`, {
+  1334→        method: 'POST',
+  1335→        headers: { 'Content-Type': 'application/json' },
+  1336→        body: JSON.stringify({
+  1337→          userId: user.id,
+  1338→          text: newCommentText.trim(),
+  1339→          timestampMs: timestamp,
+  1340→          ...(markerMode === 'range' && rangeEndMsState > timestamp ? { rangeEndMs: rangeEndMsState } : {}),
+  1341→          versionId: activeVersion.id,
+  1342→        }),
+  1343→      });
+  1344→      if (!res.ok) return;
+  1345→      const comment = normalizeComment(await res.json());
+  1346→      addComment(comment);
+  1347→      setComments((prev) => [...prev, comment]);
+  1348→      setNewCommentText('');
+  1349→      setShowCommentInput(false);
+  1350→      setCommentTimestamp(0);
+  1351→      setRangeStartMs(0);
+  1352→      setRangeEndMsState(0);
+  1353→      setIsSelectingRange(false);
+  1354→    } catch {
+  1355→      // Silently fail
+  1356→    }
+  1357→  }, [newCommentText, selectedTrackId, user, commentTimestamp, currentTime, addComment, activeVersion, markerMode, rangeEndMsState]);
+  1358→
+  1359→  const handleEditComment = useCallback(async (commentId: string) => {
+  1360→    if (!editCommentText.trim() || !selectedTrackId) return;
+  1361→    try {
+  1362→      const updateData: Record<string, unknown> = { text: editCommentText.trim() };
+  1363→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1364→        method: 'PUT',
+  1365→        headers: { 'Content-Type': 'application/json' },
+  1366→        body: JSON.stringify(updateData),
+  1367→      });
+  1368→      if (!res.ok) return;
+  1369→      const updated = normalizeComment(await res.json());
+  1370→      updateCommentStore(commentId, { text: updated.text });
+  1371→      setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, text: updated.text } : c)));
+  1372→      setEditingCommentId(null);
+  1373→      setEditCommentText('');
+  1374→      // Emit socket event
+  1375→      socketRef.current?.emit('comment:edit', { trackId: selectedTrackId, commentId, text: updated.text });
+  1376→      toast({ description: 'Комментарий обновлён' });
+  1377→    } catch {
+  1378→      toast({ description: 'Не удалось обновить комментарий', variant: 'destructive' });
+  1379→    }
+  1380→  }, [editCommentText, selectedTrackId, updateCommentStore, toast]);
+  1381→
+  1382→  const handleDeleteComment = useCallback(async (commentId: string) => {
+  1383→    if (!selectedTrackId) return;
+  1384→    try {
+  1385→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1386→        method: 'DELETE',
+  1387→      });
+  1388→      if (!res.ok) return;
+  1389→      removeCommentStore(commentId);
+  1390→      setComments((prev) => prev.filter((c) => c.id !== commentId));
+  1391→      if (focusedCommentId === commentId) setFocusedCommentId(null);
+  1392→      // Emit socket event
+  1393→      socketRef.current?.emit('comment:delete', { trackId: selectedTrackId, commentId });
+  1394→      toast({ description: 'Комментарий удалён' });
+  1395→    } catch {
+  1396→      toast({ description: 'Не удалось удалить комментарий', variant: 'destructive' });
+  1397→    }
+  1398→  }, [selectedTrackId, removeCommentStore, focusedCommentId, toast]);
+  1399→
+  1400→  const handleToggleResolved = useCallback(async (commentId: string, isResolved: boolean) => {
+  1401→    if (!selectedTrackId) return;
+  1402→    try {
+  1403→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments/${commentId}`, {
+  1404→        method: 'PUT',
+  1405→        headers: { 'Content-Type': 'application/json' },
+  1406→        body: JSON.stringify({ isResolved: !isResolved }),
+  1407→      });
+  1408→      if (!res.ok) return;
+  1409→      const updated = normalizeComment(await res.json());
+  1410→      updateCommentStore(commentId, { isResolved: updated.isResolved });
+  1411→      setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, isResolved: updated.isResolved } : c)));
+  1412→      socketRef.current?.emit('comment:edit', { trackId: selectedTrackId, commentId, isResolved: updated.isResolved });
+  1413→      // When resolving, collapse the thread
+  1414→      if (updated.isResolved) {
+  1415→        setCollapsedThreads((prev) => new Set([...prev, commentId]));
+  1416→      }
+  1417→    } catch {
+  1418→      // Silently fail
+  1419→    }
+  1420→  }, [selectedTrackId, updateCommentStore]);
+  1421→
+  1422→  const startEditingComment = useCallback((comment: Comment) => {
+  1423→    setEditingCommentId(comment.id);
+  1424→    setEditCommentText(comment.text);
+  1425→    setReplyingTo(null);
+  1426→    setReplyText('');
+  1427→  }, []);
+  1428→
+  1429→  const cancelEditingComment = useCallback(() => {
+  1430→    setEditingCommentId(null);
+  1431→    setEditCommentText('');
+  1432→  }, []);
+  1433→
+  1434→  // --- WebSocket ---
+  1435→
+  1436→  useEffect(() => {
+  1437→    if (!selectedTrackId) return;
+  1438→
+  1439→    const socket = io('/?XTransformPort=3004');
+  1440→    socketRef.current = socket;
+  1441→
+  1442→    const room = `track:${selectedTrackId}`;
+  1443→    socket.emit('room:join', { room, userId: user?.id, userName: user?.displayName, avatarUrl: user?.avatarUrl });
+  1444→
+  1445→    socket.on('presence:update', (data: any) => {
+  1446→      if (data?.users) {
+  1447→        setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
+  1448→      }
+  1449→    });
+  1450→
+  1451→    socket.on('presence:current', (data: any) => {
+  1452→      if (data?.users) {
+  1453→        setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
+  1454→      }
+  1455→    });
+  1456→
+  1457→    socket.on('comment:new', (raw: any) => {
+  1458→      const comment = normalizeComment(raw);
+  1459→      addComment(comment);
+  1460→      setComments((prev) => {
+  1461→        if (prev.some((c) => c.id === comment.id)) return prev;
+  1462→        return [...prev, comment];
+  1463→      });
+  1464→    });
+  1465→
+  1466→    socket.on('comment:updated', (data: { commentId: string; text?: string; isResolved?: boolean; timestampMs?: number }) => {
+  1467→      updateCommentStore(data.commentId, {
+  1468→        ...(data.text !== undefined ? { text: data.text } : {}),
+  1469→        ...(data.isResolved !== undefined ? { isResolved: data.isResolved } : {}),
+  1470→        ...(data.timestampMs !== undefined ? { timestampMs: data.timestampMs } : {}),
+  1471→      });
+  1472→      setComments((prev) =>
+  1473→        prev.map((c) =>
+  1474→          c.id === data.commentId
+  1475→            ? { ...c, ...(data.text !== undefined ? { text: data.text } : {}), ...(data.isResolved !== undefined ? { isResolved: data.isResolved } : {}), ...(data.timestampMs !== undefined ? { timestampMs: data.timestampMs } : {}) }
+  1476→            : c
+  1477→        )
+  1478→      );
+  1479→    });
+  1480→
+  1481→    socket.on('comment:deleted', (data: { commentId: string }) => {
+  1482→      removeCommentStore(data.commentId);
+  1483→      setComments((prev) => prev.filter((c) => c.id !== data.commentId));
+  1484→      setFocusedCommentId((prev) => (prev === data.commentId ? null : prev));
+  1485→    });
+  1486→
+  1487→    return () => {
+  1488→      socket.emit('room:leave', { room, userId: user?.id });
+  1489→      socket.disconnect();
+  1490→      socketRef.current = null;
+  1491→      setOnlineUserIds(new Set());
+  1492→    };
+  1493→  }, [selectedTrackId, addComment, updateCommentStore, removeCommentStore, user]);
+  1494→
+  1495→  // --- Status Change ---
+  1496→
+  1497→  const handleStatusChange = useCallback(
+  1498→    (newStatus: string) => {
+  1499→      if (!selectedTrackId) return;
+  1500→      updateTrackStatus(selectedTrackId, newStatus);
+  1501→      socketRef.current?.emit('track:update_status', {
+  1502→        trackId: selectedTrackId,
+  1503→        status: newStatus,
+  1504→      });
+  1505→    },
+  1506→    [selectedTrackId, updateTrackStatus]
+  1507→  );
+  1508→
+  1509→  // --- Fetch Versions ---
+  1510→
+  1511→  useEffect(() => {
+  1512→    if (!selectedTrackId) return;
+  1513→    fetch(`/api/tracks/${selectedTrackId}/versions`)
+  1514→      .then((r) => r.json())
+  1515→      .then((data) => {
+  1516→        if (Array.isArray(data)) {
+  1517→          setVersions(data);
+  1518→          // Set active to first version if none selected
+  1519→          if (data.length > 0 && !activeVersionId) {
+  1520→            setActiveVersionId(data[0].id);
+  1521→          }
+  1522→        }
+  1523→      })
+  1524→      .catch(() => {});
+  1525→  }, [selectedTrackId]);
+  1526→
+  1527→  // --- Add Version (via file upload dialog) ---
+  1528→
+  1529→  const handleAddVersion = useCallback(async (file: File, label: string) => {
+  1530→    if (!selectedTrackId || !user) return;
+  1531→
+  1532→    setIsUploadingVersion(true);
+  1533→    setUploadProgress(0);
+  1534→
+  1535→    try {
+  1536→      const formData = new FormData();
+  1537→      formData.append('audio', file);
+  1538→      formData.append('label', label);
+  1539→      formData.append('createdBy', user.id);
+  1540→
+  1541→      const xhr = new XMLHttpRequest();
+  1542→      const url = `/api/tracks/${selectedTrackId}/versions`;
+  1543→
+  1544→      await new Promise<void>((resolve, reject) => {
+  1545→        xhr.upload.addEventListener('progress', (e) => {
+  1546→          if (e.lengthComputable) {
+  1547→            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+  1548→          }
+  1549→        });
+  1550→
+  1551→        xhr.addEventListener('load', () => {
+  1552→          if (xhr.status >= 200 && xhr.status < 300) {
+  1553→            resolve();
+  1554→          } else {
+  1555→            reject(new Error(`Upload failed: ${xhr.status}`));
+  1556→          }
+  1557→        });
+  1558→
+  1559→        xhr.addEventListener('error', () => reject(new Error('Network error')));
+  1560→        xhr.open('POST', url);
+  1561→        xhr.send(formData);
+  1562→      });
+  1563→
+  1564→      // Refresh versions list
+  1565→      const res = await fetch(`/api/tracks/${selectedTrackId}/versions`);
+  1566→      const data = await res.json();
+  1567→      if (Array.isArray(data)) {
+  1568→        setVersions(data);
+  1569→        // Switch to the new version (last one)
+  1570→        if (data.length > 0) {
+  1571→          setActiveVersionId(data[data.length - 1].id);
+  1572→        }
+  1573→      }
+  1574→
+  1575→      setShowAddVersionDialog(false);
+  1576→    } catch {
+  1577→      // Silently fail
+  1578→    } finally {
+  1579→      setIsUploadingVersion(false);
+  1580→      setUploadProgress(0);
+  1581→    }
+  1582→  }, [selectedTrackId, user]);
+  1583→
+  1584→  // --- Reply to Comment ---
+  1585→
+  1586→  const handleReply = useCallback(async () => {
+  1587→    if (!replyingTo || !replyText.trim() || !selectedTrackId || !user || !activeVersion?.id) return;
+  1588→
+  1589→    const directParent = comments.find((c) => c.id === replyingTo);
+  1590→    if (!directParent) return;
+  1591→
+  1592→    // Always find the root comment for flat threading (all replies at same level)
+  1593→    const rootComment = directParent.parentId
+  1594→      ? comments.find((c) => c.id === directParent.parentId) || directParent
+  1595→      : directParent;
+  1596→
+  1597→    try {
+  1598→      const res = await fetch(`/api/tracks/${selectedTrackId}/comments`, {
+  1599→        method: 'POST',
+  1600→        headers: { 'Content-Type': 'application/json' },
+  1601→        body: JSON.stringify({
+  1602→          userId: user.id,
+  1603→          text: replyText.trim(),
+  1604→          timestampMs: rootComment.timestampMs,
+  1605→          versionId: activeVersion.id,
+  1606→          parentId: rootComment.id,
+  1607→        }),
+  1608→      });
+  1609→      if (!res.ok) return;
+  1610→      const reply = normalizeComment(await res.json());
+  1611→      addComment(reply);
+  1612→      setComments((prev) => [...prev, reply]);
+  1613→      // Ensure the root thread is expanded so the new reply is visible
+  1614→      setCollapsedThreads((prev) => {
+  1615→        const next = new Set(prev);
+  1616→        next.delete(rootComment.id);
+  1617→        return next;
+  1618→      });
+  1619→      setReplyText('');
+  1620→      setReplyingTo(null);
+  1621→    } catch {
+  1622→      // Silently fail
+  1623→    }
+  1624→  }, [replyingTo, replyText, selectedTrackId, user, comments, addComment, activeVersion]);
+  1625→
+  1626→  // --- Keyboard Shortcuts ---
+  1627→
+  1628→  useEffect(() => {
+  1629→    const handler = (e: KeyboardEvent) => {
+  1630→      if (
+  1631→        e.target instanceof HTMLInputElement ||
+  1632→        e.target instanceof HTMLTextAreaElement
+  1633→      )
+  1634→        return;
+  1635→
+  1636→      if (e.code === 'Space') {
+  1637→        e.preventDefault();
+  1638→        togglePlay();
+  1639→      } else if (e.code === 'ArrowLeft') {
+  1640→        e.preventDefault();
+  1641→        skip(-5);
+  1642→      } else if (e.code === 'ArrowRight') {
+  1643→        e.preventDefault();
+  1644→        skip(5);
+  1645→      }
+  1646→    };
+  1647→
+  1648→    window.addEventListener('keydown', handler);
+  1649→    return () => window.removeEventListener('keydown', handler);
+  1650→  }, [togglePlay, skip]);
+  1651→
+  1652→  // --- No Track ---
+  1653→
+  1654→  // Build a map of root comment ID → 1-based index for numbering
+  1655→  const commentNumberMap = useMemo(() => {
+  1656→    const roots = comments.filter((c) => activeVersion?.id && c.versionId === activeVersion.id && !c.parentId);
+  1657→    roots.sort((a, b) => a.timestampMs - b.timestampMs);
+  1658→    const map = new Map<string, number>();
+  1659→    roots.forEach((c, i) => map.set(c.id, i + 1));
+  1660→    return map;
+  1661→  }, [comments, activeVersion]);
+  1662→
+  1663→  // Sorted comment tree — applies the user-selected sort mode (date / time / author / status).
+  1664→  // Defaults to "По времени" (timestamp ascending) so original behavior is preserved.
+  1665→  const sortedTree = useMemo(() => {
+  1666→    const versionComments = comments.filter((c) => activeVersion?.id && c.versionId === activeVersion.id);
+  1667→    return buildCommentTree(versionComments, (a, b) => {
+  1668→      switch (sortBy) {
+  1669→        case 'date':
+  1670→          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  1671→        case 'author':
+  1672→          // Locale-aware alphabetical sort by user display name
+  1673→          return a.userName.localeCompare(b.userName, 'ru');
+  1674→        case 'status':
+  1675→          // Resolved-first, then by timestampMs (preserves a sensible secondary order)
+  1676→          if (a.isResolved !== b.isResolved) return a.isResolved ? -1 : 1;
+  1677→          return a.timestampMs - b.timestampMs;
+  1678→        case 'time':
+  1679→        default:
+  1680→          return a.timestampMs - b.timestampMs;
+  1681→      }
+  1682→    });
+  1683→  }, [comments, activeVersion, sortBy]);
+  1684→
+  1685→  // --- Render ---
+  1686→
+  1687→  const progress = duration > 0 ? currentTime / duration : 0;
+  1688→
+  1689→  if (!track) {
+  1690→    return (
+  1691→      <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+  1692→        <div
+  1693→          className="relative flex flex-col items-center gap-3 p-6"
+  1694→          style={{
+  1695→            background: BG_PANEL,
+  1696→            border: `1px solid ${hexToRgba(C, 0.4)}`,
+  1697→            clipPath: CHAMFER_8,
+  1698→            boxShadow: INSET_BEVEL_SHADOW,
+  1699→          }}
+  1700→        >
+  1701→          <CornerBrackets size={12} />
+  1702→          <Music2 className="h-12 w-12" style={{ color: hexToRgba(Y, 0.5) }} />
+  1703→          <p className="text-sm" style={{ color: TEXT_SECONDARY, fontFamily: 'var(--font-jetbrains-mono), monospace' }}>Нет выбранного трека</p>
+  1704→          <Button
+  1705→            variant="outline"
+  1706→            size="sm"
+  1707→            className="border-0 rounded-none"
+  1708→            style={{
+  1709→              ...YELLOW_BUTTON_STYLE,
+  1710→              paddingRight: '12px',
+  1711→              paddingLeft: '12px',
+  1712→              paddingTop: '5px',
+  1713→              paddingBottom: '5px',
+  1714→            }}
+  1715→            onClick={() => navigate('project-detail', selectedProjectId ?? undefined)}
+  1716→          >
+  1717→            <ArrowLeft className="mr-2 h-4 w-4" />
+  1718→            Назад к проекту
+  1719→          </Button>
+  1720→        </div>
+  1721→      </div>
+  1722→    );
+  1723→  }
+  1724→
+  1725→  return (
+  1726→    <div
+  1727→      className="flex h-full flex-col"
+  1728→      style={{
+  1729→        // Override global purple (#8A2BE2) defaults — these CSS variables cascade
+  1730→        // to all shadcn components (Select, Tooltip, Badge, Button) inside this view
+  1731→        // so popups/tooltips/hover states read as cyberpunk 2077 HUD instead of
+  1732→        // the default purple theme defined in globals.css.
+  1733→        ['--primary' as any]: Y,
+  1734→        ['--primary-foreground' as any]: '#0a0b10',
+  1735→        ['--accent' as any]: BG_MAIN,
+  1736→        ['--accent-foreground' as any]: C,
+  1737→        ['--ring' as any]: Y,
+  1738→        ['--popover' as any]: BG_PANEL,
+  1739→        ['--popover-foreground' as any]: TEXT_PRIMARY,
+  1740→        ['--secondary' as any]: BG_PANEL,
+  1741→        ['--secondary-foreground' as any]: TEXT_PRIMARY,
+  1742→        ['--muted' as any]: BG_MAIN,
+  1743→        ['--muted-foreground' as any]: TEXT_SECONDARY,
+  1744→      } as React.CSSProperties}
+  1745→    >
+  1746→      {/* Contextual row — ideas strip + status selector.
+  1747→          Back button, title, and "Open in Kanban" action have moved to the
+  1748→          unified AppHeader (breadcrumbs + header-actions store). */}
+  1749→      <motion.div
+  1750→        initial={{ opacity: 0, y: -8 }}
+  1751→        animate={{ opacity: 1, y: 0 }}
+  1752→        transition={{ duration: 0.3 }}
+  1753→        className="flex items-center gap-3 px-4 py-3 lg:px-6"
+  1754→        style={{ borderBottom: `1px solid ${hexToRgba(C, 0.2)}` }}
+  1755→      >
+  1756→        <div className="min-w-0 flex-1">
+  1757→          {/* Ideas Stories Strip — in header area */}
+  1758→          <IdeasStoriesStrip
+  1759→            ideas={projectIdeas}
+  1760→            sourceIdeaId={track.sourceIdeaId ?? undefined}
+  1761→            projectName={projectOfTrack?.title ?? ''}
+  1762→          />
+  1763→        </div>
+  1764→
+  1765→        {/* Status selector — Cyberpunk 2077 HUD: dark bg, cyan border, chamfered,
+  1766→            yellow monospace text, cyan-on-hover options */}
+  1767→        <Select value={track.status} onValueChange={handleStatusChange}>
+  1768→          <SelectTrigger
+  1769→            size="sm"
+  1770→            className="w-[150px] shrink-0 h-8 border-0 rounded-none hover:!bg-[#0a0c10] data-[state=open]:!bg-[#0a0c10]"
+  1771→            style={{
+  1772→              background: BG_PANEL,
+  1773→              border: `1px solid ${hexToRgba(C, 0.5)}`,
+  1774→              clipPath: CHAMFER_4,
+  1775→              color: Y,
+  1776→              fontFamily: 'var(--font-jetbrains-mono), monospace',
+  1777→              fontSize: '11px',
+  1778→              fontWeight: 700,
+  1779→              letterSpacing: '1px',
+  1780→              textTransform: 'uppercase',
+  1781→              boxShadow: INSET_BEVEL_SHADOW,
+  1782→            }}
+  1783→          >
+  1784→            <div className="flex items-center gap-1.5">
+  1785→              <span
+  1786→                className="h-1.5 w-1.5 rounded-full"
+  1787→                style={{
+  1788→                  backgroundColor: statusDotColors[track.status] || A,
+  1789→                  boxShadow: `0 0 4px ${hexToRgba(statusDotColors[track.status] || A, 0.8)}`,
+  1790→                }}
+  1791→              />
+  1792→              <SelectValue />
+  1793→              <ChevronDown className="h-3 w-3 ml-auto opacity-70" style={{ color: Y }} />
+  1794→            </div>
+  1795→          </SelectTrigger>
+  1796→          <SelectContent
+  1797→            className="border-0 rounded-none p-1 min-w-[180px]"
+  1798→            style={{
+  1799→              background: BG_PANEL,
+  1800→              border: `1px solid ${hexToRgba(C, 0.5)}`,
+  1801→              clipPath: CHAMFER_4,
+  1802→              boxShadow: `0 0 16px rgba(0,0,0,0.7), ${INSET_BEVEL_SHADOW}`,
+  1803→            }}
+  1804→          >
+  1805→            {STATUS_OPTIONS.map((status) => (
+  1806→              <SelectItem
+  1807→                key={status}
+  1808→                value={status}
+  1809→                className="focus:!bg-[#0a0c10] focus:!text-[#00a8c6] data-[highlighted]:!bg-[#0a0c10] data-[highlighted]:!text-[#00a8c6] hover:!bg-[#0a0c10] hover:!text-[#00a8c6] !text-[#c7a008] border-0 rounded-none"
+  1810→                style={{
+  1811→                  fontFamily: 'var(--font-jetbrains-mono), monospace',
+  1812→                  fontSize: '11px',
+  1813→                  fontWeight: 600,
+  1814→                  letterSpacing: '0.5px',
+  1815→                  clipPath: CHAMFER_3,
+  1816→                  padding: '4px 8px',
+  1817→                }}
+  1818→              >
+  1819→                <span className="flex items-center gap-1.5">
+  1820→                  <span
+  1821→                    className="h-1.5 w-1.5 rounded-full"
+  1822→                    style={{
+  1823→                      backgroundColor: statusDotColors[status] || A,
+  1824→                      boxShadow: `0 0 4px ${hexToRgba(statusDotColors[status] || A, 0.6)}`,
+  1825→                    }}
+  1826→                  />
+  1827→                  {statusLabels[status] || status}
+  1828→                </span>
+  1829→              </SelectItem>
+  1830→            ))}
+  1831→          </SelectContent>
+  1832→        </Select>
+  1833→      </motion.div>
+  1834→
+  1835→      {/* ─── Kanban Progress Panel — track + project stats tree ─── */}
+  1836→      <div
+  1837→        className="relative shrink-0 px-4 py-3 lg:px-6"
+  1838→        style={{
+  1839→          borderBottom: `1px solid ${hexToRgba(C, 0.2)}`,
+  1840→        }}
+  1841→      >
+  1842→        <div
+  1843→          className="relative"
+  1844→          style={{
+  1845→            background: `linear-gradient(135deg, ${BG_PANEL} 0%, ${BG_MAIN} 100%)`,
+  1846→            border: `1px solid ${hexToRgba(Y, 0.5)}`,
+  1847→            clipPath: CHAMFER_8,
+  1848→            boxShadow: `inset 0 1px 1px rgba(255,255,255,0.06), inset 0 -1px 1px rgba(0,0,0,0.8), 0 0 8px ${hexToRgba(Y, 0.15)}`,
+  1849→          }}
+  1850→        >
+  1851→          <CornerBrackets size={12} />
+  1852→
+  1853→          <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-3 lg:p-4">
+  1854→            {/* Track progress — spans 2 columns on lg */}
+  1855→            <div className="lg:col-span-2">
+  1856→              {/* Section title */}
+  1857→              <div className="mb-2 flex items-center gap-2">
+  1858→                <Zap className="h-4 w-4" style={{ color: Y, filter: `drop-shadow(0 0 4px ${hexToRgba(Y, 0.6)})` }} />
+  1859→                <h3
+  1860→                  className="text-[13px]"
+  1861→                  style={{
+  1862→                    ...SECTION_TITLE_STYLE,
+  1863→                    fontSize: '13px',
+  1864→                    letterSpacing: '2px',
+  1865→                  }}
+  1866→                >
+  1867→                  Прогресс трека
+  1868→                </h3>
+  1869→              </div>
+  1870→
+  1871→              {/* Waveform progress bar */}
+  1872→              <WaveformProgressBar
+  1873→                progress={trackProgress.pct}
+  1874→                accentColor={Y}
+  1875→                height={32}
+  1876→                bars={24}
+  1877→              />
+  1878→
+  1879→              {/* Compact stats row — colored status dots */}
+  1880→              <div
+  1881→                className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px]"
+  1882→                style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+  1883→              >
+  1884→                <StatDot label="ВСЕГО" count={trackProgress.total} color={A} />
+  1885→                <StatDot label="ГОТОВО" count={trackProgress.done} color={G} />
+  1886→                <StatDot label="В РАБОТЕ" count={trackProgress.inProgress} color={C} />
+  1887→                <StatDot label="ПРОВЕРКА" count={trackProgress.review} color={Y} />
+  1888→                <StatDot label="TODO" count={trackProgress.todo} color={A} />
+  1889→              </div>
+  1890→
+  1891→              {/* Tree-like breakdown — one row per trackTask with mini progress bar */}
+  1892→              {trackTasks.length > 0 && (
+  1893→                <div
+  1894→                  className="mt-3 max-h-44 overflow-y-auto pr-1"
+  1895→                  style={{
+  1896→                    scrollbarWidth: 'thin',
+  1897→                    scrollbarColor: `${hexToRgba(Y, 0.4)} transparent`,
+  1898→                  }}
+  1899→                >
+  1900→                  <div className="flex flex-col gap-1.5">
+  1901→                    {trackTasks.map((tt) => {
+  1902→                      const subtasks = countAllDescendants([tt]);
+  1903→                      const subTotal = subtasks.length;
+  1904→                      const subDone = subtasks.filter((c) => c.status === 'done').length;
+  1905→                      const subPct = subTotal > 0 ? Math.round((subDone / subTotal) * 100) : 0;
+  1906→                      return (
+  1907→                        <div
+  1908→                          key={tt.id}
+  1909→                          className="flex items-center gap-2 px-2 py-1"
+  1910→                          style={{
+  1911→                            background: BG_MAIN,
+  1912→                            border: `1px solid ${hexToRgba(C, 0.2)}`,
+  1913→                            clipPath: CHAMFER_3,
+  1914→                          }}
+  1915→                        >
+  1916→                          {/* Tree connector */}
+  1917→                          <span
+  1918→                            className="select-none"
+  1919→                            style={{ color: hexToRgba(Y, 0.5), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}
+  1920→                          >
+  1921→                            ├─
+  1922→                          </span>
+  1923→                          {/* Title */}
+  1924→                          <span
+  1925→                            className="min-w-0 flex-1 truncate"
+  1926→                            style={{
+  1927→                              color: TEXT_PRIMARY,
+  1928→                              fontFamily: 'var(--font-rajdhani), sans-serif',
+  1929→                              fontSize: '12px',
+  1930→                              fontWeight: 600,
+  1931→                            }}
+  1932→                            title={tt.title}
+  1933→                          >
+  1934→                            {tt.title}
+  1935→                          </span>
+  1936→                          {/* Mini progress bar */}
+  1937→                          <div
+  1938→                            className="relative h-1.5 w-20 shrink-0"
+  1939→                            style={{
+  1940→                              background: BG_MAIN,
+  1941→                              border: `0.5px solid ${hexToRgba(Y, 0.3)}`,
+  1942→                              clipPath: CHAMFER_3,
+  1943→                              boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.7)',
+  1944→                            }}
+  1945→                          >
+  1946→                            <div
+  1947→                              className="absolute inset-y-0 left-0"
+  1948→                              style={{
+  1949→                                width: `${subPct}%`,
+  1950→                                background: `linear-gradient(to right, ${P}, ${Y})`,
+  1951→                                boxShadow: `0 0 4px ${hexToRgba(Y, 0.5)}`,
+  1952→                                transition: 'width 220ms ease',
+  1953→                              }}
+  1954→                            />
+  1955→                          </div>
+  1956→                          {/* Done/total count */}
+  1957→                          <span
+  1958→                            className="shrink-0 tabular-nums"
+  1959→                            style={{
+  1960→                              color: subDone === subTotal && subTotal > 0 ? G : Y,
+  1961→                              fontFamily: 'var(--font-jetbrains-mono), monospace',
+  1962→                              fontSize: '10px',
+  1963→                              fontWeight: 700,
+  1964→                              minWidth: '34px',
+  1965→                              textAlign: 'right',
+  1966→                            }}
+  1967→                          >
+  1968→                            {subDone}/{subTotal}
+  1969→                          </span>
+  1970→                        </div>
+  1971→                      );
+  1972→                    })}
+  1973→                  </div>
+  1974→                </div>
+  1975→              )}
+  1976→            </div>
+  1977→
+  1978→            {/* Project progress — compact summary, 1 column */}
+  1979→            <div
+  1980→              className="relative flex flex-col justify-between gap-2 p-2.5 lg:p-3"
+  1981→              style={{
+  1982→                background: BG_MAIN,
+  1983→                border: `1px solid ${hexToRgba(C, 0.35)}`,
+  1984→                clipPath: CHAMFER_5,
+  1985→                boxShadow: INSET_BEVEL_SHADOW,
+  1986→              }}
+  1987→            >
+  1988→              <div>
+  1989→                <div className="mb-1.5 flex items-center gap-1.5">
+  1990→                  <LayoutDashboard className="h-3.5 w-3.5" style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.5)})` }} />
+  1991→                  <span
+  1992→                    className="text-[10px]"
+  1993→                    style={{
+  1994→                      ...SECTION_TITLE_STYLE,
+  1995→                      fontSize: '10px',
+  1996→                      letterSpacing: '1.5px',
+  1997→                    }}
+  1998→                  >
+  1999→                    Проект
+  2000→                  </span>
+
+[showing lines 1-2000 of 4127; use offset=2001 with limit to continue reading]

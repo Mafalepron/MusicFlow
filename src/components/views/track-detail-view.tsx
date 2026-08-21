@@ -288,42 +288,28 @@ function DoubleCheckIcon({ className }: { className?: string }) {
   );
 }
 
+// Cyberpunk 2077 status palette — 4 simplified statuses (waiting / in_progress / review / ready)
 const statusDotColors: Record<string, string> = {
-  idea: '#c7a008',
-  recording: '#00a8c6',
-  mixing: '#7b2cbf',
-  final: '#4a8d6f',
-  // Cyberpunk 2077 status palette — muted colors per HUD spec
-  draft: '#00a8c6',
-  in_progress: '#00a8c6',
-  mastering: '#4a8d6f',
-  released: '#00a8c6',
-  review: '#c7a008',
+  waiting: '#9ca3af', // gray
+  in_progress: '#3b82f6', // blue
+  review: '#f59e0b', // orange
+  ready: '#10b981', // green
 };
 
 // Russian labels for track statuses (Cyberpunk 2077 HUD)
 const statusLabels: Record<string, string> = {
-  draft: 'Черновик',
+  waiting: 'Ожидает',
   in_progress: 'В работе',
-  mixing: 'Сведение',
-  mastering: 'Мастеринг',
-  released: 'Релиз',
-  recording: 'Запись',
-  review: 'Проверка',
-  // Legacy statuses (backward compat with existing data)
-  idea: 'Идея',
-  final: 'Финал',
+  review: 'На проверке',
+  ready: 'Готов',
 };
 
 // Ordered list of statuses shown in the Select dropdown
 const STATUS_OPTIONS: string[] = [
-  'draft',
+  'waiting',
   'in_progress',
-  'mixing',
-  'mastering',
-  'released',
-  'recording',
   'review',
+  'ready',
 ];
 
 // --- Helpers ---
@@ -729,6 +715,112 @@ export function TrackDetailView() {
   const [editCommentText, setEditCommentText] = useState('');
 
   const { toast } = useToast();
+
+  // Track profile editing state (cover / description / genre)
+  const updateTrack = useDataStore((s) => s.updateTrack);
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descDraft, setDescDraft] = useState('');
+  const [savingDesc, setSavingDesc] = useState(false);
+  const [editingGenre, setEditingGenre] = useState(false);
+  const [genreDraft, setGenreDraft] = useState('');
+  const [savingGenre, setSavingGenre] = useState(false);
+  const [editingCover, setEditingCover] = useState(false);
+  const [coverDraft, setCoverDraft] = useState('');
+  const [savingCover, setSavingCover] = useState(false);
+  const [coverImgError, setCoverImgError] = useState(false);
+
+  // Reset transient editing state whenever the active track changes.
+  useEffect(() => {
+    setEditingDesc(false);
+    setEditingGenre(false);
+    setEditingCover(false);
+    setCoverImgError(false);
+    setDescDraft(track?.description ?? '');
+    setGenreDraft(track?.genre ?? '');
+    setCoverDraft(track?.coverUrl ?? '');
+  }, [selectedTrackId, track?.description, track?.genre, track?.coverUrl]);
+
+  const startEditDesc = useCallback(() => {
+    setDescDraft(track?.description ?? '');
+    setEditingDesc(true);
+  }, [track?.description]);
+
+  const saveDescription = useCallback(async () => {
+    if (!track) return;
+    const next = descDraft.trim();
+    if (next === (track.description ?? '')) {
+      setEditingDesc(false);
+      return;
+    }
+    setSavingDesc(true);
+    try {
+      const res = await fetch(`/api/tracks/${track.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: next || null }),
+      });
+      if (!res.ok) throw new Error('save description failed');
+      const data = await res.json();
+      updateTrack(track.id, {
+        description: data.description ?? null,
+      });
+      setEditingDesc(false);
+      toast({ description: 'Описание обновлено' });
+    } catch {
+      toast({ description: 'Не удалось сохранить описание', variant: 'destructive' });
+    } finally {
+      setSavingDesc(false);
+    }
+  }, [track, descDraft, updateTrack, toast]);
+
+  const saveGenre = useCallback(async () => {
+    if (!track) return;
+    const next = genreDraft.trim();
+    if (next === (track.genre ?? '')) {
+      setEditingGenre(false);
+      return;
+    }
+    setSavingGenre(true);
+    try {
+      const res = await fetch(`/api/tracks/${track.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ genre: next || null }),
+      });
+      if (!res.ok) throw new Error('save genre failed');
+      const data = await res.json();
+      updateTrack(track.id, { genre: data.genre ?? null });
+      setEditingGenre(false);
+      toast({ description: 'Жанр обновлён' });
+    } catch {
+      toast({ description: 'Не удалось сохранить жанр', variant: 'destructive' });
+    } finally {
+      setSavingGenre(false);
+    }
+  }, [track, genreDraft, updateTrack, toast]);
+
+  const saveCover = useCallback(async () => {
+    if (!track) return;
+    const next = coverDraft.trim();
+    setSavingCover(true);
+    try {
+      const res = await fetch(`/api/tracks/${track.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coverUrl: next || null }),
+      });
+      if (!res.ok) throw new Error('save cover failed');
+      const data = await res.json();
+      updateTrack(track.id, { coverUrl: data.coverUrl ?? null });
+      setCoverImgError(false);
+      setEditingCover(false);
+      toast({ description: 'Обложка обновлена' });
+    } catch {
+      toast({ description: 'Не удалось сохранить обложку', variant: 'destructive' });
+    } finally {
+      setSavingCover(false);
+    }
+  }, [track, coverDraft, updateTrack, toast]);
 
   // Version state
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
@@ -1866,7 +1958,268 @@ export function TrackDetailView() {
                 >
                   Прогресс трека
                 </h3>
+
+                {/* Open-in-Kanban quick link — only when the project has a linked kanban task */}
+                {projectOfTrack?.kanbanTaskId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const project = useDataStore
+                        .getState()
+                        .projects.find((p) => p.id === selectedProjectId);
+                      if (!project?.kanbanTaskId) return;
+                      useNavigationStore.getState().navigate('kanban');
+                      const taskId = project.kanbanTaskId;
+                      setTimeout(() => {
+                        useKanbanStore.getState().selectProject(taskId);
+                      }, 300);
+                    }}
+                    className="ml-auto flex h-7 items-center gap-1.5 px-2.5 text-[10px] uppercase transition-transform hover:-translate-y-0.5"
+                    style={{
+                      background: BG_PANEL,
+                      border: `1px solid ${hexToRgba(C, 0.5)}`,
+                      clipPath: CHAMFER_4,
+                      color: C,
+                      fontFamily: 'var(--font-jetbrains-mono), monospace',
+                      fontWeight: 700,
+                      letterSpacing: '1px',
+                      boxShadow: INSET_BEVEL_SHADOW,
+                    }}
+                    title="Открыть в Канбане"
+                  >
+                    <LayoutDashboard
+                      className="h-3 w-3"
+                      style={{ color: C, filter: `drop-shadow(0 0 3px ${hexToRgba(C, 0.5)})` }}
+                    />
+                    Открыть в Канбане
+                  </button>
+                )}
               </div>
+
+              {/* Track profile — cover / description / genre (inline-editable) */}
+              {track && (
+                <div
+                  className="mb-3 flex gap-3 p-2"
+                  style={{
+                    background: BG_MAIN,
+                    border: `1px solid ${hexToRgba(C, 0.25)}`,
+                    clipPath: CHAMFER_4,
+                    boxShadow: INSET_BEVEL_SHADOW,
+                  }}
+                >
+                  {/* Cover image — rounded square frame with neon border */}
+                  <div className="shrink-0">
+                    <div
+                      className="relative h-16 w-16 overflow-hidden"
+                      style={{
+                        borderRadius: '6px',
+                        border: `1.5px solid ${hexToRgba(Y, 0.6)}`,
+                        boxShadow: `0 0 8px ${hexToRgba(Y, 0.35)}, inset 0 0 6px rgba(0,0,0,0.6)`,
+                        background: BG_PANEL,
+                      }}
+                    >
+                      {track.coverUrl && !coverImgError ? (
+                        <img
+                          src={track.coverUrl}
+                          alt={track.title}
+                          className="h-full w-full object-cover"
+                          onError={() => setCoverImgError(true)}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Music2 className="h-5 w-5" style={{ color: hexToRgba(Y, 0.5) }} />
+                        </div>
+                      )}
+                    </div>
+                    {/* Cover edit / add */}
+                    <div className="mt-1 flex justify-center">
+                      {editingCover ? (
+                        <div className="flex flex-col gap-1">
+                          <input
+                            type="url"
+                            value={coverDraft}
+                            onChange={(e) => setCoverDraft(e.target.value)}
+                            placeholder="https://..."
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                                e.preventDefault();
+                                void saveCover();
+                              }
+                              if (e.key === 'Escape') {
+                                setEditingCover(false);
+                                setCoverDraft(track.coverUrl ?? '');
+                              }
+                            }}
+                            className="w-32 bg-transparent px-1 py-0.5 text-[9px]"
+                            style={{
+                              color: TEXT_PRIMARY,
+                              border: `1px solid ${hexToRgba(C, 0.5)}`,
+                              fontFamily: 'var(--font-jetbrains-mono), monospace',
+                            }}
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => void saveCover()}
+                              disabled={savingCover}
+                              className="px-1 text-[9px] uppercase"
+                              style={{ color: G, fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                            >
+                              {savingCover ? '...' : 'OK'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCover(false);
+                                setCoverDraft(track.coverUrl ?? '');
+                              }}
+                              disabled={savingCover}
+                              className="px-1 text-[9px] uppercase"
+                              style={{ color: A, fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCoverDraft(track.coverUrl ?? '');
+                            setEditingCover(true);
+                          }}
+                          className="flex items-center gap-1 text-[9px] uppercase transition-colors hover:opacity-80"
+                          style={{ color: C, fontFamily: 'var(--font-jetbrains-mono), monospace' }}
+                        >
+                          <Pencil className="h-2.5 w-2.5" />
+                          {track.coverUrl ? 'Сменить' : 'Добавить'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Description + genre */}
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    {/* Genre row */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="shrink-0 text-[9px] uppercase"
+                        style={{
+                          color: hexToRgba(Y, 0.7),
+                          fontFamily: 'var(--font-jetbrains-mono), monospace',
+                          letterSpacing: '1px',
+                        }}
+                      >
+                        Жанр
+                      </span>
+                      {editingGenre ? (
+                        <input
+                          value={genreDraft}
+                          onChange={(e) => setGenreDraft(e.target.value)}
+                          onBlur={() => void saveGenre()}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveGenre();
+                            }
+                            if (e.key === 'Escape') {
+                              setEditingGenre(false);
+                              setGenreDraft(track.genre ?? '');
+                            }
+                          }}
+                          className="min-w-0 flex-1 bg-transparent px-1.5 py-0.5 text-[11px]"
+                          style={{
+                            color: TEXT_PRIMARY,
+                            border: `1px solid ${hexToRgba(C, 0.5)}`,
+                            fontFamily: 'var(--font-rajdhani), sans-serif',
+                          }}
+                          placeholder="Рок, Электроника, Хип-хоп…"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGenreDraft(track.genre ?? '');
+                            setEditingGenre(true);
+                          }}
+                          className="min-w-0 flex-1 truncate px-1.5 py-0.5 text-left text-[11px] transition-colors hover:opacity-80"
+                          style={{
+                            color: track.genre ? TEXT_PRIMARY : hexToRgba(A, 0.7),
+                            fontFamily: 'var(--font-rajdhani), sans-serif',
+                            fontStyle: track.genre ? 'normal' : 'italic',
+                            border: `1px dashed ${hexToRgba(C, 0.3)}`,
+                          }}
+                          title={track.genre ?? 'Добавить жанр'}
+                        >
+                          {track.genre || 'Добавить жанр…'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Description block */}
+                    <div className="flex min-h-[48px] flex-1 flex-col">
+                      <span
+                        className="mb-0.5 shrink-0 text-[9px] uppercase"
+                        style={{
+                          color: hexToRgba(Y, 0.7),
+                          fontFamily: 'var(--font-jetbrains-mono), monospace',
+                          letterSpacing: '1px',
+                        }}
+                      >
+                        Описание
+                      </span>
+                      {editingDesc ? (
+                        <textarea
+                          value={descDraft}
+                          onChange={(e) => setDescDraft(e.target.value)}
+                          autoFocus
+                          rows={3}
+                          onKeyDown={(e) => {
+                            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                              e.preventDefault();
+                              void saveDescription();
+                            }
+                            if (e.key === 'Escape') {
+                              setEditingDesc(false);
+                              setDescDraft(track.description ?? '');
+                            }
+                          }}
+                          onBlur={() => void saveDescription()}
+                          className="min-h-[48px] w-full resize-none bg-transparent px-1.5 py-1 text-[11px] leading-relaxed"
+                          style={{
+                            color: TEXT_PRIMARY,
+                            border: `1px solid ${hexToRgba(C, 0.5)}`,
+                            fontFamily: 'var(--font-rajdhani), sans-serif',
+                          }}
+                          placeholder="Опишите этот трек — настроение, идеи, заметки…"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={startEditDesc}
+                          className="min-h-[48px] w-full flex-1 px-1.5 py-1 text-left text-[11px] leading-relaxed transition-colors hover:opacity-80"
+                          style={{
+                            color: track.description ? TEXT_PRIMARY : hexToRgba(A, 0.7),
+                            fontFamily: 'var(--font-rajdhani), sans-serif',
+                            fontStyle: track.description ? 'normal' : 'italic',
+                            border: `1px dashed ${hexToRgba(C, 0.3)}`,
+                          }}
+                        >
+                          {track.description || 'Добавить описание трека…'}
+                        </button>
+                      )}
+                      {editingDesc && (
+                        <div className="mt-1 flex items-center gap-2 text-[9px] uppercase" style={{ fontFamily: 'var(--font-jetbrains-mono), monospace' }}>
+                          <span style={{ color: hexToRgba(A, 0.7) }}>Ctrl+Enter — сохранить · Esc — отмена</span>
+                          <span style={{ color: savingDesc ? Y : 'transparent' }}>{savingDesc ? 'сохранение…' : ''}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Waveform progress bar */}
               <WaveformProgressBar
@@ -2014,24 +2367,6 @@ export function TrackDetailView() {
 
               {projectProgress ? (
                 <>
-                  {/* Big percentage readout */}
-                  <div className="flex items-baseline gap-1">
-                    <span
-                      className="tabular-nums"
-                      style={{
-                        color: Y,
-                        fontFamily: 'var(--font-jetbrains-mono), monospace',
-                        fontSize: '24px',
-                        fontWeight: 800,
-                        lineHeight: 1,
-                        textShadow: `0 0 6px ${hexToRgba(Y, 0.5)}`,
-                      }}
-                    >
-                      {projectProgress.pct}
-                    </span>
-                    <span style={{ color: hexToRgba(Y, 0.6), fontFamily: 'var(--font-jetbrains-mono), monospace', fontSize: '10px' }}>%</span>
-                  </div>
-
                   {/* Mini project progress bar */}
                   <div
                     className="relative h-1.5 w-full"
@@ -3939,7 +4274,7 @@ function AddVersionDialog({
   return (
     <Dialog open={open} onOpenChange={handleDialogOpen}>
       <DialogContent
-        className="relative border-0 rounded-none sm:max-w-md"
+        className="border-0 rounded-none sm:max-w-md"
         style={{
           background: BG_PANEL,
           border: `1px solid ${hexToRgba(Y, 0.5)}`,

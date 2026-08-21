@@ -38,11 +38,21 @@ export interface MemberInfo {
 export interface Project {
   id: string;
   groupId: string;
+  folderId?: string | null;
   title: string;
   type: string;
   coverUrl?: string;
   status: string;
   kanbanTaskId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Folder {
+  id: string;
+  groupId: string;
+  title: string;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +80,9 @@ export interface Track {
   audioUrl: string;
   waveformUrl?: string;
   durationMs?: number;
+  coverUrl?: string;
+  description?: string;
+  genre?: string;
   status: string;
   version: number;
   createdBy: string;
@@ -154,6 +167,7 @@ interface DataState {
   groups: Group[];
   currentGroup: Group | null;
   projects: Project[];
+  folders: Folder[];
   ideas: Idea[];
   tracks: Track[];
   comments: Comment[];
@@ -164,6 +178,7 @@ interface DataState {
   setGroups: (groups: Group[]) => void;
   setCurrentGroup: (group: Group | null) => void;
   setProjects: (projects: Project[]) => void;
+  setFolders: (folders: Folder[]) => void;
   setIdeas: (ideas: Idea[]) => void;
   setTracks: (tracks: Track[]) => void;
   setComments: (comments: Comment[]) => void;
@@ -177,9 +192,14 @@ interface DataState {
   addMessage: (message: ChatMessage) => void;
   removeIdea: (id: string) => void;
   addProject: (project: Project) => void;
+  addFolder: (folder: Folder) => void;
+  updateFolder: (id: string, updates: Partial<Folder>) => void;
+  removeFolder: (id: string) => void;
   addIdea: (idea: Idea) => void;
   addTrack: (track: Track) => void;
+  updateTrack: (id: string, updates: Partial<Track>) => void;
   updateTrackStatus: (id: string, status: string) => void;
+  updateProjectFolder: (id: string, folderId: string | null) => void;
 }
 
 export const useNavigationStore = create<NavigationState>((set) => ({
@@ -218,6 +238,7 @@ export const useDataStore = create<DataState>((set) => ({
   groups: [],
   currentGroup: null,
   projects: [],
+  folders: [],
   ideas: [],
   tracks: [],
   comments: [],
@@ -228,6 +249,7 @@ export const useDataStore = create<DataState>((set) => ({
   setGroups: (groups) => set({ groups }),
   setCurrentGroup: (group) => set({ currentGroup: group }),
   setProjects: (projects) => set({ projects }),
+  setFolders: (folders) => set({ folders }),
   setIdeas: (ideas) => set({ ideas }),
   setTracks: (tracks) => set({ tracks }),
   setComments: (comments) => set({ comments }),
@@ -249,12 +271,28 @@ export const useDataStore = create<DataState>((set) => ({
     set((state) => ({ ideas: state.ideas.filter((i) => i.id !== id) })),
   addProject: (project) =>
     set((state) => ({ projects: [...state.projects, project] })),
+  addFolder: (folder) =>
+    set((state) => ({ folders: [...state.folders, folder] })),
+  updateFolder: (id, updates) =>
+    set((state) => ({
+      folders: state.folders.map((f) => (f.id === id ? { ...f, ...updates } : f)),
+    })),
+  removeFolder: (id) =>
+    set((state) => ({ folders: state.folders.filter((f) => f.id !== id) })),
   addIdea: (idea) =>
     set((state) => ({ ideas: [...state.ideas, idea] })),
   addTrack: (track) =>
     set((state) => ({ tracks: [...state.tracks, track] })),
+  updateTrack: (id, updates) =>
+    set((state) => ({
+      tracks: state.tracks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    })),
   updateTrackStatus: (id, status) =>
     set((state) => ({
       tracks: state.tracks.map((t) => (t.id === id ? { ...t, status } : t)),
+    })),
+  updateProjectFolder: (id, folderId) =>
+    set((state) => ({
+      projects: state.projects.map((p) => (p.id === id ? { ...p, folderId } : p)),
     })),
 }));

@@ -1,0 +1,1169 @@
+     1→     1→'use client';
+     2→     2→
+     3→     3→import { useState, useMemo, useEffect } from 'react';
+     4→     4→import { motion } from 'framer-motion';
+     5→     5→import { formatDistanceToNow } from 'date-fns';
+     6→     6→import {
+     7→     7→  Plus, FolderOpen, FolderInput, LayoutDashboard, Music2, Disc3, AudioLines, Clock,
+     8→     8→  Search, X, Layers, Star, ChevronDown, Check, Trash2, FolderPlus,
+     9→     9→} from 'lucide-react';
+    10→    10→import { useNavigationStore, useDataStore, useAuthStore, type Project, type Folder } from '@/lib/store';
+    11→    11→import { useKanbanStore, type Task } from '@/store/kanban-store';
+    12→    12→import { CreateProjectDialog } from '@/components/shared/create-project-dialog';
+    13→    13→import { hexToRgba } from '@/lib/utils';
+    14→    14→import { useFavorites } from '@/lib/use-favorites';
+    15→    15→import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+    16→    16→
+    17→    17→const statusHex: Record<string, string> = {
+    18→    18→  in_progress: '#3b82f6',
+    19→    19→  mixing: '#a855f7',
+    20→    20→  mastering: '#00d9ff',
+    21→    21→  released: '#10b981',
+    22→    22→};
+    23→    23→
+    24→    24→const statusLabels: Record<string, string> = {
+    25→    25→  in_progress: 'В работе',
+    26→    26→  mixing: 'Сведение',
+    27→    27→  mastering: 'Мастеринг',
+    28→    28→  released: 'Релиз',
+    29→    29→};
+    30→    30→
+    31→    31→const typeConfig: Record<string, { label: string; color: string; icon: typeof Disc3 }> = {
+    32→    32→  album:   { label: 'Альбом',  color: '#a855f7', icon: Disc3 },
+    33→    33→  ep:      { label: 'EP',      color: '#00d9ff', icon: AudioLines },
+    34→    34→  single:  { label: 'Сингл',   color: '#f59e0b', icon: Music2 },
+    35→    35→  general: { label: 'Стандартный Канбан',  color: '#10b981', icon: LayoutDashboard },
+    36→    36→};
+    37→    37→
+    38→    38→const containerVariants = {
+    39→    39→  hidden: { opacity: 0 },
+    40→    40→  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+    41→    41→} as const;
+    42→    42→
+    43→    43→const cardVariants = {
+    44→    44→  hidden: { opacity: 0, y: 20 },
+    45→    45→  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' as const } },
+    46→    46→} as const;
+    47→    47→
+    48→    48→// ── Unified card for both auto projects and kanban projects ──
+    49→    49→// `kind` distinguishes the source so we render the right badge + open the right view.
+    50→    50→type UnifiedCard =
+    51→    51→  | { kind: 'auto'; project: Project; trackCount: number }
+    52→    52→  | { kind: 'kanban'; task: Task; boardCount: number };
+    53→    53→
+    54→    54→// Helper: get the underlying SoundFlow project ID for a card (used when PATCHing folderId)
+    55→    55→function getCardProjectId(card: UnifiedCard): string | null {
+    56→    56→  if (card.kind === 'auto') return card.project.id;
+    57→    57→  return null; // kanban-only projects don't have a SoundFlow Project record
+    58→    58→}
+    59→    59→
+    60→    60→// Helper: get the current folderId for a card
+    61→    61→function getCardFolderId(card: UnifiedCard): string | null {
+    62→    62→  if (card.kind === 'auto') return card.project.folderId ?? null;
+    63→    63→  return null;
+    64→    64→}
+    65→    65→
+    66→    66→function ProjectCardUnified({
+    67→    67→  data,
+    68→    68→  onClick,
+    69→    69→  onOpenKanban,
+    70→    70→  isFavorite,
+    71→    71→  onToggleFavorite,
+    72→    72→  folders,
+    73→    73→  onMoveToFolder,
+    74→    74→}: {
+    75→    75→  data: UnifiedCard;
+    76→    76→  onClick: () => void;
+    77→    77→  onOpenKanban: () => void;
+    78→    78→  isFavorite: boolean;
+    79→    79→  onToggleFavorite: () => void;
+    80→    80→  folders: Folder[];
+    81→    81→  onMoveToFolder: (folderId: string | null) => void;
+    82→    82→}) {
+    83→    83→  const [h, setH] = useState(false);
+    84→    84→  const [moveOpen, setMoveOpen] = useState(false);
+    85→    85→
+    86→    86→  const title = data.kind === 'auto' ? data.project.title : data.task.title;
+    87→    87→  const projectType = data.kind === 'auto' ? data.project.type : (data.task.projectType || 'general');
+    88→    88→  const type = typeConfig[projectType] || typeConfig.general;
+    89→    89→  const TypeIcon = type.icon;
+    90→    90→  const status = data.kind === 'auto' ? data.project.status : data.task.status;
+    91→    91→  const sc = statusHex[status] || '#64748b';
+    92→    92→  const sl = statusLabels[status] || status;
+    93→    93→  const updatedAt = data.kind === 'auto' ? data.project.updatedAt : data.task.updatedAt;
+    94→    94→  const metaCount = data.kind === 'auto' ? data.trackCount : data.boardCount;
+    95→    95→  const metaLabel = data.kind === 'auto'
+    96→    96→    ? (metaCount === 1 ? 'трек' : metaCount > 4 ? 'треков' : 'трека')
+    97→    97→    : (metaCount === 1 ? 'board' : 'boards');
+    98→    98→  const hasKanban = data.kind === 'auto' ? !!data.project.kanbanTaskId : true;
+    99→    99→
+   100→   100→  // Move-to-folder only applies to auto projects (kanban-only projects have no SoundFlow record)
+   101→   101→  const canMoveFolder = data.kind === 'auto';
+   102→   102→  const currentFolderId = getCardFolderId(data);
+   103→   103→
+   104→   104→  return (
+   105→   105→    <motion.div variants={cardVariants}>
+   106→   106→      <div
+   107→   107→        onClick={onClick}
+   108→   108→        onMouseEnter={() => setH(true)}
+   109→   109→        onMouseLeave={() => setH(false)}
+   110→   110→        className="group relative cursor-pointer overflow-hidden"
+   111→   111→        style={{
+   112→   112→          borderRadius: '10px',
+   113→   113→          background: h
+   114→   114→            ? `linear-gradient(135deg, ${hexToRgba(type.color, 0.18)}, rgba(16,20,30,0.95))`
+   115→   115→            : `linear-gradient(135deg, ${hexToRgba(type.color, 0.1)}, rgba(14,18,28,0.85))`,
+   116→   116→          border: `1px solid ${h ? hexToRgba(type.color, 0.6) : hexToRgba(type.color, 0.3)}`,
+   117→   117→          boxShadow: h
+   118→   118→            ? `0 0 0 1px ${hexToRgba(type.color, 0.3)}, 0 8px 32px ${hexToRgba(type.color, 0.2)}, 0 4px 16px rgba(0,0,0,0.4)`
+   119→   119→            : `0 0 0 1px ${hexToRgba(type.color, 0.08)}, 0 4px 12px rgba(0,0,0,0.3)`,
+   120→   120→          transform: h ? 'translateY(-4px) scale(1.01)' : 'translateY(0)',
+   121→   121→          transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
+   122→   122→        }}
+   123→   123→      >
+   124→   124→        {/* Cover strip */}
+   125→   125→        <div
+   126→   126→          className="h-16 flex items-center justify-between px-4"
+   127→   127→          style={{
+   128→   128→            background: `linear-gradient(135deg, ${hexToRgba(type.color, h ? 0.3 : 0.18)}, ${hexToRgba(type.color, h ? 0.08 : 0.04)})`,
+   129→   129→            borderBottom: `1px solid ${hexToRgba(type.color, 0.1)}`,
+   130→   130→          }}
+   131→   131→        >
+   132→   132→          <div className="flex items-center gap-2">
+   133→   133→            <div
+   134→   134→              className="flex h-8 w-8 items-center justify-center rounded-lg"
+   135→   135→              style={{ background: hexToRgba(type.color, 0.15), border: `1px solid ${hexToRgba(type.color, 0.3)}` }}
+   136→   136→            >
+   137→   137→              <TypeIcon className="w-4 h-4" style={{ color: type.color }} />
+   138→   138→            </div>
+   139→   139→            <span className="text-[11px] font-semibold" style={{ color: type.color }}>{type.label}</span>
+   140→   140→            {/* Source badge — AUTO vs KANBAN */}
+   141→   141→            <span
+   142→   142→              className="ml-1 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider"
+   143→   143→              style={{
+   144→   144→                background: data.kind === 'auto' ? hexToRgba('#00d9ff', 0.1) : hexToRgba('#10b981', 0.1),
+   145→   145→                color: data.kind === 'auto' ? '#00d9ff' : '#10b981',
+   146→   146→                border: `1px solid ${data.kind === 'auto' ? hexToRgba('#00d9ff', 0.3) : hexToRgba('#10b981', 0.3)}`,
+   147→   147→              }}
+   148→   148→            >
+   149→   149→              {data.kind === 'auto' ? 'AUTO' : 'KANBAN'}
+   150→   150→            </span>
+   151→   151→          </div>
+   152→   152→          <div className="flex items-center gap-2">
+   153→   153→            <span
+   154→   154→              className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+   155→   155→              style={{ background: hexToRgba(sc, 0.12), color: sc, border: `1px solid ${hexToRgba(sc, 0.25)}` }}
+   156→   156→            >
+   157→   157→              {sl}
+   158→   158→            </span>
+   159→   159→
+   160→   160→            {/* Move-to-folder popover — only on auto projects */}
+   161→   161→            {canMoveFolder && (
+   162→   162→              <Popover open={moveOpen} onOpenChange={setMoveOpen}>
+   163→   163→                <PopoverTrigger asChild>
+   164→   164→                  <button
+   165→   165→                    onClick={(e) => { e.stopPropagation(); setMoveOpen(true); }}
+   166→   166→                    aria-label="Переместить в папку"
+   167→   167→                    title="Переместить в папку"
+   168→   168→                    className="flex h-7 w-7 items-center justify-center transition-all duration-200"
+   169→   169→                    style={{
+   170→   170→                      clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+   171→   171→                      background: currentFolderId
+   172→   172→                        ? 'linear-gradient(135deg, rgba(252,238,10,0.18), rgba(241,241,0,0.1))'
+   173→   173→                        : 'rgba(10,20,35,0.6)',
+   174→   174→                      border: currentFolderId
+   175→   175→                        ? '1px solid rgba(252,238,10,0.6)'
+   176→   176→                        : '1px solid rgba(252,238,10,0.3)',
+   177→   177→                      boxShadow: currentFolderId ? '0 0 8px rgba(252,238,10,0.25)' : 'none',
+   178→   178→                      cursor: 'pointer',
+   179→   179→                    }}
+   180→   180→                    onMouseEnter={(e) => {
+   181→   181→                      e.currentTarget.style.borderColor = 'rgba(252,238,10,0.7)';
+   182→   182→                      e.currentTarget.style.boxShadow = '0 0 8px rgba(252,238,10,0.3)';
+   183→   183→                    }}
+   184→   184→                    onMouseLeave={(e) => {
+   185→   185→                      if (!currentFolderId) {
+   186→   186→                        e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)';
+   187→   187→                        e.currentTarget.style.boxShadow = 'none';
+   188→   188→                      } else {
+   189→   189→                        e.currentTarget.style.borderColor = 'rgba(252,238,10,0.6)';
+   190→   190→                        e.currentTarget.style.boxShadow = '0 0 8px rgba(252,238,10,0.25)';
+   191→   191→                      }
+   192→   192→                    }}
+   193→   193→                  >
+   194→   194→                    <FolderInput
+   195→   195→                      className="w-3.5 h-3.5"
+   196→   196→                      style={{ color: currentFolderId ? '#FCEE0A' : 'rgba(252,238,10,0.7)' }}
+   197→   197→                    />
+   198→   198→                  </button>
+   199→   199→                </PopoverTrigger>
+   200→   200→                <PopoverContent
+   201→   201→                  align="end"
+   202→   202→                  sideOffset={4}
+   203→   203→                  className="w-56 p-1 border rounded-md"
+   204→   204→                  style={{
+   205→   205→                    background: '#0a0d14',
+   206→   206→                    borderColor: 'rgba(252,238,10,0.25)',
+   207→   207→                    boxShadow: '0 0 20px rgba(252,238,10,0.12), 0 8px 24px rgba(0,0,0,0.6)',
+   208→   208→                  }}
+   209→   209→                  onClick={(e) => e.stopPropagation()}
+   210→   210→                >
+   211→   211→                  <div
+   212→   212→                    className="px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider"
+   213→   213→                    style={{ color: 'rgba(252,238,10,0.7)', fontFamily: 'var(--font-jetbrains-mono), monospace, ui-monospace, monospace' }}
+   214→   214→                  >
+   215→   215→                    Переместить в папку
+   216→   216→                  </div>
+   217→   217→                  <button
+   218→   218→                    onClick={(e) => {
+   219→   219→                      e.stopPropagation();
+   220→   220→                      onMoveToFolder(null);
+   221→   221→                      setMoveOpen(false);
+   222→   222→                    }}
+   223→   223→                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors hover:bg-white/[0.04]"
+   224→   224→                    style={{
+   225→   225→                      background: currentFolderId === null ? 'rgba(252,238,10,0.08)' : 'transparent',
+   226→   226→                    }}
+   227→   227→                  >
+   228→   228→                    <FolderOpen className="w-3.5 h-3.5" style={{ color: 'rgba(252,238,10,0.7)' }} />
+   229→   229→                    <span className="text-xs text-slate-200 flex-1">Без папки</span>
+   230→   230→                    {currentFolderId === null && (
+   231→   231→                      <Check className="w-3.5 h-3.5 text-[#FCEE0A]" />
+   232→   232→                    )}
+   233→   233→                  </button>
+   234→   234→                  {folders.length === 0 ? (
+   235→   235→                    <div className="px-2 py-2 text-[11px] text-slate-500">
+   236→   236→                      Нет папок. Создайте папку кнопкой «Новая папка».
+   237→   237→                    </div>
+   238→   238→                  ) : (
+   239→   239→                    <div className="max-h-60 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+   240→   240→                      {folders.map((f) => {
+   241→   241→                        const active = currentFolderId === f.id;
+   242→   242→                        return (
+   243→   243→                          <button
+   244→   244→                            key={f.id}
+   245→   245→                            onClick={(e) => {
+   246→   246→                              e.stopPropagation();
+   247→   247→                              onMoveToFolder(f.id);
+   248→   248→                              setMoveOpen(false);
+   249→   249→                            }}
+   250→   250→                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors hover:bg-white/[0.04]"
+   251→   251→                            style={{
+   252→   252→                              background: active ? 'rgba(252,238,10,0.08)' : 'transparent',
+   253→   253→                            }}
+   254→   254→                          >
+   255→   255→                            <FolderOpen className="w-3.5 h-3.5" style={{ color: active ? '#FCEE0A' : 'rgba(252,238,10,0.7)' }} />
+   256→   256→                            <span className="text-xs text-slate-200 flex-1 truncate">{f.title}</span>
+   257→   257→                            {active && <Check className="w-3.5 h-3.5 text-[#FCEE0A]" />}
+   258→   258→                          </button>
+   259→   259→                        );
+   260→   260→                      })}
+   261→   261→                    </div>
+   262→   262→                  )}
+   263→   263→                </PopoverContent>
+   264→   264→              </Popover>
+   265→   265→            )}
+   266→   266→
+   267→   267→            {/* Favorite star toggle — adds/removes from quick-access */}
+   268→   268→            <button
+   269→   269→              onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+   270→   270→              aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+   271→   271→              title={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+   272→   272→              className="flex h-7 w-7 items-center justify-center transition-all duration-200"
+   273→   273→              style={{
+   274→   274→                clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+   275→   275→                background: isFavorite
+   276→   276→                  ? 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)'
+   277→   277→                  : 'rgba(10,20,35,0.6)',
+   278→   278→                border: isFavorite
+   279→   279→                  ? '1px solid rgba(252,238,10,0.9)'
+   280→   280→                  : '1px solid rgba(252,238,10,0.3)',
+   281→   281→                boxShadow: isFavorite
+   282→   282→                  ? '0 0 10px rgba(252,238,10,0.5), inset 0 1px 0 rgba(255,255,255,0.4)'
+   283→   283→                  : 'none',
+   284→   284→                cursor: 'pointer',
+   285→   285→              }}
+   286→   286→              onMouseEnter={(e) => {
+   287→   287→                if (!isFavorite) {
+   288→   288→                  e.currentTarget.style.borderColor = 'rgba(252,238,10,0.7)';
+   289→   289→                  e.currentTarget.style.boxShadow = '0 0 8px rgba(252,238,10,0.3)';
+   290→   290→                }
+   291→   291→              }}
+   292→   292→              onMouseLeave={(e) => {
+   293→   293→                if (!isFavorite) {
+   294→   294→                  e.currentTarget.style.borderColor = 'rgba(252,238,10,0.3)';
+   295→   295→                  e.currentTarget.style.boxShadow = 'none';
+   296→   296→                }
+   297→   297→              }}
+   298→   298→            >
+   299→   299→              <Star
+   300→   300→                className="w-3.5 h-3.5"
+   301→   301→                style={{
+   302→   302→                  color: isFavorite ? '#000' : 'rgba(252,238,10,0.7)',
+   303→   303→                  fill: isFavorite ? '#000' : 'none',
+   304→   304→                }}
+   305→   305→              />
+   306→   306→            </button>
+   307→   307→          </div>
+   308→   308→        </div>
+   309→   309→
+   310→   310→        {/* Body */}
+   311→   311→        <div className="p-4">
+   312→   312→          <h3
+   313→   313→            className="mb-2 text-[15px] font-semibold leading-snug transition-colors"
+   314→   314→            style={{ color: h ? type.color : '#e2e8f0' }}
+   315→   315→          >
+   316→   316→            {title}
+   317→   317→          </h3>
+   318→   318→
+   319→   319→          <div className="flex items-center justify-between text-[11px] text-slate-500">
+   320→   320→            <span className="flex items-center gap-1.5">
+   321→   321→              {data.kind === 'auto' ? (
+   322→   322→                <>
+   323→   323→                  <Music2 className="w-3 h-3" />
+   324→   324→                  {metaCount} {metaLabel}
+   325→   325→                </>
+   326→   326→              ) : (
+   327→   327→                <>
+   328→   328→                  <Layers className="w-3 h-3" />
+   329→   329→                  {metaCount} {metaLabel}
+   330→   330→                </>
+   331→   331→              )}
+   332→   332→            </span>
+   333→   333→            <span className="flex items-center gap-1.5">
+   334→   334→              <Clock className="w-3 h-3" />
+   335→   335→              {formatDistanceToNow(new Date(updatedAt), { addSuffix: true })}
+   336→   336→            </span>
+   337→   337→          </div>
+   338→   338→
+   339→   339→          {hasKanban && (
+   340→   340→            <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${hexToRgba(type.color, 0.1)}` }}>
+   341→   341→              <button
+   342→   342→                onClick={(e) => { e.stopPropagation(); onOpenKanban(); }}
+   343→   343→                className="flex items-center gap-1.5 text-[11px] font-medium transition-colors"
+   344→   344→                style={{ color: h ? '#FCEE0A' : '#00d9ff' }}
+   345→   345→              >
+   346→   346→                <LayoutDashboard className="w-3.5 h-3.5" />
+   347→   347→                Открыть Kanban
+   348→   348→              </button>
+   349→   349→            </div>
+   350→   350→          )}
+   351→   351→        </div>
+   352→   352→      </div>
+   353→   353→    </motion.div>
+   354→   354→  );
+   355→   355→}
+   356→   356→
+   357→   357→// ── Folder section component ──
+   358→   358→function FolderSection({
+   359→   359→  folder,
+   360→   360→  cards,
+   361→   361→  folders,
+   362→   362→  tracks,
+   363→   363→  isFavorite,
+   364→   364→  toggleFavorite,
+   365→   365→  onOpenProject,
+   366→   366→  onOpenKanban,
+   367→   367→  onMoveProject,
+   368→   368→  onRename,
+   369→   369→  onDelete,
+   370→   370→  defaultExpanded,
+   371→   371→}: {
+   372→   372→  folder: Folder;
+   373→   373→  cards: UnifiedCard[];
+   374→   374→  folders: Folder[];
+   375→   375→  tracks: ReturnType<typeof useDataStore.getState>['tracks'];
+   376→   376→  isFavorite: (id: string) => boolean;
+   377→   377→  toggleFavorite: (id: string) => void;
+   378→   378→  onOpenProject: (project: Project) => void;
+   379→   379→  onOpenKanban: (kanbanTaskId: string) => void;
+   380→   380→  onMoveProject: (projectId: string, folderId: string | null) => void;
+   381→   381→  onRename: (id: string, newTitle: string) => void;
+   382→   382→  onDelete: (id: string) => void;
+   383→   383→  defaultExpanded: boolean;
+   384→   384→}) {
+   385→   385→  const [expanded, setExpanded] = useState(defaultExpanded);
+   386→   386→  const [renaming, setRenaming] = useState(false);
+   387→   387→  const [renameValue, setRenameValue] = useState(folder.title);
+   388→   388→  const [confirmingDelete, setConfirmingDelete] = useState(false);
+   389→   389→
+   390→   390→  const getTrackCount = (projectId: string) =>
+   391→   391→    tracks.filter((t) => t.projectId === projectId).length;
+   392→   392→
+   393→   393→  return (
+   394→   394→    <div
+   395→   395→      className="overflow-hidden"
+   396→   396→      style={{
+   397→   397→        borderRadius: '10px',
+   398→   398→        background: 'linear-gradient(135deg, rgba(252,238,10,0.04) 0%, rgba(14,18,28,0.55) 60%)',
+   399→   399→        border: `1px solid ${expanded ? 'rgba(252,238,10,0.4)' : 'rgba(252,238,10,0.22)'}`,
+   400→   400→        boxShadow: expanded
+   401→   401→          ? '0 0 0 1px rgba(252,238,10,0.08), 0 6px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04)'
+   402→   402→          : '0 0 0 1px rgba(252,238,10,0.05), 0 4px 12px rgba(0,0,0,0.25)',
+   403→   403→        transition: 'all 220ms cubic-bezier(0.4,0,0.2,1)',
+   404→   404→      }}
+   405→   405→    >
+   406→   406→      {/* Header (clickable to toggle expand) */}
+   407→   407→      <button
+   408→   408→        onClick={() => setExpanded((v) => !v)}
+   409→   409→        className="flex w-full items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.02]"
+   410→   410→        style={{ cursor: 'pointer', background: 'transparent', border: 'none' }}
+   411→   411→      >
+   412→   412→        <div
+   413→   413→          className="flex h-7 w-7 shrink-0 items-center justify-center"
+   414→   414→          style={{
+   415→   415→            clipPath: 'polygon(0 0, calc(100% - 3px) 0, 100% 3px, 100% 100%, 3px 100%, 0 calc(100% - 3px))',
+   416→   416→            background: 'linear-gradient(135deg, rgba(252,238,10,0.18), rgba(241,241,0,0.1))',
+   417→   417→            border: '1px solid rgba(252,238,10,0.45)',
+   418→   418→            boxShadow: '0 0 8px rgba(252,238,10,0.2)',
+   419→   419→          }}
+   420→   420→        >
+   421→   421→          <FolderOpen className="w-3.5 h-3.5" style={{ color: '#FCEE0A' }} />
+   422→   422→        </div>
+   423→   423→
+   424→   424→        {renaming ? (
+   425→   425→          <input
+   426→   426→            autoFocus
+   427→   427→            value={renameValue}
+   428→   428→            onChange={(e) => setRenameValue(e.target.value)}
+   429→   429→            onClick={(e) => e.stopPropagation()}
+   430→   430→            onKeyDown={(e) => {
+   431→   431→              if (e.key === 'Enter' && renameValue.trim()) {
+   432→   432→                onRename(folder.id, renameValue.trim());
+   433→   433→                setRenaming(false);
+   434→   434→              } else if (e.key === 'Escape') {
+   435→   435→                setRenameValue(folder.title);
+   436→   436→                setRenaming(false);
+   437→   437→              }
+   438→   438→            }}
+   439→   439→            className="flex-1 bg-transparent text-sm font-semibold text-slate-100 outline-none border-b border-[#FCEE0A]/50"
+   440→   440→            style={{ fontFamily: 'inherit' }}
+   441→   441→          />
+   442→   442→        ) : (
+   443→   443→          <h3 className="flex-1 text-left text-sm font-semibold text-slate-100 truncate">
+   444→   444→            {folder.title}
+   445→   445→          </h3>
+   446→   446→        )}
+   447→   447→
+   448→   448→        {/* Count badge */}
+   449→   449→        <span
+   450→   450→          className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider tabular-nums"
+   451→   451→          style={{
+   452→   452→            background: 'rgba(252,238,10,0.08)',
+   453→   453→            color: '#FCEE0A',
+   454→   454→            border: '1px solid rgba(252,238,10,0.25)',
+   455→   455→          }}
+   456→   456→        >
+   457→   457→          {cards.length} {cards.length === 1 ? 'проект' : cards.length > 4 ? 'проектов' : 'проекта'}
+   458→   458→        </span>
+   459→   459→
+   460→   460→        {/* Rename / delete actions (stop propagation so they don't toggle expand) */}
+   461→   461→        {renaming ? (
+   462→   462→          <>
+   463→   463→            <button
+   464→   464→              onClick={(e) => {
+   465→   465→                e.stopPropagation();
+   466→   466→                if (renameValue.trim()) {
+   467→   467→                  onRename(folder.id, renameValue.trim());
+   468→   468→                  setRenaming(false);
+   469→   469→                }
+   470→   470→              }}
+   471→   471→              className="flex h-6 w-6 items-center justify-center text-[#FCEE0A] hover:bg-white/[0.06] rounded transition-colors"
+   472→   472→              aria-label="Сохранить название"
+   473→   473→              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+   474→   474→            >
+   475→   475→              <Check className="w-3.5 h-3.5" />
+   476→   476→            </button>
+   477→   477→            <button
+   478→   478→              onClick={(e) => {
+   479→   479→                e.stopPropagation();
+   480→   480→                setRenameValue(folder.title);
+   481→   481→                setRenaming(false);
+   482→   482→              }}
+   483→   483→              className="flex h-6 w-6 items-center justify-center text-slate-400 hover:bg-white/[0.06] rounded transition-colors"
+   484→   484→              aria-label="Отмена"
+   485→   485→              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+   486→   486→            >
+   487→   487→              <X className="w-3.5 h-3.5" />
+   488→   488→            </button>
+   489→   489→          </>
+   490→   490→        ) : confirmingDelete ? (
+   491→   491→          <>
+   492→   492→            <span className="text-[10px] text-slate-400 mr-1">Удалить?</span>
+   493→   493→            <button
+   494→   494→              onClick={(e) => {
+   495→   495→                e.stopPropagation();
+   496→   496→                onDelete(folder.id);
+   497→   497→                setConfirmingDelete(false);
+   498→   498→              }}
+   499→   499→              className="flex h-6 px-2 items-center justify-center rounded text-[10px] font-bold uppercase tracking-wider transition-colors"
+   500→   500→              style={{
+   501→   501→                background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+   502→   502→                color: '#fff',
+   503→   503→                border: '1px solid rgba(239,68,68,0.6)',
+   504→   504→                cursor: 'pointer',
+   505→   505→              }}
+   506→   506→            >
+   507→   507→              Да
+   508→   508→            </button>
+   509→   509→            <button
+   510→   510→              onClick={(e) => {
+   511→   511→                e.stopPropagation();
+   512→   512→                setConfirmingDelete(false);
+   513→   513→              }}
+   514→   514→              className="flex h-6 px-2 items-center justify-center rounded text-[10px] font-bold uppercase tracking-wider transition-colors hover:bg-white/[0.06]"
+   515→   515→              style={{
+   516→   516→                background: 'rgba(30, 35, 50, 0.6)',
+   517→   517→                color: '#94a3b8',
+   518→   518→                border: '1px solid rgba(100,116,139,0.2)',
+   519→   519→                cursor: 'pointer',
+   520→   520→              }}
+   521→   521→            >
+   522→   522→              Нет
+   523→   523→            </button>
+   524→   524→          </>
+   525→   525→        ) : (
+   526→   526→          <>
+   527→   527→            <button
+   528→   528→              onClick={(e) => {
+   529→   529→                e.stopPropagation();
+   530→   530→                setRenameValue(folder.title);
+   531→   531→                setRenaming(true);
+   532→   532→              }}
+   533→   533→              className="flex h-6 w-6 items-center justify-center text-slate-400 hover:text-[#FCEE0A] hover:bg-white/[0.06] rounded transition-colors"
+   534→   534→              aria-label="Переименовать"
+   535→   535→              title="Переименовать"
+   536→   536→              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+   537→   537→            >
+   538→   538→              <FolderInput className="w-3.5 h-3.5" />
+   539→   539→            </button>
+   540→   540→            <button
+   541→   541→              onClick={(e) => {
+   542→   542→                e.stopPropagation();
+   543→   543→                setConfirmingDelete(true);
+   544→   544→              }}
+   545→   545→              className="flex h-6 w-6 items-center justify-center text-slate-400 hover:text-red-400 hover:bg-white/[0.06] rounded transition-colors"
+   546→   546→              aria-label="Удалить папку"
+   547→   547→              title="Удалить папку"
+   548→   548→              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+   549→   549→            >
+   550→   550→              <Trash2 className="w-3.5 h-3.5" />
+   551→   551→            </button>
+   552→   552→          </>
+   553→   553→        )}
+   554→   554→
+   555→   555→        {/* Expand chevron */}
+   556→   556→        <ChevronDown
+   557→   557→          className="w-4 h-4 text-slate-400 transition-transform duration-200"
+   558→   558→          style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+   559→   559→        />
+   560→   560→      </button>
+   561→   561→
+   562→   562→      {/* Body (cards grid) */}
+   563→   563→      {expanded && (
+   564→   564→        <div className="px-4 pb-4 pt-1">
+   565→   565→          {cards.length > 0 ? (
+   566→   566→            <motion.div
+   567→   567→              key={`folder-${folder.id}`}
+   568→   568→              variants={containerVariants}
+   569→   569→              initial="hidden"
+   570→   570→              animate="show"
+   571→   571→              className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+   572→   572→            >
+   573→   573→              {cards.map((card) => {
+   574→   574→                const cardId = card.kind === 'auto'
+   575→   575→                  ? (card.project.kanbanTaskId || card.project.id)
+   576→   576→                  : card.task.id;
+   577→   577→                const trackCount = card.kind === 'auto'
+   578→   578→                  ? getTrackCount(card.project.id)
+   579→   579→                  : card.boardCount;
+   580→   580→                return (
+   581→   581→                  <ProjectCardUnified
+   582→   582→                    key={card.kind === 'auto' ? `auto-${card.project.id}` : `kanban-${card.task.id}`}
+   583→   583→                    data={card.kind === 'auto'
+   584→   584→                      ? { kind: 'auto', project: card.project, trackCount }
+   585→   585→                      : { kind: 'kanban', task: card.task, boardCount: card.boardCount }}
+   586→   586→                    onClick={() => {
+   587→   587→                      if (card.kind === 'auto') {
+   588→   588→                        onOpenProject(card.project);
+   589→   589→                      } else {
+   590→   590→                        onOpenKanban(card.task.id);
+   591→   591→                      }
+   592→   592→                    }}
+   593→   593→                    onOpenKanban={() => {
+   594→   594→                      if (card.kind === 'auto' && card.project.kanbanTaskId) {
+   595→   595→                        onOpenKanban(card.project.kanbanTaskId);
+   596→   596→                      } else if (card.kind === 'kanban') {
+   597→   597→                        onOpenKanban(card.task.id);
+   598→   598→                      }
+   599→   599→                    }}
+   600→   600→                    isFavorite={isFavorite(cardId)}
+   601→   601→                    onToggleFavorite={() => toggleFavorite(cardId)}
+   602→   602→                    folders={folders}
+   603→   603→                    onMoveToFolder={(folderId) => {
+   604→   604→                      const pid = getCardProjectId(card);
+   605→   605→                      if (pid) onMoveProject(pid, folderId);
+   606→   606→                    }}
+   607→   607→                  />
+   608→   608→                );
+   609→   609→              })}
+   610→   610→            </motion.div>
+   611→   611→          ) : (
+   612→   612→            <div className="flex flex-col items-center justify-center py-6 text-center">
+   613→   613→              <p className="text-xs text-slate-500">
+   614→   614→                В папке нет проектов. Переместите сюда проект кнопкой{' '}
+   615→   615→                <FolderInput className="inline-block w-3 h-3 -mt-0.5" style={{ color: 'rgba(252,238,10,0.6)' }} />{' '}
+   616→   616→                на карточке.
+   617→   617→              </p>
+   618→   618→            </div>
+   619→   619→          )}
+   620→   620→        </div>
+   621→   621→      )}
+   622→   622→    </div>
+   623→   623→  );
+   624→   624→}
+   625→   625→
+   626→   626→type SectionFilter = 'all' | 'auto' | 'kanban';
+   627→   627→
+   628→   628→export function ProjectsView() {
+   629→   629→  const [dialogOpen, setDialogOpen] = useState(false);
+   630→   630→  const [searchQuery, setSearchQuery] = useState('');
+   631→   631→  const [sectionFilter, setSectionFilter] = useState<SectionFilter>('all');
+   632→   632→  const [kanbanProjects, setKanbanProjects] = useState<Task[]>([]);
+   633→   633→
+   634→   634→  // Folder management local UI state
+   635→   635→  const [creatingFolder, setCreatingFolder] = useState(false);
+   636→   636→  const [newFolderName, setNewFolderName] = useState('');
+   637→   637→
+   638→   638→  const navigate = useNavigationStore((s) => s.navigate);
+   639→   639→  const projects = useDataStore((s) => s.projects);
+   640→   640→  const folders = useDataStore((s) => s.folders);
+   641→   641→  const setFolders = useDataStore((s) => s.setFolders);
+   642→   642→  const addFolder = useDataStore((s) => s.addFolder);
+   643→   643→  const updateFolder = useDataStore((s) => s.updateFolder);
+   644→   644→  const removeFolder = useDataStore((s) => s.removeFolder);
+   645→   645→  const updateProjectFolder = useDataStore((s) => s.updateProjectFolder);
+   646→   646→  const tracks = useDataStore((s) => s.tracks);
+   647→   647→  const currentGroupId = useAuthStore((s) => s.currentGroupId);
+   648→   648→  const { isFavorite, toggleFavorite } = useFavorites();
+   649→   649→
+   650→   650→  const getTrackCount = (projectId: string) =>
+   651→   651→    tracks.filter((t) => t.projectId === projectId).length;
+   652→   652→
+   653→   653→  // Fetch kanban projects (top-level tasks with no parentId).
+   654→   654→  useEffect(() => {
+   655→   655→    fetch('/api/tasks?parentId=null')
+   656→   656→      .then((r) => r.json())
+   657→   657→      .then((data) => {
+   658→   658→        const tasks: Task[] = Array.isArray(data) ? data : data.tasks || [];
+   659→   659→        setKanbanProjects(tasks);
+   660→   660→        useKanbanStore.getState().setProjects(tasks);
+   661→   661→      })
+   662→   662→      .catch(() => {});
+   663→   663→  }, []);
+   664→   664→
+   665→   665→  // Fetch folders for the current group.
+   666→   666→  useEffect(() => {
+   667→   667→    if (!currentGroupId) return;
+   668→   668→    fetch(`/api/folders?groupId=${currentGroupId}`)
+   669→   669→      .then((r) => r.json())
+   670→   670→      .then((data: (Folder & { projects?: Project[] })[]) => {
+   671→   671→        setFolders(data.map((f) => ({
+   672→   672→          id: f.id,
+   673→   673→          groupId: f.groupId,
+   674→   674→          title: f.title,
+   675→   675→          sortOrder: f.sortOrder,
+   676→   676→          createdAt: f.createdAt,
+   677→   677→          updatedAt: f.updatedAt,
+   678→   678→        })));
+   679→   679→        // Sync project.folderId from the server response (folders include their projects).
+   680→   680→        // This ensures the local `projects` array reflects the latest folder assignments.
+   681→   681→        const folderProjectIds: Record<string, string> = {}; // projectId -> folderId
+   682→   682→        data.forEach((f) => {
+   683→   683→          (f.projects || []).forEach((p) => {
+   684→   684→            folderProjectIds[p.id] = f.id;
+   685→   685→          });
+   686→   686→        });
+   687→   687→        // Update the projects in the store to match server-truth
+   688→   688→        const fresh = useDataStore.getState().projects.map((p) => {
+   689→   689→          const fid = folderProjectIds[p.id] ?? null;
+   690→   690→          if ((p.folderId ?? null) !== (fid ?? null)) {
+   691→   691→            return { ...p, folderId: fid };
+   692→   692→          }
+   693→   693→          return p;
+   694→   694→        });
+   695→   695→        useDataStore.getState().setProjects(fresh);
+   696→   696→      })
+   697→   697→      .catch(() => {});
+   698→   698→  }, [currentGroupId, setFolders]);
+   699→   699→
+   700→   700→  // Auto projects = projects with a linked kanbanTaskId (i.e. created via the
+   701→   701→  // "auto" flow — album/EP/single with auto-generated kanban boards).
+   702→   702→  const autoProjects = useMemo(() => projects.filter((p) => p.kanbanTaskId), [projects]);
+   703→   703→
+   704→   704→  // Build a unified list of cards, applying the section filter + title search.
+   705→   705→  const allCards = useMemo(() => {
+   706→   706→    const q = searchQuery.trim().toLowerCase();
+   707→   707→    const out: UnifiedCard[] = [];
+   708→   708→
+   709→   709→    if (sectionFilter === 'all' || sectionFilter === 'auto') {
+   710→   710→      autoProjects.forEach((p) => {
+   711→   711→        if (q && !p.title.toLowerCase().includes(q)) return;
+   712→   712→        out.push({ kind: 'auto', project: p, trackCount: getTrackCount(p.id) });
+   713→   713→      });
+   714→   714→    }
+   715→   715→
+   716→   716→    if (sectionFilter === 'all' || sectionFilter === 'kanban') {
+   717→   717→      // Deduplicate: skip kanban tasks that are already linked to an auto project.
+   718→   718→      const linkedKanbanIds = new Set(autoProjects.map((p) => p.kanbanTaskId));
+   719→   719→      kanbanProjects.forEach((t) => {
+   720→   720→        if (linkedKanbanIds.has(t.id)) return;
+   721→   721→        if (q && !t.title.toLowerCase().includes(q)) return;
+   722→   722→        out.push({ kind: 'kanban', task: t, boardCount: t.children?.length ?? 0 });
+   723→   723→      });
+   724→   724→    }
+   725→   725→
+   726→   726→    return out;
+   727→   727→  }, [autoProjects, kanbanProjects, sectionFilter, searchQuery, tracks, getTrackCount]);
+   728→   728→
+   729→   729→  // Sort folders by sortOrder for stable display.
+   730→   730→  const sortedFolders = useMemo(
+   731→   731→    () => [...folders].sort((a, b) => a.sortOrder - b.sortOrder),
+   732→   732→    [folders]
+   733→   733→  );
+   734→   734→
+   735→   735→  // Group the cards by folderId (null = unassigned / main grid).
+   736→   736→  const cardsByFolder = useMemo(() => {
+   737→   737→    const map = new Map<string | null, UnifiedCard[]>();
+   738→   738→    for (const card of allCards) {
+   739→   739→      const fid = getCardFolderId(card);
+   740→   740→      const key = fid ?? null;
+   741→   741→      const arr = map.get(key) || [];
+   742→   742→      arr.push(card);
+   743→   743→      map.set(key, arr);
+   744→   744→    }
+   745→   745→    return map;
+   746→   746→  }, [allCards]);
+   747→   747→
+   748→   748→  const unassignedCards = cardsByFolder.get(null) || [];
+   749→   749→
+   750→   750→  const handleOpenKanban = (kanbanTaskId: string) => {
+   751→   751→    // Select the project FIRST so KanbanPage doesn't redirect to Projects
+   752→   752→    useKanbanStore.getState().selectProject(kanbanTaskId);
+   753→   753→    navigate('kanban');
+   754→   754→  };
+   755→   755→
+   756→   756→  // ── Folder CRUD handlers ──
+   757→   757→  const handleCreateFolder = async () => {
+   758→   758→    const title = newFolderName.trim();
+   759→   759→    if (!title || !currentGroupId) return;
+   760→   760→    try {
+   761→   761→      const res = await fetch('/api/folders', {
+   762→   762→        method: 'POST',
+   763→   763→        headers: { 'Content-Type': 'application/json' },
+   764→   764→        body: JSON.stringify({ groupId: currentGroupId, title }),
+   765→   765→      });
+   766→   766→      if (!res.ok) return;
+   767→   767→      const folder: Folder & { projects?: Project[] } = await res.json();
+   768→   768→      addFolder({
+   769→   769→        id: folder.id,
+   770→   770→        groupId: folder.groupId,
+   771→   771→        title: folder.title,
+   772→   772→        sortOrder: folder.sortOrder,
+   773→   773→        createdAt: folder.createdAt,
+   774→   774→        updatedAt: folder.updatedAt,
+   775→   775→      });
+   776→   776→      setNewFolderName('');
+   777→   777→      setCreatingFolder(false);
+   778→   778→    } catch {
+   779→   779→      /* ignore */
+   780→   780→    }
+   781→   781→  };
+   782→   782→
+   783→   783→  const handleRenameFolder = async (id: string, newTitle: string) => {
+   784→   784→    const trimmed = newTitle.trim();
+   785→   785→    if (!trimmed) return;
+   786→   786→    // Optimistic update
+   787→   787→    updateFolder(id, { title: trimmed });
+   788→   788→    try {
+   789→   789→      await fetch(`/api/folders/${id}`, {
+   790→   790→        method: 'PATCH',
+   791→   791→        headers: { 'Content-Type': 'application/json' },
+   792→   792→        body: JSON.stringify({ title: trimmed }),
+   793→   793→      });
+   794→   794→    } catch {
+   795→   795→      /* revert would require re-fetch; ignore for now */
+   796→   796→    }
+   797→   797→  };
+   798→   798→
+   799→   799→  const handleDeleteFolder = async (id: string) => {
+   800→   800→    // Optimistic: remove folder + null out folderId for any projects in it
+   801→   801→    const folderProjects = projects.filter((p) => p.folderId === id);
+   802→   802→    removeFolder(id);
+   803→   803→    folderProjects.forEach((p) => updateProjectFolder(p.id, null));
+   804→   804→    try {
+   805→   805→      await fetch(`/api/folders/${id}`, { method: 'DELETE' });
+   806→   806→    } catch {
+   807→   807→      /* ignore */
+   808→   808→    }
+   809→   809→  };
+   810→   810→
+   811→   811→  // ── Move project to folder ──
+   812→   812→  const handleMoveProject = async (projectId: string, folderId: string | null) => {
+   813→   813→    // Optimistic update of local store
+   814→   814→    updateProjectFolder(projectId, folderId);
+   815→   815→    try {
+   816→   816→      await fetch(`/api/projects/${projectId}`, {
+   817→   817→        method: 'PATCH',
+   818→   818→        headers: { 'Content-Type': 'application/json' },
+   819→   819→        body: JSON.stringify({ folderId }),
+   820→   820→      });
+   821→   821→    } catch {
+   822→   822→      /* ignore */
+   823→   823→    }
+   824→   824→  };
+   825→   825→
+   826→   826→  // Total card count for the header summary line.
+   827→   827→  const totalCount = allCards.length;
+   828→   828→
+   829→   829→  const sectionFilters: { value: SectionFilter; label: string; count: number }[] = [
+   830→   830→    { value: 'all', label: 'Все', count: autoProjects.length + kanbanProjects.filter((t) => !autoProjects.some((p) => p.kanbanTaskId === t.id)).length },
+   831→   831→    { value: 'auto', label: 'Автопроекты', count: autoProjects.length },
+   832→   832→    { value: 'kanban', label: 'Стандартный Канбан', count: kanbanProjects.filter((t) => !autoProjects.some((p) => p.kanbanTaskId === t.id)).length },
+   833→   833→  ];
+   834→   834→
+   835→   835→  // Shared yellow button style for the "Новая папка" + "Новый проект" buttons.
+   836→   836→  const yellowButtonStyle = (extra?: React.CSSProperties): React.CSSProperties => ({
+   837→   837→    fontSize: '10px',
+   838→   838→    fontWeight: 800,
+   839→   839→    letterSpacing: '0.1em',
+   840→   840→    textTransform: 'uppercase',
+   841→   841→    padding: '8px 18px',
+   842→   842→    color: '#000',
+   843→   843→    background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
+   844→   844→    border: '1.5px solid rgba(252, 238, 10, 0.9)',
+   845→   845→    clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+   846→   846→    boxShadow: '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+   847→   847→    cursor: 'pointer',
+   848→   848→    textShadow: '0 1px 0 rgba(255,255,255,0.3)',
+   849→   849→    ...extra,
+   850→   850→  });
+   851→   851→
+   852→   852→  const yellowButtonHover = (e: React.MouseEvent<HTMLButtonElement>) => {
+   853→   853→    const el = e.currentTarget;
+   854→   854→    el.style.color = '#FCEE0A';
+   855→   855→    el.style.border = '1.5px solid #FCEE0A';
+   856→   856→    el.style.boxShadow = '0 0 0 1px rgba(252, 238, 10, 0.4), 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(252, 238, 10, 0.15)';
+   857→   857→    el.style.textShadow = '0 0 8px rgba(252, 238, 10, 0.8), 0 1px 0 rgba(255,255,255,0.3)';
+   858→   858→    el.style.transform = 'translateY(-1px)';
+   859→   859→  };
+   860→   860→  const yellowButtonLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+   861→   861→    const el = e.currentTarget;
+   862→   862→    el.style.color = '#000';
+   863→   863→    el.style.border = '1.5px solid rgba(252, 238, 10, 0.9)';
+   864→   864→    el.style.boxShadow = '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255, 255, 255, 0.4)';
+   865→   865→    el.style.textShadow = '0 1px 0 rgba(255,255,255,0.3)';
+   866→   866→    el.style.transform = 'translateY(0)';
+   867→   867→  };
+   868→   868→
+   869→   869→  const hasFolders = sortedFolders.length > 0;
+   870→   870→  const hasAnyCards = totalCount > 0 || hasFolders;
+   871→   871→
+   872→   872→  return (
+   873→   873→    <div className="min-h-full bg-[#06080d]">
+   874→   874→      <div className="mx-auto max-w-6xl space-y-6 p-6 lg:p-8">
+   875→   875→        {/* Header */}
+   876→   876→        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   877→   877→          <div>
+   878→   878→            <h2 className="text-xl font-bold text-slate-100">Проекты</h2>
+   879→   879→            <p className="mt-0.5 text-sm text-slate-500">
+   880→   880→              Автопроекты и Канбан-проекты · {totalCount} {totalCount === 1 ? 'проект' : totalCount > 4 ? 'проектов' : 'проекта'}
+   881→   881→            </p>
+   882→   882→          </div>
+   883→   883→          <div className="flex flex-wrap items-center gap-2">
+   884→   884→            <button
+   885→   885→              onClick={() => setCreatingFolder(true)}
+   886→   886→              className="flex items-center gap-1.5 transition-all duration-200"
+   887→   887→              style={yellowButtonStyle({ padding: '8px 14px' })}
+   888→   888→              onMouseEnter={yellowButtonHover}
+   889→   889→              onMouseLeave={yellowButtonLeave}
+   890→   890→            >
+   891→   891→              <FolderPlus className="w-3 h-3" />
+   892→   892→              <span>Новая папка</span>
+   893→   893→            </button>
+   894→   894→            <button
+   895→   895→              onClick={() => setDialogOpen(true)}
+   896→   896→              className="flex items-center gap-1.5 transition-all duration-200"
+   897→   897→              style={yellowButtonStyle()}
+   898→   898→              onMouseEnter={yellowButtonHover}
+   899→   899→              onMouseLeave={yellowButtonLeave}
+   900→   900→            >
+   901→   901→              <Plus className="w-3 h-3" />
+   902→   902→              <span>Новый проект</span>
+   903→   903→            </button>
+   904→   904→          </div>
+   905→   905→        </div>
+   906→   906→
+   907→   907→        {/* Inline new-folder input */}
+   908→   908→        {creatingFolder && (
+   909→   909→          <motion.div
+   910→   910→            initial={{ opacity: 0, y: -6 }}
+   911→   911→            animate={{ opacity: 1, y: 0 }}
+   912→   912→            transition={{ duration: 0.2 }}
+   913→   913→            className="flex items-center gap-2 px-4 py-3 rounded-lg"
+   914→   914→            style={{
+   915→   915→              background: 'linear-gradient(135deg, rgba(252,238,10,0.06), rgba(14,18,28,0.6))',
+   916→   916→              border: '1px solid rgba(252,238,10,0.3)',
+   917→   917→              boxShadow: '0 0 12px rgba(252,238,10,0.1), inset 0 1px 0 rgba(255,255,255,0.04)',
+   918→   918→            }}
+   919→   919→          >
+   920→   920→            <FolderOpen className="w-4 h-4 text-[#FCEE0A] shrink-0" />
+   921→   921→            <input
+   922→   922→              autoFocus
+   923→   923→              value={newFolderName}
+   924→   924→              onChange={(e) => setNewFolderName(e.target.value)}
+   925→   925→              onKeyDown={(e) => {
+   926→   926→                if (e.key === 'Enter') handleCreateFolder();
+   927→   927→                else if (e.key === 'Escape') {
+   928→   928→                  setNewFolderName('');
+   929→   929→                  setCreatingFolder(false);
+   930→   930→                }
+   931→   931→              }}
+   932→   932→              placeholder="Название папки…"
+   933→   933→              className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 outline-none border-b border-[#FCEE0A]/40"
+   934→   934→              style={{ fontFamily: 'inherit' }}
+   935→   935→            />
+   936→   936→            <button
+   937→   937→              onClick={handleCreateFolder}
+   938→   938→              disabled={!newFolderName.trim()}
+   939→   939→              className="flex items-center gap-1.5 transition-all duration-200 disabled:opacity-40"
+   940→   940→              style={{
+   941→   941→                ...yellowButtonStyle({ padding: '6px 12px', fontSize: '9px' }),
+   942→   942→                cursor: newFolderName.trim() ? 'pointer' : 'not-allowed',
+   943→   943→              }}
+   944→   944→              onMouseEnter={yellowButtonHover}
+   945→   945→              onMouseLeave={yellowButtonLeave}
+   946→   946→            >
+   947→   947→              <Check className="w-3 h-3" />
+   948→   948→              <span>Создать</span>
+   949→   949→            </button>
+   950→   950→            <button
+   951→   951→              onClick={() => {
+   952→   952→                setNewFolderName('');
+   953→   953→                setCreatingFolder(false);
+   954→   954→              }}
+   955→   955→              className="flex h-7 w-7 items-center justify-center text-slate-400 hover:text-slate-200 transition-colors"
+   956→   956→              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+   957→   957→              aria-label="Отмена"
+   958→   958→            >
+   959→   959→              <X className="w-3.5 h-3.5" />
+   960→   960→            </button>
+   961→   961→          </motion.div>
+   962→   962→        )}
+   963→   963→
+   964→   964→        {/* ── Toolbar: section filter + search ── */}
+   965→   965→        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   966→   966→          {/* Section filter chips */}
+   967→   967→          <div className="flex items-center gap-1.5">
+   968→   968→            {sectionFilters.map((f) => {
+   969→   969→              const active = sectionFilter === f.value;
+   970→   970→              return (
+   971→   971→                <button
+   972→   972→                  key={f.value}
+   973→   973→                  onClick={() => setSectionFilter(f.value)}
+   974→   974→                  className="flex items-center gap-1.5 transition-all duration-200"
+   975→   975→                  style={{
+   976→   976→                    fontSize: '10px',
+   977→   977→                    fontWeight: 800,
+   978→   978→                    letterSpacing: '0.1em',
+   979→   979→                    textTransform: 'uppercase',
+   980→   980→                    padding: '6px 12px',
+   981→   981→                    color: active ? '#000' : '#94a3b8',
+   982→   982→                    background: active
+   983→   983→                      ? 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)'
+   984→   984→                      : 'rgba(30, 35, 50, 0.6)',
+   985→   985→                    border: active
+   986→   986→                      ? '1px solid rgba(252, 238, 10, 0.9)'
+   987→   987→                      : '1px solid rgba(100, 116, 139, 0.2)',
+   988→   988→                    clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px))',
+   989→   989→                    boxShadow: active
+   990→   990→                      ? '0 0 10px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)'
+   991→   991→                      : 'none',
+   992→   992→                    cursor: 'pointer',
+   993→   993→                  }}
+   994→   994→                >
+   995→   995→                  {f.label}
+   996→   996→                  <span
+   997→   997→                    className="rounded-full px-1.5 py-0.5 text-[8px] tabular-nums"
+   998→   998→                    style={{
+   999→   999→                      background: active ? 'rgba(0,0,0,0.2)' : 'rgba(100,116,139,0.15)',
+  1000→  1000→                      color: active ? '#000' : '#64748b',
+  1001→  1001→                    }}
+  1002→  1002→                  >
+  1003→  1003→                    {f.count}
+  1004→  1004→                  </span>
+  1005→  1005→                </button>
+  1006→  1006→              );
+  1007→  1007→            })}
+  1008→  1008→          </div>
+  1009→  1009→
+  1010→  1010→          {/* Search input */}
+  1011→  1011→          <div className="relative w-full sm:w-72">
+  1012→  1012→            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+  1013→  1013→            <input
+  1014→  1014→              type="text"
+  1015→  1015→              value={searchQuery}
+  1016→  1016→              onChange={(e) => setSearchQuery(e.target.value)}
+  1017→  1017→              placeholder="Поиск по названию…"
+  1018→  1018→              className="w-full pl-9 pr-8 py-2 text-xs text-slate-200 bg-[#0d1117] border border-slate-700/60 rounded-md outline-none transition-colors focus:border-[#FCEE0A]/50 focus:bg-[#0d1117]"
+  1019→  1019→              style={{ fontFamily: 'inherit' }}
+  1020→  1020→            />
+  1021→  1021→            {searchQuery && (
+  1022→  1022→              <button
+  1023→  1023→                onClick={() => setSearchQuery('')}
+  1024→  1024→                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center text-slate-500 hover:text-slate-300 transition-colors"
+  1025→  1025→                style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+  1026→  1026→                aria-label="Очистить поиск"
+  1027→  1027→              >
+  1028→  1028→                <X className="w-3 h-3" />
+  1029→  1029→              </button>
+  1030→  1030→            )}
+  1031→  1031→          </div>
+  1032→  1032→        </div>
+  1033→  1033→
+  1034→  1034→        {/* ── Folder sections (each with its own cards grid) ── */}
+  1035→  1035→        {sortedFolders.length > 0 && (
+  1036→  1036→          <div className="space-y-4">
+  1037→  1037→            {sortedFolders.map((folder) => {
+  1038→  1038→              const folderCards = cardsByFolder.get(folder.id) || [];
+  1039→  1039→              return (
+  1040→  1040→                <FolderSection
+  1041→  1041→                  key={folder.id}
+  1042→  1042→                  folder={folder}
+  1043→  1043→                  cards={folderCards}
+  1044→  1044→                  folders={sortedFolders}
+  1045→  1045→                  tracks={tracks}
+  1046→  1046→                  isFavorite={isFavorite}
+  1047→  1047→                  toggleFavorite={toggleFavorite}
+  1048→  1048→                  onOpenProject={(p) => navigate('project-detail', p.id)}
+  1049→  1049→                  onOpenKanban={handleOpenKanban}
+  1050→  1050→                  onMoveProject={handleMoveProject}
+  1051→  1051→                  onRename={handleRenameFolder}
+  1052→  1052→                  onDelete={handleDeleteFolder}
+  1053→  1053→                  defaultExpanded={true}
+  1054→  1054→                />
+  1055→  1055→              );
+  1056→  1056→            })}
+  1057→  1057→          </div>
+  1058→  1058→        )}
+  1059→  1059→
+  1060→  1060→        {/* ── Main grid (unassigned projects) ── */}
+  1061→  1061→        <div>
+  1062→  1062→          {/* Section divider — only when folders exist above */}
+  1063→  1063→          {hasFolders && (
+  1064→  1064→            <div className="flex items-center gap-3 mb-4">
+  1065→  1065→              <FolderOpen className="w-3.5 h-3.5 text-slate-500" />
+  1066→  1066→              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+  1067→  1067→                Без папки
+  1068→  1068→              </span>
+  1069→  1069→              <span className="rounded px-1.5 py-0.5 text-[9px] font-bold tabular-nums"
+  1070→  1070→                style={{
+  1071→  1071→                  background: 'rgba(100,116,139,0.1)',
+  1072→  1072→                  color: '#64748b',
+  1073→  1073→                  border: '1px solid rgba(100,116,139,0.2)',
+  1074→  1074→                }}
+  1075→  1075→              >
+  1076→  1076→                {unassignedCards.length}
+  1077→  1077→              </span>
+  1078→  1078→              <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(100,116,139,0.25), transparent)' }} />
+  1079→  1079→            </div>
+  1080→  1080→          )}
+  1081→  1081→
+  1082→  1082→          {unassignedCards.length > 0 ? (
+  1083→  1083→            <motion.div
+  1084→  1084→              key={`unassigned-${sectionFilter}-${searchQuery}`}
+  1085→  1085→              variants={containerVariants}
+  1086→  1086→              initial="hidden"
+  1087→  1087→              animate="show"
+  1088→  1088→              className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+  1089→  1089→            >
+  1090→  1090→              {unassignedCards.map((card) => {
+  1091→  1091→                const cardId = card.kind === 'auto'
+  1092→  1092→                  ? (card.project.kanbanTaskId || card.project.id)
+  1093→  1093→                  : card.task.id;
+  1094→  1094→                return (
+  1095→  1095→                  <ProjectCardUnified
+  1096→  1096→                    key={card.kind === 'auto' ? `auto-${card.project.id}` : `kanban-${card.task.id}`}
+  1097→  1097→                    data={card}
+  1098→  1098→                    onClick={() => {
+  1099→  1099→                      if (card.kind === 'auto') {
+  1100→  1100→                        navigate('project-detail', card.project.id);
+  1101→  1101→                      } else {
+  1102→  1102→                        handleOpenKanban(card.task.id);
+  1103→  1103→                      }
+  1104→  1104→                    }}
+  1105→  1105→                    onOpenKanban={() => {
+  1106→  1106→                      if (card.kind === 'auto' && card.project.kanbanTaskId) {
+  1107→  1107→                        handleOpenKanban(card.project.kanbanTaskId);
+  1108→  1108→                      } else if (card.kind === 'kanban') {
+  1109→  1109→                        handleOpenKanban(card.task.id);
+  1110→  1110→                      }
+  1111→  1111→                    }}
+  1112→  1112→                    isFavorite={isFavorite(cardId)}
+  1113→  1113→                    onToggleFavorite={() => toggleFavorite(cardId)}
+  1114→  1114→                    folders={sortedFolders}
+  1115→  1115→                    onMoveToFolder={(folderId) => {
+  1116→  1116→                      const pid = getCardProjectId(card);
+  1117→  1117→                      if (pid) handleMoveProject(pid, folderId);
+  1118→  1118→                    }}
+  1119→  1119→                  />
+  1120→  1120→                );
+  1121→  1121→              })}
+  1122→  1122→            </motion.div>
+  1123→  1123→          ) : !hasAnyCards ? (
+  1124→  1124→            <motion.div
+  1125→  1125→              initial={{ opacity: 0, scale: 0.95 }}
+  1126→  1126→              animate={{ opacity: 1, scale: 1 }}
+  1127→  1127→              transition={{ duration: 0.4 }}
+  1128→  1128→              className="flex flex-col items-center justify-center py-16"
+  1129→  1129→            >
+  1130→  1130→              <div
+  1131→  1131→                className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg"
+  1132→  1132→                style={{ background: 'rgba(252,238,10,0.06)', border: '1px solid rgba(252,238,10,0.15)' }}
+  1133→  1133→              >
+  1134→  1134→                {searchQuery ? (
+  1135→  1135→                  <Search className="h-6 w-6 text-slate-600" />
+  1136→  1136→                ) : (
+  1137→  1137→                  <FolderOpen className="h-6 w-6 text-slate-600" />
+  1138→  1138→                )}
+  1139→  1139→              </div>
+  1140→  1140→              <h3 className="mb-1 text-sm font-medium text-slate-400">
+  1141→  1141→                {searchQuery ? 'Ничего не найдено' : 'Пока нет проектов'}
+  1142→  1142→              </h3>
+  1143→  1143→              <p className="mb-4 text-xs text-slate-600">
+  1144→  1144→                {searchQuery
+  1145→  1145→                  ? `По запросу «${searchQuery}» ничего не найдено. Попробуйте изменить запрос.`
+  1146→  1146→                  : 'Создайте первый проект, чтобы начать работу'}
+  1147→  1147→              </p>
+  1148→  1148→              {!searchQuery && (
+  1149→  1149→                <button
+  1150→  1150→                  onClick={() => setDialogOpen(true)}
+  1151→  1151→                  className="flex items-center gap-1.5 transition-all duration-200"
+  1152→  1152→                  style={yellowButtonStyle()}
+  1153→  1153→                  onMouseEnter={yellowButtonHover}
+  1154→  1154→                  onMouseLeave={yellowButtonLeave}
+  1155→  1155→                >
+  1156→  1156→                  <Plus className="w-3 h-3" />
+  1157→  1157→                  <span>Создать проект</span>
+  1158→  1158→                </button>
+  1159→  1159→              )}
+  1160→  1160→            </motion.div>
+  1161→  1161→          ) : null}
+  1162→  1162→        </div>
+  1163→  1163→      </div>
+  1164→  1164→
+  1165→  1165→      <CreateProjectDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+  1166→  1166→    </div>
+  1167→  1167→  );
+  1168→  1168→}
+  1169→  1169→

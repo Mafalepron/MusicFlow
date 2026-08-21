@@ -43,9 +43,8 @@ const BORDER_MUTED = '#1f2633';
 const TEXT_PRIMARY = '#e2e8f0';
 const TEXT_SECONDARY = '#718096';
 
-/* Status colors — muted HUD palette (draft/in_progress=C, mixing=P, mastering=G, released=C) */
+/* Status colors — muted HUD palette (in_progress=C, mixing=P, mastering=G, released=C) */
 const statusColors: Record<string, string> = {
-  draft: C,
   in_progress: C,
   mixing: P,
   mastering: G,
@@ -56,7 +55,6 @@ const statusColors: Record<string, string> = {
 
 /* Russian labels for project status */
 const statusLabels: Record<string, string> = {
-  draft: 'Черновик',
   in_progress: 'В работе',
   mixing: 'Сведение',
   mastering: 'Мастеринг',
@@ -69,7 +67,7 @@ const typeLabels: Record<string, string> = {
   album: 'Альбом',
   ep: 'EP',
   single: 'Сингл',
-  general: 'Канбан',
+  general: 'Стандартный Канбан',
 };
 
 function formatDuration(ms?: number | null): string {
@@ -465,7 +463,6 @@ export function ProjectDetailView() {
                   boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
                 }}
               >
-                <SelectItem value="draft">Черновик</SelectItem>
                 <SelectItem value="in_progress">В работе</SelectItem>
                 <SelectItem value="recording">Запись</SelectItem>
                 <SelectItem value="mixing">Сведение</SelectItem>

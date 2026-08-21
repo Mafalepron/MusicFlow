@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 
 const updateProjectSchema = z.object({
-  status: z.enum(['draft', 'in_progress', 'mixing', 'mastering', 'released']),
+  status: z.enum(['in_progress', 'mixing', 'mastering', 'released']).optional(),
+  folderId: z.string().nullable().optional(),
 })
 
 export async function GET(
@@ -29,6 +30,7 @@ export async function GET(
     return NextResponse.json({
       id: project.id,
       groupId: project.groupId,
+      folderId: project.folderId,
       title: project.title,
       type: project.type,
       coverUrl: project.coverUrl,
@@ -67,14 +69,41 @@ export async function PATCH(
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
+    // Build update data — only include the fields that were provided.
+    // Both `status` and `folderId` are optional in the schema.
+    const updateData: { status?: string; folderId?: string | null } = {}
+    if (parsed.data.status !== undefined) {
+      updateData.status = parsed.data.status
+    }
+    if (parsed.data.folderId !== undefined) {
+      // Validate that the target folder exists (if not null) and belongs to
+      // the same group as the project.
+      if (parsed.data.folderId !== null) {
+        const folder = await db.folder.findUnique({
+          where: { id: parsed.data.folderId },
+        })
+        if (!folder) {
+          return NextResponse.json({ error: 'Folder not found' }, { status: 404 })
+        }
+        if (folder.groupId !== existing.groupId) {
+          return NextResponse.json(
+            { error: 'Folder does not belong to the same group' },
+            { status: 400 }
+          )
+        }
+      }
+      updateData.folderId = parsed.data.folderId
+    }
+
     const project = await db.project.update({
       where: { id },
-      data: { status: parsed.data.status },
+      data: updateData,
     })
 
     return NextResponse.json({
       id: project.id,
       groupId: project.groupId,
+      folderId: project.folderId,
       title: project.title,
       type: project.type,
       coverUrl: project.coverUrl,

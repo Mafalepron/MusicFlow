@@ -56,9 +56,10 @@ export async function GET(
 }
 
 // PATCH — partial update of an existing track.
-// Accepts an optional subset of { title, status, audioUrl } and updates only
-// the supplied fields. Used by the Track Profile panel for inline editing of
-// the track title and for persistent status changes.
+// Accepts an optional subset of { title, status, audioUrl, coverUrl, description, genre }
+// and updates only the supplied fields. Used by the Track Profile panel for inline
+// editing of the track title, persistent status changes, and inline editing of the
+// cover image / description / genre fields shown in the audio-form progress panel.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -66,10 +67,20 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await request.json()
-    const { title, status, audioUrl } = body as {
+    const {
+      title,
+      status,
+      audioUrl,
+      coverUrl,
+      description,
+      genre,
+    } = body as {
       title?: string
       status?: string
       audioUrl?: string
+      coverUrl?: string | null
+      description?: string | null
+      genre?: string | null
     }
 
     const existing = await db.track.findUnique({ where: { id } })
@@ -84,6 +95,15 @@ export async function PATCH(
     if (title !== undefined) data.title = String(title).trim()
     if (status !== undefined) data.status = String(status)
     if (audioUrl !== undefined) data.audioUrl = String(audioUrl)
+    if (coverUrl !== undefined) {
+      data.coverUrl = coverUrl === null || coverUrl === '' ? null : String(coverUrl)
+    }
+    if (description !== undefined) {
+      data.description = description === null ? null : String(description)
+    }
+    if (genre !== undefined) {
+      data.genre = genre === null || genre === '' ? null : String(genre).trim()
+    }
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json(

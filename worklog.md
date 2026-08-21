@@ -2896,3 +2896,123 @@ Stage Summary:
 - The star uses the yellow accent button style (consistent with the "Новый проект" button): yellow gradient + chamfered corners + black star icon + yellow glow when favorited; dark glass tile + yellow-outline star when not favorited.
 - Created a shared `useFavorites` hook (`src/lib/use-favorites.ts`) for reuse across views.
 - Lint-clean for my changes (only pre-existing set-state-in-effect + memoization errors remain); dev server compiles without errors; agent-browser + VLM both confirm the navigation + favorite-toggle end-to-end flow.
+
+---
+Task ID: TASKS-4-8-TRACK
+Agent: main (Z.ai Code)
+Task: 5 changes to the track detail / "audio form" view: (8) fix AddVersionDialog sliding off-screen, (6) replace track status options with 4-value set, (7) solid waveform progress bar + remove percentage readout, (5) "Открыть в Канбане" link button in track progress panel, (4) track profile section (cover/description/genre) in audio form.
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand previous work (cyberpunk neon restyle, yellow "Новый проект" button aesthetic, embedded sidebar chat, favorite star toggles, etc.).
+- Read /home/z/my-project/src/components/waveform-progress-bar.tsx (109 lines) — current implementation was individual equalizer bars + kb5-eq-bounce animation.
+- Read /home/z/my-project/src/app/api/tracks/[id]/route.ts — existing GET + PATCH handlers; PATCH only accepted { title, status, audioUrl }.
+- Read /home/z/my-project/prisma/schema.prisma — confirmed Track model already has `coverUrl String?`, `description String?`, `genre String?`, and `status String @default("waiting")`.
+- Read /home/z/my-project/src/lib/store.ts — confirmed `Track` interface includes the 3 new fields; `useDataStore` had `addTrack` + `updateTrackStatus` but no generic `updateTrack`.
+- Ran `bunx prisma db push` — schema was already in sync (no migration needed; the new fields already exist in the SQLite DB).
+
+EDITS — Task 8 (one-line fix): src/components/views/track-detail-view.tsx
+- Around line 3942, the `AddVersionDialog`'s `<DialogContent>` had `className="relative border-0 rounded-none sm:max-w-md"`. The `relative` token overrode the base `fixed top-[50%] left-[50%] translate-[-50%]` from `src/components/ui/dialog.tsx:63` (twMerge lets later classes win), causing the dialog to render in-flow and slide off-screen.
+- Removed `relative` → `className="border-0 rounded-none sm:max-w-md"`. The inline `style` with `clipPath` chamfered corners is preserved for the visual HUD look.
+
+EDITS — Task 6 (status tables): src/components/views/track-detail-view.tsx
+- Replaced `statusDotColors` (was 12 entries with legacy idea/recording/mixing/final/draft/in_progress/mastering/released/review colors) → 4 entries: `waiting` #9ca3af, `in_progress` #3b82f6, `review` #f59e0b, `ready` #10b981.
+- Replaced `statusLabels` (was 9 entries with legacy Russian labels) → 4 entries: "Ожидает", "В работе", "На проверке", "Готов".
+- Replaced `STATUS_OPTIONS` (was 7 entries) → `['waiting', 'in_progress', 'review', 'ready']`.
+- The `<Select>` dropdown at lines 1753–1818 (original) automatically picks up the new options because it iterates `STATUS_OPTIONS.map(...)` and reads colors/labels from the lookup tables — no JSX changes needed there.
+- Total: 15 lines removed (33 → 18 lines for the three constants).
+
+EDITS — Task 7 (solid waveform): src/components/waveform-progress-bar.tsx
+- Full rewrite of the component (still 109 lines). Removed individual equalizer bars + kb5-eq-bounce animation logic + the deterministic waveBars useMemo.
+- New design:
+  - Outer container with `border: 1px solid ${hexToRgba(accentColor, 0.45)}` — the stroke/outline around the unfilled scale.
+  - Solid filled portion (width = `pct%`) using `linear-gradient(to right, rgba(accentColor,0.85), accentColor)` + neon glow box-shadow.
+  - HUD scanlines in the unfilled portion (right side, width = `100 - pct%`) using a `repeating-linear-gradient` of the accent color (visible on hover, dim otherwise).
+  - Subtle horizontal center axis line.
+  - White playhead line at the fill boundary (2px wide, neon glow).
+  - Playhead sweep animation preserved on hover (uses existing `kb5-playhead-sweep` keyframe + `--kb5-progress` CSS var).
+- Kept the `progress`, `accentColor`, `height`, `bars` props (bars is now ignored — kept for backward compatibility with the 5 existing call sites in `app-header.tsx:1648`, `home-view.tsx:213/411/886`, `track-detail-view.tsx:1894`).
+
+EDITS — Task 7 (remove percentage readout): src/components/views/track-detail-view.tsx
+- Removed the "Big percentage readout" `<div>` that displayed `projectProgress.pct` as a huge gold "X%" number in the Project progress sub-panel (was around lines 2003–2019 of the original file, just below the `projectProgress ?` branch).
+- The mini project progress bar + compact stats grid below it are preserved.
+
+EDITS — Task 5 (kanban link button): src/components/views/track-detail-view.tsx
+- Added a new cyan-outlined chamfered button in the "Прогресс трека" section title row (right-aligned via `ml-auto`), only rendering when `projectOfTrack?.kanbanTaskId` is truthy.
+- On click: looks up the project via `useDataStore.getState().projects.find(...)`, calls `useNavigationStore.getState().navigate('kanban')`, then 300ms later calls `useKanbanStore.getState().selectProject(taskId)` — same pattern as the existing header action.
+- Styled to match the cyberpunk HUD: dark `BG_PANEL` background, cyan border, `CHAMFER_4` clipPath, JetBrains Mono uppercase text, inset bevel shadow, hover `-translate-y-0.5` lift, LayoutDashboard icon with cyan drop-shadow.
+
+EDITS — Task 4 (track profile — backend): src/app/api/tracks/[id]/route.ts
+- Extended the existing PATCH handler (already accepted `title`/`status`/`audioUrl`) to also accept `coverUrl`, `description`, `genre`.
+- Each new field is handled with null/empty-string coercion: empty string → null (so the UI can "clear" a field by submitting "").
+- Each field is added to the `data` object only when explicitly provided (undefined = no change), matching the existing pattern.
+- End-to-end verified via curl:
+  - `PATCH /api/tracks/{id}` with `{"description":"Test description from API check","genre":"Rock","coverUrl":"https://example.com/cover.jpg"}` → 200, response includes the persisted fields, Prisma query log shows `UPDATE main.Track SET coverUrl = ?, description = ?, genre = ?, updatedAt = ? WHERE id = ?`.
+  - Subsequent PATCH with `{"description":null,"genre":"","coverUrl":null}` → 200, all three fields cleared to null.
+
+EDITS — Task 4 (track profile — store): src/lib/store.ts
+- Added `updateTrack: (id: string, updates: Partial<Track>) => void` action to the `DataState` interface + implementation. Shallow-merges updates into the matching track in the `tracks` array.
+- Used by the new track-profile UI to optimistically update the local cache after a successful PATCH.
+
+EDITS — Task 4 (track profile — frontend): src/components/views/track-detail-view.tsx
+- Added ~110 lines of new state + handlers + JSX inside the `TrackDetailView` component, placed in the "Прогресс трека" panel between the section title row and the `WaveformProgressBar`.
+- State:
+  - `editingDesc`, `descDraft`, `savingDesc` — for the description textarea.
+  - `editingGenre`, `genreDraft`, `savingGenre` — for the genre input.
+  - `editingCover`, `coverDraft`, `savingCover` — for the cover URL input.
+  - `coverImgError` — set to true when the `<img>` fails to load.
+- `useEffect` resets all editing state + drafts whenever `selectedTrackId` or the track's `description`/`genre`/`coverUrl` changes.
+- Three save handlers (`saveDescription`, `saveGenre`, `saveCover`) all do `PATCH /api/tracks/{id}` with the appropriate field, then call `updateTrack()` to update the local cache, then close the editor + show a toast (success/error).
+- UI layout (left → right):
+  - Cover image: 64×64 rounded square (borderRadius 6px) with 1.5px gold border + gold glow + dark inset shadow. Shows the `<img>` if `track.coverUrl` exists; otherwise a Music2 placeholder icon. Below the cover: an "edit/add" button that toggles a small URL input with OK/Cancel actions (Ctrl+Enter to save, Esc to cancel).
+  - Genre row: a "ЖАНР" label + an inline-editable button/input. When not editing: shows the genre or italic "Добавить жанр…" prompt (dashed border). When editing: a text input with Enter to save / Esc to cancel / onBlur to save.
+  - Description block: a "ОПИСАНИЕ" label + a click-to-edit button/textarea. When not editing: shows the description or italic "Добавить описание трека…" prompt (dashed border). When editing: a 3-row textarea with Ctrl+Enter to save / Esc to cancel / onBlur to save. Help text below shows the keyboard shortcuts.
+- All empty fields show a clear "Добавить …" prompt (per the "show a prompt to add them" requirement).
+- Visual style: dark `BG_MAIN` background, cyan border, `CHAMFER_4` clipPath, inset bevel shadow — matches the rest of the track-detail HUD. Inline-edit inputs use JetBrains Mono for labels, Rajdhani for body text.
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "track-detail|waveform|store\.ts|tracks/\[id\]"` → ZERO errors/warnings in any of the touched files.
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "^/home/z/my-project" | sort -u` → only pre-existing errors remain (project-chat.tsx:654 set-state-in-effect, app-header.tsx:238 set-state-in-effect, home-view.tsx:1187/1245/1251 set-state-in-effect + memoization, use-favorites.ts:26 set-state-in-effect, db.ts unused eslint-disable warnings — all pre-existing, not introduced by this change).
+- `tail -30 /home/z/my-project/dev.log` → server compiles cleanly. End-to-end PATCH test against `/api/tracks/cmsq1rhu50009uivf3mpqv1kx` returned 200 with the new fields correctly persisted (verified via Prisma query log).
+- Mid-task I accidentally deleted `.next/dev/server` while debugging an unrelated pre-existing Prisma `<dynamic>` module warning, which broke the running dev server (build-manifest.json missing). I restarted the dev server in the background via `setsid bash -c 'bun run dev > /tmp/dev-restart.log 2>&1' &` so the dev process is now detached and persists across my Bash tool calls. The dev server is alive and compiling cleanly as of the end of this task.
+
+Stage Summary:
+- AddVersionDialog no longer slides off-screen — the `relative` token that was overriding the base `fixed top-[50%] left-[50%] translate-[-50%]` has been removed.
+- Track status dropdown now offers exactly 4 options: "Ожидает" (gray), "В работе" (blue), "На проверке" (orange), "Готов" (green). All legacy statuses (draft/recording/mixing/mastering/released/review/idea/final) removed from the lookup tables.
+- WaveformProgressBar is now a solid filled bar with neon outline + HUD scanlines in the unfilled portion + white playhead line at the fill boundary. Hover-triggered playhead sweep animation preserved.
+- The big gold "X%" percentage readout in the Project progress sub-panel has been removed (the mini progress bar + stats grid remain).
+- "Открыть в Канбане" cyan button added to the "Прогресс трека" section title row (right-aligned), only visible when the track's project has a linked kanban task. Same navigation pattern as the existing header action.
+- Track profile section added to the audio form progress panel — inline-editable cover image (URL input), genre (single-line input), and description (3-row textarea). All saves go through PATCH /api/tracks/{id} which has been extended to accept the 3 new fields. Each empty field shows an italic "Добавить …" prompt.
+- The `useDataStore` now exposes a generic `updateTrack(id, updates)` action for any track field updates (not just status).
+- Lint-clean for my changes; dev server compiles without errors; PATCH API verified end-to-end with real data.
+
+---
+Task ID: TASK-1-FOLDERS
+Agent: main (Z.ai Code)
+Task: Implement "Grouping projects into folders within Projects" — create custom folders/sections in the Projects view and move any projects into them. Schema + interfaces were pre-staged; my job was the API + store + UI layer.
+
+Pre-existing state when I arrived (verified by reading the files):
+- prisma/schema.prisma: `Folder` model (id/groupId/title/sortOrder/createdAt/updatedAt) + `Project.folderId String?` with `onDelete: SetNull` FK — already pushed to the DB.
+- src/lib/store.ts: `Folder` interface exported; `Project` interface already has `folderId?: string | null`; `useDataStore` already had `folders: Folder[]`, `setFolders`, plus extras (`addFolder`, `updateFolder`, `removeFolder`, `updateProjectFolder`).
+- src/app/api/folders/route.ts: GET (with `include: { projects: { select, orderBy updatedAt desc } }`) + POST (validates group exists, computes `sortOrder = (max(sortOrder) ?? -1) + 1`, returns 201 with `projects: []`).
+- src/app/api/folders/[id]/route.ts: PATCH (validates + updates title) + DELETE (relies on `onDelete: SetNull` for projects' folderId).
+- src/app/api/projects/[id]/route.ts: PATCH already accepted `folderId: z.string().nullable().optional()` with folder-exists + same-group validation; returned `folderId` in the response.
+- src/components/views/projects-view.tsx: full folder UI already present — "Новая папка" yellow accent button (matching "Новый проект" style: linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A) + chamfered clipPath + yellow glow), inline folder-name input with Enter/Esc handling, `FolderSection` component (collapsible, header with FolderOpen icon + count badge + rename/delete actions + chevron, body grid of `ProjectCardUnified` cards), per-card move-to-folder `Popover` (FolderInput trigger, list of folders + "Без папки" option with check mark), and a "Без папки" divider above the ungrouped grid.
+
+What I actually changed (improvements only — the rest was already there):
+1. src/app/api/projects/route.ts — added `folderId: p.folderId` to the GET response (and `folderId: project.folderId` to the POST 201 response). The GET response previously omitted `folderId`, which meant projects loaded into the store with `folderId: undefined` and only got their real `folderId` after the separate `/api/folders?groupId=...` fetch resolved and synced the store. This caused a brief flicker where in-folder projects momentarily rendered in the ungrouped grid. With `folderId` now included in the initial GET response, `useDataStore.projects` is server-truth-correct from the first render. Backward-compatible addition (no existing consumer relied on the absence of `folderId`).
+2. src/app/api/projects/[id]/route.ts — added `folderId: project.folderId` to the GET detail response, so `project-detail-view.tsx` and the kanban `project-info-modal.tsx` consumers can read the folder assignment directly without an extra fetch.
+
+Verification:
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "folders|projects-view|store"` → ZERO errors/warnings in any of the touched files.
+- `cd /home/z/my-project && bun run lint 2>&1 | grep -E "api/projects"` → ZERO errors/warnings in either the list or detail route.
+- `tail -20 /home/z/my-project/dev.log` → server compiles cleanly (`✓ Compiled in 406ms`); only pre-existing `module-not-found` warning for `./src/lib/db.ts` from `src/app/api/tracks/[id]/route.ts` (unrelated to this task).
+- End-to-end data flow: `page.tsx` loads `/api/projects?groupId=...` → `setProjects(projectList)` (each project now carries its true `folderId`) → `ProjectsView` renders folders (sorted by `sortOrder`) with their assigned cards via `cardsByFolder` map, and the ungrouped "Без папки" grid for everything else. Moving a card POSTs `PATCH /api/projects/{id} { folderId }` (already supported by the route's zod schema + folder validation), then `updateProjectFolder` updates the local store optimistically and `cardsByFolder` re-groups immediately.
+
+Stage Summary:
+- Folder CRUD: create via "Новая папка" + inline input (POST /api/folders), rename via the pencil/FolderInput icon in the section header (PATCH /api/folders/{id}), delete via the trash icon with a confirm step (DELETE /api/folders/{id} → projects' folderId auto-nulled by `onDelete: SetNull`).
+- Folder sections: each renders as a collapsible cyberpunk glass panel (yellow accent border + glow when expanded, dim when collapsed) with a header showing FolderOpen icon + title + project-count badge + rename/delete actions + chevron. Expanded body is a responsive grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`) of `ProjectCardUnified` cards.
+- Move to folder: each auto-project card has a yellow `FolderInput` button (chamfered corners, glows when the card already has a folder assigned) that opens a `Popover` listing all folders + a "Без папки" option. Selecting one PATCHes the project and updates the local store optimistically; the card immediately re-renders inside the new folder section. Kanban-only cards (no SoundFlow Project record) don't show the move button since they have no `folderId` to set.
+- "Без папки" ungrouped grid: shows all projects with `folderId === null` (or undefined, treated as null). Renders below the folder sections with a divider header (`FolderOpen` icon + "БЕЗ ПАПКИ" label + count badge + gradient hairline).
+- Section filters (All / Автопроекты / Стандартный Канбан) still work — `allCards` is computed first by filtering across both auto projects and kanban projects, then `cardsByFolder` re-groups the result, so when a filter is active the user sees projects of that type across all folders + the ungrouped grid.
+- Added `folderId` to the projects API responses (GET list, GET detail, POST create) so the initial load is correct without waiting for the folders fetch to sync `project.folderId` — eliminates the brief flicker and keeps the API response shape consistent with the `Project` interface in `src/lib/store.ts`.
+- Lint-clean for all touched files; dev server compiles without errors.

@@ -37,14 +37,14 @@ const typeMeta: Record<string, { label: string; color: string; icon: typeof Disc
   album:   { label: 'Альбом',  color: P,         icon: Disc3 },       // purple card
   ep:      { label: 'EP',      color: P,         icon: AudioLines },  // purple card
   single:  { label: 'Сингл',   color: P,         icon: Music2 },       // purple card
-  general: { label: 'Канбан',  color: C,         icon: FolderKanban },// blue card (kanban)
+  general: { label: 'Стандартный Канбан',  color: C,         icon: FolderKanban },// blue card (kanban)
 };
 
 const stHex: Record<string, string> = {
-  draft: C, in_progress: C, mixing: P, mastering: G, released: C,
+  in_progress: C, mixing: P, mastering: G, released: C,
 };
 const stLabel: Record<string, string> = {
-  draft: 'Черновик', in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз',
+  in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз',
 };
 
 const plural = (n: number, f: [string, string, string]) => {
@@ -1469,7 +1469,7 @@ export function HomeView() {
           }} />
 
           <SectionHeader
-            title="Канбан проекты"
+            title="Стандартный Канбан"
             accentColor={C}
             action={
               <button onClick={() => navigate('projects')} className="flex items-center gap-1 text-[11px] font-bold uppercase transition-all hover:scale-105" style={{

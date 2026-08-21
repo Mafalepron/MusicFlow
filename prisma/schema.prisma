@@ -41,6 +41,7 @@ model Group {
   owner     User         @relation("GroupOwner", fields: [ownerId], references: [id])
   members   GroupMember[]
   projects  Project[]
+  folders   Folder[]
   ideas     Idea[]
 }
 
@@ -60,18 +61,35 @@ model GroupMember {
 model Project {
   id           String   @id @default(cuid())
   groupId      String
+  folderId     String?
   title        String
   type         String   @default("single")
   coverUrl     String?
-  status       String   @default("draft")
+  status       String   @default("in_progress")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   group      Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  folder     Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   tracks     Track[]
   ideas      Idea[]   @relation("IdeaProject")
   notifications Notification[]
   kanbanTask Task?   @relation("ProjectKanbanLink")
+
+  @@index([groupId])
+  @@index([folderId])
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  groupId   String
+  title     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  projects Project[]
 
   @@index([groupId])
 }
@@ -108,7 +126,10 @@ model Track {
   audioUrl     String
   waveformUrl  String?
   durationMs   Int?
-  status       String   @default("recording")
+  coverUrl     String?
+  description  String?
+  genre        String?
+  status       String   @default("waiting")
   version      Int      @default(1)
   createdBy    String
   createdAt    DateTime @default(now())

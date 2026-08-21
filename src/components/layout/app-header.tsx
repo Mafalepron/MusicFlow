@@ -1540,7 +1540,7 @@ export function AppHeader() {
                   >
                     {quickAccessCards.map((card) => {
                       const stLabel: Record<string, string> = {
-                        draft: 'Черновик', in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз', todo: 'TODO',
+                        in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз', todo: 'TODO',
                       };
                       const sl = stLabel[card.status] || card.status;
                       const typeLabels: Record<string, string> = {

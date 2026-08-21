@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     const result = projects.map((p: typeof projects[number]) => ({
       id: p.id,
       groupId: p.groupId,
+      folderId: p.folderId,
       title: p.title,
       type: p.type,
       coverUrl: p.coverUrl,
@@ -133,6 +134,7 @@ export async function POST(request: NextRequest) {
       {
         id: project.id,
         groupId: project.groupId,
+        folderId: project.folderId,
         title: project.title,
         type: project.type,
         coverUrl: project.coverUrl,
