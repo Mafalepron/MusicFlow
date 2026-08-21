@@ -1045,8 +1045,10 @@ export function TrackDetailView() {
 
   // Register contextual header actions and the page title with the unified
   // AppHeader. Breadcrumbs (Group / Projects / Project Title / Track) are
-  // rendered by AppHeader, and the "Open in Kanban" action appears as a header
-  // button (only when this project has a linked kanbanTaskId).
+  // rendered by AppHeader.
+  // NOTE: The "Open in Kanban" header action has been removed per spec — the
+  // kanban is accessible via the link button inside the track progress panel
+  // instead.
   useEffect(() => {
     if (!track) {
       setHeaderTitle(null);
@@ -1055,31 +1057,7 @@ export function TrackDetailView() {
     }
 
     setHeaderTitle(track.title);
-
-    const kanbanTaskId = projectOfTrack?.kanbanTaskId;
-    if (kanbanTaskId) {
-      setHeaderActions([
-        {
-          id: 'open-in-kanban',
-          label: 'Открыть в Канбане',
-          icon: <LayoutDashboard className="h-3.5 w-3.5" />,
-          variant: 'outline',
-          onClick: () => {
-            const project = useDataStore
-              .getState()
-              .projects.find((p) => p.id === selectedProjectId);
-            if (!project?.kanbanTaskId) return;
-            useNavigationStore.getState().navigate('kanban');
-            const taskId = project.kanbanTaskId;
-            setTimeout(() => {
-              useKanbanStore.getState().selectProject(taskId);
-            }, 300);
-          },
-        },
-      ]);
-    } else {
-      setHeaderActions([]);
-    }
+    setHeaderActions([]);
 
     return () => {
       setHeaderActions([]);

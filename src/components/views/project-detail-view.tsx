@@ -45,22 +45,18 @@ const TEXT_SECONDARY = '#718096';
 
 /* Status colors — muted HUD palette (in_progress=C, mixing=P, mastering=G, released=C) */
 const statusColors: Record<string, string> = {
+  waiting: A,
   in_progress: C,
-  mixing: P,
-  mastering: G,
-  released: C,
-  recording: P,
   review: Y,
+  ready: G,
 };
 
-/* Russian labels for project status */
+/* Russian labels for track status (4-status set) */
 const statusLabels: Record<string, string> = {
+  waiting: 'Ожидает',
   in_progress: 'В работе',
-  mixing: 'Сведение',
-  mastering: 'Мастеринг',
-  released: 'Релиз',
-  recording: 'Запись',
-  review: 'Проверка',
+  review: 'На проверке',
+  ready: 'Готов',
 };
 
 const typeLabels: Record<string, string> = {
@@ -107,15 +103,17 @@ const PANEL_BORDER_STYLE: React.CSSProperties = {
 
 /* Yellow CREATE-style button (mirrors CreateCard core — gold gradient, dark text, chamfered) */
 const YELLOW_BUTTON_STYLE: React.CSSProperties = {
-  color: '#0a0b10',
-  background: `linear-gradient(135deg, ${Y} 0%, #9e7c06 50%, ${Y} 100%)`,
+  color: '#000',
+  background: 'linear-gradient(135deg, #FCEE0A 0%, #F1F100 50%, #FCEE0A 100%)',
   fontFamily: 'var(--font-jetbrains-mono), monospace',
   fontSize: '11px',
-  fontWeight: 700,
-  letterSpacing: '1.5px',
+  fontWeight: 800,
+  letterSpacing: '0.1em',
   textTransform: 'uppercase',
-  clipPath: CHAMFER_4,
-  boxShadow: `0 0 8px ${hexToRgba(Y, 0.3)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+  clipPath: 'polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))',
+  border: '1.5px solid rgba(252,238,10,0.9)',
+  boxShadow: '0 0 14px rgba(252,238,10,0.4), 0 0 28px rgba(252,238,10,0.15), inset 0 1px 0 rgba(255,255,255,0.4)',
+  textShadow: '0 1px 0 rgba(255,255,255,0.3)',
 };
 
 /* Yellow tag/badge chip (chamfered, transparent yellow tint, yellow text) */
@@ -170,29 +168,17 @@ export function ProjectDetailView() {
     [tracks, selectedProjectId]
   );
 
-  // Register contextual header actions (Open Kanban)
+  // Register contextual header actions.
+  // NOTE: The "Open Kanban" header action has been removed per spec — the
+  // kanban is accessible via the "Открыть Kanban" button on the project card
+  // and the track cards instead.
   const setHeaderActions = useHeaderActionsStore((s) => s.setActions);
   const setHeaderTitle = useHeaderActionsStore((s) => s.setTitle);
   useEffect(() => {
-    const actions: { id: string; label: string; icon: React.ReactNode; onClick: () => void; variant?: 'default' | 'outline' | 'ghost'; className?: string }[] = [];
-    if (project?.kanbanTaskId) {
-      actions.push({
-        id: 'open-kanban',
-        label: 'Kanban',
-        icon: <LayoutDashboard className="h-3.5 w-3.5" />,
-        onClick: () => {
-          // Select the project FIRST so KanbanPage doesn't redirect.
-          useKanbanStore.getState().selectProject(project.kanbanTaskId!);
-          navigate('kanban');
-        },
-        variant: 'outline',
-        className: 'border-[#00a8c6]/30 text-[#00a8c6] hover:bg-[#00a8c6]/10 hover:text-[#00a8c6]',
-      });
-    }
-    setHeaderActions(actions);
+    setHeaderActions([]);
     setHeaderTitle(project?.title || null);
     return () => { setHeaderActions([]); setHeaderTitle(null); };
-  }, [project, setHeaderActions, setHeaderTitle, navigate]);
+  }, [project, setHeaderActions, setHeaderTitle]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!project) return;

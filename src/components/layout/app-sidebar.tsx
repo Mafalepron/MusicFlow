@@ -1397,7 +1397,7 @@ export function AppSidebar() {
             transition={{ duration: 0.18 }}
             onClick={handleToggle}
             aria-label="Свернуть панель"
-            className="hidden lg:flex fixed top-3 left-[348px] z-50 h-7 w-5 items-center justify-center transition-all duration-200"
+            className="hidden lg:flex fixed top-3 left-[332px] z-40 h-7 w-5 items-center justify-center transition-all duration-200"
             style={{
               clipPath: YELLOW_BTN_CLIP,
               background: 'linear-gradient(135deg, #FCEE0A, #F1F100 50%, #FCEE0A)',
