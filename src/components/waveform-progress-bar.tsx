@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { hexToRgba } from '@/lib/utils';
 
 /**
@@ -8,14 +8,10 @@ import { hexToRgba } from '@/lib/utils';
  *
  * Renders a row of vertical bars of pseudo-random heights (deterministic,
  * seeded by accentColor + barCount) — like an audio waveform / equalizer.
- * Bars are "filled" (colored + glowing) up to the progress %, "unfilled"
- * (dim outline) for the remainder.
  *
- * Visual language:
- *  - Vertical equalizer bars that look like an audio waveform
- *  - Filled bars use accentColor + neon glow + bounce animation on hover
- *  - Unfilled bars use a thin accentColor outline (stroke around the scale)
- *  - Playhead sweep animation on hover
+ * Animation: on hover (and once on mount), the progress plays back from 0%
+ * to the actual progress value — bars fill up left-to-right like a playback
+ * cursor sweeping across the waveform until it reaches the current progress.
  */
 export function WaveformProgressBar({
   progress,
@@ -28,10 +24,15 @@ export function WaveformProgressBar({
   height?: number;
   bars?: number;
 }) {
+  const targetPct = Math.max(0, Math.min(100, Math.round(progress)));
+  const hasProgress = targetPct > 0;
+
+  // displayPct is the animated value that sweeps from 0 → targetPct.
+  // It resets to 0 on hover-enter (and on mount), then animates up to targetPct.
+  const [displayPct, setDisplayPct] = useState(0);
   const [hovered, setHovered] = useState(false);
-  // Clamp + normalize
-  const pct = Math.max(0, Math.min(100, Math.round(progress)));
-  const hasProgress = pct > 0;
+  const rafRef = useRef<number | null>(null);
+  const animRef = useRef<Animation | null>(null);
 
   // Deterministic pseudo-random bar heights (seeded by accentColor + barCount)
   // so the waveform shape is stable across renders.
@@ -51,6 +52,84 @@ export function WaveformProgressBar({
     return arr;
   }, [accentColor, barCount]);
 
+  // Playback animation: sweeps displayPct from 0 → targetPct.
+  // Triggered on mount + on every hover-enter.
+  // All setState calls happen inside requestAnimationFrame callbacks (async),
+  // never synchronously within an effect body.
+  const runPlayback = () => {
+    // Cancel any in-flight animation
+    if (animRef.current) {
+      animRef.current.cancel();
+      animRef.current = null;
+    }
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    // Reset to 0 inside rAF so it's painted before the animation starts
+    rafRef.current = requestAnimationFrame(() => {
+      setDisplayPct(0);
+      rafRef.current = requestAnimationFrame(() => {
+        const start = performance.now();
+        const duration = 1100; // ms — playback duration
+        const tick = (now: number) => {
+          const elapsed = now - start;
+          const t = Math.min(1, elapsed / duration);
+          // ease-out cubic for a natural "filling" feel
+          const eased = 1 - Math.pow(1 - t, 3);
+          const next = Math.round(eased * targetPct);
+          setDisplayPct(next);
+          if (t < 1) {
+            rafRef.current = requestAnimationFrame(tick);
+          } else {
+            rafRef.current = null;
+          }
+        };
+        rafRef.current = requestAnimationFrame(tick);
+      });
+    });
+  };
+
+  // One-time playback on mount (and when targetPct changes)
+  useEffect(() => {
+    rafRef.current = requestAnimationFrame(() => {
+      setDisplayPct(0);
+      rafRef.current = requestAnimationFrame(() => {
+        const start = performance.now();
+        const duration = 1100;
+        const tick = (now: number) => {
+          const elapsed = now - start;
+          const t = Math.min(1, elapsed / duration);
+          const eased = 1 - Math.pow(1 - t, 3);
+          setDisplayPct(Math.round(eased * targetPct));
+          if (t < 1) {
+            rafRef.current = requestAnimationFrame(tick);
+          } else {
+            rafRef.current = null;
+          }
+        };
+        rafRef.current = requestAnimationFrame(tick);
+      });
+    });
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [targetPct]);
+
+  const handleMouseEnter = () => {
+    setHovered(true);
+    runPlayback();
+  };
+  const handleMouseLeave = () => {
+    setHovered(false);
+    // Snap to final value when leaving (in case animation was mid-flight)
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setDisplayPct(targetPct);
+  };
+
   return (
     <div
       className="relative overflow-hidden flex items-center gap-[2px] px-1"
@@ -62,17 +141,18 @@ export function WaveformProgressBar({
         border: `1px solid ${hexToRgba(accentColor, 0.4)}`,
         boxShadow: `inset 0 1px 2px rgba(0,0,0,0.7), 0 0 6px ${hexToRgba(accentColor, 0.12)}`,
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      {/* Vertical equalizer bars */}
+      {/* Vertical equalizer bars — filled based on the animated displayPct */}
       {waveBars.map((barHeight, i) => {
-        const filled = ((i + 1) / barCount) * 100 <= pct;
+        const barPct = ((i + 1) / barCount) * 100;
+        const filled = barPct <= displayPct;
         const h = barHeight * (height - 4);
         return (
           <div
             key={i}
-            className="flex-1 transition-all duration-200"
+            className="flex-1"
             style={{
               height: `${h}px`,
               minWidth: '2px',
@@ -87,55 +167,39 @@ export function WaveformProgressBar({
                 ? 'none'
                 : `0.5px solid ${hexToRgba(accentColor, 0.3)}`,
               opacity: filled ? 1 : 0.6,
-              animation: filled && hovered
-                ? 'kb5-eq-bounce 0.6s ease-in-out infinite'
-                : 'none',
-              animationDelay: filled ? `${(i % 8) * 60}ms` : '0ms',
-              transform: filled && hovered ? 'scaleY(1.05)' : 'scaleY(1)',
+              // Smooth transition so each bar fades/fills smoothly as the
+              // playhead sweeps past it during the playback animation.
+              transition: 'background 180ms ease, box-shadow 180ms ease, opacity 180ms ease, border 180ms ease',
             }}
           />
         );
       })}
 
-      {/* Playhead line at the fill boundary */}
+      {/* Playhead line at the fill boundary — follows displayPct */}
       {hasProgress && (
         <div
           className="absolute inset-y-0 pointer-events-none"
           style={{
-            left: `calc(${pct}% - 1px)`,
+            left: `calc(${displayPct}% - 1px)`,
             width: '2px',
             background: '#ffffff',
             boxShadow: `0 0 8px ${accentColor}, 0 0 14px ${hexToRgba(accentColor, 0.6)}`,
-            transition: 'left 320ms ease',
           }}
         />
       )}
 
-      {/* Playhead sweep — only animates on hover AND when there's progress */}
+      {/* Playhead glow sweep — travels left→right during playback (hover) */}
       {hovered && hasProgress && (
         <div
           className="absolute inset-y-0 pointer-events-none"
           style={{
             width: '24px',
-            background: `linear-gradient(90deg, transparent, ${hexToRgba(accentColor, 0.3)} 40%, ${hexToRgba('#ffffff', 0.4)} 50%, ${hexToRgba(accentColor, 0.3)} 60%, transparent)`,
-            animation: 'kb5-playhead-sweep 1.6s ease-out',
+            left: `calc(${displayPct}% - 12px)`,
+            background: `linear-gradient(90deg, transparent, ${hexToRgba(accentColor, 0.35)} 40%, ${hexToRgba('#ffffff', 0.5)} 50%, ${hexToRgba(accentColor, 0.35)} 60%, transparent)`,
             boxShadow: `0 0 10px ${hexToRgba(accentColor, 0.5)}`,
           }}
         />
       )}
-
-      {/* Inline keyframes for bounce + sweep animations */}
-      <style>{`
-        @keyframes kb5-eq-bounce {
-          0%, 100% { transform: scaleY(0.85); }
-          50% { transform: scaleY(1.15); }
-        }
-        @keyframes kb5-playhead-sweep {
-          0% { transform: translateX(-100%); opacity: 0; }
-          20% { opacity: 1; }
-          100% { transform: translateX(calc(100% + 24px)); opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 }
