@@ -175,12 +175,17 @@ export function WaveformProgressBar({
         );
       })}
 
-      {/* Playhead line at the fill boundary — follows displayPct */}
+      {/* Playhead line — sits exactly at the right edge of the filled bars.
+          The bars area starts at left padding (4px) and spans
+          `calc(100% - 2 * padding)`. So the playhead left = padding + (displayPct% of bars-area-width). */}
       {hasProgress && (
         <div
           className="absolute inset-y-0 pointer-events-none"
           style={{
-            left: `calc(${displayPct}% - 1px)`,
+            // 4px = container's left padding (px-1). The bars area is the
+            // remaining width minus both paddings. Position the playhead at
+            // the right edge of the filled bars.
+            left: `calc(4px + (100% - 8px) * ${displayPct} / 100 - 1px)`,
             width: '2px',
             background: '#ffffff',
             boxShadow: `0 0 8px ${accentColor}, 0 0 14px ${hexToRgba(accentColor, 0.6)}`,
@@ -188,13 +193,15 @@ export function WaveformProgressBar({
         />
       )}
 
-      {/* Playhead glow sweep — travels left→right during playback (hover) */}
+      {/* Playhead glow — centered ON the playhead line (not ahead of it).
+          Width 24px, centered so its midpoint aligns with the playhead line. */}
       {hovered && hasProgress && (
         <div
           className="absolute inset-y-0 pointer-events-none"
           style={{
             width: '24px',
-            left: `calc(${displayPct}% - 12px)`,
+            // Center the 24px glow on the playhead line position.
+            left: `calc(4px + (100% - 8px) * ${displayPct} / 100 - 12px)`,
             background: `linear-gradient(90deg, transparent, ${hexToRgba(accentColor, 0.35)} 40%, ${hexToRgba('#ffffff', 0.5)} 50%, ${hexToRgba(accentColor, 0.35)} 60%, transparent)`,
             boxShadow: `0 0 10px ${hexToRgba(accentColor, 0.5)}`,
           }}
