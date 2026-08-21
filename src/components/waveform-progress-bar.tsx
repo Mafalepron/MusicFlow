@@ -9,6 +9,11 @@ import { hexToRgba } from '@/lib/utils';
  * Renders a row of vertical bars of pseudo-random heights (deterministic,
  * seeded by accentColor + barCount) — like an audio waveform / equalizer.
  *
+ * The bars fill the ENTIRE frame edge-to-edge (no gaps). The fill is driven
+ * by a continuous `displayPct` so each bar is partially filled based on how
+ * much of its width falls within the progress — the white playhead line sits
+ * exactly at the right edge of the filled area at all times.
+ *
  * Animation: on hover (and once on mount), the progress plays back from 0%
  * to the actual progress value — bars fill up left-to-right like a playback
  * cursor sweeping across the waveform until it reaches the current progress.
@@ -28,11 +33,9 @@ export function WaveformProgressBar({
   const hasProgress = targetPct > 0;
 
   // displayPct is the animated value that sweeps from 0 → targetPct.
-  // It resets to 0 on hover-enter (and on mount), then animates up to targetPct.
   const [displayPct, setDisplayPct] = useState(0);
   const [hovered, setHovered] = useState(false);
   const rafRef = useRef<number | null>(null);
-  const animRef = useRef<Animation | null>(null);
 
   // Deterministic pseudo-random bar heights (seeded by accentColor + barCount)
   // so the waveform shape is stable across renders.
@@ -41,11 +44,9 @@ export function WaveformProgressBar({
     const arr: number[] = [];
     let s = seed;
     for (let i = 0; i < barCount; i++) {
-      // Simple LCG pseudo-random
       s = (s * 9301 + 49297) % 233280;
       const rnd = s / 233280;
-      // Bar height: between 25% and 100% of available height
-      // Create a wave-like envelope so it looks like audio
+      // Wave-like envelope so it looks like audio
       const envelope = 0.4 + 0.6 * Math.abs(Math.sin((i / barCount) * Math.PI * 3));
       arr.push(0.25 + rnd * 0.75 * envelope);
     }
@@ -53,32 +54,21 @@ export function WaveformProgressBar({
   }, [accentColor, barCount]);
 
   // Playback animation: sweeps displayPct from 0 → targetPct.
-  // Triggered on mount + on every hover-enter.
-  // All setState calls happen inside requestAnimationFrame callbacks (async),
-  // never synchronously within an effect body.
   const runPlayback = () => {
-    // Cancel any in-flight animation
-    if (animRef.current) {
-      animRef.current.cancel();
-      animRef.current = null;
-    }
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
-    // Reset to 0 inside rAF so it's painted before the animation starts
     rafRef.current = requestAnimationFrame(() => {
       setDisplayPct(0);
       rafRef.current = requestAnimationFrame(() => {
         const start = performance.now();
-        const duration = 1100; // ms — playback duration
+        const duration = 1100;
         const tick = (now: number) => {
           const elapsed = now - start;
           const t = Math.min(1, elapsed / duration);
-          // ease-out cubic for a natural "filling" feel
           const eased = 1 - Math.pow(1 - t, 3);
-          const next = Math.round(eased * targetPct);
-          setDisplayPct(next);
+          setDisplayPct(Math.round(eased * targetPct));
           if (t < 1) {
             rafRef.current = requestAnimationFrame(tick);
           } else {
@@ -90,7 +80,6 @@ export function WaveformProgressBar({
     });
   };
 
-  // One-time playback on mount (and when targetPct changes)
   useEffect(() => {
     rafRef.current = requestAnimationFrame(() => {
       setDisplayPct(0);
@@ -122,7 +111,6 @@ export function WaveformProgressBar({
   };
   const handleMouseLeave = () => {
     setHovered(false);
-    // Snap to final value when leaving (in case animation was mid-flight)
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -132,78 +120,110 @@ export function WaveformProgressBar({
 
   return (
     <div
-      className="relative overflow-hidden flex items-center gap-[2px] px-1"
+      className="relative overflow-hidden"
       style={{
         height: `${height}px`,
         background: 'rgba(0,0,0,0.55)',
         borderRadius: '2px',
-        // Stroke / outline around the whole scale — neon accent border
         border: `1px solid ${hexToRgba(accentColor, 0.4)}`,
         boxShadow: `inset 0 1px 2px rgba(0,0,0,0.7), 0 0 6px ${hexToRgba(accentColor, 0.12)}`,
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Vertical equalizer bars — filled based on the animated displayPct */}
-      {waveBars.map((barHeight, i) => {
-        const barPct = ((i + 1) / barCount) * 100;
-        const filled = barPct <= displayPct;
-        const h = barHeight * (height - 4);
-        return (
-          <div
-            key={i}
-            className="flex-1"
-            style={{
-              height: `${h}px`,
-              minWidth: '2px',
-              maxWidth: '4px',
-              background: filled
-                ? accentColor
-                : hexToRgba(accentColor, 0.18),
-              boxShadow: filled
-                ? `0 0 4px ${hexToRgba(accentColor, 0.8)}, 0 0 8px ${hexToRgba(accentColor, 0.4)}`
-                : 'none',
-              border: filled
-                ? 'none'
-                : `0.5px solid ${hexToRgba(accentColor, 0.3)}`,
-              opacity: filled ? 1 : 0.6,
-              // Smooth transition so each bar fades/fills smoothly as the
-              // playhead sweeps past it during the playback animation.
-              transition: 'background 180ms ease, box-shadow 180ms ease, opacity 180ms ease, border 180ms ease',
-            }}
-          />
-        );
-      })}
+      {/* Bars layer — fills the ENTIRE frame edge-to-edge (no padding, no gaps).
+          Uses an absolute-positioned flex row so bars span 100% width. */}
+      <div
+        className="absolute inset-0 flex items-stretch"
+        style={{ gap: '1px', padding: '1px' }}
+      >
+        {waveBars.map((barHeight, i) => {
+          // Each bar occupies a slice [i/n, (i+1)/n] of the total width.
+          // The bar is "filled" up to where the playhead (displayPct) falls.
+          // barStart = i/n * 100, barEnd = (i+1)/n * 100.
+          const barStart = (i / barCount) * 100;
+          const barEnd = ((i + 1) / barCount) * 100;
+          // fillPct: how much of THIS bar is filled (0-100).
+          // If playhead is past barEnd → fully filled (100).
+          // If playhead is before barStart → empty (0).
+          // If playhead is within this bar → partial.
+          let fillPct: number;
+          if (displayPct >= barEnd) {
+            fillPct = 100;
+          } else if (displayPct <= barStart) {
+            fillPct = 0;
+          } else {
+            fillPct = ((displayPct - barStart) / (barEnd - barStart)) * 100;
+          }
+          const isFilled = fillPct > 0;
+          const h = barHeight * 100; // percentage of bar row height
+          return (
+            <div
+              key={i}
+              className="relative flex-1 min-w-0"
+              style={{ height: `${h}%`, alignSelf: 'center' }}
+            >
+              {/* Unfilled base — dim outline bar (the "track" background) */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: hexToRgba(accentColor, 0.15),
+                  border: `0.5px solid ${hexToRgba(accentColor, 0.3)}`,
+                  opacity: isFilled ? 0.5 : 0.7,
+                  transition: 'opacity 180ms ease',
+                }}
+              />
+              {/* Filled overlay — clips to fillPct from the left.
+                  Uses a left-anchored inner div with width = fillPct% so the
+                  fill grows continuously as the playhead sweeps through. */}
+              {isFilled && (
+                <div
+                  className="absolute inset-y-0 left-0 overflow-hidden"
+                  style={{ width: `${fillPct}%` }}
+                >
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: accentColor,
+                      boxShadow: `0 0 4px ${hexToRgba(accentColor, 0.8)}, 0 0 8px ${hexToRgba(accentColor, 0.4)}`,
+                      transition: 'background 180ms ease, box-shadow 180ms ease',
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
-      {/* Playhead line — sits exactly at the right edge of the filled bars.
-          The bars area starts at left padding (4px) and spans
-          `calc(100% - 2 * padding)`. So the playhead left = padding + (displayPct% of bars-area-width). */}
-      {hasProgress && (
+      {/* Playhead line — exactly at the right edge of the filled area.
+          Since the bars now span 100% of the frame (no padding), the playhead
+          left = displayPct% of the frame width. */}
+      {hasProgress && displayPct > 0 && (
         <div
           className="absolute inset-y-0 pointer-events-none"
           style={{
-            // 4px = container's left padding (px-1). The bars area is the
-            // remaining width minus both paddings. Position the playhead at
-            // the right edge of the filled bars.
-            left: `calc(4px + (100% - 8px) * ${displayPct} / 100 - 1px)`,
+            left: `${displayPct}%`,
             width: '2px',
             background: '#ffffff',
             boxShadow: `0 0 8px ${accentColor}, 0 0 14px ${hexToRgba(accentColor, 0.6)}`,
+            transform: 'translateX(-1px)',
+            zIndex: 5,
           }}
         />
       )}
 
-      {/* Playhead glow — centered ON the playhead line (not ahead of it).
-          Width 24px, centered so its midpoint aligns with the playhead line. */}
-      {hovered && hasProgress && (
+      {/* Playhead glow — centered on the playhead line. */}
+      {hovered && hasProgress && displayPct > 0 && (
         <div
           className="absolute inset-y-0 pointer-events-none"
           style={{
             width: '24px',
-            // Center the 24px glow on the playhead line position.
-            left: `calc(4px + (100% - 8px) * ${displayPct} / 100 - 12px)`,
+            left: `${displayPct}%`,
+            transform: 'translateX(-12px)',
             background: `linear-gradient(90deg, transparent, ${hexToRgba(accentColor, 0.35)} 40%, ${hexToRgba('#ffffff', 0.5)} 50%, ${hexToRgba(accentColor, 0.35)} 60%, transparent)`,
             boxShadow: `0 0 10px ${hexToRgba(accentColor, 0.5)}`,
+            zIndex: 4,
           }}
         />
       )}
