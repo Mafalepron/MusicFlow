@@ -30,6 +30,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { hexToRgba } from '@/lib/utils';
 import { WaveformProgressBar } from '@/components/waveform-progress-bar';
+import { getAutoProjectProgress, getKanbanProjectProgress } from '@/lib/progress';
 
 const viewLabels: Record<string, string> = {
   home: 'Home',
@@ -128,19 +129,21 @@ export function AppHeader() {
   const autoProjects = useMemo(() => projects.filter((p) => p.kanbanTaskId), [projects]);
   const quickAccessCards = useMemo(() => {
     type Card =
-      | { kind: 'auto'; id: string; title: string; type: string; status: string; trackCount: number }
-      | { kind: 'kanban'; id: string; title: string; type: string; status: string; boardCount: number };
+      | { kind: 'auto'; id: string; title: string; type: string; status: string; trackCount: number; progress: number }
+      | { kind: 'kanban'; id: string; title: string; type: string; status: string; boardCount: number; progress: number };
     const out: Card[] = [];
     quickAccessIds.forEach((id) => {
       const autoP = autoProjects.find((p) => p.id === id);
       if (autoP) {
+        const tc = tracks.filter((t) => t.projectId === autoP.id).length;
         out.push({
           kind: 'auto',
           id: autoP.id,
           title: autoP.title,
           type: autoP.type,
           status: autoP.status,
-          trackCount: tracks.filter((t) => t.projectId === autoP.id).length,
+          trackCount: tc,
+          progress: getAutoProjectProgress(autoP, tc),
         });
         return;
       }
@@ -153,6 +156,7 @@ export function AppHeader() {
           type: kanbanT.projectType || 'general',
           status: kanbanT.status,
           boardCount: kanbanT.children?.length ?? 0,
+          progress: getKanbanProjectProgress(kanbanT),
         });
       }
     });
@@ -1540,17 +1544,16 @@ export function AppHeader() {
                   >
                     {quickAccessCards.map((card) => {
                       const stLabel: Record<string, string> = {
-                        in_progress: 'В работе', mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз', todo: 'TODO',
+                        waiting: 'Ожидает', in_progress: 'В работе', review: 'На проверке', ready: 'Готов',
+                        mixing: 'Сведение', mastering: 'Мастеринг', released: 'Релиз', todo: 'TODO',
                       };
                       const sl = stLabel[card.status] || card.status;
                       const typeLabels: Record<string, string> = {
-                        album: 'Альбом', ep: 'EP', single: 'Сингл', general: 'Канбан',
+                        album: 'Альбом', ep: 'EP', single: 'Сингл', general: 'Стандартный Канбан',
                       };
                       const tl = typeLabels[card.type] || 'Проект';
                       const count = card.kind === 'auto' ? card.trackCount : card.boardCount;
-                      const progress = card.kind === 'auto'
-                        ? (count > 0 ? 50 : 10)
-                        : (count > 0 ? 40 : 10);
+                      const progress = card.progress;
                       return (
                         <div
                           key={card.id}

@@ -10,6 +10,7 @@ import {
 import { useAuthStore, useDataStore, useNavigationStore, type Project } from '@/lib/store';
 import { useKanbanStore, type Task } from '@/store/kanban-store';
 import { hexToRgba } from '@/lib/utils';
+import { getAutoProjectProgress, getKanbanProjectProgress } from '@/lib/progress';
 import { CreateProjectDialog } from '@/components/shared/create-project-dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { WaveformProgressBar } from '@/components/waveform-progress-bar';
@@ -65,6 +66,7 @@ interface ModalItem {
   status: string;
   date: string;
   trackCount: number;
+  progress: number;
   onOpen: () => void;
 }
 
@@ -85,12 +87,11 @@ function ProjectCard({ project, trackCount, onClick, onKanban, isFavorite, onTog
   // Auto project cards are purple, inner content is always yellow.
   const isAutoProjectCard = project.type === 'album' || project.type === 'ep' || project.type === 'single';
   const contentColor = isAutoProjectCard ? Y : (t.color === C ? Y : t.color);
-  // Compute progress %: based on track count (capped at 100) + status boost
-  const progress = useMemo(() => {
-    const trackPct = Math.min(80, trackCount * 12); // each track ~12%, capped at 80
-    const statusBoost = project.status === 'released' ? 100 : project.status === 'mastering' ? 90 : project.status === 'mixing' ? 70 : project.status === 'in_progress' ? 40 : 0;
-    return Math.max(trackPct, statusBoost);
-  }, [trackCount, project.status]);
+  // Compute progress % using the shared progress function (consistent across all views)
+  const progress = useMemo(
+    () => getAutoProjectProgress(project, trackCount),
+    [project, trackCount]
+  );
 
   return (
     <div
@@ -265,8 +266,9 @@ function KanbanCard({ task, onClick, isFavorite, onToggleFavorite }: { task: Tas
   // Content color rule: Kanban cards are blue, inner content is always yellow.
   const contentColor = Y;
   const children = task.children || [];
+  // Use the shared progress function (consistent across all views)
+  const pct = getKanbanProjectProgress(task);
   const done = children.filter(c => c.status === 'done').length;
-  const pct = children.length > 0 ? Math.round((done / children.length) * 100) : 0;
   const TypeIcon = isAuto ? Music2 : FolderKanban;
 
   return (
@@ -881,9 +883,9 @@ function QuickAccessCard({ item, onClick, onMoveTo, priority, total }: {
           </span>
         </div>
 
-        {/* ── Waveform Progress Bar (animated audio waveform, progress = priority-based) ── */}
+        {/* ── Waveform Progress Bar (animated audio waveform, real project progress) ── */}
         <div className="mt-2.5">
-          <WaveformProgressBar progress={priority * 14} accentColor="#c7a008" height={32} bars={24} />
+          <WaveformProgressBar progress={item.progress} accentColor="#c7a008" height={32} bars={24} />
         </div>
       </div>
     </div>
@@ -936,8 +938,8 @@ function Carousel({ children }: { children: React.ReactNode }) {
           color: '#000',
           cursor: 'pointer',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)'; e.currentTarget.style.transform = 'translateY(-50%) translateX(-1px)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)'; }}
         aria-label="Прокрутить влево"
       >
         <ChevronLeft className="w-4 h-4" />
@@ -967,8 +969,8 @@ function Carousel({ children }: { children: React.ReactNode }) {
           color: '#000',
           cursor: 'pointer',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)'; e.currentTarget.style.transform = 'translateY(-50%) translateX(1px)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)'; e.currentTarget.style.transform = 'translateY(-50%)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(252,238,10,0.6), 0 0 24px rgba(252,238,10,0.2), inset 0 1px 0 rgba(255,255,255,0.5)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(252,238,10,0.4), inset 0 1px 0 rgba(255,255,255,0.4)'; }}
         aria-label="Прокрутить вправо"
       >
         <ChevronRight className="w-4 h-4" />
@@ -1245,13 +1247,15 @@ export function HomeView() {
   const autoModalItems: ModalItem[] = useMemo(() => autoProjects.map(p => ({
     id: p.id, title: p.title, type: p.type, status: p.status, date: p.createdAt,
     trackCount: getTrackCount(p.id),
-    onOpen: () => { setAllAutoOpen(false); navigate('project-detail', p.id); },
+    progress: getAutoProjectProgress(p, getTrackCount(p.id)),
+    onOpen: () => { navigate('project-detail', p.id); },
   })), [autoProjects, tracks]);
 
   const kanbanModalItems: ModalItem[] = useMemo(() => kanbanProjects.map(t => ({
     id: t.id, title: t.title, type: t.projectType || 'general', status: t.status, date: t.createdAt,
     trackCount: (t.children || []).length,
-    onOpen: () => { setAllKanbanOpen(false); goToKanban(t.id); },
+    progress: getKanbanProjectProgress(t),
+    onOpen: () => { goToKanban(t.id); },
   })), [kanbanProjects]);
 
   const quickAccessItems: ModalItem[] = useMemo(() => {
